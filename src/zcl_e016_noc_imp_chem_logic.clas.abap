@@ -147,51 +147,52 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
     DATA(lo_cl) = lo_t->columns( ).
     lo_cl->column( )->text( 'HS Code' ).
     lo_cl->column( )->text( 'Chemical Name' ).
-    lo_cl->column( )->text( 'Materia name' ).
+    lo_cl->column( )->text( 'Material name' ).
     lo_cl->column( )->text( 'CAS Number' ).
     lo_cl->column( )->text( 'Gross Weight' ).
     lo_cl->column( halign = 'End' )->text( '' ).
 
     DATA(lo_it) = lo_t->items( ).
     LOOP AT ls_g-rows INTO DATA(lt_r).
-      DATA(lv_id)  = VALUE string( lt_r[ 1 ] OPTIONAL ).
-      DATA(lv_nam) = VALUE string( lt_r[ 2 ] OPTIONAL ).
-      DATA(lv_eid) = VALUE string( lt_r[ 3 ] OPTIONAL ).
-      DATA(lv_nat) = VALUE string( lt_r[ 4 ] OPTIONAL ).
-      DATA(lv_shr) = VALUE string( lt_r[ 5 ] OPTIONAL ).
+      DATA(lv_hs_code)  = VALUE string( lt_r[ 1 ] OPTIONAL ).
+      DATA(lv_chem_name) = VALUE string( lt_r[ 3 ] OPTIONAL ).
+      DATA(lv_material_name) = VALUE string( lt_r[ 2 ] OPTIONAL ).
+      DATA(lv_cas_number) = VALUE string( lt_r[ 4 ] OPTIONAL ).
+      DATA(lv_gross_weight) = VALUE string( lt_r[ 7 ] OPTIONAL ).
 
 *     How many files this owner has. Counting them here is the only way the
 *     citizen can see, from the list, whose documents are still missing.
-      DATA lv_docs TYPE i.
-      CLEAR lv_docs.
-      LOOP AT io_ctx->get_attachment_files( ) INTO DATA(ls_af).
-        IF ls_af-identifier1 CS |_{ lv_id }|.
-          lv_docs = lv_docs + 1.
-        ENDIF.
-      ENDLOOP.
+**      DATA lv_docs TYPE i.
+**      CLEAR lv_docs.
+**      LOOP AT io_ctx->get_attachment_files( ) INTO DATA(ls_af).
+**        IF ls_af-identifier1 CS |_{ lv_id }|.
+**          lv_docs = lv_docs + 1.
+**        ENDIF.
+**      ENDLOOP.
 
       DATA(lo_cells) = lo_it->column_list_item( )->cells( ).
 *     Name over Emirates ID, as the legacy screen had it.
       DATA(lo_nm) = lo_cells->vbox( ).
-      lo_nm->text( text = lv_nam ).
-      lo_nm->text( text = lv_eid class = 'rakRecMeta' ).
-      lo_cells->text( lv_nat ).
-      lo_cells->text( lv_shr ).
-      lo_cells->object_status(
-        text  = |{ lv_docs } file(s)|
-        state = COND #( WHEN lv_docs > 0 THEN 'Success' ELSE 'Warning' )
-        icon  = COND #( WHEN lv_docs > 0 THEN 'sap-icon://attachment' ELSE 'sap-icon://alert' ) ).
+      lo_nm->text( text = lv_hs_code ).
+      lo_nm->text( text = lv_chem_name class = 'rakRecMeta' ).
+      lo_cells->text( lv_material_name ).
+      lo_cells->text( lv_cas_number ).
+      lo_cells->text( lv_gross_weight ).
+**      lo_cells->object_status(
+**        text  = |{ lv_docs } file(s)|
+**        state = COND #( WHEN lv_docs > 0 THEN 'Success' ELSE 'Warning' )
+**        icon  = COND #( WHEN lv_docs > 0 THEN 'sap-icon://attachment' ELSE 'sap-icon://alert' ) ).
 *     Two buttons rather than the legacy overflow menu: one press instead of
 *     two, and nothing hidden behind an icon a citizen has to discover.
       DATA(lo_act) = lo_cells->hbox( ).
       lo_act->button( icon    = 'sap-icon://edit'
                       type    = 'Transparent'
                       tooltip = 'Edit owner details'
-                      press   = io_ctx->event( |OWN_EDIT_{ lv_id }| ) ).
+                      press   = io_ctx->event( |OWN_EDIT_{ lv_hs_code }| ) ).
       lo_act->button( icon    = 'sap-icon://delete'
                       type    = 'Transparent'
                       tooltip = 'Delete'
-                      press   = io_ctx->event( |OWN_DEL_{ lv_id }| ) ).
+                      press   = io_ctx->event( |OWN_DEL_{ lv_hs_code }| ) ).
     ENDLOOP.
 
     IF ls_g-rows IS INITIAL.
@@ -481,6 +482,9 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
       WHEN C_EVT_OWNCX.
         io_ctx->close_popup( ).
 
+      WHEN c_evt_ownok.
+       form_save( io_ctx ).
+        io_ctx->close_popup( ).
     ENDCASE.
   ENDMETHOD.
 
@@ -542,6 +546,56 @@ super->zif_rak_journey_logic~on_render_popup(
   endmethod.
 
 
-  method FORM_SAVE.
-  endmethod.
+  METHOD form_save.
+    DATA(ls_g)  = io_ctx->get_grid_data( c_grid ).
+*    DATA(lv_id) = io_ctx->get_val( c_own_id ).
+
+    DATA(ls_new) = VALUE zif_rak_journey=>ty_table( columns = ls_g-columns ).
+    DATA lv_found TYPE abap_bool.
+    DATA lt_row   TYPE zif_rak_journey=>tt_string.
+
+    LOOP AT ls_g-rows INTO DATA(lt_r).
+*      IF VALUE string( lt_r[ 1 ] OPTIONAL ) = lv_id.
+      lv_found = abap_true.
+      CLEAR lt_row.
+*        APPEND lv_id                                      TO lt_row.
+      APPEND io_ctx->get_val( c_hs_code_pop )           TO lt_row.
+      APPEND io_ctx->get_val( c_material_name_pop )     TO lt_row.
+      APPEND io_ctx->get_val( c_chemical_name_pop )     TO lt_row.
+      APPEND io_ctx->get_val( c_cas_pop )               TO lt_row.
+      APPEND io_ctx->get_val( c_chemical_formula_pop )  TO lt_row.
+      APPEND io_ctx->get_val( c_packaging_pop )         TO lt_row.
+      APPEND io_ctx->get_val( c_quantity_pop )          TO lt_row.
+      APPEND io_ctx->get_val( c_gross_weight_pop )      TO lt_row.
+      APPEND io_ctx->get_val( c_uom_pop )               TO lt_row.
+      APPEND io_ctx->get_val( c_invoice_pop )           TO lt_row.
+      APPEND io_ctx->get_val( c_origin_pop )            TO lt_row.
+      APPEND io_ctx->get_val( c_end_user_pop )          TO lt_row.
+      APPEND io_ctx->get_val( c_bol_pop )               TO lt_row.
+      APPEND lt_row TO ls_new-rows.
+*      ELSE.
+*        APPEND lt_r TO ls_new-rows.
+*      ENDIF.
+    ENDLOOP.
+
+    IF lv_found = abap_false.
+      CLEAR lt_row.
+      APPEND io_ctx->get_val( c_hs_code_pop )           TO lt_row.
+      APPEND io_ctx->get_val( c_material_name_pop )     TO lt_row.
+      APPEND io_ctx->get_val( c_chemical_name_pop )     TO lt_row.
+      APPEND io_ctx->get_val( c_cas_pop )               TO lt_row.
+      APPEND io_ctx->get_val( c_chemical_formula_pop )  TO lt_row.
+      APPEND io_ctx->get_val( c_packaging_pop )         TO lt_row.
+      APPEND io_ctx->get_val( c_quantity_pop )          TO lt_row.
+      APPEND io_ctx->get_val( c_gross_weight_pop )      TO lt_row.
+      APPEND io_ctx->get_val( c_uom_pop )               TO lt_row.
+      APPEND io_ctx->get_val( c_invoice_pop )           TO lt_row.
+      APPEND io_ctx->get_val( c_origin_pop )            TO lt_row.
+      APPEND io_ctx->get_val( c_end_user_pop )          TO lt_row.
+      APPEND io_ctx->get_val( c_bol_pop )               TO lt_row.
+      APPEND lt_row TO ls_new-rows.
+    ENDIF.
+
+    io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
+  ENDMETHOD.
 ENDCLASS.
