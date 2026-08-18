@@ -321,9 +321,15 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *   SRC_FIELD is anything else (an ordinary field) -> whole column, evaluated
 *   once here via VAL_GET, same comparison EVAL_RULES uses for a scalar rule.
 *
-* Supported actions: HIDE, SHOW, READONLY, EDITABLE. REQUIRE / OPTIONAL / SET
-* / CLEAR are not meaningful per column and are ignored here, same as they
-* are for anything but a plain field today.
+* Supported actions: HIDE, SHOW, READONLY, EDITABLE always; REQUIRE and
+* OPTIONAL only for the whole-column shape - MISSING_REQUIRED checks a
+* required column against every row so there is somewhere for a whole-
+* column REQUIRE to be enforced. There is no equivalent per-row check
+* (that would mean "this cell is required only when this row's own
+* value says so"), so REQUIRE/OPTIONAL are ignored on that path, same as
+* they are for anything but a plain field today. SET / CLEAR are ignored
+* on both paths - a grid column is a cell per row, not a single value to
+* overwrite.
   METHOD apply_grid_rules.
     DATA lt_r TYPE zif_rak_cjs_types=>tt_gridrule.
     LOOP AT mo_e->mt_rulegrid INTO DATA(ls_gr) WHERE totable = iv_grid.
@@ -359,12 +365,19 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       ENDIF.
 
       DATA(lv_val) = mo_e->val_get( ls_r-src_field ).
-      DATA(lv_ok) = COND abap_bool(
-        WHEN ls_r-src_op = 'EQ'         THEN xsdbool( lv_val = ls_r-src_value )
-        WHEN ls_r-src_op = 'NE'         THEN xsdbool( lv_val <> ls_r-src_value )
-        WHEN ls_r-src_op = 'INITIAL'    THEN xsdbool( lv_val IS INITIAL )
-        WHEN ls_r-src_op = 'NOTINITIAL' THEN xsdbool( lv_val IS NOT INITIAL )
-        ELSE abap_false ).
+      DATA(lv_ok) = abap_false.
+      CASE ls_r-src_op.
+        WHEN 'EQ'.
+          lv_ok = xsdbool( lv_val = ls_r-src_value ).
+        WHEN 'NE'.
+          lv_ok = xsdbool( lv_val <> ls_r-src_value ).
+        WHEN 'INITIAL'.
+          lv_ok = xsdbool( lv_val IS INITIAL ).
+        WHEN 'NOTINITIAL'.
+          lv_ok = xsdbool( lv_val IS NOT INITIAL ).
+        WHEN 'GT' OR 'LT' OR 'GE' OR 'LE'.
+          lv_ok = mo_e->mo_rules->compare_num( iv_op = ls_r-src_op iv_lhs = lv_val iv_rhs = ls_r-src_value ).
+      ENDCASE.
       IF lv_ok = abap_false.
         CONTINUE.
       ENDIF.
@@ -378,6 +391,10 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
           <gc>-readonly = abap_true.
         WHEN 'EDITABLE'.
           <gc>-readonly = abap_false.
+        WHEN 'REQUIRE'.
+          <gc>-required = abap_true.
+        WHEN 'OPTIONAL'.
+          <gc>-required = abap_false.
       ENDCASE.
     ENDLOOP.
   ENDMETHOD.
@@ -394,6 +411,22 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
         rv = `${` && iv_field && `} === ''`.
       WHEN 'NOTINITIAL'.
         rv = `${` && iv_field && `} !== ''`.
+      WHEN 'GT' OR 'LT' OR 'GE' OR 'LE'.
+*       Number(...) on the field side, since every grid cell is a STRING
+*       model field (BUILD_MODEL) and a bare string > string compares
+*       lexicographically in JS, not numerically. The compared VALUE is
+*       emitted unquoted so it reads as a JS number literal, not a
+*       string - but only when it actually looks like one; a broken
+*       config must not become broken JS on the page, so this rule
+*       simply never fires instead.
+        DATA(lv_num) = condense( iv_value ).
+        IF lv_num IS NOT INITIAL AND lv_num CO '0123456789.-'.
+          DATA(lv_jsop) = SWITCH string( iv_op
+            WHEN 'GT' THEN `>` WHEN 'LT' THEN `<` WHEN 'GE' THEN `>=` WHEN 'LE' THEN `<=` ).
+          rv = `Number(${` && iv_field && `}) ` && lv_jsop && ` ` && lv_num.
+        ELSE.
+          rv = `false`.
+        ENDIF.
       WHEN OTHERS.
         rv = `false`.
     ENDCASE.
@@ -847,6 +880,9 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       ENDIF.
       DATA(lv_hdr) = COND string( WHEN mo_e->mv_lang = 'A' AND gc-label_ar IS NOT INITIAL
                                   THEN gc-label_ar ELSE gc-label ).
+      IF gc-required = abap_true.
+        lv_hdr = lv_hdr && ` *`.
+      ENDIF.
       lo_cols->column( width = gc-width halign = gc-align )->text( lv_hdr ).
     ENDLOOP.
     IF lv_chrome = abap_true.

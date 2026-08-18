@@ -21,6 +21,16 @@ CLASS zcl_rak_journey_rules DEFINITION
     METHODS missing_required IMPORTING iv_step   TYPE i
                              RETURNING VALUE(rt) TYPE zif_rak_cjs_types=>tt_miss.
 
+*   GT/LT/GE/LE for a rule's SRC_OP. Numeric when both sides parse as a
+*   number, a plain string compare otherwise - so a non-numeric field does
+*   not just silently never fire. Public because ZCL_RAK_JOURNEY_GRID's
+*   whole-column rule path (TOTABLE filled, SRC_FIELD not a column of that
+*   grid) needs the identical comparison and has no reason to duplicate it.
+    METHODS compare_num IMPORTING iv_op      TYPE string
+                                  iv_lhs     TYPE string
+                                  iv_rhs     TYPE string
+                        RETURNING VALUE(rv) TYPE abap_bool.
+
   PRIVATE SECTION.
     DATA mo_e TYPE REF TO zcl_rak_journey_engine.
 *   ZRAK_T_JNY_RULE's TOTABLE column never made it into ZIF_RAK_JOURNEY's rule
@@ -59,6 +69,10 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
           lv_hit = xsdbool( lv_src IS INITIAL ).
         WHEN 'NOTINITIAL'.
           lv_hit = xsdbool( lv_src IS NOT INITIAL ).
+        WHEN 'GT' OR 'LT' OR 'GE' OR 'LE'.
+          lv_hit = compare_num( iv_op  = ls_rule-src_op
+                                iv_lhs = lv_src
+                                iv_rhs = ls_rule-src_value ).
       ENDCASE.
       IF lv_hit = abap_false.
         CONTINUE.
@@ -85,6 +99,27 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
           mo_e->val_set( iv_name = ls_rule-tgt_field iv_value = `` ).
       ENDCASE.
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD compare_num.
+    TRY.
+        DATA(lv_n1) = CONV decfloat34( iv_lhs ).
+        DATA(lv_n2) = CONV decfloat34( iv_rhs ).
+        CASE iv_op.
+          WHEN 'GT'. rv = xsdbool( lv_n1 > lv_n2 ).
+          WHEN 'LT'. rv = xsdbool( lv_n1 < lv_n2 ).
+          WHEN 'GE'. rv = xsdbool( lv_n1 >= lv_n2 ).
+          WHEN 'LE'. rv = xsdbool( lv_n1 <= lv_n2 ).
+        ENDCASE.
+      CATCH cx_root.
+        CASE iv_op.
+          WHEN 'GT'. rv = xsdbool( iv_lhs > iv_rhs ).
+          WHEN 'LT'. rv = xsdbool( iv_lhs < iv_rhs ).
+          WHEN 'GE'. rv = xsdbool( iv_lhs >= iv_rhs ).
+          WHEN 'LE'. rv = xsdbool( iv_lhs <= iv_rhs ).
+        ENDCASE.
+    ENDTRY.
   ENDMETHOD.
 
 
@@ -212,7 +247,40 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
 
       IF ls_mf-type = 'DISPLAY' OR ls_mf-type = 'READONLY' OR ls_mf-type = 'TABLE'
          OR ls_mf-type = 'UPLOAD' OR ls_mf-type = 'STATUS' OR ls_mf-type = 'OBJNUM'
-         OR ls_mf-type = 'PROGRESS' OR ls_mf-type = 'LINK' OR ls_mf-type = 'EDITABLE_TABLE'.
+         OR ls_mf-type = 'PROGRESS' OR ls_mf-type = 'LINK'.
+        CONTINUE.
+      ENDIF.
+
+*     A required grid COLUMN (ZRAK_T_JNY_COL-REQUIRED, static or set by a
+*     whole-column rule) is checked against every row that already
+*     exists. Deliberately NOT a row-count check - an empty grid still
+*     passes, exactly as documented for the field-level REQUIRED flag
+*     below. IS_REQUIRED( ls_mf ) above only ever asks about the grid
+*     field itself, never its columns, so this is the only place this
+*     is reachable from.
+      IF ls_mf-type = 'EDITABLE_TABLE'.
+        IF mo_e->mo_grid IS BOUND.
+          DATA(lt_gcr) = mo_e->mo_grid->grid_cols( ls_mf ).
+          FIELD-SYMBOLS <model_r> TYPE any.
+          ASSIGN mo_e->mr_model->* TO <model_r>.
+          IF sy-subrc = 0.
+            ASSIGN COMPONENT to_upper( ls_mf-name ) OF STRUCTURE <model_r> TO FIELD-SYMBOL(<tab_r>).
+            IF sy-subrc = 0.
+              LOOP AT lt_gcr INTO DATA(gcr) WHERE required = abap_true.
+                LOOP AT <tab_r> ASSIGNING FIELD-SYMBOL(<row_r>).
+                  ASSIGN COMPONENT gcr-name OF STRUCTURE <row_r> TO FIELD-SYMBOL(<cell_r>).
+                  IF sy-subrc = 0 AND <cell_r> IS INITIAL.
+                    APPEND VALUE #( name  = |{ ls_mf-name }.{ gcr-name }|
+                                    label = |{ ls_mf-label } - { gcr-label }|
+                                    kind  = 'VAL'
+                                    msg   = |{ gcr-label } is required on every row of { ls_mf-label }| ) TO rt.
+                    EXIT.
+                  ENDIF.
+                ENDLOOP.
+              ENDLOOP.
+            ENDIF.
+          ENDIF.
+        ENDIF.
         CONTINUE.
       ENDIF.
 

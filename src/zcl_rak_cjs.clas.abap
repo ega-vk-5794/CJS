@@ -2015,7 +2015,12 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     op->item( key = 'NE' text = 'not equal' ).
     op->item( key = 'INITIAL' text = 'is empty' ).
     op->item( key = 'NOTINITIAL' text = 'is not empty' ).
-    f->label( 'Source value' ). f->input( value = mo_client->_bind_edit( rv_srcval ) placeholder = 'compared value (EQ / NE)' ).
+    op->item( key = 'GT' text = 'greater than' ).
+    op->item( key = 'LT' text = 'less than' ).
+    op->item( key = 'GE' text = 'greater or equal' ).
+    op->item( key = 'LE' text = 'less or equal' ).
+    f->label( 'Source value' ). f->input( value = mo_client->_bind_edit( rv_srcval )
+      placeholder = 'compared value - a number for greater/less than' ).
 
     f->title( ns = 'core' text = 'Then (action)' ).
     f->label( 'Action' ).       DATA(ac) = f->combobox( selectedkey = mo_client->_bind_edit( rv_action ) ).
@@ -2023,6 +2028,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     ac->item( key = 'HIDE' text = 'HIDE target' ).
     ac->item( key = 'REQUIRE' text = 'REQUIRE target' ).
     ac->item( key = 'OPTIONAL' text = 'OPTIONAL target' ).
+    ac->item( key = 'READONLY' text = 'READONLY target' ).
+    ac->item( key = 'EDITABLE' text = 'EDITABLE target' ).
     ac->item( key = 'SET' text = 'SET target value' ).
     ac->item( key = 'CLEAR' text = 'CLEAR target' ).
     f->label( 'Target field' ). DATA(tg) = f->combobox( selectedkey = mo_client->_bind_edit( rv_tgtf ) ).
@@ -2954,9 +2961,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
             text = |Rule { r-rule_id }: tgt_field '{ r-tgt_field }' is not a defined field → no effect| ) TO rt.
         ENDIF.
       ENDIF.
-      IF r-src_op <> 'EQ' AND r-src_op <> 'NE' AND r-src_op <> 'INITIAL' AND r-src_op <> 'NOTINITIAL'.
+      IF r-src_op <> 'EQ' AND r-src_op <> 'NE' AND r-src_op <> 'INITIAL' AND r-src_op <> 'NOTINITIAL'
+         AND r-src_op <> 'GT' AND r-src_op <> 'LT' AND r-src_op <> 'GE' AND r-src_op <> 'LE'.
         APPEND VALUE #( type = 'Error'
-          text = |Rule { r-rule_id }: operator '{ r-src_op }' is not one of EQ/NE/INITIAL/NOTINITIAL → never fires| ) TO rt.
+          text = |Rule { r-rule_id }: operator '{ r-src_op }' is not one of EQ/NE/INITIAL/NOTINITIAL/GT/LT/GE/LE → never fires| ) TO rt.
       ENDIF.
 *     READONLY/EDITABLE were missing here even though ZCL_RAK_JOURNEY_RULES
 *     has always accepted them (see EVAL_RULES) - every rule using either
