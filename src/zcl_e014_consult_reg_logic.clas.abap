@@ -1,8 +1,8 @@
-CLASS zcl_e014_consult_reg_logic DEFINITION
-  PUBLIC
-  INHERITING FROM zcl_rak_journey_logic
-  FINAL
-  CREATE PUBLIC.
+class ZCL_E014_CONSULT_REG_LOGIC definition
+  public
+  inheriting from ZCL_RAK_JOURNEY_LOGIC
+  final
+  create public .
 
 *   Handler for E014 - Consultancy Registration
 *   (legacy NE014_1_*, seeded by ZRAK_E014_LOAD).
@@ -23,10 +23,13 @@ CLASS zcl_e014_consult_reg_logic DEFINITION
 *   already handled by rules R001/R002, so calling set_hidden( ) on
 *   OWNER_FINDER_BP from this class would not add to them - it would
 *   silently take the decision away from them.
-  PUBLIC SECTION.
-    METHODS zif_rak_journey_logic~on_init   REDEFINITION.
-    METHODS zif_rak_journey_logic~on_change REDEFINITION.
+public section.
 
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+protected section.
   PRIVATE SECTION.
     CONSTANTS c_applicant_type TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
 
