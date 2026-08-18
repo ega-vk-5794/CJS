@@ -247,11 +247,14 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    DATA(lv_journey) = mo_e->mv_journey.
+    DATA(lv_field)   = to_upper( is_field-name ).
+
     SELECT * FROM zrak_t_jny_col
       INTO TABLE @DATA(lt_col)
-      WHERE journey_id = @mo_e->mv_journey
+      WHERE journey_id = @lv_journey
         AND step_id    = @lv_step
-        AND field_name = @to_upper( is_field-name )
+        AND field_name = @lv_field
       ORDER BY seqnr.
 
     LOOP AT lt_col INTO DATA(ls_col).
@@ -276,27 +279,29 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   ENDMETHOD.
 
 
-* Which step a field belongs to. ZIF_RAK_JOURNEY carries no STEP_ID on a
-* field itself - only on the step that holds it - so this recovers it from
-* MS_CONFIG-STEPS. Checks the step currently being rendered first (right for
-* WIZARD/WIZARD_LEFT/SINGLE, and for whichever step TABS/ACCORDION are
-* drawing at the moment this is called); falls back to a full scan for the
-* other steps TABS/ACCORDION draw in the same pass. Assumes field names are
-* unique within a journey, same as SAFE_FIELD elsewhere in the engine.
+* Which step (as ZRAK_T_JNY_STEP/ZRAK_T_JNY_FLD key it by, i.e. -ID here -
+* ZCL_RAK_JOURNEY_BE reads the same MS_CONFIG-STEPS row this way) a field
+* belongs to. ZIF_RAK_JOURNEY carries no step id on a field itself - only on
+* the step that holds it - so this recovers it from MS_CONFIG-STEPS. Checks
+* the step currently being rendered first (right for WIZARD/WIZARD_LEFT/
+* SINGLE, and for whichever step TABS/ACCORDION are drawing at the moment
+* this is called); falls back to a full scan for the other steps TABS/
+* ACCORDION draw in the same pass. Assumes field names are unique within a
+* journey, same as SAFE_FIELD elsewhere in the engine.
   METHOD step_id_of.
     DATA(lv_f) = to_upper( iv_field ).
 
     READ TABLE mo_e->ms_config-steps INTO DATA(ls_s) INDEX mo_e->mv_step + 1.
     IF sy-subrc = 0.
       LOOP AT ls_s-fields INTO DATA(ls_f1) WHERE name = lv_f.
-        rv = ls_s-step_id.
+        rv = ls_s-id.
         RETURN.
       ENDLOOP.
     ENDIF.
 
     LOOP AT mo_e->ms_config-steps INTO ls_s.
       LOOP AT ls_s-fields INTO DATA(ls_f2) WHERE name = lv_f.
-        rv = ls_s-step_id.
+        rv = ls_s-id.
         RETURN.
       ENDLOOP.
     ENDLOOP.
@@ -891,6 +896,9 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *     library as "not set", and getting that wrong hides every cell in every
 *     grid rather than just the ones a rule actually targets.
       DATA(lv_vis) = COND string( WHEN gc-row_vis IS NOT INITIAL THEN gc-row_vis ELSE 'true' ).
+*     MAXLENGTH is a CLIKE parameter; GC-MAXLEN is TYPE I and needs an
+*     explicit conversion, not an implicit one, to reach it.
+      DATA(lv_maxlen) = COND string( WHEN gc-maxlen > 0 THEN |{ gc-maxlen }| ELSE `` ).
       IF lv_ro = abap_true OR gc-readonly = abap_true.
 *       One Text per cell, bound to the same model path the input would have
 *       used. A SELECT column therefore shows the stored KEY, not the option
@@ -913,7 +921,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
           lo_cells->text( text = lv_path visible = lv_vis ).
         WHEN 'NUMBER'.
           lo_cells->input( value = lv_path type = 'Number' editable = lv_en change = lv_chg
-                           visible = lv_vis maxlength = gc-maxlen ).
+                           visible = lv_vis maxlength = lv_maxlen ).
         WHEN 'DATE'.
           lo_cells->date_picker( value = lv_path editable = lv_en change = lv_chg visible = lv_vis ).
         WHEN 'CHECKBOX'.
@@ -945,7 +953,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
           ENDLOOP.
         WHEN OTHERS.
           lo_cells->input( value = lv_path editable = lv_en change = lv_chg
-                           visible = lv_vis maxlength = gc-maxlen ).
+                           visible = lv_vis maxlength = lv_maxlen ).
       ENDCASE.
     ENDLOOP.
 *   The delete column and its button are one column apart in two loops, exactly
