@@ -47,6 +47,19 @@ CLASS zcl_rak_journey_grid DEFINITION
 
   PRIVATE SECTION.
     DATA mo_e TYPE REF TO zcl_rak_journey_engine.
+
+*   ZRAK_T_JNY_COL support. Additive only: a grid with no rows there falls
+*   straight back to the DEFAULT_VAL parse above, unchanged.
+    METHODS col_rows_of  IMPORTING is_field  TYPE zif_rak_journey=>ty_field
+                         RETURNING VALUE(rt) TYPE zif_rak_cjs_types=>tt_gcol.
+    METHODS step_id_of   IMPORTING iv_field  TYPE string
+                         RETURNING VALUE(rv) TYPE string.
+    METHODS apply_grid_rules IMPORTING iv_grid TYPE string
+                             CHANGING  ct_gc   TYPE zif_rak_cjs_types=>tt_gcol.
+    METHODS row_hit_expr IMPORTING iv_field  TYPE string
+                                   iv_op     TYPE string
+                                   iv_value  TYPE string
+                         RETURNING VALUE(rv) TYPE string.
 ENDCLASS.
 
 
@@ -158,6 +171,17 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
 
   METHOD grid_cols.
+*   ZRAK_T_JNY_COL first. A grid with rows there is fully migrated off the
+*   packed spec; a grid with none falls straight through to the DEFAULT_VAL
+*   parse below exactly as it always has - nothing already delivered through
+*   DEFAULT_VAL changes.
+    rt = col_rows_of( is_field ).
+    IF rt IS NOT INITIAL.
+      apply_grid_rules( EXPORTING iv_grid = to_upper( is_field-name )
+                         CHANGING  ct_gc   = rt ).
+      RETURN.
+    ENDIF.
+
     DATA(spec) = is_field-default.
     IF spec IS INITIAL.
       RETURN.
@@ -211,6 +235,163 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
         hide  = lv_hid
         src   = to_upper( lv_ss ) ) TO rt.
     ENDLOOP.
+
+    apply_grid_rules( EXPORTING iv_grid = to_upper( is_field-name )
+                       CHANGING  ct_gc   = rt ).
+  ENDMETHOD.
+
+
+  METHOD col_rows_of.
+    DATA(lv_step) = step_id_of( to_upper( is_field-name ) ).
+    IF lv_step IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    SELECT * FROM zrak_t_jny_col
+      INTO TABLE @DATA(lt_col)
+      WHERE journey_id = @mo_e->mv_journey
+        AND step_id    = @lv_step
+        AND field_name = @to_upper( is_field-name )
+      ORDER BY seqnr.
+
+    LOOP AT lt_col INTO DATA(ls_col).
+      APPEND VALUE #(
+        name     = to_upper( ls_col-col_name )
+        label    = COND #( WHEN ls_col-zlabel IS NOT INITIAL THEN ls_col-zlabel ELSE ls_col-col_name )
+        label_ar = ls_col-zlabel_ar
+        ctype    = COND #( WHEN ls_col-ctrl IS NOT INITIAL THEN to_upper( ls_col-ctrl ) ELSE 'INPUT' )
+        src      = to_upper( ls_col-rollname )
+        shlp     = to_upper( ls_col-shlp )
+        width    = ls_col-width
+        align    = ls_col-align
+        hide     = xsdbool( ls_col-hidden   = abap_true )
+        pinned   = xsdbool( ls_col-pinned   = abap_true )
+        readonly = xsdbool( ls_col-readonly = abap_true )
+        required = xsdbool( ls_col-required = abap_true )
+        decimals = ls_col-decimals
+        maxlen   = ls_col-maxlen
+        total    = xsdbool( ls_col-total    = abap_true )
+      ) TO rt.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+* Which step a field belongs to. ZIF_RAK_JOURNEY carries no STEP_ID on a
+* field itself - only on the step that holds it - so this recovers it from
+* MS_CONFIG-STEPS. Checks the step currently being rendered first (right for
+* WIZARD/WIZARD_LEFT/SINGLE, and for whichever step TABS/ACCORDION are
+* drawing at the moment this is called); falls back to a full scan for the
+* other steps TABS/ACCORDION draw in the same pass. Assumes field names are
+* unique within a journey, same as SAFE_FIELD elsewhere in the engine.
+  METHOD step_id_of.
+    DATA(lv_f) = to_upper( iv_field ).
+
+    READ TABLE mo_e->ms_config-steps INTO DATA(ls_s) INDEX mo_e->mv_step + 1.
+    IF sy-subrc = 0.
+      LOOP AT ls_s-fields INTO DATA(ls_f1) WHERE name = lv_f.
+        rv = ls_s-step_id.
+        RETURN.
+      ENDLOOP.
+    ENDIF.
+
+    LOOP AT mo_e->ms_config-steps INTO ls_s.
+      LOOP AT ls_s-fields INTO DATA(ls_f2) WHERE name = lv_f.
+        rv = ls_s-step_id.
+        RETURN.
+      ENDLOOP.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+* ZRAK_T_JNY_RULE rows whose TOTABLE names this grid (ZCL_RAK_JOURNEY_RULES
+* has already sorted every such row into MO_E->MT_RULEGRID instead of
+* evaluating it as a scalar field rule). Two shapes, told apart by whether
+* SRC_FIELD is itself one of this grid's own columns:
+*
+*   SRC_FIELD is another column of the SAME grid -> per row. No server-side
+*   loop over rows is needed: the row template is bound once, so a native UI5
+*   expression binding on the cell's VISIBLE/EDITABLE evaluates independently
+*   for every row on the client.
+*
+*   SRC_FIELD is anything else (an ordinary field) -> whole column, evaluated
+*   once here via VAL_GET, same comparison EVAL_RULES uses for a scalar rule.
+*
+* Supported actions: HIDE, SHOW, READONLY, EDITABLE. REQUIRE / OPTIONAL / SET
+* / CLEAR are not meaningful per column and are ignored here, same as they
+* are for anything but a plain field today.
+  METHOD apply_grid_rules.
+    DATA lt_r TYPE zif_rak_cjs_types=>tt_gridrule.
+    LOOP AT mo_e->mt_rulegrid INTO DATA(ls_gr) WHERE totable = iv_grid.
+      APPEND ls_gr TO lt_r.
+    ENDLOOP.
+    IF lt_r IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA(lt_names) = VALUE string_table( FOR gc IN ct_gc ( gc-name ) ).
+
+    LOOP AT lt_r INTO DATA(ls_r).
+      READ TABLE ct_gc ASSIGNING FIELD-SYMBOL(<gc>) WITH KEY name = ls_r-tgt_field.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+
+      IF line_exists( lt_names[ table_line = ls_r-src_field ] ).
+        DATA(lv_hit) = row_hit_expr( iv_field = ls_r-src_field
+                                     iv_op    = ls_r-src_op
+                                     iv_value = ls_r-src_value ).
+        CASE ls_r-action.
+          WHEN 'HIDE'.
+            <gc>-row_vis  = `{= !(` && lv_hit && `) }`.
+          WHEN 'SHOW'.
+            <gc>-row_vis  = `{= ` && lv_hit && ` }`.
+          WHEN 'READONLY'.
+            <gc>-row_edit = `{= !(` && lv_hit && `) }`.
+          WHEN 'EDITABLE'.
+            <gc>-row_edit = `{= ` && lv_hit && ` }`.
+        ENDCASE.
+        CONTINUE.
+      ENDIF.
+
+      DATA(lv_val) = mo_e->val_get( ls_r-src_field ).
+      DATA(lv_ok) = COND abap_bool(
+        WHEN ls_r-src_op = 'EQ'         THEN xsdbool( lv_val = ls_r-src_value )
+        WHEN ls_r-src_op = 'NE'         THEN xsdbool( lv_val <> ls_r-src_value )
+        WHEN ls_r-src_op = 'INITIAL'    THEN xsdbool( lv_val IS INITIAL )
+        WHEN ls_r-src_op = 'NOTINITIAL' THEN xsdbool( lv_val IS NOT INITIAL )
+        ELSE abap_false ).
+      IF lv_ok = abap_false.
+        CONTINUE.
+      ENDIF.
+
+      CASE ls_r-action.
+        WHEN 'HIDE'.
+          <gc>-hide     = abap_true.
+        WHEN 'SHOW'.
+          <gc>-hide     = abap_false.
+        WHEN 'READONLY'.
+          <gc>-readonly = abap_true.
+        WHEN 'EDITABLE'.
+          <gc>-readonly = abap_false.
+      ENDCASE.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD row_hit_expr.
+    DATA(lv_v) = replace( val = iv_value sub = `'` with = `\'` occ = 0 ).
+    CASE iv_op.
+      WHEN 'EQ'.
+        rv = `${` && iv_field && `} === '` && lv_v && `'`.
+      WHEN 'NE'.
+        rv = `${` && iv_field && `} !== '` && lv_v && `'`.
+      WHEN 'INITIAL'.
+        rv = `${` && iv_field && `} === ''`.
+      WHEN 'NOTINITIAL'.
+        rv = `${` && iv_field && `} !== ''`.
+      WHEN OTHERS.
+        rv = `false`.
+    ENDCASE.
   ENDMETHOD.
 
 
@@ -617,9 +798,36 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   TOTAL columns are summed once, server-side, from the bound row table
+*   itself. sap.m.Table has no per-column footer cell to bind a running sum
+*   to, so this shows as one line under the grid rather than aligned under
+*   its own column - the closest honest fit the control allows.
+    DATA lt_total_cols TYPE zif_rak_cjs_types=>tt_gcol.
+    LOOP AT lt_gc INTO DATA(ls_totcol) WHERE total = abap_true.
+      APPEND ls_totcol TO lt_total_cols.
+    ENDLOOP.
+    DATA lv_footer TYPE string.
+    IF lt_total_cols IS NOT INITIAL.
+      DATA lt_parts TYPE string_table.
+      LOOP AT lt_total_cols INTO DATA(gt).
+        DATA(lv_sum) = CONV decfloat34( 0 ).
+        LOOP AT <tab> ASSIGNING FIELD-SYMBOL(<trow>).
+          ASSIGN COMPONENT gt-name OF STRUCTURE <trow> TO FIELD-SYMBOL(<tcell>).
+          CHECK sy-subrc = 0.
+          TRY.
+              lv_sum = lv_sum + CONV decfloat34( <tcell> ).
+            CATCH cx_root.
+          ENDTRY.
+        ENDLOOP.
+        APPEND |{ gt-label }: { lv_sum }| TO lt_parts.
+      ENDLOOP.
+      lv_footer = concat_lines_of( table = lt_parts sep = `   |   ` ).
+    ENDIF.
+
     DATA(lo_tab) = lo_box->table( items              = mo_e->mo_client->_bind_edit( <tab> )
                                   alternaterowcolors = abap_true
-                                  class              = 'sapUiSmallMarginTop' ).
+                                  class              = 'sapUiSmallMarginTop'
+                                  footertext         = lv_footer ).
     DATA(lo_cols) = lo_tab->columns( ).
     IF lv_selmode IS NOT INITIAL.
       lo_cols->column( width = '3rem' )->text( `` ).
@@ -632,7 +840,9 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       IF gc-hide = abap_true.
         CONTINUE.
       ENDIF.
-      lo_cols->column( )->text( gc-label ).
+      DATA(lv_hdr) = COND string( WHEN mo_e->mv_lang = 'A' AND gc-label_ar IS NOT INITIAL
+                                  THEN gc-label_ar ELSE gc-label ).
+      lo_cols->column( width = gc-width halign = gc-align )->text( lv_hdr ).
     ENDLOOP.
     IF lv_chrome = abap_true.
       lo_cols->column( width = '4rem' halign = 'End' )->text( `` ).
@@ -670,17 +880,28 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
         lv_chg = mo_e->mo_client->_event( val   = |GRIDCHG_{ is_field-name }~{ gc-name }|
                                          t_arg = VALUE #( ( `${_UID}` ) ) ).
       ENDIF.
-      IF lv_ro = abap_true.
+*     A per-row EDITABLE/READONLY grid rule (ZRAK_T_JNY_RULE, TOTABLE = this
+*     grid) overrides the column's own editability - same precedence a
+*     scalar field rule has over its field's configured flag.
+      IF gc-row_edit IS NOT INITIAL.
+        lv_en = gc-row_edit.
+      ENDIF.
+*     Explicit 'true' rather than a blank VISIBLE for the columns with no
+*     per-row rule - blank could as easily be read as false by the control
+*     library as "not set", and getting that wrong hides every cell in every
+*     grid rather than just the ones a rule actually targets.
+      DATA(lv_vis) = COND string( WHEN gc-row_vis IS NOT INITIAL THEN gc-row_vis ELSE 'true' ).
+      IF lv_ro = abap_true OR gc-readonly = abap_true.
 *       One Text per cell, bound to the same model path the input would have
 *       used. A SELECT column therefore shows the stored KEY, not the option
 *       text: the cell template is one control for every row, so there is no
 *       per-row place to resolve a key to its label. If the label matters, store
 *       it in the row alongside the key.
-        lo_cells->text( text = lv_path ).
+        lo_cells->text( text = lv_path visible = lv_vis ).
         CONTINUE.
       ENDIF.
       CASE gc-ctype.
-        WHEN 'TEXT'.
+        WHEN 'TEXT' OR 'DISPLAY'.
 *         A label inside an editable grid. The row's own description - School Fee,
 *         Books Fee - belongs to the row and not to the citizen, and an input box
 *         around it invites them to retype it and then wonder why the fee did not
@@ -689,11 +910,14 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *
 *         Deliberately NOT the same as HIDE. Hidden carries a value nobody sees;
 *         TEXT shows a value nobody may change.
-          lo_cells->text( text = lv_path ).
+          lo_cells->text( text = lv_path visible = lv_vis ).
         WHEN 'NUMBER'.
-          lo_cells->input( value = lv_path type = 'Number' editable = lv_en change = lv_chg ).
+          lo_cells->input( value = lv_path type = 'Number' editable = lv_en change = lv_chg
+                           visible = lv_vis maxlength = gc-maxlen ).
         WHEN 'DATE'.
-          lo_cells->date_picker( value = lv_path editable = lv_en change = lv_chg ).
+          lo_cells->date_picker( value = lv_path editable = lv_en change = lv_chg visible = lv_vis ).
+        WHEN 'CHECKBOX'.
+          lo_cells->checkbox( selected = lv_path editable = lv_en select = lv_chg visible = lv_vis ).
         WHEN 'SELECT'.
           DATA lt_copt TYPE zif_rak_journey=>tt_option.
           CLEAR lt_copt.
@@ -706,14 +930,22 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
                 CLEAR lt_copt.
             ENDTRY.
           ENDIF.
+*         SHLP is captured on the column but not yet wired to a real search-help
+*         popup - a generic F4-by-search-help dialog does not exist anywhere in
+*         this framework yet, so building one blind, untested, alongside
+*         everything else here would be the least trustworthy part of this
+*         change. Options still resolve via ROLLNAME then the handler, same as
+*         today; SHLP is there for the day that popup gets built.
           DATA(lo_ccb) = lo_cells->combobox( selectedkey = lv_path
                                              editable    = lv_en
-                                             change      = lv_chg ).
+                                             change      = lv_chg
+                                             visible     = lv_vis ).
           LOOP AT lt_copt INTO DATA(co).
             lo_ccb->item( key = co-key text = zcl_rak_journey_util=>opt_text( iv_key = co-key iv_text = co-text ) ).
           ENDLOOP.
         WHEN OTHERS.
-          lo_cells->input( value = lv_path editable = lv_en change = lv_chg ).
+          lo_cells->input( value = lv_path editable = lv_en change = lv_chg
+                           visible = lv_vis maxlength = gc-maxlen ).
       ENDCASE.
     ENDLOOP.
 *   The delete column and its button are one column apart in two loops, exactly

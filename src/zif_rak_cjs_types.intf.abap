@@ -57,8 +57,54 @@ INTERFACE zif_rak_cjs_types
 "          payload as well, which is how a picklist stops being able to say which
 "          row was picked.
            hide  TYPE abap_bool,
+"          Everything below comes from ZRAK_T_JNY_COL, when a grid has rows
+"          there. A grid still on a packed DEFAULT_VAL spec never populates
+"          these - grid_cols( ) leaves them at their type-initial value, and
+"          every check below is written to treat that as "not set".
+           label_ar TYPE string,   " ZLABEL_AR - bilingual header
+           shlp     TYPE string,   " search help name (not yet wired to a real
+"                                    F4 popup - captured for authoring intent;
+"                                    SELECT still resolves via ROLLNAME/SRC or
+"                                    the handler's on_value_help, same as today)
+           width    TYPE string,   " column( ) width, e.g. '8rem' or '20%'
+           align    TYPE string,   " Begin | Center | End -> column( )-halign
+           pinned   TYPE abap_bool," captured from ZRAK_T_JNY_COL-PINNED; NOT
+"                                    rendered - sap.m.Table has no frozen/
+"                                    sticky-column feature to bind it to
+           readonly TYPE abap_bool," per-column read-only, ORed with the
+"                                    grid's own whole-grid readonly
+           required TYPE abap_bool," captured, not yet enforced - per-row
+"                                    required validation is not wired into
+"                                    VALIDATE_STEP/MISSING_REQUIRED yet
+           decimals TYPE i,        " captured, not yet enforced - no decimal
+"                                    formatting is applied to the cell
+           maxlen   TYPE i,        " -> input( )-maxlength
+           total    TYPE abap_bool," included in the grid's footer sum
+"          Per-row visibility/edit expressions, computed at render time by
+"          ZCL_RAK_JOURNEY_GRID from a ZRAK_T_JNY_RULE row whose TOTABLE names
+"          this grid and whose SRC_FIELD is itself one of this grid's own
+"          columns. Native UI5 expression-binding strings, e.g.
+"          '{= ${STATUS} <> ''X'' }' - never persisted, never touched by
+"          grid_cols( ).
+           row_vis  TYPE string,
+           row_edit TYPE string,
          END OF ty_gcol,
          tt_gcol TYPE STANDARD TABLE OF ty_gcol WITH EMPTY KEY.
+
+*   A ZRAK_T_JNY_RULE row whose TOTABLE is filled: routed here by
+*   ZCL_RAK_JOURNEY_RULES->EVAL_RULES instead of being evaluated as a scalar
+*   field rule, because there is no single value to read at that point - the
+*   grid decides, per column and (when SRC_FIELD is itself one of its own
+*   columns) per row, at render time.
+  TYPES: BEGIN OF ty_gridrule,
+           totable   TYPE string,   " the EDITABLE_TABLE/TABLE field this rule targets
+           src_field TYPE string,   " a column of TOTABLE (per row) or any other field (whole column)
+           src_op    TYPE string,   " EQ | NE | INITIAL | NOTINITIAL
+           src_value TYPE string,
+           action    TYPE string,   " HIDE | SHOW | READONLY | EDITABLE
+           tgt_field TYPE string,   " the column within TOTABLE the action applies to
+         END OF ty_gridrule,
+         tt_gridrule TYPE STANDARD TABLE OF ty_gridrule WITH EMPTY KEY.
 
   TYPES: BEGIN OF ty_f4c,
            key  TYPE string,

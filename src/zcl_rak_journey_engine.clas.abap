@@ -65,6 +65,9 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mt_rulereq   TYPE zif_rak_journey=>tt_string.
     DATA mt_rulero    TYPE zif_rak_journey=>tt_string.
     DATA mt_ruleedit  TYPE zif_rak_journey=>tt_string.
+*   ZRAK_T_JNY_RULE rows with TOTABLE filled - grid-scoped, evaluated by
+*   ZCL_RAK_JOURNEY_GRID rather than here. See ZIF_RAK_CJS_TYPES=>TY_GRIDRULE.
+    DATA mt_rulegrid  TYPE zif_rak_cjs_types=>tt_gridrule.
 
     DATA mv_popup       TYPE string.
     DATA mv_popup_shown TYPE abap_bool.

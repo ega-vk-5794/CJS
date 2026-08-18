@@ -36,8 +36,21 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
 
 
   METHOD eval_rules.
-    CLEAR: mo_e->mt_rulehide, mo_e->mt_ruleshow, mo_e->mt_rulereq, mo_e->mt_rulero, mo_e->mt_ruleedit.
+    CLEAR: mo_e->mt_rulehide, mo_e->mt_ruleshow, mo_e->mt_rulereq, mo_e->mt_rulero,
+           mo_e->mt_ruleedit, mo_e->mt_rulegrid.
     LOOP AT mo_e->ms_config-rules INTO DATA(ls_rule).
+*     TOTABLE names a grid (EDITABLE_TABLE/TABLE field). There is no single
+*     value to test yet - SRC_FIELD may be a column read per row, not a
+*     scalar - so the grid decides this one at render time, not here.
+      IF ls_rule-totable IS NOT INITIAL.
+        APPEND VALUE #( totable   = to_upper( ls_rule-totable )
+                        src_field = to_upper( ls_rule-src_field )
+                        src_op    = ls_rule-src_op
+                        src_value = ls_rule-src_value
+                        action    = ls_rule-action
+                        tgt_field = to_upper( ls_rule-tgt_field ) ) TO mo_e->mt_rulegrid.
+        CONTINUE.
+      ENDIF.
       DATA(lv_src) = mo_e->val_get( ls_rule-src_field ).
       DATA(lv_hit) = abap_false.
       CASE ls_rule-src_op.
