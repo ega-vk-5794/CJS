@@ -1,23 +1,69 @@
-class ZCL_D009_SCHOOL_LOCA_CHG_LOGIC definition
-  public
-  inheriting from ZCL_RAK_JOURNEY_LOGIC
-  create public .
+CLASS zcl_d009_school_loca_chg_logic DEFINITION
+  PUBLIC
+  INHERITING FROM zcl_rak_journey_logic
+  FINAL
+  CREATE PUBLIC.
 
-public section.
-
-  methods ZIF_RAK_JOURNEY_LOGIC~GET_TABLE
-    redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_POST
-    redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
-    redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
-    redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
-    redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
-    redefinition .
-protected section.
+*   Handler for D009 - Changing the school's Location
+*   (legacy ND009_1_*, seeded by ZRAK_D009_LOAD).
+*
+*   The one DOKSL journey in this set: CATEGORY is 'DOKSL', not 'EPDA',
+*   and the legacy backend class is ZCL_EGA_CJ_ENH_IMPL_D009.
+*
+*   ---------------------------------------------------------------------
+*   WHAT THIS CLASS NO LONGER DOES, and why each removal is a fix rather
+*   than a loss. All four of these were written against an earlier,
+*   migrator-generated version of the config that no longer exists, and
+*   three of them referenced field names the feeder never seeds - so they
+*   were dead code that read as live code, which is worse than either.
+*
+*   1. get_table( ) for 'LICENSES' and 'OWNERS' - GONE.
+*      Both grids are now EDITABLE_TABLE + READONLY with their columns in
+*      ZRAK_T_JNY_COL and their rows from the backend read
+*      (D2 = LICENCES and D2 = OWNERS_DISP). The ftype decides which path
+*      the renderer takes: 'TABLE' calls this method for columns AND rows,
+*      'EDITABLE_TABLE' drives the grid from config. Config a functional
+*      consultant can change beats ABAP that needs a transport, and the
+*      old method's hard-coded column list ('License', 'School name', ...)
+*      had already drifted from the legacy captions.
+*
+*   2. on_change( ) on 'LICENSE_SEL' - GONE.
+*      There is no LICENSE_SEL field. The licence is picked in the STP1
+*      grid, and what the pick has to load - the school, its address, its
+*      manager - is what the ND009_1_2 read BAdI returns for the selected
+*      licence. Pulling the same data forward from a UI event would give
+*      the citizen two sources of truth for one screen.
+*
+*   3. on_before_tables( ) marking the selected row - GONE.
+*      It read 'LIC_SELECT' while on_change wrote 'LICENSE_SEL' - two
+*      spellings of a field that never existed, so the LOOP never matched
+*      and the UI_TABLE_COLUMN29 = 'S' marker was never written. The grid
+*      renders and tracks its own single-select from the legacy
+*      D3 = SingleSelectLeft directive.
+*
+*   4. on_custom_validate( ) comparing NEWLOCATION to CURRENTLOCATION -
+*      GONE, and this one is worth reading before someone writes it again.
+*      Neither field exists, and no pair of fields COULD exist as the
+*      config stands: the legacy screen binds the current address, parcel
+*      id, telephone, location and PO box to the SAME five technical names
+*      as the new ones (GS_DATA-SCHOOL-ADRESS, -PARCEL_ID, -TELEPHONE,
+*      -LOCATION, -POBOX), so the feeder authors only the editable half.
+*      One backend member cannot hold both the old value and the new one,
+*      so there is nothing to compare against - and authoring the display
+*      half back in would make it worse, not better: the engine reads each
+*      field by name WITH its tech name, so both halves would come back
+*      carrying the current value and the new-location inputs would arrive
+*      PRE-FILLED with where the school already is. A real "must differ
+*      from current" check needs the DOKSL read to expose five separate
+*      read-only members first. See the REVIEW-BE note on the "New
+*      Location" section in ZRAK_D009_LOAD.
+*   ---------------------------------------------------------------------
+*
+*   What remains is on_init, and one line of it is the whole open question
+*   on this journey - see the REVIEW-STUB note below.
+  PUBLIC SECTION.
+    METHODS zif_rak_journey_logic~on_init        REDEFINITION.
+    METHODS zif_rak_journey_logic~on_before_post REDEFINITION.
 ENDCLASS.
 
 
@@ -25,149 +71,68 @@ ENDCLASS.
 CLASS ZCL_D009_SCHOOL_LOCA_CHG_LOGIC IMPLEMENTATION.
 
 
-  METHOD zif_rak_journey_logic~get_table.
-    CASE to_upper( iv_name ).
+  METHOD zif_rak_journey_logic~on_init.
+    super->zif_rak_journey_logic~on_init( io_ctx ).
 
-      WHEN 'LICENSES'.
-        rs_data-columns = VALUE #( ( `License` ) ( `School name` ) ( `Issued at` ) ( `Expired at` ) ).
+*   No payment wiring on this journey, and that is confirmed rather than
+*   omitted: there is no RAKPAY, no RAKREMAININGFEES and no fee CLIST
+*   anywhere in ND009_1_*. So no PAY_SCREEN, no PAY_METHOD, no PAY_BUKRS.
 
-        " REVIEW: replace with the real school-license read (the export
-        " names FM ZFM_EGA_CJ_FW_READ_TABLE_DATAN / context LICENCES).
-*        SELECT license_no, school_name, issued_at, expired_at
-*          FROM ztb_dok_licenses                         "#EC CI_NOORDBY
-*          WHERE partner = @io_ctx->get_val( 'OWNER_BP' )
-*          INTO TABLE @DATA(lt_lic).
+    DATA(lv_user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
+
+    zcl_ega_cj_utility=>get_bp(
+      EXPORTING qv_key  = lv_user_data
+      IMPORTING loginbp = DATA(lv_loginbp)
+                rolebp  = DATA(lv_rolebp)
+                role    = DATA(lv_role) ).
+
+*   ---- REVIEW-STUB, and it is the reason to read this method -----------
+*   This line used to be:
 *
-*        LOOP AT lt_lic INTO DATA(ls_lic).
-*          APPEND VALUE #( ( |{ ls_lic-license_no }| )
-*                          ( |{ ls_lic-school_name }| )
-*                          ( |{ ls_lic-issued_at DATE = USER }| )
-*                          ( |{ ls_lic-expired_at DATE = USER }| ) ) TO rs_table-rows.
-*        ENDLOOP.
-
-      WHEN 'OWNERS'.
-        rs_data-columns = VALUE #( ( `Name` ) ( `Nationality` ) ( `Shares` ) ( `Mobile Number` ) ( `E-mail` ) ).
-
-        " REVIEW: replace with the real current-owners read for the
-        " SELECTED license (export context OWNERS_DISP).
-*        SELECT partner_name, nationality, share_pct, mobile, email
-*          FROM ztb_dok_owners                           "#EC CI_NOORDBY
-*          WHERE license_no = @io_ctx->get_val( 'LICENSE_SEL' )
-*          INTO TABLE @DATA(lt_own).
+*       io_ctx->set_val( iv_name = 'LOGIN_BP'
+*                        iv_value = CONV string( '3000000049' ) ). "'3000000049'
 *
-*        LOOP AT lt_own INTO DATA(ls_own).
-*          APPEND VALUE #( ( |{ ls_own-partner_name }| )
-*                          ( |{ ls_own-nationality }|   )
-*                          ( |{ ls_own-share_pct }|     )
-*                          ( |{ ls_own-mobile }|        )
-*                          ( |{ ls_own-email }|         ) ) TO rs_table-rows.
-*        ENDLOOP.
-
-    ENDCASE.
+*   - a hard-coded business partner, with the correct line commented out
+*   immediately below it. It is now the resolved LOGINBP, which is what
+*   the author of that comment plainly intended.
+*
+*   Two things follow that a reviewer needs to know:
+*
+*   (a) THIS IS NOT AN ISOLATED FIX. The same hard-coded '3000000049'
+*       appears in the on_init of the sibling DOKSL handlers
+*       ZCL_D001_* through ZCL_D010_*, and D007 and D008 go further and
+*       stub PARTNER_NAME and PARTNER_ID with a named individual and a
+*       real-format Emirates ID in source. Those nine are outside this
+*       change and are deliberately NOT touched here, because changing a
+*       shared development stub in one journey out of ten is how a test
+*       flow breaks with no obvious cause. They do need the same sweep.
+*
+*   (b) IF A DEV OR TEST FLOW DEPENDS ON THE STUB, this is the line that
+*       breaks it, and the fix is to supply the test BP through USERDATA
+*       rather than to put the literal back. A hard-coded partner that
+*       reaches production does not fail loudly - it silently files every
+*       citizen's application against one business partner.
+*
+*   ROLEBP and ROLE are resolved and not yet used. They are kept because
+*   the call exports them and the applicant-type display on STP2
+*   (GS_DATA-APPLICANT_TYPE, a read-only combobox) is very likely what ROLE
+*   is for - but nothing in the export says so, so it is not wired blind.
+    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
   ENDMETHOD.
 
 
   METHOD zif_rak_journey_logic~on_before_post.
-    " No PAY_*/PAYFEE fields exist on this journey, but the strip is safe
-    " to keep in case a future change adds fee handling.
+*   No PAY_* or PAYFEE field exists on this journey, so this strip removes
+*   nothing today. It is kept as a guard rather than a cleanup: if a fee is
+*   ever added to this journey, the payment engine's own scratch keys
+*   (PAY_TRIES, PAY_APPURL, PAY_STARTED and the rest) have no meaning to
+*   the DOKSL backend and would arrive as unrecognised fields.
     DELETE ct_kv WHERE key CP 'PAY_*'.
     DELETE ct_kv WHERE key = 'PAYFEE'.
 
-    " UI-only scratch key with no backend meaning.
-    DELETE ct_kv WHERE key = 'LICENSE_SEL'.
-
-    " NOTE: no DECLARE checkbox to strip here — confirmed absent from the
-    " export (see load report NOTE 2), not omitted by oversight.
+*   NOTE: no DECLARE / ACCEPT_TERMS checkbox to strip here. The three
+*   declaration rows on STP3 are DISPLAY text with no binding - confirmed
+*   absent from the export as controls, not omitted by oversight - so
+*   there is no acknowledgement flag reaching the payload.
   ENDMETHOD.
-
-
-  METHOD zif_rak_journey_logic~on_before_tables.
-*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
-*  EXPORTING
-*    IO_CTX    =
-*  CHANGING
-*    CT_TABLES =
-*    .
-    DATA(lv_sel) = io_ctx->get_val( 'LIC_SELECT' ).
-    CHECK lv_sel IS NOT INITIAL.
-    LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<t>) WHERE ui_table_name = 'LICENSES' AND ui_table_column1 = lv_sel.
-      IF <t>-ui_table_column1 = lv_sel.
-        <t>-ui_table_column29 = 'S'.
-      ENDIF.
-    ENDLOOP.
-  ENDMETHOD.
-
-
-  METHOD zif_rak_journey_logic~on_change.
-    CHECK to_upper( iv_field ) = 'LICENSE_SEL'.
-
-    DATA(lv_license) = io_ctx->get_val( 'LICENSE_SEL' ).
-    IF lv_license IS INITIAL.
-      RETURN.
-    ENDIF.
-
-    " REVIEW: replace with the real license/school/manager detail read —
-    " placeholder shown for the pattern only.
-*    SELECT SINGLE license_no, issued_at, expired_at
-*      FROM ztb_dok_licenses
-*      WHERE license_no = @lv_license
-*      INTO @DATA(ls_lic).
-*
-*    IF sy-subrc = 0.
-*      io_ctx->set_val( iv_name = 'LICNO' iv_value = |{ ls_lic-license_no }| ).
-*      io_ctx->set_val( iv_name = 'LICISSUED' iv_value = |{ ls_lic-issued_at DATE = USER }| ).
-*      io_ctx->set_val( iv_name = 'LICEXPIRED' iv_value = |{ ls_lic-expired_at DATE = USER }| ).
-*    ENDIF.
-
-    " REVIEW: populate SCHOOLNAMEEN/AR, TRADELICNO, and the 5 MANAGER*
-    " fields here from the same selected license/school record.
-    " NEWLOCATION/NEWSCHOOLADDRESS/NEWPARCELID/NEWPOBOX/NEWTELEPHONE
-    " (this journey's actual editable fields) should start blank rather
-    " than pre-filled with the current values, so the applicant actively
-    " enters the new location rather than resubmitting the old one by
-    " accident — do not set_val( ) those here.
-    " io_ctx->set_val( iv_name = 'SCHOOLNAMEEN' iv_value = |{ ls_school-name_en }| ).
-    " io_ctx->set_val( iv_name = 'MANAGERNAME'  iv_value = |{ ls_school-manager_name }| ).
-  ENDMETHOD.
-
-
-  METHOD zif_rak_journey_logic~on_custom_validate.
-    CHECK iv_step = 1.   " zero-based: step 2 "Location" in the wizard
-
-    " REVIEW: same caveat as the D007 journey's curriculum check — no
-    " separate READONLY "current location" field was seeded (see load
-    " report NOTE 1, the duplicate was dropped rather than kept as a
-    " read-only display), so there is nothing to compare NEWLOCATION
-    " against here yet. Seed a hidden CURRENTLOCATION READONLY field
-    " populated in on_change( ) if a "must differ" check is wanted.
-    " IF io_ctx->get_val( 'NEWLOCATION' ) = io_ctx->get_val( 'CURRENTLOCATION' ).
-    "   rt_msg = VALUE #( ( type = 'Error' text = 'The new location must be different from the current one.' ) ).
-    " ENDIF.
-  ENDMETHOD.
-
-
-  method ZIF_RAK_JOURNEY_LOGIC~ON_INIT.
-*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
-*  EXPORTING
-*    IO_CTX =
-*    .
-
-   CALL METHOD super->zif_rak_journey_logic~on_init
-      EXPORTING
-        io_ctx = io_ctx.
-*
-    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
-*
-    zcl_ega_cj_utility=>get_bp(
-      EXPORTING
-        qv_key  = user_data
-      IMPORTING
-        loginbp = DATA(loginbp)
-        rolebp  = DATA(rolebp)
-        role    = DATA(role)
-    ).
-
-    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = CONV string( '3000000049' ) ). "'3000000049' ).
-
-  endmethod.
 ENDCLASS.

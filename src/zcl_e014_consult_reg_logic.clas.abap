@@ -4,43 +4,40 @@ CLASS zcl_e014_consult_reg_logic DEFINITION
   FINAL
   CREATE PUBLIC.
 
-*   REVIEW-TECH: this class used to declare INTERFACES zif_rak_journey_logic
-*   directly and implement only 3 of its ~24 methods - a class that declares
-*   an interface itself (rather than inheriting a base that already does)
-*   must supply every method or it cannot activate. Switched to inheriting
-*   ZCL_RAK_JOURNEY_LOGIC, the pattern every other journey handler in this
-*   system uses (ZCL_D009_..., ZCL_EPDA_E022_..., ZCL_RAK_D_APPROVAL_LOGIC):
-*   the base supplies empty defaults for everything, including the whole
-*   payment card (fee list, gateway hand-off, the PAID gate on Submit), and
-*   this class redefines only what E014 actually needs on top of it.
+*   Handler for E014 - Consultancy Registration
+*   (legacy NE014_1_*, seeded by ZRAK_E014_LOAD).
+*
+*   Deliberately small. Everything this journey needs that CAN be
+*   expressed as configuration IS configuration:
+*     - the applicant-type choice is a SEGMENTED field with three options
+*     - revealing the owner lookup for a PRO/Manager applicant is two
+*       SHOW rules in ZRAK_T_JNY_RULE
+*     - the whole payment card comes from ZCL_RAK_JOURNEY_LOGIC
+*   so only two things are left here, and both are things config cannot do:
+*   fanning one segmented value back out into three backend flags, and
+*   telling the payment engine which screen and which terms are this
+*   journey's.
+*
+*   NOTE for anyone adding a show/hide here later: set_hidden( ) OUTRANKS
+*   the rules for the rest of the session. The owner-finder visibility is
+*   already handled by rules R001/R002, so calling set_hidden( ) on
+*   OWNER_FINDER_BP from this class would not add to them - it would
+*   silently take the decision away from them.
   PUBLIC SECTION.
-    METHODS zif_rak_journey_logic~on_init            REDEFINITION.
-    METHODS zif_rak_journey_logic~on_after_read       REDEFINITION.
-    METHODS zif_rak_journey_logic~on_change           REDEFINITION.
-    METHODS zif_rak_journey_logic~on_custom_validate  REDEFINITION.
+    METHODS zif_rak_journey_logic~on_init   REDEFINITION.
+    METHODS zif_rak_journey_logic~on_change REDEFINITION.
 
   PRIVATE SECTION.
-    CONSTANTS c_partner_owner_1 TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
+    CONSTANTS c_applicant_type TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
 
-*   The OWNER_FINDER container's real children, confirmed against the
-*   /QNV/SB_UI_DEFIN export (NE014_1_1, PARENT_CONTAINER = OWNER_FINDER):
-*   one live field, a PERSON_SEARCH named OWNER_FINDER_BP (posts as
-*   GS_DATA-OWNER). The migrator projects it under this same safe name -
-*   see ZCL_RAK_MIGRATOR->safe_of/norm_name - so no name translation is
-*   needed here.
-    METHODS owner_finder_fields RETURNING VALUE(rt) TYPE string_table.
-
-    METHODS set_group
+*   One segmented field on screen, three booleans in the backend. The
+*   legacy screen had three separate TBUTTONs, each bound to its own
+*   GS_DATA-PARTNER_* flag; a segmented field carries ONE value, so the
+*   chosen option has to be fanned back out into the three flags or the
+*   backend receives nothing at all for the applicant's role.
+    METHODS write_role_flags
       IMPORTING io_ctx  TYPE REF TO zif_rak_journey
-                iv_pick TYPE string
-                it_all  TYPE string_table
-                it_tech TYPE string_table.
-
-    METHODS show_only
-      IMPORTING io_ctx TYPE REF TO zif_rak_journey
-                it_on  TYPE string_table
-                it_off TYPE string_table.
-
+                iv_pick TYPE string.
 ENDCLASS.
 
 
@@ -48,135 +45,90 @@ ENDCLASS.
 CLASS ZCL_E014_CONSULT_REG_LOGIC IMPLEMENTATION.
 
 
-  METHOD owner_finder_fields.
-    rt = VALUE #( ( `OWNER_FINDER_BP` ) ).
-  ENDMETHOD.
-
-
   METHOD zif_rak_journey_logic~on_init.
     super->zif_rak_journey_logic~on_init( io_ctx ).
 
-*   PAY_SCREEN is real: NE014_1_4 is this journey's own migrated payment
-*   step (see ZRAK_EPDA_MIGRATE6, which puts PAYFEE back on it after the
-*   migrator drops it). The base class's PREPARE_PAYMENT reads this to
-*   know which BKND_SCREEN's read BAdI resolves the gateway.
+*   The journey's own payment step. PREPARE_PAYMENT reads this to know
+*   whose read BAdI resolves the gateway, and NE014_1_4 is that screen.
     io_ctx->set_val( iv_name = c_pay_screen iv_value = 'NE014_1_4' ).
 
-*   REVIEW-BE: PAY_BUKRS / PAY_MATERIAL / PAY_CASESFOR are NOT in the
-*   /QNV/SB_UI_DEFIN export (there is nowhere on a UI screen for a company
-*   code or a fee material to appear) - they are backend Financial /
-*   FI-CA configuration for the EPDA department's registration fee, and
-*   guessing them risks a fee raised against the wrong company code or
-*   material rather than one that simply fails loudly. PREPARE_GATEWAY
-*   refuses cleanly with "company code / fee material were not supplied"
-*   until these are set, so Pay is inert rather than wrong until this is
-*   confirmed with EPDA Finance:
-*     io_ctx->set_val( iv_name = c_pay_bukrs    iv_value = '' ).
-*     io_ctx->set_val( iv_name = c_pay_material iv_value = '' ).
-*     io_ctx->set_val( iv_name = c_pay_casesfor iv_value = '' ).
-  ENDMETHOD.
+*   ---- the payment terms block, from the legacy screen itself ----------
+*   ZCL_RAK_JOURNEY_LOGIC->pay_terms draws these as radio lists, splitting
+*   on '|', and falls back to platform defaults when they are blank. The
+*   defaults are one method ("RAK.ae / quick payment") and one channel
+*   ("RAK Pay"), which is NOT what this journey's legacy screen offered:
+*   NE014_1_4 carries FOUR method radios (RB1..RB4) and TWO channel radios
+*   (PW_RB1/PW_RB2). Setting them here is what keeps the migrated card
+*   showing the same choices the citizen sees in production today.
+*
+*   The four method captions are the legacy label texts, verbatim -
+*   "KISOK machine" included, misspelling and all, because that is the
+*   caption in production and silently correcting it here would make the
+*   two screens disagree.
+    io_ctx->set_val( iv_name  = c_pay_method
+                     iv_value = 'RAK.ae / quick payment|mRak|KISOK machine|Walk-in' ).
 
+*   REVIEW-TEXT: the two channel radios have NO usable caption in the
+*   export - PW_RB2's label row is empty and PW_RB1's resolves to the
+*   literal 'X', which is placeholder text, not a caption. Their TECHNICAL
+*   names are unambiguous though (EDIRHAM and CREDITCARD), so the captions
+*   below are derived from those rather than left to the "RAK Pay"
+*   default, which names neither. Replace with the real portal wording
+*   when someone confirms it.
+    io_ctx->set_val( iv_name  = c_pay_channel
+                     iv_value = 'eDirham|Credit Card' ).
 
-  METHOD set_group.
-*   Every flag in the group, every time. IT_ALL and IT_TECH are positional:
-*   the nth option writes the nth technical name. A short IT_TECH would
-*   silently stop writing the tail of the group, so it is checked.
-    IF lines( it_all ) <> lines( it_tech ).
-      io_ctx->add_msg( iv_type = 'Error'
-                       iv_text = |Handler misconfigured: { lines( it_all ) } options |
-                                 && |against { lines( it_tech ) } backend fields| ).
-      RETURN.
-    ENDIF.
+*   The charges bullets, verbatim from the legacy screen's LABEL_33..35.
+*   Supplied rather than computed, for the reason the base class gives:
+*   a percentage this framework prints and the gateway then bills
+*   differently is a number the citizen was misled by.
+*   REVIEW-BE: these are somebody else's numbers and they will change
+*   without this class being touched. If a TVARV entry or a BAdI can serve
+*   them, point PAY_CHARGES at that instead of at this literal.
+    io_ctx->set_val(
+      iv_name  = c_pay_charges
+      iv_value = 'Cards Visa/MasterCard on RAK Government portal: 1.00%' &&
+                 '|RAK Wallet: 0.80% with CAP 1000 AED' &&
+                 '|The above bank charges are subject to VAT 5%' ).
 
-    LOOP AT it_all INTO DATA(lv_opt).
-      DATA(lv_i) = sy-tabix.
-      io_ctx->set_val( iv_name  = it_tech[ lv_i ]
-                       iv_value = COND string( WHEN lv_opt = iv_pick
-                                               THEN 'X' ELSE '' ) ).
-    ENDLOOP.
-  ENDMETHOD.
-
-
-  METHOD show_only.
-*   Both directions. SHOW alone leaves the other panel on screen after its
-*   trigger is cleared, still holding values and still posting them.
-    LOOP AT it_on INTO DATA(lv_on).
-      io_ctx->set_hidden( iv_field = lv_on iv_on = abap_false ).
-    ENDLOOP.
-    LOOP AT it_off INTO DATA(lv_off).
-      io_ctx->set_hidden( iv_field = lv_off iv_on = abap_true ).
-      io_ctx->set_val( iv_name = lv_off iv_value = '' ).
-    ENDLOOP.
-  ENDMETHOD.
-
-
-  METHOD zif_rak_journey_logic~on_after_read.
-*   The same show/hide the change handler does, applied on arrival. Without
-*   this the first render shows both panels until the citizen touches the
-*   control - and a resumed draft shows both for good.
-    show_only(
-      io_ctx = io_ctx
-      it_on  = COND #( WHEN io_ctx->get_val( c_partner_owner_1 ) = `PARTNER_OWNER_1`
-                       THEN owner_finder_fields( ) )
-      it_off = COND #( WHEN io_ctx->get_val( c_partner_owner_1 ) <> `PARTNER_OWNER_1`
-                       THEN owner_finder_fields( ) ) ).
+*   REVIEW-BE: PAY_BUKRS / PAY_MATERIAL / PAY_CASESFOR deliberately not
+*   set. They are FI-CA configuration for the EPDA registration fee -
+*   a company code and a fee material - and nothing on a UI screen
+*   carries them, so there is nothing in the legacy export to migrate.
+*
+*   Left blank rather than guessed on purpose: PREPARE_GATEWAY tests
+*   both before it does anything else and refuses with "company code /
+*   fee material were not supplied to the payment engine", so today Pay
+*   is inert and says why. A guessed material would instead raise a real
+*   fee against the wrong revenue account, which is the failure nobody
+*   notices until reconciliation. Fill these in once EPDA Finance
+*   confirms them:
+*     io_ctx->set_val( iv_name = c_pay_bukrs    iv_value = '...' ).
+*     io_ctx->set_val( iv_name = c_pay_material iv_value = '...' ).
+*     io_ctx->set_val( iv_name = c_pay_casesfor iv_value = '...' ).
   ENDMETHOD.
 
 
   METHOD zif_rak_journey_logic~on_change.
-    CASE to_upper( iv_field ).
-
-      WHEN c_partner_owner_1.
-        DATA(lt_partner_owner_1) = VALUE string_table( ( `PARTNER_OWNER_1` ) ( `PARTNER_PRO_1` ) ( `PARTNER_MANAGER_1` ) ).
-        DATA(lt_partner_owner_1_t) = VALUE string_table( ( `GS_DATA-PARTNER_OWNER` ) ( `GS_DATA-PARTNER_PRO` ) ( `GS_DATA-PARTNER_MANAGER` ) ).
-        set_group( io_ctx  = io_ctx
-                   iv_pick = io_ctx->get_val( c_partner_owner_1 )
-                   it_all  = lt_partner_owner_1
-                   it_tech = lt_partner_owner_1_t ).
-
-        DATA(lv_owner_finder) = xsdbool(
-          io_ctx->get_val( c_partner_owner_1 ) = `PARTNER_OWNER_1` ).
-        show_only(
-          io_ctx = io_ctx
-          it_on  = COND #( WHEN lv_owner_finder = abap_true
-                           THEN owner_finder_fields( ) )
-          it_off = COND #( WHEN lv_owner_finder = abap_false
-                           THEN owner_finder_fields( ) ) ).
-
-      WHEN OTHERS.
-    ENDCASE.
+    IF to_upper( iv_field ) = c_applicant_type.
+      write_role_flags( io_ctx = io_ctx iv_pick = io_ctx->get_val( c_applicant_type ) ).
+    ENDIF.
   ENDMETHOD.
 
 
-  METHOD zif_rak_journey_logic~on_custom_validate.
-*   REDEFINITION replaces the base implementation outright, and the base's
-*   own on_custom_validate is what refuses Submit while PAYFEE <> 'PAID' -
-*   so this call is not optional once a payment step is wired back on.
-*   Without it, E014 could be submitted with the fee unpaid.
-    rt = super->zif_rak_journey_logic~on_custom_validate(
-      io_ctx = io_ctx iv_step = iv_step ).
+  METHOD write_role_flags.
+*   Every flag written on every change, not just the chosen one - the
+*   citizen who picks Manager after picking Owner must leave
+*   GS_DATA-PARTNER_OWNER blank behind them, or the backend sees an
+*   applicant who is both.
+    DATA(lt_role) = VALUE zif_rak_journey=>tt_kv(
+      ( key = `PARTNER_OWNER_1`   value = `GS_DATA-PARTNER_OWNER` )
+      ( key = `PARTNER_PRO_1`     value = `GS_DATA-PARTNER_PRO` )
+      ( key = `PARTNER_MANAGER_1` value = `GS_DATA-PARTNER_MANAGER` ) ).
 
-*   REQUIRED does not reach grid rows. The grid field holds no scalar, so an
-*   empty grid satisfies field validation and the application submits with
-*   no rows in it - which the backend accepts.
-*
-*   Steps count from ZERO in hooks, so the guards below are one less than the
-*   step number in the seed.
-
-    IF io_ctx->get_step( ) = 5.
-*      IF lines( io_ctx->get_rows( `LICENSE` ) ) = 0.
-*        APPEND VALUE #( type = 'Error'
-*                        text = |At least one row is required in License| )
-*               TO rt_msg.
-*      ENDIF.
-    ENDIF.
-
-    IF io_ctx->get_step( ) = 10.
-*      IF lines( io_ctx->get_rows( `APPEALS` ) ) = 0.
-*        APPEND VALUE #( type = 'Error'
-*                        text = |At least one row is required in Appeals| )
-*               TO rt_msg.
-*      ENDIF.
-    ENDIF.
+    LOOP AT lt_role INTO DATA(ls_role).
+      io_ctx->set_val( iv_name  = ls_role-value
+                       iv_value = COND string( WHEN ls_role-key = iv_pick THEN 'X' ELSE '' ) ).
+    ENDLOOP.
   ENDMETHOD.
 ENDCLASS.
