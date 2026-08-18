@@ -2927,20 +2927,44 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     ENDLOOP.
 
     LOOP AT mt_rules INTO DATA(r).
-      IF r-src_field IS NOT INITIAL AND field_exists( r-src_field ) = abap_false.
-        APPEND VALUE #( type = 'Error'
-          text = |Rule { r-rule_id }: src_field '{ r-src_field }' is not a defined field → rule never fires| ) TO rt.
-      ENDIF.
-      IF r-tgt_field IS NOT INITIAL AND field_exists( r-tgt_field ) = abap_false.
-        APPEND VALUE #( type = 'Error'
-          text = |Rule { r-rule_id }: tgt_field '{ r-tgt_field }' is not a defined field → no effect| ) TO rt.
+      IF r-totable IS NOT INITIAL.
+*       Grid-scoped (ZCL_RAK_JOURNEY_RULES routes these separately, see
+*       LOAD_GRID_RULES). TGT_FIELD must be a column of the TOTABLE grid.
+*       SRC_FIELD is valid either as a column of that same grid (per row)
+*       or as an ordinary field (whole column) - checking FIELD_EXISTS
+*       alone here would flag every per-row rule as broken.
+        IF r-tgt_field IS NOT INITIAL
+           AND NOT line_exists( mt_cols[ field_name = to_upper( r-totable ) col_name = to_upper( r-tgt_field ) ] ).
+          APPEND VALUE #( type = 'Error'
+            text = |Rule { r-rule_id }: tgt_field '{ r-tgt_field }' is not a column of grid { r-totable } → no effect| ) TO rt.
+        ENDIF.
+        IF r-src_field IS NOT INITIAL
+           AND field_exists( r-src_field ) = abap_false
+           AND NOT line_exists( mt_cols[ field_name = to_upper( r-totable ) col_name = to_upper( r-src_field ) ] ).
+          APPEND VALUE #( type = 'Error'
+            text = |Rule { r-rule_id }: src_field '{ r-src_field }' is neither a defined field nor a column of grid { r-totable } → rule never fires| ) TO rt.
+        ENDIF.
+      ELSE.
+        IF r-src_field IS NOT INITIAL AND field_exists( r-src_field ) = abap_false.
+          APPEND VALUE #( type = 'Error'
+            text = |Rule { r-rule_id }: src_field '{ r-src_field }' is not a defined field → rule never fires| ) TO rt.
+        ENDIF.
+        IF r-tgt_field IS NOT INITIAL AND field_exists( r-tgt_field ) = abap_false.
+          APPEND VALUE #( type = 'Error'
+            text = |Rule { r-rule_id }: tgt_field '{ r-tgt_field }' is not a defined field → no effect| ) TO rt.
+        ENDIF.
       ENDIF.
       IF r-src_op <> 'EQ' AND r-src_op <> 'NE' AND r-src_op <> 'INITIAL' AND r-src_op <> 'NOTINITIAL'.
         APPEND VALUE #( type = 'Error'
           text = |Rule { r-rule_id }: operator '{ r-src_op }' is not one of EQ/NE/INITIAL/NOTINITIAL → never fires| ) TO rt.
       ENDIF.
+*     READONLY/EDITABLE were missing here even though ZCL_RAK_JOURNEY_RULES
+*     has always accepted them (see EVAL_RULES) - every rule using either
+*     action was flagged as broken when it was not. Confirmed live on
+*     journey AS3, rules R09/R10/R12-R15B/R18/R19.
       IF r-action <> 'SHOW' AND r-action <> 'HIDE' AND r-action <> 'REQUIRE'
-         AND r-action <> 'OPTIONAL' AND r-action <> 'SET' AND r-action <> 'CLEAR'.
+         AND r-action <> 'OPTIONAL' AND r-action <> 'READONLY' AND r-action <> 'EDITABLE'
+         AND r-action <> 'SET' AND r-action <> 'CLEAR'.
         APPEND VALUE #( type = 'Error'
           text = |Rule { r-rule_id }: action '{ r-action }' is not a valid action → no effect| ) TO rt.
       ENDIF.
