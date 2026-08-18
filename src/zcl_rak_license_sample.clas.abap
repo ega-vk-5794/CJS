@@ -250,13 +250,11 @@ CLASS zcl_rak_license_sample IMPLEMENTATION.
     lo_row4->radio_button( text      = 'LLC'
                            groupname = 'legalStructure'
                            selected  = mo_client->_bind_edit( mv_legal_llc )
-                           select    = mo_client->_event( 'LEGAL_LLC' )
-                           class     = 'sapUiTinyMarginEnd' ).
+                           select    = mo_client->_event( 'LEGAL_LLC' ) ).
     lo_row4->radio_button( text      = 'Sole Establishment'
                            groupname = 'legalStructure'
                            selected  = mo_client->_bind_edit( mv_legal_sole )
-                           select    = mo_client->_event( 'LEGAL_SOLE' )
-                           class     = 'sapUiTinyMarginEnd' ).
+                           select    = mo_client->_event( 'LEGAL_SOLE' ) ).
     lo_row4->radio_button( text      = 'Civil Company'
                            groupname = 'legalStructure'
                            selected  = mo_client->_bind_edit( mv_legal_civil )
