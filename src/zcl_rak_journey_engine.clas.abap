@@ -753,8 +753,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
             LOOP AT mo_grid->grid_cols( ls_field ) INTO DATA(gc).
               READ TABLE lt_rowcomp WITH KEY name = gc-name TRANSPORTING NO FIELDS.
               IF sy-subrc <> 0.
+*               A CHECKBOX column binds its cell's SELECTED to this component
+*               directly (same as _SEL below) - sap.m.CheckBox rejects a
+*               string there ("" is of type string, expected boolean"), so it
+*               needs the same ABAP_BOOL type _SEL already gets, not the
+*               STRING every other column gets.
                 APPEND VALUE #( name = gc-name
-                                type = COND #( WHEN gc-name CP '*_EN' THEN lo_bool ELSE lo_str ) ) TO lt_rowcomp.
+                                type = COND #( WHEN gc-name CP '*_EN' OR gc-ctype = 'CHECKBOX'
+                                              THEN lo_bool ELSE lo_str ) ) TO lt_rowcomp.
               ENDIF.
             ENDLOOP.
             DATA(lo_row)  = cl_abap_structdescr=>create( lt_rowcomp ).
