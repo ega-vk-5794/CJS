@@ -140,7 +140,7 @@ CLASS zcl_rak_demo_app IMPLEMENTATION.
       title         = 'CJS Framework Demo - Header / Items / Attachments'
       shownavbutton = abap_false ).
 
-    page->html( content = `<style>.rakHide{display:none;}</style>` sanitizecontent = abap_false ).
+    page->html( content = `<style>.rakHide\{display:none;\}</style>` sanitizecontent = abap_false ).
 
     LOOP AT mt_msg INTO DATA(ls_msg).
       page->message_strip( text     = ls_msg-text
