@@ -23,6 +23,12 @@ CLASS zcl_rak_journey_rules DEFINITION
 
   PRIVATE SECTION.
     DATA mo_e TYPE REF TO zcl_rak_journey_engine.
+*   ZRAK_T_JNY_RULE's TOTABLE column never made it into ZIF_RAK_JOURNEY's rule
+*   structure - ZCL_RAK_JOURNEY_REPO's loader does not copy it when it builds
+*   MS_CONFIG-RULES, and that structure is not this class's to add a
+*   component to. Read straight from the table instead of trying to route
+*   these through MS_CONFIG-RULES.
+    METHODS load_grid_rules.
 ENDCLASS.
 
 
@@ -38,19 +44,10 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
   METHOD eval_rules.
     CLEAR: mo_e->mt_rulehide, mo_e->mt_ruleshow, mo_e->mt_rulereq, mo_e->mt_rulero,
            mo_e->mt_ruleedit, mo_e->mt_rulegrid.
+
+    load_grid_rules( ).
+
     LOOP AT mo_e->ms_config-rules INTO DATA(ls_rule).
-*     TOTABLE names a grid (EDITABLE_TABLE/TABLE field). There is no single
-*     value to test yet - SRC_FIELD may be a column read per row, not a
-*     scalar - so the grid decides this one at render time, not here.
-      IF ls_rule-totable IS NOT INITIAL.
-        APPEND VALUE #( totable   = to_upper( ls_rule-totable )
-                        src_field = to_upper( ls_rule-src_field )
-                        src_op    = ls_rule-src_op
-                        src_value = ls_rule-src_value
-                        action    = ls_rule-action
-                        tgt_field = to_upper( ls_rule-tgt_field ) ) TO mo_e->mt_rulegrid.
-        CONTINUE.
-      ENDIF.
       DATA(lv_src) = mo_e->val_get( ls_rule-src_field ).
       DATA(lv_hit) = abap_false.
       CASE ls_rule-src_op.
@@ -87,6 +84,31 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
         WHEN 'CLEAR'.
           mo_e->val_set( iv_name = ls_rule-tgt_field iv_value = `` ).
       ENDCASE.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+* Grid-scoped rules (TOTABLE filled) read straight from ZRAK_T_JNY_RULE,
+* bypassing MS_CONFIG-RULES - see the PRIVATE SECTION note on why. Every
+* field referenced here is a real ZRAK_T_JNY_RULE column, not a component of
+* any runtime type.
+  METHOD load_grid_rules.
+    DATA(lv_journey) = mo_e->mv_journey.
+    DATA(lv_blank)   = space.
+
+    SELECT * FROM zrak_t_jny_rule
+      INTO TABLE @DATA(lt_r)
+      WHERE journey_id = @lv_journey
+        AND totable    <> @lv_blank
+      ORDER BY rule_id.
+
+    LOOP AT lt_r INTO DATA(ls_r).
+      APPEND VALUE #( totable   = to_upper( ls_r-totable )
+                      src_field = to_upper( ls_r-src_field )
+                      src_op    = ls_r-src_op
+                      src_value = ls_r-src_value
+                      action    = ls_r-action
+                      tgt_field = to_upper( ls_r-tgt_field ) ) TO mo_e->mt_rulegrid.
     ENDLOOP.
   ENDMETHOD.
 
