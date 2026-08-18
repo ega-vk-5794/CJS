@@ -212,16 +212,27 @@ CLASS zcl_rak_migrator DEFINITION
       EXPORTING ev_log    TYPE string.
 
     METHODS migrate
-      IMPORTING iv_category TYPE string
-                iv_journey  TYPE string
-                iv_cjs_id   TYPE string
-                iv_title    TYPE string
-                iv_title_ar TYPE string
-                iv_tile     TYPE string
-                iv_dept     TYPE string
-                iv_main     TYPE string DEFAULT '901'
-                iv_prefix   TYPE string DEFAULT c_sandbox
-                iv_steps    TYPE string DEFAULT ''   " optional step titles, positional
+      IMPORTING iv_category      TYPE string
+                iv_journey       TYPE string
+                iv_cjs_id        TYPE string
+                iv_title         TYPE string
+                iv_title_ar      TYPE string
+                iv_tile          TYPE string
+                iv_dept          TYPE string
+                iv_main          TYPE string DEFAULT '901'
+                iv_prefix        TYPE string DEFAULT c_sandbox
+                iv_steps         TYPE string DEFAULT ''   " optional step titles, positional
+*               One legacy SCREEN_NAME (e.g. 'E023') can carry more than one
+*               sub-flow under the SAME journey_of_screen( ) code - NE014_1_*
+*               (registration), NE014_2_* (renewal) and NE014_3_* (appeal) all
+*               derive to 'E014', because journey_of_screen( ) only strips the
+*               leading N and splits at the FIRST '_'. Left blank (the default,
+*               and every existing caller), extract_rows( ) keeps its original
+*               'N<iv_journey>_*' match and behaviour does not change. Set this
+*               to the full screen family instead ('NE014_2') to migrate just
+*               that sub-flow as its own journey while iv_journey/bknd_journey
+*               keep recording the shared raw legacy code.
+                iv_screen_prefix TYPE string DEFAULT ''
       EXPORTING ev_ok       TYPE abap_bool
                 ev_msg      TYPE string
                 et_report   TYPE tt_report.
@@ -320,9 +331,10 @@ CLASS zcl_rak_migrator DEFINITION
 
     METHODS load_text_caches.
     METHODS extract_rows
-      IMPORTING iv_category TYPE string
-                iv_journey  TYPE string OPTIONAL
-      RETURNING VALUE(rt)   TYPE tt_row.
+      IMPORTING iv_category      TYPE string
+                iv_journey       TYPE string OPTIONAL
+                iv_screen_prefix TYPE string OPTIONAL
+      RETURNING VALUE(rt)        TYPE tt_row.
     METHODS classify
       CHANGING cs_row TYPE ty_row.
     METHODS stage_rows
@@ -902,8 +914,11 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       WHERE category = @iv_category INTO TABLE @DATA(lt_scr).
     SORT lt_scr BY screen_name field_name.
 
+    DATA(lv_pat) = COND string( WHEN iv_screen_prefix IS NOT INITIAL THEN |{ iv_screen_prefix }_*|
+                                WHEN iv_journey        IS NOT INITIAL THEN |N{ iv_journey }_*|
+                                ELSE '' ).
     LOOP AT lt_src INTO DATA(ls).
-      IF iv_journey IS NOT INITIAL AND ls-screen_name NP |N{ iv_journey }_*|.
+      IF lv_pat IS NOT INITIAL AND ls-screen_name NP lv_pat.
         CONTINUE.
       ENDIF.
       DATA(r) = CORRESPONDING ty_row( ls ).
@@ -1221,8 +1236,13 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     SELECT SINGLE @abap_true FROM zrak_t_jny WHERE journey_id = @jid INTO @DATA(lv_ex).
     IF lv_ex = abap_true. ev_msg = |{ jid } already exists - teardown first|. RETURN. ENDIF.
 
-    DATA(lt) = extract_rows( iv_category = iv_category iv_journey = iv_journey ).
-    IF lt IS INITIAL. ev_msg = |No config rows for { iv_category } / { iv_journey }|. RETURN. ENDIF.
+    DATA(lt) = extract_rows( iv_category = iv_category iv_journey = iv_journey
+                             iv_screen_prefix = iv_screen_prefix ).
+    IF lt IS INITIAL.
+      ev_msg = |No config rows for { iv_category } / | &&
+               COND string( WHEN iv_screen_prefix IS NOT INITIAL THEN iv_screen_prefix ELSE iv_journey ).
+      RETURN.
+    ENDIF.
 
     stage_rows( iv_cjs_id = jid it_rows = lt ).
 

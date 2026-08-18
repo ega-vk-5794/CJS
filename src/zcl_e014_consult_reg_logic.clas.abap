@@ -1,19 +1,33 @@
 CLASS zcl_e014_consult_reg_logic DEFINITION
- PUBLIC
+  PUBLIC
+  INHERITING FROM zcl_rak_journey_logic
   FINAL
   CREATE PUBLIC.
 
+*   REVIEW-TECH: this class used to declare INTERFACES zif_rak_journey_logic
+*   directly and implement only 3 of its ~24 methods - a class that declares
+*   an interface itself (rather than inheriting a base that already does)
+*   must supply every method or it cannot activate. Switched to inheriting
+*   ZCL_RAK_JOURNEY_LOGIC, the pattern every other journey handler in this
+*   system uses (ZCL_D009_..., ZCL_EPDA_E022_..., ZCL_RAK_D_APPROVAL_LOGIC):
+*   the base supplies empty defaults for everything, including the whole
+*   payment card (fee list, gateway hand-off, the PAID gate on Submit), and
+*   this class redefines only what E014 actually needs on top of it.
   PUBLIC SECTION.
-    INTERFACES zif_rak_journey_logic.
+    METHODS zif_rak_journey_logic~on_init            REDEFINITION.
+    METHODS zif_rak_journey_logic~on_after_read       REDEFINITION.
+    METHODS zif_rak_journey_logic~on_change           REDEFINITION.
+    METHODS zif_rak_journey_logic~on_custom_validate  REDEFINITION.
 
   PRIVATE SECTION.
     CONSTANTS c_partner_owner_1 TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
 
-*   REVIEW: the children of each legacy container. The export names the
-*   CONTAINER only - UI_FIELD_LOGICS says OWNER_FINDER-V-T, never which
-*   fields live inside it - so these lists are the migration decision that
-*   most needs a second pair of eyes. A missing name leaves a field on
-*   screen holding a value the citizen cannot see and the backend still gets.
+*   The OWNER_FINDER container's real children, confirmed against the
+*   /QNV/SB_UI_DEFIN export (NE014_1_1, PARENT_CONTAINER = OWNER_FINDER):
+*   one live field, a PERSON_SEARCH named OWNER_FINDER_BP (posts as
+*   GS_DATA-OWNER). The migrator projects it under this same safe name -
+*   see ZCL_RAK_MIGRATOR->safe_of/norm_name - so no name translation is
+*   needed here.
     METHODS owner_finder_fields RETURNING VALUE(rt) TYPE string_table.
 
     METHODS set_group
@@ -35,10 +49,31 @@ CLASS ZCL_E014_CONSULT_REG_LOGIC IMPLEMENTATION.
 
 
   METHOD owner_finder_fields.
-*   REVIEW-CONTAINER: fill from the legacy screen. Left deliberately empty
-*   rather than guessed - a wrong name here hides the wrong field, and a
-*   hidden field that still posts is the worst of both.
-    CLEAR rt.
+    rt = VALUE #( ( `OWNER_FINDER_BP` ) ).
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_init.
+    super->zif_rak_journey_logic~on_init( io_ctx ).
+
+*   PAY_SCREEN is real: NE014_1_4 is this journey's own migrated payment
+*   step (see ZRAK_EPDA_MIGRATE6, which puts PAYFEE back on it after the
+*   migrator drops it). The base class's PREPARE_PAYMENT reads this to
+*   know which BKND_SCREEN's read BAdI resolves the gateway.
+    io_ctx->set_val( iv_name = c_pay_screen iv_value = 'NE014_1_4' ).
+
+*   REVIEW-BE: PAY_BUKRS / PAY_MATERIAL / PAY_CASESFOR are NOT in the
+*   /QNV/SB_UI_DEFIN export (there is nowhere on a UI screen for a company
+*   code or a fee material to appear) - they are backend Financial /
+*   FI-CA configuration for the EPDA department's registration fee, and
+*   guessing them risks a fee raised against the wrong company code or
+*   material rather than one that simply fails loudly. PREPARE_GATEWAY
+*   refuses cleanly with "company code / fee material were not supplied"
+*   until these are set, so Pay is inert rather than wrong until this is
+*   confirmed with EPDA Finance:
+*     io_ctx->set_val( iv_name = c_pay_bukrs    iv_value = '' ).
+*     io_ctx->set_val( iv_name = c_pay_material iv_value = '' ).
+*     io_ctx->set_val( iv_name = c_pay_casesfor iv_value = '' ).
   ENDMETHOD.
 
 
@@ -114,6 +149,13 @@ CLASS ZCL_E014_CONSULT_REG_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
+*   REDEFINITION replaces the base implementation outright, and the base's
+*   own on_custom_validate is what refuses Submit while PAYFEE <> 'PAID' -
+*   so this call is not optional once a payment step is wired back on.
+*   Without it, E014 could be submitted with the fee unpaid.
+    rt = super->zif_rak_journey_logic~on_custom_validate(
+      io_ctx = io_ctx iv_step = iv_step ).
+
 *   REQUIRED does not reach grid rows. The grid field holds no scalar, so an
 *   empty grid satisfies field validation and the application submits with
 *   no rows in it - which the backend accepts.
