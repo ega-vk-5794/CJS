@@ -67,6 +67,28 @@ CLASS zcl_rak_cjs DEFINITION
       END OF ty_opt,
       tt_opt TYPE STANDARD TABLE OF ty_opt WITH EMPTY KEY.
     TYPES:
+      BEGIN OF ty_col,
+        seqnr      TYPE string,
+        step_id    TYPE string,
+        field_name TYPE string,
+        col_name   TYPE string,
+        label      TYPE string,
+        label_ar   TYPE string,
+        ctrl       TYPE string,
+        shlp       TYPE string,
+        rollname   TYPE string,
+        width      TYPE string,
+        align      TYPE string,
+        hidden     TYPE abap_bool,
+        pinned     TYPE abap_bool,
+        readonly   TYPE abap_bool,
+        required   TYPE abap_bool,
+        decimals   TYPE string,
+        maxlen     TYPE string,
+        total      TYPE abap_bool,
+      END OF ty_col,
+      tt_col TYPE STANDARD TABLE OF ty_col WITH EMPTY KEY.
+    TYPES:
       BEGIN OF ty_rule,
         rule_id   TYPE string,
         src_field TYPE string,
@@ -275,6 +297,26 @@ CLASS zcl_rak_cjs DEFINITION
     DATA ov_text    TYPE string.
     DATA ov_text_ar TYPE string.
 
+    " ---- column editor ----
+    DATA cv_seq      TYPE string.
+    DATA cv_step     TYPE string.
+    DATA cv_field    TYPE string.
+    DATA cv_col      TYPE string.
+    DATA cv_label    TYPE string.
+    DATA cv_label_ar TYPE string.
+    DATA cv_ctrl     TYPE string.
+    DATA cv_shlp     TYPE string.
+    DATA cv_rollname TYPE string.
+    DATA cv_width    TYPE string.
+    DATA cv_align    TYPE string.
+    DATA cv_hidden   TYPE abap_bool.
+    DATA cv_pinned   TYPE abap_bool.
+    DATA cv_readonly TYPE abap_bool.
+    DATA cv_required TYPE abap_bool.
+    DATA cv_decimals TYPE string.
+    DATA cv_maxlen   TYPE string.
+    DATA cv_total    TYPE abap_bool.
+
     " ---- rule editor ----
     DATA rv_id      TYPE string.
     DATA rv_srcf    TYPE string.
@@ -320,6 +362,7 @@ CLASS zcl_rak_cjs DEFINITION
     DATA mt_steps        TYPE tt_step.
     DATA mt_fields       TYPE tt_fld.
     DATA mt_opts         TYPE tt_opt.
+    DATA mt_cols         TYPE tt_col.
     DATA mt_rules        TYPE tt_rule.
     DATA mt_jny          TYPE tt_jny.
     DATA mt_roll_hits    TYPE tt_roll_hit.
@@ -376,6 +419,7 @@ CLASS zcl_rak_cjs DEFINITION
              steps       TYPE tt_step,
              fields      TYPE tt_fld,
              opts        TYPE tt_opt,
+             cols        TYPE tt_col,
              rules       TYPE tt_rule,
            END OF ty_draft.
     DATA mt_cand         TYPE zcl_rak_migrator=>tt_candidate.
@@ -413,6 +457,7 @@ CLASS zcl_rak_cjs DEFINITION
     METHODS pairable    IMPORTING iv_type TYPE string RETURNING VALUE(rv) TYPE abap_bool.
     METHODS toggle_pair IMPORTING iv_step TYPE string iv_field TYPE string.
     METHODS next_oseq   IMPORTING iv_step TYPE string iv_field TYPE string RETURNING VALUE(rv) TYPE string.
+    METHODS next_cseq   IMPORTING iv_step TYPE string iv_field TYPE string RETURNING VALUE(rv) TYPE string.
     METHODS next_ruleid RETURNING VALUE(rv) TYPE string.
     METHODS field_exists IMPORTING iv_field TYPE string RETURNING VALUE(rv) TYPE abap_bool.
     METHODS lint        RETURNING VALUE(rt) TYPE tt_lint.
@@ -440,6 +485,7 @@ CLASS zcl_rak_cjs DEFINITION
     METHODS render_steps    IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_fields   IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_opts     IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
+    METHODS render_cols     IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_rules    IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_preview  IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_migrate  IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
@@ -627,6 +673,18 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         mv_msg = |Option { lv_eok } loaded — change values, then Add / update option|. mv_mtype = 'Information'.
       ENDIF.
 
+    ELSEIF strlen( ev ) > 6 AND substring( val = ev len = 6 ) = 'EDCOL_'.
+      SPLIT substring( val = ev off = 6 ) AT '~' INTO DATA(lv_ecs) DATA(lv_ecf) DATA(lv_eck).
+      READ TABLE mt_cols INTO DATA(ls_ec) WITH KEY step_id = lv_ecs field_name = lv_ecf col_name = lv_eck.
+      IF sy-subrc = 0.
+        cv_seq = ls_ec-seqnr. cv_step = ls_ec-step_id. cv_field = ls_ec-field_name. cv_col = ls_ec-col_name.
+        cv_label = ls_ec-label. cv_label_ar = ls_ec-label_ar. cv_ctrl = ls_ec-ctrl.
+        cv_shlp = ls_ec-shlp. cv_rollname = ls_ec-rollname. cv_width = ls_ec-width. cv_align = ls_ec-align.
+        cv_hidden = ls_ec-hidden. cv_pinned = ls_ec-pinned. cv_readonly = ls_ec-readonly. cv_required = ls_ec-required.
+        cv_decimals = ls_ec-decimals. cv_maxlen = ls_ec-maxlen. cv_total = ls_ec-total.
+        mv_msg = |Column { lv_eck } loaded — change values, then Add / update column|. mv_mtype = 'Information'.
+      ENDIF.
+
     ELSEIF strlen( ev ) > 7 AND substring( val = ev len = 7 ) = 'EDRULE_'.
       DATA(lv_er) = substring( val = ev off = 7 ).
       READ TABLE mt_rules INTO DATA(ls_er) WITH KEY rule_id = lv_er.
@@ -663,14 +721,19 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
             DELETE mt_steps  WHERE step_id = lv_dstep.
             DELETE mt_fields WHERE step_id = lv_dstep.
             DELETE mt_opts   WHERE step_id = lv_dstep.
-            mv_msg = |Step { lv_dstep } and its fields/options removed|. mv_mtype = 'Success'.
+            DELETE mt_cols   WHERE step_id = lv_dstep.
+            mv_msg = |Step { lv_dstep } and its fields/options/columns removed|. mv_mtype = 'Success'.
           WHEN 'FLD'.
             DELETE mt_fields WHERE step_id = lt_dk[ 2 ] AND field_name = lt_dk[ 3 ].
             DELETE mt_opts   WHERE step_id = lt_dk[ 2 ] AND field_name = lt_dk[ 3 ].
+            DELETE mt_cols   WHERE step_id = lt_dk[ 2 ] AND field_name = lt_dk[ 3 ].
             mv_msg = |Field { lt_dk[ 3 ] } removed|. mv_mtype = 'Success'.
           WHEN 'OPT'.
             DELETE mt_opts WHERE step_id = lt_dk[ 2 ] AND field_name = lt_dk[ 3 ] AND opt_key = lt_dk[ 4 ].
             mv_msg = |Option { lt_dk[ 4 ] } removed|. mv_mtype = 'Success'.
+          WHEN 'COL'.
+            DELETE mt_cols WHERE step_id = lt_dk[ 2 ] AND field_name = lt_dk[ 3 ] AND col_name = lt_dk[ 4 ].
+            mv_msg = |Column { lt_dk[ 4 ] } removed|. mv_mtype = 'Success'.
           WHEN 'RULE'.
             DELETE mt_rules WHERE rule_id = lt_dk[ 2 ].
             mv_msg = |Rule { lt_dk[ 2 ] } removed|. mv_mtype = 'Success'.
@@ -739,6 +802,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         WHEN 'CLR_STEP'. CLEAR: sv_seq, sv_step, sv_title, sv_title_ar, sv_icon, sv_cols, sv_bscreen, sv_nextreq, sv_nofwd.
         WHEN 'CLR_FLD'.  clear_field_form( ).
         WHEN 'CLR_OPT'.  CLEAR: ov_seq, ov_key, ov_text, ov_text_ar.
+        WHEN 'CLR_COL'.  CLEAR: cv_seq, cv_col, cv_label, cv_label_ar, cv_ctrl, cv_shlp, cv_rollname,
+                                 cv_width, cv_align, cv_hidden, cv_pinned, cv_readonly, cv_required,
+                                 cv_decimals, cv_maxlen, cv_total.
         WHEN 'CLR_RULE'. clear_rule_form( ).
 
         WHEN 'SEARCHROLL'.
@@ -902,6 +968,26 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
             mv_dirty = abap_true.
           ENDIF.
 
+        WHEN 'ACOL'.
+          IF cv_step IS NOT INITIAL AND cv_field IS NOT INITIAL AND cv_col IS NOT INITIAL.
+            READ TABLE mt_cols ASSIGNING FIELD-SYMBOL(<c>) WITH KEY step_id = to_upper( cv_step ) field_name = to_upper( cv_field ) col_name = to_upper( cv_col ).
+            IF sy-subrc <> 0. APPEND INITIAL LINE TO mt_cols ASSIGNING <c>. ENDIF.
+            DATA(lv_cseq) = COND string( WHEN cv_seq IS NOT INITIAL THEN cv_seq ELSE next_cseq( iv_step = cv_step iv_field = cv_field ) ).
+            <c> = VALUE #( seqnr = lv_cseq step_id = to_upper( cv_step ) field_name = to_upper( cv_field )
+                           col_name = to_upper( cv_col ) label = cv_label label_ar = cv_label_ar
+                           ctrl = to_upper( cv_ctrl ) shlp = to_upper( cv_shlp ) rollname = to_upper( cv_rollname )
+                           width = cv_width align = cv_align hidden = cv_hidden pinned = cv_pinned
+                           readonly = cv_readonly required = cv_required decimals = cv_decimals maxlen = cv_maxlen
+                           total = cv_total ).
+            resort( ).
+            CLEAR: cv_seq, cv_col, cv_label, cv_label_ar, cv_ctrl, cv_shlp, cv_rollname,
+                   cv_width, cv_align, cv_hidden, cv_pinned, cv_readonly, cv_required,
+                   cv_decimals, cv_maxlen, cv_total.
+            mv_dirty = abap_true.
+          ELSE.
+            mv_msg = 'A column needs a step, a grid field and a column name'. mv_mtype = 'Warning'.
+          ENDIF.
+
         WHEN 'ARULE'.
           IF rv_srcf IS NOT INITIAL AND rv_action IS NOT INITIAL.
             DATA(lv_rid) = COND string( WHEN rv_id IS NOT INITIAL THEN to_upper( rv_id ) ELSE next_ruleid( ) ).
@@ -960,7 +1046,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
   METHOD new_journey.
     CLEAR: mv_journey_id, mv_title, mv_title_ar, mv_subtitle, mv_subtitle_ar, mv_handler,
-           mt_steps, mt_fields, mt_opts, mt_rules, mv_preview, mv_tile_code,
+           mt_steps, mt_fields, mt_opts, mt_cols, mt_rules, mv_preview, mv_tile_code,
            mv_bknd_act, mv_bknd_cat, mv_bknd_jny, mv_bknd_fmp, mv_bknd_fmr,
            mv_roll_term, mt_roll_hits, mt_roll_preview, mv_shlp_term, mt_shlp_hits,
            mt_lint, mt_lint_row, mv_dirty, mt_f4_scan, mv_f4_scanned,
@@ -968,7 +1054,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     clear_field_form( ).
     clear_rule_form( ).
     CLEAR: sv_seq, sv_step, sv_title, sv_title_ar, sv_icon, sv_cols, sv_bscreen,
-           ov_seq, ov_step, ov_field, ov_key, ov_text, ov_text_ar.
+           ov_seq, ov_step, ov_field, ov_key, ov_text, ov_text_ar,
+           cv_seq, cv_step, cv_field, cv_col, cv_label, cv_label_ar, cv_ctrl, cv_shlp, cv_rollname,
+           cv_width, cv_align, cv_hidden, cv_pinned, cv_readonly, cv_required, cv_decimals, cv_maxlen, cv_total.
     mv_layout = 'WIZARD'. mv_variant = 'CLEAN'. mv_accent = 'Emphasized'.
     mv_brand = 'rgb(196,30,38)'. mv_navy = 'rgb(16,35,62)'. mv_density = 'Cozy'.
     mv_show_act = abap_true. mv_active = abap_true. mv_theme_own = abap_false.
@@ -983,7 +1071,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     IF sy-subrc <> 0.
       mv_msg = 'Journey not found'. mv_mtype = 'Error'. RETURN.
     ENDIF.
-    CLEAR: mt_steps, mt_fields, mt_opts, mt_rules.
+    CLEAR: mt_steps, mt_fields, mt_opts, mt_cols, mt_rules.
     mv_journey_id = h-journey_id. mv_title = h-title. mv_title_ar = h-title_ar.
     mv_layout = h-layout_mode. mv_variant = h-theme_variant. mv_accent = h-accent_type.
     mv_brand = h-brand_color. mv_navy = h-navy_color. mv_density = h-density.
@@ -1025,6 +1113,16 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     LOOP AT lo INTO DATA(o).
       APPEND VALUE #( seqnr = |{ o-seqnr }| step_id = o-step_id field_name = o-field_name
                       opt_key = o-opt_key opt_text = o-opt_text opt_text_ar = o-opt_text_ar ) TO mt_opts.
+    ENDLOOP.
+    SELECT * FROM zrak_t_jny_col INTO TABLE @DATA(lc) WHERE journey_id = @mv_sel ORDER BY step_id, field_name, seqnr.
+    LOOP AT lc INTO DATA(c).
+      APPEND VALUE #( seqnr = |{ c-seqnr }| step_id = c-step_id field_name = c-field_name col_name = c-col_name
+                      label = c-zlabel label_ar = c-zlabel_ar ctrl = c-ctrl shlp = c-shlp rollname = c-rollname
+                      width = c-width align = c-align
+                      hidden = xsdbool( c-hidden = 'X' ) pinned = xsdbool( c-pinned = 'X' )
+                      readonly = xsdbool( c-readonly = 'X' ) required = xsdbool( c-required = 'X' )
+                      decimals = |{ c-decimals }| maxlen = |{ c-maxlen }|
+                      total = xsdbool( c-total = 'X' ) ) TO mt_cols.
     ENDLOOP.
     SELECT * FROM zrak_t_jny_rule INTO TABLE @DATA(lr) WHERE journey_id = @mv_sel ORDER BY rule_id.
     LOOP AT lr INTO DATA(r).
@@ -1148,6 +1246,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DELETE FROM zrak_t_jny_step WHERE journey_id = @jid.
     DELETE FROM zrak_t_jny_fld  WHERE journey_id = @jid.
     DELETE FROM zrak_t_jny_opt  WHERE journey_id = @jid.
+    DELETE FROM zrak_t_jny_col  WHERE journey_id = @jid.
     DELETE FROM zrak_t_jny_rule WHERE journey_id = @jid.
 
     DATA lv_now TYPE timestampl.
@@ -1205,6 +1304,22 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       INSERT zrak_t_jny_opt FROM @( VALUE #( mandt = sy-mandt journey_id = jid step_id = o-step_id
         field_name = o-field_name opt_key = o-opt_key seqnr = to_int( o-seqnr )
         opt_text = o-opt_text opt_text_ar = o-opt_text_ar ) ).
+      IF sy-subrc <> 0.
+        lv_err = abap_true.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+    LOOP AT mt_cols INTO DATA(c).
+      INSERT zrak_t_jny_col FROM @( VALUE #( mandt = sy-mandt journey_id = jid step_id = c-step_id
+        field_name = c-field_name col_name = c-col_name seqnr = to_int( c-seqnr )
+        zlabel = c-label zlabel_ar = c-label_ar ctrl = c-ctrl shlp = c-shlp rollname = c-rollname
+        width = c-width align = c-align
+        hidden   = COND #( WHEN c-hidden   = abap_true THEN 'X' ELSE ' ' )
+        pinned   = COND #( WHEN c-pinned   = abap_true THEN 'X' ELSE ' ' )
+        readonly = COND #( WHEN c-readonly = abap_true THEN 'X' ELSE ' ' )
+        required = COND #( WHEN c-required = abap_true THEN 'X' ELSE ' ' )
+        decimals = to_int( c-decimals ) maxlen = to_int( c-maxlen )
+        total    = COND #( WHEN c-total    = abap_true THEN 'X' ELSE ' ' ) ) ).
       IF sy-subrc <> 0.
         lv_err = abap_true.
         EXIT.
@@ -1287,6 +1402,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     SELECT * FROM zrak_t_jny_opt INTO TABLE @DATA(lo) WHERE journey_id = @mv_sel.
     LOOP AT lo ASSIGNING FIELD-SYMBOL(<o>). <o>-journey_id = lv_to. ENDLOOP.
     IF lo IS NOT INITIAL. INSERT zrak_t_jny_opt FROM TABLE @lo. ENDIF.
+    SELECT * FROM zrak_t_jny_col INTO TABLE @DATA(lc) WHERE journey_id = @mv_sel.
+    LOOP AT lc ASSIGNING FIELD-SYMBOL(<c>). <c>-journey_id = lv_to. ENDLOOP.
+    IF lc IS NOT INITIAL. INSERT zrak_t_jny_col FROM TABLE @lc. ENDIF.
     SELECT * FROM zrak_t_jny_rule INTO TABLE @DATA(lr) WHERE journey_id = @mv_sel.
     LOOP AT lr ASSIGNING FIELD-SYMBOL(<r>). <r>-journey_id = lv_to. ENDLOOP.
     IF lr IS NOT INITIAL. INSERT zrak_t_jny_rule FROM TABLE @lr. ENDIF.
@@ -1436,6 +1554,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     render_steps( io ).
     render_fields( io ).
     render_opts( io ).
+    render_cols( io ).
     render_rules( io ).
     render_doc( io ).
   ENDMETHOD.
@@ -1822,6 +1941,68 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD render_cols.
+*   Grid columns for an EDITABLE_TABLE/TABLE field - ZRAK_T_JNY_COL, read by
+*   ZCL_RAK_JOURNEY_GRID->GRID_COLS( ) in preference to the pipe-separated
+*   Default value spec on the field itself. Same shape and the same
+*   step/field-scoping convention as Options above: Step ID / Field name are
+*   plain inputs the author must match to an existing grid field by hand,
+*   not auto-filled from the Fields panel.
+    DATA(p) = io->panel( headertext = 'Columns (grid fields)' expandable = abap_true expanded = abap_false class = 'sapUiSmallMarginBeginEnd' ).
+    DATA(f) = p->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '3' columnsl = '3' columnsm = '1' )->content( ns = 'form' ).
+    f->label( 'Step ID' ).       f->input( value = mo_client->_bind_edit( cv_step ) ).
+    f->label( 'Grid field name' ). f->input( value = mo_client->_bind_edit( cv_field ) ).
+    f->label( 'Seq' ).           f->input( value = mo_client->_bind_edit( cv_seq ) placeholder = 'blank = auto' ).
+    f->label( 'Column name' ).   f->input( value = mo_client->_bind_edit( cv_col ) ).
+    f->label( 'Label (EN)' ).    f->input( value = mo_client->_bind_edit( cv_label ) ).
+    f->label( 'Label (AR)' ).    f->input( value = mo_client->_bind_edit( cv_label_ar ) ).
+    f->label( 'Control' ).
+    DATA(cc) = f->combobox( selectedkey = mo_client->_bind_edit( cv_ctrl ) ).
+    LOOP AT VALUE string_table( ( `INPUT` ) ( `NUMBER` ) ( `DATE` ) ( `SELECT` ) ( `TEXT` ) ( `DISPLAY` ) ( `CHECKBOX` ) )
+         INTO DATA(lv_ct).
+      cc->item( key = lv_ct text = lv_ct ).
+    ENDLOOP.
+    f->label( 'Search help' ).   f->input( value = mo_client->_bind_edit( cv_shlp )
+      placeholder = 'not yet wired to a real F4 popup' ).
+    f->label( 'Data element (SELECT)' ). f->input( value = mo_client->_bind_edit( cv_rollname ) ).
+    f->label( 'Width' ).         f->input( value = mo_client->_bind_edit( cv_width ) placeholder = 'e.g. 8rem' ).
+    f->label( 'Align' ).
+    DATA(ca) = f->combobox( selectedkey = mo_client->_bind_edit( cv_align ) ).
+    LOOP AT VALUE string_table( ( `Begin` ) ( `Center` ) ( `End` ) ) INTO DATA(lv_ca).
+      ca->item( key = lv_ca text = lv_ca ).
+    ENDLOOP.
+    f->label( 'Hidden' ).        f->checkbox( selected = mo_client->_bind_edit( cv_hidden ) ).
+    f->label( 'Pinned' ).        f->checkbox( selected = mo_client->_bind_edit( cv_pinned ) ).
+    f->label( 'Read only' ).     f->checkbox( selected = mo_client->_bind_edit( cv_readonly ) ).
+    f->label( 'Required' ).      f->checkbox( selected = mo_client->_bind_edit( cv_required ) ).
+    f->label( 'Decimals' ).      f->input( value = mo_client->_bind_edit( cv_decimals ) ).
+    f->label( 'Max length' ).    f->input( value = mo_client->_bind_edit( cv_maxlen ) ).
+    f->label( 'Total (sum in footer)' ). f->checkbox( selected = mo_client->_bind_edit( cv_total ) ).
+    DATA(bc) = p->hbox( class = 'sapUiSmallMargin' ).
+    bc->button( text = 'Add / update column' icon = 'sap-icon://add' type = 'Emphasized' press = mo_client->_event( 'ACOL' ) ).
+    bc->button( text = 'Clear form' icon = 'sap-icon://clear-all' press = mo_client->_event( 'CLR_COL' ) class = 'sapUiTinyMarginBegin' ).
+    DATA(tc) = p->table( class = 'sapUiSmallMarginBeginEnd' ).
+    DATA(cco) = tc->columns( ).
+    cco->column( )->text( 'Seq' ). cco->column( )->text( 'Step' ). cco->column( )->text( 'Field' ).
+    cco->column( )->text( 'Column' ). cco->column( )->text( 'Label' ). cco->column( )->text( 'Ctrl' ). cco->column( )->text( '' ).
+    DATA(itc) = tc->items( ).
+    LOOP AT mt_cols INTO DATA(rc).
+      DATA(lv_devc) = |DL_COL~{ rc-step_id }~{ rc-field_name }~{ rc-col_name }|.
+      DATA(cellsc) = itc->column_list_item( )->cells( ).
+      cellsc->text( rc-seqnr )->text( rc-step_id )->text( rc-field_name )->text( rc-col_name )->text( rc-label )->text( rc-ctrl ).
+      DATA(actc) = cellsc->hbox( ).
+      actc->button( icon    = 'sap-icon://edit'
+                    type    = 'Transparent'
+                    tooltip = 'Edit'
+                    press   = mo_client->_event( |EDCOL_{ rc-step_id }~{ rc-field_name }~{ rc-col_name }| ) ).
+      actc->button( icon = COND #( WHEN mv_arm_evt = lv_devc THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                    type = COND #( WHEN mv_arm_evt = lv_devc THEN 'Reject' ELSE 'Transparent' )
+                    tooltip = COND #( WHEN mv_arm_evt = lv_devc THEN 'Click again to confirm delete' ELSE 'Delete' )
+                    press = mo_client->_event( lv_devc ) ).
+    ENDLOOP.
+  ENDMETHOD.
+
+
   METHOD render_rules.
     DATA(p) = io->panel( headertext = 'Rules (side effects)' expandable = abap_true expanded = abap_false class = 'sapUiSmallMarginBeginEnd' ).
     DATA(f) = p->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '2' columnsl = '2' columnsm = '1' )->content( ns = 'form' ).
@@ -2023,7 +2204,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   unsaved edits - is not part of the journey and is cleared before writing.
     DATA(ls_h) = snapshot( ).
     CLEAR: ls_h-sel, ls_h-preview, ls_h-dirty,
-           ls_h-steps, ls_h-fields, ls_h-opts, ls_h-rules.
+           ls_h-steps, ls_h-fields, ls_h-opts, ls_h-cols, ls_h-rules.
 
     DATA lt_out TYPE string_table.
     APPEND |{ c_doc } { to_upper( mv_journey_id ) }| TO lt_out.
@@ -2036,6 +2217,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     ENDLOOP.
     LOOP AT mt_opts INTO DATA(ls_o).
       APPEND |O { /ui2/cl_json=>serialize( data = ls_o compress = abap_true ) }| TO lt_out.
+    ENDLOOP.
+    LOOP AT mt_cols INTO DATA(ls_c).
+      APPEND |C { /ui2/cl_json=>serialize( data = ls_c compress = abap_true ) }| TO lt_out.
     ENDLOOP.
     LOOP AT mt_rules INTO DATA(ls_r).
       APPEND |R { /ui2/cl_json=>serialize( data = ls_r compress = abap_true ) }| TO lt_out.
@@ -2100,6 +2284,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
               CLEAR ls_o.
               /ui2/cl_json=>deserialize( EXPORTING json = lv_json CHANGING data = ls_o ).
               APPEND ls_o TO ls_d-opts.
+            WHEN 'C'.
+              DATA ls_c TYPE ty_col.
+              CLEAR ls_c.
+              /ui2/cl_json=>deserialize( EXPORTING json = lv_json CHANGING data = ls_c ).
+              APPEND ls_c TO ls_d-cols.
             WHEN 'R'.
               DATA ls_r TYPE ty_rule.
               CLEAR ls_r.
@@ -2820,10 +3009,15 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     ENDLOOP.
 
 *   === EDITABLE_TABLE needs a column spec and a tech_name ====================
+*   A column spec now comes from either place GRID_COLS( ) itself reads:
+*   the packed Default value, or one or more ZRAK_T_JNY_COL rows. Checking
+*   only Default value would flag every grid already migrated to the
+*   Columns panel as an error it does not have.
     LOOP AT mt_fields INTO DATA(et) WHERE ftype = 'EDITABLE_TABLE'.
-      IF et-default_val IS INITIAL.
+      IF et-default_val IS INITIAL
+         AND NOT line_exists( mt_cols[ step_id = et-step_id field_name = et-field_name ] ).
         APPEND VALUE #( type = 'Error'
-          text = |{ et-step_id }/{ et-field_name }: no column spec — renders a warning strip, not a grid. Set Default value to pipe-separated name:label:type entries| ) TO rt.
+          text = |{ et-step_id }/{ et-field_name }: no column spec — renders a warning strip, not a grid. Set Default value to pipe-separated name:label:type entries, or add rows in the Columns panel| ) TO rt.
       ENDIF.
       IF et-tech_name IS INITIAL.
         APPEND VALUE #( type = 'Error'
@@ -3233,6 +3427,16 @@ TO rt.
     DATA lv_max TYPE i.
     LOOP AT mt_opts INTO DATA(o) WHERE step_id = to_upper( iv_step ) AND field_name = to_upper( iv_field ).
       DATA(n) = to_int( o-seqnr ).
+      IF n > lv_max. lv_max = n. ENDIF.
+    ENDLOOP.
+    rv = |{ lv_max + 10 }|.
+  ENDMETHOD.
+
+
+  METHOD next_cseq.
+    DATA lv_max TYPE i.
+    LOOP AT mt_cols INTO DATA(c) WHERE step_id = to_upper( iv_step ) AND field_name = to_upper( iv_field ).
+      DATA(n) = to_int( c-seqnr ).
       IF n > lv_max. lv_max = n. ENDIF.
     ENDLOOP.
     rv = |{ lv_max + 10 }|.
@@ -4117,6 +4321,21 @@ title = 'Showcase — all controls' sub = 'Every field type and capability, for 
       APPEND mt_opts[ lk3-idx ] TO lt_o.
     ENDLOOP.
     mt_opts = lt_o.
+
+    CLEAR lt_k.
+    LOOP AT mt_cols INTO DATA(ls_c).
+      DATA(lv_i4) = sy-tabix.
+      APPEND VALUE #( k1  = ls_c-step_id
+                      k2  = ls_c-field_name
+                      num = to_int( ls_c-seqnr )
+                      idx = lv_i4 ) TO lt_k.
+    ENDLOOP.
+    SORT lt_k BY k1 ASCENDING k2 ASCENDING num ASCENDING idx ASCENDING.
+    DATA lt_c TYPE tt_col.
+    LOOP AT lt_k INTO DATA(lk4).
+      APPEND mt_cols[ lk4-idx ] TO lt_c.
+    ENDLOOP.
+    mt_cols = lt_c.
   ENDMETHOD.
 
 
@@ -4137,6 +4356,7 @@ title = 'Showcase — all controls' sub = 'Every field type and capability, for 
     mv_dirty      = is_draft-dirty.
     mt_steps      = is_draft-steps.       mt_fields      = is_draft-fields.
     mt_opts       = is_draft-opts.        mt_rules       = is_draft-rules.
+    mt_cols       = is_draft-cols.
     CLEAR: mt_lint, mt_lint_row, mv_lint_ok.
   ENDMETHOD.
 
@@ -4249,7 +4469,8 @@ title = 'Showcase — all controls' sub = 'Every field type and capability, for 
                   preview    = mv_preview     sel       = mv_sel
                   dirty      = mv_dirty
                   steps      = mt_steps       fields    = mt_fields
-                  opts       = mt_opts        rules     = mt_rules ).
+                  opts       = mt_opts        rules     = mt_rules
+                  cols       = mt_cols ).
   ENDMETHOD.
 
 
