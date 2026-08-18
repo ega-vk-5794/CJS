@@ -109,7 +109,7 @@ START-OF-SELECTION.
         iv_title          = ls_job-title
         iv_title_ar       = ls_job-title_ar
         iv_tile           = ls_job-jid
-        iv_dept           = p_dept
+        iv_dept           = CONV string( p_dept )
         iv_prefix         = ''                 " bare journey_id - see class-naming note above
         iv_screen_prefix  = ls_job-scr_prefix
       IMPORTING
