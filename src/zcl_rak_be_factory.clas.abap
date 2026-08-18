@@ -22,12 +22,6 @@ ENDCLASS.
 CLASS ZCL_RAK_BE_FACTORY IMPLEMENTATION.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Static Public Method ZCL_RAK_BE_FACTORY=>GET
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IS_CONFIG                      TYPE        ZIF_RAK_JOURNEY=>TY_CONFIG
-* | [<-()] RO_BACKEND                     TYPE REF TO ZIF_RAK_JOURNEY_BACKEND
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD get.
 
     DATA(lv_type) = resolve_type( is_config ).
@@ -48,12 +42,6 @@ CLASS ZCL_RAK_BE_FACTORY IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Static Private Method ZCL_RAK_BE_FACTORY=>RESOLVE_TYPE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IS_CONFIG                      TYPE        ZIF_RAK_JOURNEY=>TY_CONFIG
-* | [<-()] RV_TYPE                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD resolve_type.
     rv_type = to_upper( is_config-backend-category ).
   ENDMETHOD.

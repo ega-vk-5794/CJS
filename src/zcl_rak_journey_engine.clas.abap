@@ -146,11 +146,6 @@ ENDCLASS.
 CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->Z2UI5_IF_APP~MAIN
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] CLIENT                         TYPE REF TO Z2UI5_IF_CLIENT
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD z2ui5_if_app~main.
     mv_req_t0 = tick( ).
     ensure_parts( ).
@@ -551,10 +546,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->READ_PARAMS
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD read_params.
     CLEAR mt_param.
     DATA(lv_q) = mo_client->get( )-s_config-search.
@@ -572,10 +563,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->INIT
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD init.
     DATA(lv_p) = to_upper( zif_rak_journey~get_param( 'lang' ) ).
     mv_lang = COND #( WHEN lv_p = 'AR' OR lv_p = 'A' THEN 'A'
@@ -722,13 +709,16 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         ENDTRY.
       ENDIF.
     ENDIF.
+    DATA(lv_sp) = zif_rak_journey~get_param( 'step' ).
+    IF lv_sp IS NOT INITIAL AND lv_sp CO '0123456789'.
+      DATA(lv_si) = CONV i( lv_sp ).
+      IF lv_si > 0 AND lv_si < lines( ms_config-steps ).
+        mv_step = lv_si.
+      ENDIF.
+    ENDIF.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->BUILD_MODEL
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD build_model.
     DATA lt_comp TYPE cl_abap_structdescr=>component_table.
 
@@ -854,12 +844,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->VAL_GET
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<-()] RV                             TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD val_get.
     DATA(lv_key) = to_upper( condense( iv_name ) ).
     FIELD-SYMBOLS <model> TYPE any.
@@ -903,12 +887,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->VAL_SET
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_NAME                        TYPE        STRING
-* | [--->] IV_VALUE                       TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD val_set.
     DATA(lv_key) = to_upper( condense( iv_name ) ).
     IF lv_key IS INITIAL.
@@ -980,34 +958,16 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~GET_VAL
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<-()] RV_VALUE                       TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~get_val.
     rv_value = val_get( iv_name ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~SET_VAL
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_NAME                        TYPE        STRING
-* | [--->] IV_VALUE                       TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~set_val.
     val_set( iv_name = iv_name iv_value = iv_value ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~GET_PARAM
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<-()] RV_VALUE                       TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~get_param.
     DATA(lv_k) = to_upper( iv_name ).
 
@@ -1034,52 +994,26 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~ADD_MSG
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_TYPE                        TYPE        STRING
-* | [--->] IV_TEXT                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~add_msg.
     APPEND VALUE #( type = iv_type text = iv_text ) TO mt_msg.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~GET_STEP
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RV_STEP                        TYPE        I
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~get_step.
     rv_step = mv_step.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~GET_CONFIG
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RS_CONFIG                      TYPE        TY_CONFIG
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~get_config.
     rs_config = ms_config.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->CHANGE_EVT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<-()] RV                             TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD change_evt.
     rv = mo_client->_event( |CHANGE_{ iv_name }| ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->HANDLE_NEXT
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD handle_next.
     IF zif_rak_journey~commit_step( ) = abap_false.
       RETURN.
@@ -1088,10 +1022,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->HANDLE_SUBMIT
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD handle_submit.
     IF mv_submitted = abap_true.
       RETURN.
@@ -1185,10 +1115,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->HANDLE_SAVE
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD handle_save.
     IF mo_logic IS BOUND.
       TRY.
@@ -1236,10 +1162,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->HANDLE_DELETE
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD handle_delete.
     CLEAR mv_popup.
 
@@ -1313,10 +1235,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->BP_SEARCH
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD bp_search.
     CLEAR mt_bp_hits.
     DATA(lv_term) = condense( mv_bp_term ).
@@ -1366,10 +1284,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->CLEAR_FIELD_STATES
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD clear_field_states.
     LOOP AT ms_config-steps INTO DATA(ls_step).
       LOOP AT ls_step-fields INTO DATA(ls_f).
@@ -1379,10 +1293,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->DROP_ATTACHMENTS
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD drop_attachments.
     LOOP AT mt_attach INTO DATA(ls_att).
       zcl_rak_cj_att_store=>delete( ls_att-guid ).
@@ -1391,10 +1301,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ENSURE_CONFIG
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD ensure_config.
     IF ms_config-journey_id IS NOT INITIAL.
       RETURN.
@@ -1444,34 +1350,17 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->SET_FIELD_STATE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_NAME                        TYPE        STRING
-* | [--->] IV_STATE                       TYPE        STRING
-* | [--->] IV_TEXT                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD set_field_state.
     val_set( iv_name = |{ iv_name }_VS|  iv_value = iv_state ).
     val_set( iv_name = |{ iv_name }_VST| iv_value = iv_text ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->BTN_EVT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_ID                          TYPE        STRING
-* | [<-()] RV                             TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD btn_evt.
     rv = mo_client->_event( iv_id ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->CHECK_TYPES
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD check_types.
     LOOP AT ms_config-steps INTO DATA(ls_step).
       LOOP AT ls_step-fields INTO DATA(ls_f).
@@ -1488,12 +1377,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->FIELD_EXISTS
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<-()] RV                             TYPE        ABAP_BOOL
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD field_exists.
     LOOP AT ms_config-steps INTO DATA(ls_step).
       READ TABLE ls_step-fields TRANSPORTING NO FIELDS WITH KEY name = iv_name.
@@ -1505,12 +1388,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->OPT_EVT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<-()] RV                             TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD opt_evt.
     IF line_exists( ms_config-rules[ src_field = to_upper( iv_name ) ] ).
       rv = mo_client->_event( |CHANGE_{ iv_name }| ).
@@ -1518,12 +1395,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->SAFE_FIELD
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<-()] RS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD safe_field.
     DATA(lv_want) = to_upper( condense( iv_name ) ).
     LOOP AT ms_config-steps INTO DATA(ls_step).
@@ -1537,95 +1408,48 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~BIND
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<-()] RV                             TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~bind.
     rv = mo_render->bind_of( iv_name ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~CLOSE_POPUP
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~close_popup.
     CLEAR: mv_popup, mv_popup_id.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~EVENT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_ID                          TYPE        STRING
-* | [<-()] RV                             TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~event.
     rv = mo_client->_event( |HPOP_{ iv_id }| ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~GET_CASE
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RV                             TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~get_case.
     rv = mv_case_guid.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~GET_HANDLE
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RS_HANDLE                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~get_handle.
     rs_handle = ms_handle.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~OPEN_POPUP
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_ID                          TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~open_popup.
     mv_popup    = 'CUST'.
     mv_popup_id = iv_id.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~OPEN_URL
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_URL                         TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~open_url.
     CHECK iv_url IS NOT INITIAL.
     mv_open_url = iv_url.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~SET_HANDLE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IS_HANDLE                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~set_handle.
     ms_handle = is_handle.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ATT_MAX_MB
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD_MB                    TYPE        I
-* | [<-()] RV                             TYPE        I
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD att_max_mb.
     IF iv_field_mb > 0.
       rv = iv_field_mb.
@@ -1652,12 +1476,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->BP_OF
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_IN                          TYPE        STRING
-* | [<-()] RV                             TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD bp_of.
     DATA(lv_in) = to_upper( condense( iv_in ) ).
 
@@ -1685,11 +1503,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->CASE_REFERENCE
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RV                             TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD case_reference.
     rv = COND #( WHEN mv_case_number IS NOT INITIAL THEN mv_case_number
                  ELSE mv_case_guid ).
@@ -1703,10 +1516,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ENSURE_PARTS
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD ensure_parts.
     CREATE OBJECT mo_css EXPORTING io_engine = me.
     CREATE OBJECT mo_grid EXPORTING io_engine = me.
@@ -1716,10 +1525,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->GATE_REPORT
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD gate_report.
     IF mv_trace = abap_false.
       RETURN.
@@ -1785,10 +1590,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->MERGE_DYNAMIC_STEPS
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD merge_dynamic_steps.
 
     CLEAR: mt_dyn_required, mv_dyn_note.
@@ -1851,11 +1652,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->RADIO_KEY_BACK
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD radio_key_back.
     DATA(ls_f) = safe_field( iv_field ).
     IF to_upper( ls_f-type ) <> 'RADIO'.
@@ -1888,10 +1684,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->RESOLVE_IDENTITY
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD resolve_identity.
 
     mv_loginbp = bp_of( VALUE #( mt_param[ key = 'LOGINBP' ]-value OPTIONAL ) ).
@@ -1941,11 +1733,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->TAKE_CASE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_CASE                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD take_case.
     IF iv_case IS INITIAL OR iv_case = mv_case_number.
       RETURN.
@@ -1959,22 +1746,11 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->TICK
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RV                             TYPE        I
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD tick.
     GET RUN TIME FIELD rv.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->TOCK
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_T0                          TYPE        I
-* | [<-()] RV_MS                          TYPE        I
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD tock.
     DATA lv_now TYPE i.
     GET RUN TIME FIELD lv_now.
@@ -1985,11 +1761,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->TRACE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_TEXT                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD trace.
     IF mv_trace = abap_false.
       RETURN.
@@ -1998,11 +1769,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->TRACE_GATE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_TEXT                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD trace_gate.
     mt_gate = VALUE #( BASE mt_gate ( type = 'Error' text = iv_text ) ).
     zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-gate
@@ -2012,12 +1778,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->TRACE_PERF
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_LABEL                       TYPE        STRING
-* | [--->] IV_MS                          TYPE        I
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD trace_perf.
     IF iv_ms >= zcl_rak_cj_evt=>c_slow_ms.
       zcl_rak_cj_evt=>add( iv_type     = zcl_rak_cj_evt=>c_type-perf
@@ -2037,10 +1797,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~ADVANCE_STEP
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~advance_step.
     IF mv_step < lines( ms_config-steps ) - 1.
       mv_step = mv_step + 1.
@@ -2057,11 +1813,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~CLEAR_PROPS
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING(optional)
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~clear_props.
     IF iv_field IS INITIAL.
       CLEAR mt_ovr.
@@ -2071,11 +1822,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~COMMIT_STEP
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RV_OK                          TYPE        ABAP_BOOL
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~commit_step.
     clear_field_states( ).
     mt_msg = mo_rules->validate_step( mv_step ).
@@ -2141,43 +1887,21 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~GET_ATTACHMENT_FILES
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RT                             TYPE        /QNV/SBUILD_ATTACHMENTS_TT
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~get_attachment_files.
     rt = mo_be->attachments_for_backend( ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~GET_BACKEND_ATTACHMENTS
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RT                             TYPE        /QNV/SBUILD_ATTACHMENTS_TT
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~get_backend_attachments.
     rt = mt_be_attach.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~GET_BACKEND_TABLE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [<-()] RS                             TYPE        TY_TABLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~get_backend_table.
     rs = VALUE #( mt_be_table[ field = to_upper( condense( iv_field ) ) ]-data OPTIONAL ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~GET_GRID
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [<-()] RV                             TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~get_grid.
     DATA lt_ig TYPE tt_gcol.
     IF mo_grid->grid_check( EXPORTING iv_field = iv_field IMPORTING et_cols = lt_ig ) = abap_false.
@@ -2187,12 +1911,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~GET_GRID_DATA
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [<-()] RS                             TYPE        TY_TABLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~get_grid_data.
     DATA lt_gc TYPE tt_gcol.
     IF mo_grid->grid_check( EXPORTING iv_field = iv_field IMPORTING et_cols = lt_gc ) = abap_false.
@@ -2236,13 +1954,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~RENDER_UPLOAD
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_VIEW                        TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [--->] IV_KEY                         TYPE        STRING(optional)
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~render_upload.
 
     DATA(ls_f) = safe_field( iv_field ).
@@ -2274,12 +1985,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~SET_GRID
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [--->] IV_JSON                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~set_grid.
     DATA lt_ig TYPE tt_gcol.
     IF mo_grid->grid_check( EXPORTING iv_field = iv_field IMPORTING et_cols = lt_ig ) = abap_false.
@@ -2289,12 +1994,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~SET_GRID_DATA
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [--->] IS_DATA                        TYPE        TY_TABLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~set_grid_data.
     DATA lt_gc TYPE tt_gcol.
     IF mo_grid->grid_check( EXPORTING iv_field = iv_field IMPORTING et_cols = lt_gc ) = abap_false.
@@ -2361,44 +2060,21 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~SET_HIDDEN
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [--->] IV_ON                          TYPE        ABAP_BOOL (default =ABAP_TRUE)
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~set_hidden.
     mo_rules->set_prop( iv_field = iv_field iv_prop = 'HIDDEN' iv_on = iv_on ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~SET_READONLY
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [--->] IV_ON                          TYPE        ABAP_BOOL (default =ABAP_TRUE)
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~set_readonly.
     mo_rules->set_prop( iv_field = iv_field iv_prop = 'READONLY' iv_on = iv_on ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~SET_REFERENCE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_REF                         TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~set_reference.
     mv_ref_ovr = condense( iv_ref ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_ENGINE->ZIF_RAK_JOURNEY~SET_REQUIRED
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [--->] IV_ON                          TYPE        ABAP_BOOL (default =ABAP_TRUE)
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey~set_required.
     mo_rules->set_prop( iv_field = iv_field iv_prop = 'REQUIRED' iv_on = iv_on ).
   ENDMETHOD.

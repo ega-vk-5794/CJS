@@ -1,0 +1,2251 @@
+[
+  {
+    "category": "Action",
+    "controls": [
+      {
+        "text": "Action Sheet",
+        "fullName": "sap.m.ActionSheet",
+        "sapMethod": "ACTION_SHEET"
+      },
+      {
+        "text": "Breadcrumbs",
+        "fullName": "sap.m.Breadcrumbs",
+        "sapMethod": "BREADCRUMBS"
+      },
+      {
+        "text": "Button",
+        "fullName": "sap.m.Button",
+        "sapMethod": "BUTTON"
+      },
+      {
+        "text": "Generic Tag",
+        "fullName": "sap.m.GenericTag",
+        "sapMethod": "GENERIC_TAG"
+      },
+      {
+        "text": "Icon Tab Header",
+        "fullName": "sap.m.IconTabHeader",
+        "sapMethod": "ICON_TAB_HEADER"
+      },
+      {
+        "text": "Info Label",
+        "fullName": "sap.tnt.InfoLabel",
+        "sapMethod": "INFO_LABEL"
+      },
+      {
+        "text": "Link",
+        "fullName": "sap.m.Link",
+        "sapMethod": "LINK"
+      },
+      {
+        "text": "Menu",
+        "fullName": "sap.m.table.columnmenu.Menu",
+        "sapMethod": "TABLE_COLUMNMENU_MENU",
+        "nameSource": "generated"
+      },
+      {
+        "text": "Menu (sap.m)",
+        "fullName": "sap.m.Menu",
+        "sapMethod": "MENU"
+      },
+      {
+        "text": "Menu (sap.ui.unified)",
+        "fullName": "sap.ui.unified.Menu",
+        "sapMethod": "UI_UNIFIED_MENU"
+      },
+      {
+        "text": "Menu Base",
+        "fullName": "sap.m.table.columnmenu.MenuBase",
+        "sapMethod": "MENU_BASE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Menu\""
+      },
+      {
+        "text": "Menu Button",
+        "fullName": "sap.m.MenuButton",
+        "sapMethod": "MENU_BUTTON"
+      },
+      {
+        "text": "Menu Item",
+        "fullName": "sap.m.MenuItem",
+        "sapMethod": "MENU_ITEM",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Menu\""
+      },
+      {
+        "text": "Menu List Item",
+        "fullName": "sap.m.MenuListItem",
+        "sapMethod": "MENU_LIST_ITEM",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Menu\""
+      },
+      {
+        "text": "Menu Wrapper",
+        "fullName": "sap.m.MenuWrapper",
+        "sapMethod": "MENU_WRAPPER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Menu\""
+      },
+      {
+        "text": "Navigation List",
+        "fullName": "sap.tnt.NavigationList",
+        "sapMethod": "NAVIGATION_LIST"
+      },
+      {
+        "text": "Navigation List Menu Item",
+        "fullName": "sap.tnt.NavigationListMenuItem",
+        "sapMethod": "NAVIGATION_LIST_MENU_ITEM",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"NavigationList\""
+      },
+      {
+        "text": "Overflow Toolbar Button",
+        "fullName": "sap.m.OverflowToolbarButton",
+        "sapMethod": "OVERFLOW_TOOLBAR_BUTTON"
+      },
+      {
+        "text": "Overflow Toolbar Menu Button",
+        "fullName": "sap.m.OverflowToolbarMenuButton",
+        "sapMethod": "OVERFLOW_TOOLBAR_MENU_BUTTON"
+      },
+      {
+        "text": "Overflow Toolbar Toggle Button",
+        "fullName": "sap.m.OverflowToolbarToggleButton",
+        "sapMethod": "OVERFLOW_TOOLBAR_TOGGLE_BUTTON"
+      },
+      {
+        "text": "Pull To Refresh",
+        "fullName": "sap.m.PullToRefresh",
+        "sapMethod": "PULL_TO_REFRESH"
+      },
+      {
+        "text": "Side Navigation",
+        "fullName": "sap.tnt.SideNavigation",
+        "sapMethod": "SIDE_NAVIGATION"
+      },
+      {
+        "text": "Side Navigation Search Field",
+        "fullName": "sap.tnt.SideNavigationSearchField",
+        "sapMethod": "SIDE_NAVIGATION_SEARCH_FIELD",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"SideNavigation\""
+      },
+      {
+        "text": "Toggle Button",
+        "fullName": "sap.m.ToggleButton",
+        "sapMethod": "TOGGLE_BUTTON"
+      },
+      {
+        "text": "Tool Header",
+        "fullName": "sap.tnt.ToolHeader",
+        "sapMethod": "TOOL_HEADER"
+      },
+      {
+        "text": "Tool Header Utility Separator",
+        "fullName": "sap.tnt.ToolHeaderUtilitySeparator",
+        "sapMethod": "TOOL_HEADER_UTILITY_SEPARATOR",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"ToolHeader\""
+      },
+      {
+        "text": "Upload Collection",
+        "fullName": "sap.m.UploadCollection",
+        "sapMethod": "UPLOAD_COLLECTION"
+      },
+      {
+        "text": "Upload Collection Toolbar Placeholder",
+        "fullName": "sap.m.UploadCollectionToolbarPlaceholder",
+        "sapMethod": "UPLOAD_COLLECTION_TOOLBAR_PLACEHOLDER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"UploadCollection\""
+      },
+      {
+        "text": "Upload Set",
+        "fullName": "sap.m.upload.UploadSet",
+        "sapMethod": "UPLOAD_SET"
+      },
+      {
+        "text": "Upload Set Toolbar Placeholder",
+        "fullName": "sap.m.upload.UploadSetToolbarPlaceholder",
+        "sapMethod": "UPLOAD_SET_TOOLBAR_PLACEHOLDER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"UploadSet\""
+      },
+      {
+        "text": "Variant Management",
+        "fullName": "sap.m.VariantManagement",
+        "sapMethod": "VARIANT_MANAGEMENT"
+      }
+    ]
+  },
+  {
+    "category": "Container",
+    "controls": [
+      {
+        "text": "Bar",
+        "fullName": "sap.m.Bar",
+        "sapMethod": "BAR"
+      },
+      {
+        "text": "Carousel",
+        "fullName": "sap.m.Carousel",
+        "sapMethod": "CAROUSEL"
+      },
+      {
+        "text": "Dynamic Page",
+        "fullName": "sap.f.DynamicPage",
+        "sapMethod": "DYNAMIC_PAGE"
+      },
+      {
+        "text": "Dynamic Page Header",
+        "fullName": "sap.f.DynamicPageHeader",
+        "sapMethod": "DYNAMIC_PAGE_HEADER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"DynamicPage\""
+      },
+      {
+        "text": "Dynamic Page Title",
+        "fullName": "sap.f.DynamicPageTitle",
+        "sapMethod": "DYNAMIC_PAGE_TITLE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"DynamicPage\""
+      },
+      {
+        "text": "Flexible Column Layout",
+        "fullName": "sap.f.FlexibleColumnLayout",
+        "sapMethod": "FLEXIBLE_COLUMN_LAYOUT"
+      },
+      {
+        "text": "Grid Container",
+        "fullName": "sap.f.GridContainer",
+        "sapMethod": "GRID_CONTAINER"
+      },
+      {
+        "text": "Header Container",
+        "fullName": "sap.m.HeaderContainer",
+        "sapMethod": "HEADER_CONTAINER"
+      },
+      {
+        "text": "Header Container Item Container",
+        "fullName": "sap.m.HeaderContainerItemContainer",
+        "sapMethod": "HEADER_CONTAINER_ITEM_CONTAINER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"HeaderContainer\""
+      },
+      {
+        "text": "Hero Banner",
+        "fullName": "sap.f.HeroBanner",
+        "sapMethod": "HERO_BANNER"
+      },
+      {
+        "text": "Icon Tab Bar",
+        "fullName": "sap.m.IconTabBar",
+        "sapMethod": "ICON_TAB_BAR"
+      },
+      {
+        "text": "Icon Tab Bar Select List",
+        "fullName": "sap.m.IconTabBarSelectList",
+        "sapMethod": "ICON_TAB_BAR_SELECT_LIST",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"IconTabBar\""
+      },
+      {
+        "text": "Message Strip",
+        "fullName": "sap.m.MessageStrip",
+        "sapMethod": "MESSAGE_STRIP"
+      },
+      {
+        "text": "Message View",
+        "fullName": "sap.m.MessageView",
+        "sapMethod": "MESSAGE_VIEW"
+      },
+      {
+        "text": "Nav Container",
+        "fullName": "sap.m.NavContainer",
+        "sapMethod": "NAV_CONTAINER"
+      },
+      {
+        "text": "Object Page Block Base",
+        "fullName": "sap.uxap.BlockBase",
+        "sapMethod": "BLOCK_BASE"
+      },
+      {
+        "text": "Object Page Section",
+        "fullName": "sap.uxap.ObjectPageSection",
+        "sapMethod": "OBJECT_PAGE_SECTION"
+      },
+      {
+        "text": "Object Page Section Base",
+        "fullName": "sap.uxap.ObjectPageSectionBase",
+        "sapMethod": "OBJECT_PAGE_SECTION_BASE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"ObjectPageSection\""
+      },
+      {
+        "text": "Object Page SubSection",
+        "fullName": "sap.uxap.ObjectPageSubSection",
+        "sapMethod": "OBJECT_PAGE_SUB_SECTION"
+      },
+      {
+        "text": "Overflow Toolbar",
+        "fullName": "sap.m.OverflowToolbar",
+        "sapMethod": "OVERFLOW_TOOLBAR"
+      },
+      {
+        "text": "Page",
+        "fullName": "sap.m.Page",
+        "sapMethod": "PAGE"
+      },
+      {
+        "text": "Panel",
+        "fullName": "sap.m.Panel",
+        "sapMethod": "PANEL"
+      },
+      {
+        "text": "Quick View Card",
+        "fullName": "sap.m.QuickViewCard",
+        "sapMethod": "QUICK_VIEW_CARD"
+      },
+      {
+        "text": "Scroll Container",
+        "fullName": "sap.m.ScrollContainer",
+        "sapMethod": "SCROLL_CONTAINER"
+      },
+      {
+        "text": "Semantic Page",
+        "fullName": "sap.m.semantic.SemanticPage",
+        "sapMethod": "SEMANTIC_PAGE"
+      },
+      {
+        "text": "Semantic Page (sap.f)",
+        "fullName": "sap.f.semantic.SemanticPage",
+        "sapMethod": "F_SEMANTIC_PAGE"
+      },
+      {
+        "text": "Slide Tile",
+        "fullName": "sap.m.SlideTile",
+        "sapMethod": "SLIDE_TILE"
+      },
+      {
+        "text": "Split App",
+        "fullName": "sap.m.SplitApp",
+        "sapMethod": "SPLIT_APP"
+      },
+      {
+        "text": "Split Container",
+        "fullName": "sap.m.SplitContainer",
+        "sapMethod": "SPLIT_CONTAINER"
+      },
+      {
+        "text": "Split Container",
+        "fullName": "sap.ui.unified.SplitContainer",
+        "sapMethod": "UI_UNIFIED_SPLIT_CONTAINER",
+        "nameSource": "generated"
+      },
+      {
+        "text": "Tab Container",
+        "fullName": "sap.m.TabContainer",
+        "sapMethod": "TAB_CONTAINER"
+      },
+      {
+        "text": "Toolbar",
+        "fullName": "sap.m.Toolbar",
+        "sapMethod": "TOOLBAR"
+      },
+      {
+        "text": "Toolbar Separator",
+        "fullName": "sap.m.ToolbarSeparator",
+        "sapMethod": "TOOLBAR_SEPARATOR",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Toolbar\""
+      },
+      {
+        "text": "Toolbar Spacer",
+        "fullName": "sap.m.ToolbarSpacer",
+        "sapMethod": "TOOLBAR_SPACER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Toolbar\""
+      },
+      {
+        "text": "Tree",
+        "fullName": "sap.m.Tree",
+        "sapMethod": "TREE"
+      },
+      {
+        "text": "Tree Item Base",
+        "fullName": "sap.m.TreeItemBase",
+        "sapMethod": "TREE_ITEM_BASE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Tree\""
+      },
+      {
+        "text": "Wizard",
+        "fullName": "sap.m.Wizard",
+        "sapMethod": "WIZARD"
+      },
+      {
+        "text": "Wizard Progress Navigator",
+        "fullName": "sap.m.WizardProgressNavigator",
+        "sapMethod": "WIZARD_PROGRESS_NAVIGATOR",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Wizard\""
+      },
+      {
+        "text": "Wizard Step",
+        "fullName": "sap.m.WizardStep",
+        "sapMethod": "WIZARD_STEP",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Wizard\""
+      }
+    ]
+  },
+  {
+    "category": "Display",
+    "controls": [
+      {
+        "text": "Avatar",
+        "fullName": "sap.f.Avatar",
+        "sapMethod": "F_AVATAR",
+        "nameSource": "generated"
+      },
+      {
+        "text": "Avatar (sap.m)",
+        "fullName": "sap.m.Avatar",
+        "sapMethod": "AVATAR"
+      },
+      {
+        "text": "Avatar Group",
+        "fullName": "sap.f.AvatarGroup",
+        "sapMethod": "AVATAR_GROUP"
+      },
+      {
+        "text": "Avatar Group Item",
+        "fullName": "sap.f.AvatarGroupItem",
+        "sapMethod": "AVATAR_GROUP_ITEM",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"AvatarGroup\""
+      },
+      {
+        "text": "Busy Indicator",
+        "fullName": "sap.m.BusyIndicator",
+        "sapMethod": "BUSY_INDICATOR"
+      },
+      {
+        "text": "Card (sap.f)",
+        "fullName": "sap.f.Card",
+        "sapMethod": "CARD"
+      },
+      {
+        "text": "Card Base",
+        "fullName": "sap.f.CardBase",
+        "sapMethod": "CARD_BASE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Card\""
+      },
+      {
+        "text": "Control",
+        "fullName": "sap.ui.core.Control",
+        "sapMethod": "CONTROL"
+      },
+      {
+        "text": "Control Spacer",
+        "fullName": "sap.f.shellBar.ControlSpacer",
+        "sapMethod": "CONTROL_SPACER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Control\""
+      },
+      {
+        "text": "Currency",
+        "fullName": "sap.ui.unified.Currency",
+        "sapMethod": "CURRENCY"
+      },
+      {
+        "text": "Draft Indicator",
+        "fullName": "sap.m.DraftIndicator",
+        "sapMethod": "DRAFT_INDICATOR"
+      },
+      {
+        "text": "Expandable Text",
+        "fullName": "sap.m.ExpandableText",
+        "sapMethod": "EXPANDABLE_TEXT"
+      },
+      {
+        "text": "Feed Input",
+        "fullName": "sap.m.FeedInput",
+        "sapMethod": "FEED_INPUT"
+      },
+      {
+        "text": "Formatted Text",
+        "fullName": "sap.m.FormattedText",
+        "sapMethod": "FORMATTED_TEXT"
+      },
+      {
+        "text": "HTML",
+        "fullName": "sap.ui.core.HTML",
+        "sapMethod": "HTML"
+      },
+      {
+        "text": "Html View",
+        "fullName": "sap.ui.core.mvc.HTMLView",
+        "sapMethod": "HTML_VIEW",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"HTML\""
+      },
+      {
+        "text": "Icon",
+        "fullName": "sap.ui.core.Icon",
+        "sapMethod": "ICON"
+      },
+      {
+        "text": "Icon Tab Filter Expand Button Badge",
+        "fullName": "sap.m.IconTabFilterExpandButtonBadge",
+        "sapMethod": "ICON_TAB_FILTER_EXPAND_BUTTON_BADGE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Icon\""
+      },
+      {
+        "text": "Illustrated Message",
+        "fullName": "sap.f.IllustratedMessage",
+        "sapMethod": "F_ILLUSTRATED_MESSAGE",
+        "nameSource": "generated"
+      },
+      {
+        "text": "Illustrated Message",
+        "fullName": "sap.m.IllustratedMessage",
+        "sapMethod": "ILLUSTRATED_MESSAGE"
+      },
+      {
+        "text": "Image",
+        "fullName": "sap.m.Image",
+        "sapMethod": "IMAGE"
+      },
+      {
+        "text": "InvisibleText",
+        "fullName": "sap.ui.core.InvisibleText",
+        "sapMethod": "INVISIBLE_TEXT"
+      },
+      {
+        "text": "Label",
+        "fullName": "sap.m.Label",
+        "sapMethod": "LABEL"
+      },
+      {
+        "text": "Message Page",
+        "fullName": "sap.m.MessagePage",
+        "sapMethod": "MESSAGE_PAGE"
+      },
+      {
+        "text": "Object Attribute",
+        "fullName": "sap.m.ObjectAttribute",
+        "sapMethod": "OBJECT_ATTRIBUTE"
+      },
+      {
+        "text": "Object Header",
+        "fullName": "sap.m.ObjectHeader",
+        "sapMethod": "OBJECT_HEADER"
+      },
+      {
+        "text": "Object Identifier",
+        "fullName": "sap.m.ObjectIdentifier",
+        "sapMethod": "OBJECT_IDENTIFIER"
+      },
+      {
+        "text": "Object Marker",
+        "fullName": "sap.m.ObjectMarker",
+        "sapMethod": "OBJECT_MARKER"
+      },
+      {
+        "text": "Object Marker Custom Link",
+        "fullName": "sap.m.internal.ObjectMarkerCustomLink",
+        "sapMethod": "OBJECT_MARKER_CUSTOM_LINK",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"ObjectMarker\""
+      },
+      {
+        "text": "Object Marker Custom Text",
+        "fullName": "sap.m.internal.ObjectMarkerCustomText",
+        "sapMethod": "OBJECT_MARKER_CUSTOM_TEXT",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"ObjectMarker\""
+      },
+      {
+        "text": "Object Number",
+        "fullName": "sap.m.ObjectNumber",
+        "sapMethod": "OBJECT_NUMBER"
+      },
+      {
+        "text": "Object Page Header Action Button",
+        "fullName": "sap.uxap.ObjectPageHeaderActionButton",
+        "sapMethod": "OBJECT_PAGE_HEADER_ACTION_BUTTON",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"ObjectPageHeader\""
+      },
+      {
+        "text": "Object Page Header Content",
+        "fullName": "sap.uxap.ObjectPageHeaderContent",
+        "sapMethod": "OBJECT_PAGE_HEADER_CONTENT"
+      },
+      {
+        "text": "Object Page Header Title",
+        "fullName": "sap.uxap.ObjectPageHeader",
+        "sapMethod": "OBJECT_PAGE_HEADER"
+      },
+      {
+        "text": "Object Status",
+        "fullName": "sap.m.ObjectStatus",
+        "sapMethod": "OBJECT_STATUS"
+      },
+      {
+        "text": "PDF Viewer",
+        "fullName": "sap.m.PDFViewer",
+        "sapMethod": "PDF_VIEWER"
+      },
+      {
+        "text": "Product Switch",
+        "fullName": "sap.f.ProductSwitch",
+        "sapMethod": "PRODUCT_SWITCH"
+      },
+      {
+        "text": "Product Switch Item",
+        "fullName": "sap.f.ProductSwitchItem",
+        "sapMethod": "PRODUCT_SWITCH_ITEM",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"ProductSwitch\""
+      },
+      {
+        "text": "Progress Indicator",
+        "fullName": "sap.m.ProgressIndicator",
+        "sapMethod": "PROGRESS_INDICATOR"
+      },
+      {
+        "text": "Side Panel",
+        "fullName": "sap.f.SidePanel",
+        "sapMethod": "SIDE_PANEL"
+      },
+      {
+        "text": "Table Title",
+        "fullName": "sap.m.table.Title",
+        "sapMethod": "TABLE_TITLE"
+      },
+      {
+        "text": "Text",
+        "fullName": "sap.m.Text",
+        "sapMethod": "TEXT"
+      },
+      {
+        "text": "Title",
+        "fullName": "sap.m.Title",
+        "sapMethod": "TITLE"
+      },
+      {
+        "text": "View",
+        "fullName": "sap.ui.core.mvc.View",
+        "sapMethod": "VIEW"
+      },
+      {
+        "text": "XML Composite Control",
+        "fullName": "sap.ui.core.XMLComposite",
+        "sapMethod": "XML_COMPOSITE"
+      },
+      {
+        "text": "XMLView",
+        "fullName": "sap.ui.core.mvc.XMLView",
+        "sapMethod": "XML_VIEW"
+      }
+    ]
+  },
+  {
+    "category": "Layout",
+    "controls": [
+      {
+        "text": "Block Layout ",
+        "fullName": "sap.ui.layout.BlockLayout",
+        "sapMethod": "BLOCK_LAYOUT"
+      },
+      {
+        "text": "Block Layout Cell",
+        "fullName": "sap.ui.layout.BlockLayoutCell",
+        "sapMethod": "BLOCK_LAYOUT_CELL",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"BlockLayout\""
+      },
+      {
+        "text": "Block Layout Row",
+        "fullName": "sap.ui.layout.BlockLayoutRow",
+        "sapMethod": "BLOCK_LAYOUT_ROW",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"BlockLayout\""
+      },
+      {
+        "text": "CSSGrid",
+        "fullName": "sap.ui.layout.cssgrid.CSSGrid",
+        "sapMethod": "CSS_GRID"
+      },
+      {
+        "text": "Dynamic Side Content",
+        "fullName": "sap.ui.layout.DynamicSideContent",
+        "sapMethod": "DYNAMIC_SIDE_CONTENT"
+      },
+      {
+        "text": "Fix Flex",
+        "fullName": "sap.ui.layout.FixFlex",
+        "sapMethod": "FIX_FLEX"
+      },
+      {
+        "text": "Flex Box",
+        "fullName": "sap.m.FlexBox",
+        "sapMethod": "FLEX_BOX"
+      },
+      {
+        "text": "Form",
+        "fullName": "sap.ui.layout.form.Form",
+        "sapMethod": "FORM"
+      },
+      {
+        "text": "Form Layout",
+        "fullName": "sap.ui.layout.form.FormLayout",
+        "sapMethod": "FORM_LAYOUT",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Form\""
+      },
+      {
+        "text": "Grid",
+        "fullName": "sap.ui.layout.Grid",
+        "sapMethod": "GRID"
+      },
+      {
+        "text": "Grid Layout",
+        "fullName": "sap.ui.layout.form.GridLayout",
+        "sapMethod": "GRID_LAYOUT",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Grid\""
+      },
+      {
+        "text": "H Box",
+        "fullName": "sap.m.HBox",
+        "sapMethod": "H_BOX",
+        "nameSource": "generated",
+        "categorySource": "family-map"
+      },
+      {
+        "text": "Horizontal Layout",
+        "fullName": "sap.ui.layout.HorizontalLayout",
+        "sapMethod": "HORIZONTAL_LAYOUT"
+      },
+      {
+        "text": "Object Page Layout",
+        "fullName": "sap.uxap.ObjectPageLayout",
+        "sapMethod": "OBJECT_PAGE_LAYOUT"
+      },
+      {
+        "text": "Responsive Splitter ",
+        "fullName": "sap.ui.layout.ResponsiveSplitter",
+        "sapMethod": "RESPONSIVE_SPLITTER"
+      },
+      {
+        "text": "Responsive Splitter Page",
+        "fullName": "sap.ui.layout.ResponsiveSplitterPage",
+        "sapMethod": "RESPONSIVE_SPLITTER_PAGE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"ResponsiveSplitter\""
+      },
+      {
+        "text": "Simple Form",
+        "fullName": "sap.ui.layout.form.SimpleForm",
+        "sapMethod": "SIMPLE_FORM"
+      },
+      {
+        "text": "Splitter Layout",
+        "fullName": "sap.ui.layout.Splitter",
+        "sapMethod": "SPLITTER"
+      },
+      {
+        "text": "Tool Page Layout",
+        "fullName": "sap.tnt.ToolPage",
+        "sapMethod": "TOOL_PAGE"
+      },
+      {
+        "text": "V Box",
+        "fullName": "sap.m.VBox",
+        "sapMethod": "V_BOX",
+        "nameSource": "generated",
+        "categorySource": "family-map"
+      },
+      {
+        "text": "Vertical Layout",
+        "fullName": "sap.ui.layout.VerticalLayout",
+        "sapMethod": "VERTICAL_LAYOUT"
+      }
+    ]
+  },
+  {
+    "category": "List",
+    "controls": [
+      {
+        "text": "Action List Item",
+        "fullName": "sap.m.ActionListItem",
+        "sapMethod": "ACTION_LIST_ITEM"
+      },
+      {
+        "text": "Column List Item",
+        "fullName": "sap.m.ColumnListItem",
+        "sapMethod": "COLUMN_LIST_ITEM"
+      },
+      {
+        "text": "Custom List Item",
+        "fullName": "sap.m.CustomListItem",
+        "sapMethod": "CUSTOM_LIST_ITEM"
+      },
+      {
+        "text": "Custom Tree Item",
+        "fullName": "sap.m.CustomTreeItem",
+        "sapMethod": "CUSTOM_TREE_ITEM"
+      },
+      {
+        "text": "Display List Item",
+        "fullName": "sap.m.DisplayListItem",
+        "sapMethod": "DISPLAY_LIST_ITEM"
+      },
+      {
+        "text": "Feed List Item",
+        "fullName": "sap.m.FeedListItem",
+        "sapMethod": "FEED_LIST_ITEM"
+      },
+      {
+        "text": "Grid List",
+        "fullName": "sap.f.GridList",
+        "sapMethod": "GRID_LIST"
+      },
+      {
+        "text": "Grid List Item",
+        "fullName": "sap.f.GridListItem",
+        "sapMethod": "GRID_LIST_ITEM",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"GridList\""
+      },
+      {
+        "text": "Input List Item",
+        "fullName": "sap.m.InputListItem",
+        "sapMethod": "INPUT_LIST_ITEM"
+      },
+      {
+        "text": "List",
+        "fullName": "sap.m.List",
+        "sapMethod": "LIST"
+      },
+      {
+        "text": "List Base",
+        "fullName": "sap.m.ListBase",
+        "sapMethod": "LIST_BASE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"List\""
+      },
+      {
+        "text": "List Item Base",
+        "fullName": "sap.m.ListItemBase",
+        "sapMethod": "LIST_ITEM_BASE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"List\""
+      },
+      {
+        "text": "List Placeholder",
+        "fullName": "sap.f.cards.loading.ListPlaceholder",
+        "sapMethod": "LIST_PLACEHOLDER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"List\""
+      },
+      {
+        "text": "Notification List Group",
+        "fullName": "sap.m.NotificationListGroup",
+        "sapMethod": "NOTIFICATION_LIST_GROUP"
+      },
+      {
+        "text": "Notification List Item",
+        "fullName": "sap.m.NotificationListItem",
+        "sapMethod": "NOTIFICATION_LIST_ITEM"
+      },
+      {
+        "text": "Object List Item",
+        "fullName": "sap.m.ObjectListItem",
+        "sapMethod": "OBJECT_LIST_ITEM"
+      },
+      {
+        "text": "SelectList",
+        "fullName": "sap.m.SelectList",
+        "sapMethod": "SELECT_LIST"
+      },
+      {
+        "text": "Standard List Item",
+        "fullName": "sap.m.StandardListItem",
+        "sapMethod": "STANDARD_LIST_ITEM"
+      },
+      {
+        "text": "Table (sap.m, Responsive Table)",
+        "fullName": "sap.m.Table",
+        "sapMethod": "TABLE"
+      },
+      {
+        "text": "Table (sap.ui.table, Grid Table)",
+        "fullName": "sap.ui.table.Table",
+        "sapMethod": "UI_TABLE_TABLE"
+      },
+      {
+        "text": "Table Placeholder",
+        "fullName": "sap.f.cards.loading.TablePlaceholder",
+        "sapMethod": "TABLE_PLACEHOLDER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Table\""
+      },
+      {
+        "text": "Tree Table",
+        "fullName": "sap.ui.table.TreeTable",
+        "sapMethod": "TREE_TABLE"
+      }
+    ]
+  },
+  {
+    "category": "Popup",
+    "controls": [
+      {
+        "text": "Busy Dialog",
+        "fullName": "sap.m.BusyDialog",
+        "sapMethod": "BUSY_DIALOG"
+      },
+      {
+        "text": "Dialog",
+        "fullName": "sap.m.Dialog",
+        "sapMethod": "DIALOG"
+      },
+      {
+        "text": "LightBox",
+        "fullName": "sap.m.LightBox",
+        "sapMethod": "LIGHT_BOX"
+      },
+      {
+        "text": "Message Popover",
+        "fullName": "sap.m.MessagePopover",
+        "sapMethod": "MESSAGE_POPOVER"
+      },
+      {
+        "text": "Popover",
+        "fullName": "sap.m.Popover",
+        "sapMethod": "POPOVER"
+      },
+      {
+        "text": "Quick View",
+        "fullName": "sap.m.QuickView",
+        "sapMethod": "QUICK_VIEW"
+      },
+      {
+        "text": "Quick View Base",
+        "fullName": "sap.m.QuickViewBase",
+        "sapMethod": "QUICK_VIEW_BASE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"QuickView\""
+      },
+      {
+        "text": "Quick View Page",
+        "fullName": "sap.m.QuickViewPage",
+        "sapMethod": "QUICK_VIEW_PAGE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"QuickView\""
+      },
+      {
+        "text": "Responsive Popover",
+        "fullName": "sap.m.ResponsivePopover",
+        "sapMethod": "RESPONSIVE_POPOVER"
+      },
+      {
+        "text": "Select Dialog",
+        "fullName": "sap.m.SelectDialog",
+        "sapMethod": "SELECT_DIALOG"
+      },
+      {
+        "text": "Select Dialog Base",
+        "fullName": "sap.m.SelectDialogBase",
+        "sapMethod": "SELECT_DIALOG_BASE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"SelectDialog\""
+      },
+      {
+        "text": "Table Select Dialog",
+        "fullName": "sap.m.TableSelectDialog",
+        "sapMethod": "TABLE_SELECT_DIALOG"
+      },
+      {
+        "text": "View Settings Dialog",
+        "fullName": "sap.m.ViewSettingsDialog",
+        "sapMethod": "VIEW_SETTINGS_DIALOG"
+      }
+    ]
+  },
+  {
+    "category": "Tile",
+    "controls": [
+      {
+        "text": "Feed Content",
+        "fullName": "sap.m.FeedContent",
+        "sapMethod": "FEED_CONTENT"
+      },
+      {
+        "text": "Generic Tile",
+        "fullName": "sap.m.GenericTile",
+        "sapMethod": "GENERIC_TILE"
+      },
+      {
+        "text": "Image Content",
+        "fullName": "sap.m.ImageContent",
+        "sapMethod": "IMAGE_CONTENT"
+      },
+      {
+        "text": "News Content",
+        "fullName": "sap.m.NewsContent",
+        "sapMethod": "NEWS_CONTENT"
+      },
+      {
+        "text": "Numeric Content",
+        "fullName": "sap.m.NumericContent",
+        "sapMethod": "NUMERIC_CONTENT"
+      },
+      {
+        "text": "Standard Tile",
+        "fullName": "sap.m.StandardTile",
+        "sapMethod": "STANDARD_TILE"
+      },
+      {
+        "text": "Tile Container",
+        "fullName": "sap.m.TileContainer",
+        "sapMethod": "TILE_CONTAINER"
+      },
+      {
+        "text": "Tile Content",
+        "fullName": "sap.m.TileContent",
+        "sapMethod": "TILE_CONTENT"
+      }
+    ]
+  },
+  {
+    "category": "Uncategorized",
+    "controls": [
+      {
+        "text": "Acc Button",
+        "fullName": "sap.m.AccButton",
+        "sapMethod": "ACC_BUTTON",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Action Tile",
+        "fullName": "sap.m.ActionTile",
+        "sapMethod": "ACTION_TILE",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Action Tile Content",
+        "fullName": "sap.m.ActionTileContent",
+        "sapMethod": "ACTION_TILE_CONTENT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Actions Placeholder",
+        "fullName": "sap.m.upload.ActionsPlaceholder",
+        "sapMethod": "ACTIONS_PLACEHOLDER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Additional Text Button",
+        "fullName": "sap.m.AdditionalTextButton",
+        "sapMethod": "ADDITIONAL_TEXT_BUTTON",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Aligned Flow Layout",
+        "fullName": "sap.ui.layout.AlignedFlowLayout",
+        "sapMethod": "ALIGNED_FLOW_LAYOUT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Analytical Column Menu",
+        "fullName": "sap.ui.table.AnalyticalColumnMenu",
+        "sapMethod": "ANALYTICAL_COLUMN_MENU",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Analytical Placeholder",
+        "fullName": "sap.f.cards.loading.AnalyticalPlaceholder",
+        "sapMethod": "ANALYTICAL_PLACEHOLDER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Analytical Table",
+        "fullName": "sap.ui.table.AnalyticalTable",
+        "sapMethod": "ANALYTICAL_TABLE",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Anchor Bar",
+        "fullName": "sap.uxap.AnchorBar",
+        "sapMethod": "ANCHOR_BAR",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "App",
+        "fullName": "sap.m.App",
+        "sapMethod": "APP",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Associative Control",
+        "fullName": "sap.m.table.columnmenu.AssociativeControl",
+        "sapMethod": "ASSOCIATIVE_CONTROL",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Associative Overflow Toolbar",
+        "fullName": "sap.m.AssociativeOverflowToolbar",
+        "sapMethod": "ASSOCIATIVE_OVERFLOW_TOOLBAR",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Associative Splitter",
+        "fullName": "sap.ui.layout.AssociativeSplitter",
+        "sapMethod": "ASSOCIATIVE_SPLITTER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Base Header",
+        "fullName": "sap.f.cards.BaseHeader",
+        "sapMethod": "BASE_HEADER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Bread Crumbs",
+        "fullName": "sap.uxap.BreadCrumbs",
+        "sapMethod": "BREAD_CRUMBS",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Co Pilot",
+        "fullName": "sap.f.shellBar.CoPilot",
+        "sapMethod": "CO_PILOT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Column Layout",
+        "fullName": "sap.ui.layout.form.ColumnLayout",
+        "sapMethod": "COLUMN_LAYOUT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Column Menu",
+        "fullName": "sap.ui.table.ColumnMenu",
+        "sapMethod": "COLUMN_MENU",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Component Container",
+        "fullName": "sap.ui.core.ComponentContainer",
+        "sapMethod": "COMPONENT_CONTAINER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Content Switcher",
+        "fullName": "sap.ui.unified.ContentSwitcher",
+        "sapMethod": "CONTENT_SWITCHER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Creation Row",
+        "fullName": "sap.ui.table.CreationRow",
+        "sapMethod": "CREATION_ROW",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Custom Month Picker",
+        "fullName": "sap.ui.unified.internal.CustomMonthPicker",
+        "sapMethod": "CUSTOM_MONTH_PICKER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Custom Numeric Input",
+        "fullName": "sap.m.internal.CustomNumericInput",
+        "sapMethod": "CUSTOM_NUMERIC_INPUT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Custom Tile",
+        "fullName": "sap.m.CustomTile",
+        "sapMethod": "CUSTOM_TILE",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Custom Year Picker",
+        "fullName": "sap.ui.unified.internal.CustomYearPicker",
+        "sapMethod": "CUSTOM_YEAR_PICKER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Date High Zoom Inputs",
+        "fullName": "sap.m.DateHighZoomInputs",
+        "sapMethod": "DATE_HIGH_ZOOM_INPUTS",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Date Time Field",
+        "fullName": "sap.m.DateTimeField",
+        "sapMethod": "DATE_TIME_FIELD",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Dates Row",
+        "fullName": "sap.ui.unified.calendar.DatesRow",
+        "sapMethod": "DATES_ROW",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Detail Page",
+        "fullName": "sap.m.semantic.DetailPage",
+        "sapMethod": "DETAIL_PAGE",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Dom Element",
+        "fullName": "sap.ui.core.tmpl.DOMElement",
+        "sapMethod": "DOM_ELEMENT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Dynamic Item Content",
+        "fullName": "sap.m.upload.DynamicItemContent",
+        "sapMethod": "DYNAMIC_ITEM_CONTENT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Export",
+        "fullName": "sap.ui.core.util.Export",
+        "sapMethod": "EXPORT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Fullscreen Page",
+        "fullName": "sap.m.semantic.FullscreenPage",
+        "sapMethod": "FULLSCREEN_PAGE",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Generic Placeholder",
+        "fullName": "sap.f.cards.loading.GenericPlaceholder",
+        "sapMethod": "GENERIC_PLACEHOLDER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Group Header List Item",
+        "fullName": "sap.m.GroupHeaderListItem",
+        "sapMethod": "GROUP_HEADER_LIST_ITEM",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Growing List",
+        "fullName": "sap.m.GrowingList",
+        "sapMethod": "GROWING_LIST",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Header",
+        "fullName": "sap.f.cards.Header",
+        "sapMethod": "F_HEADER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Header",
+        "fullName": "sap.ui.unified.calendar.Header",
+        "sapMethod": "UI_UNIFIED_HEADER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Header Selector",
+        "fullName": "sap.ui.table.HeaderSelector",
+        "sapMethod": "HEADER_SELECTOR",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Hierarchical Select",
+        "fullName": "sap.uxap.HierarchicalSelect",
+        "sapMethod": "HIERARCHICAL_SELECT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Illustration",
+        "fullName": "sap.f.Illustration",
+        "sapMethod": "F_ILLUSTRATION",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Illustration",
+        "fullName": "sap.m.Illustration",
+        "sapMethod": "ILLUSTRATION",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Index Picker",
+        "fullName": "sap.ui.unified.calendar.IndexPicker",
+        "sapMethod": "INDEX_PICKER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Js View",
+        "fullName": "sap.ui.core.mvc.JSView",
+        "sapMethod": "JS_VIEW",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Json View",
+        "fullName": "sap.ui.core.mvc.JSONView",
+        "sapMethod": "JSON_VIEW",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Local Busy Indicator",
+        "fullName": "sap.ui.core.LocalBusyIndicator",
+        "sapMethod": "LOCAL_BUSY_INDICATOR",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Master Page",
+        "fullName": "sap.m.semantic.MasterPage",
+        "sapMethod": "MASTER_PAGE",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Message List Item",
+        "fullName": "sap.m.MessageListItem",
+        "sapMethod": "MESSAGE_LIST_ITEM",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Month",
+        "fullName": "sap.ui.unified.calendar.Month",
+        "sapMethod": "MONTH",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Multi Edit Field",
+        "fullName": "sap.m.MultiEditField",
+        "sapMethod": "MULTI_EDIT_FIELD",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Notification List",
+        "fullName": "sap.m.NotificationList",
+        "sapMethod": "NOTIFICATION_LIST",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Notification List Base",
+        "fullName": "sap.m.NotificationListBase",
+        "sapMethod": "NOTIFICATION_LIST_BASE",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Numeric Header",
+        "fullName": "sap.f.cards.NumericHeader",
+        "sapMethod": "NUMERIC_HEADER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Numeric Indicators",
+        "fullName": "sap.f.cards.NumericIndicators",
+        "sapMethod": "NUMERIC_INDICATORS",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Numeric Input",
+        "fullName": "sap.m.NumericInput",
+        "sapMethod": "NUMERIC_INPUT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Numeric Side Indicator",
+        "fullName": "sap.f.cards.NumericSideIndicator",
+        "sapMethod": "NUMERIC_SIDE_INDICATOR",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Object Page Component Container",
+        "fullName": "sap.uxap.component.ObjectPageComponentContainer",
+        "sapMethod": "OBJECT_PAGE_COMPONENT_CONTAINER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Object Page Dynamic Header Content",
+        "fullName": "sap.uxap.ObjectPageDynamicHeaderContent",
+        "sapMethod": "OBJECT_PAGE_DYNAMIC_HEADER_CONTENT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Object Page Dynamic Header Title",
+        "fullName": "sap.uxap.ObjectPageDynamicHeaderTitle",
+        "sapMethod": "OBJECT_PAGE_DYNAMIC_HEADER_TITLE",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Object Placeholder",
+        "fullName": "sap.f.cards.loading.ObjectPlaceholder",
+        "sapMethod": "OBJECT_PLACEHOLDER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "One Month Dates Row",
+        "fullName": "sap.ui.unified.calendar.OneMonthDatesRow",
+        "sapMethod": "ONE_MONTH_DATES_ROW",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "P13N Columns Panel",
+        "fullName": "sap.m.P13nColumnsPanel",
+        "sapMethod": "P13N_COLUMNS_PANEL",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "P13N Condition Panel",
+        "fullName": "sap.m.P13nConditionPanel",
+        "sapMethod": "P13N_CONDITION_PANEL",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "P13N Dialog",
+        "fullName": "sap.m.P13nDialog",
+        "sapMethod": "P13N_DIALOG",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "P13N Dim Measure Panel",
+        "fullName": "sap.m.P13nDimMeasurePanel",
+        "sapMethod": "P13N_DIM_MEASURE_PANEL",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "P13N Filter Panel",
+        "fullName": "sap.m.P13nFilterPanel",
+        "sapMethod": "P13N_FILTER_PANEL",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "P13N Group Panel",
+        "fullName": "sap.m.P13nGroupPanel",
+        "sapMethod": "P13N_GROUP_PANEL",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "P13N Panel",
+        "fullName": "sap.m.P13nPanel",
+        "sapMethod": "P13N_PANEL",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "P13N Selection Panel",
+        "fullName": "sap.m.P13nSelectionPanel",
+        "sapMethod": "P13N_SELECTION_PANEL",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "P13N Sort Panel",
+        "fullName": "sap.m.P13nSortPanel",
+        "sapMethod": "P13N_SORT_PANEL",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Paging Button",
+        "fullName": "sap.m.PagingButton",
+        "sapMethod": "PAGING_BUTTON",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Placeholder Base",
+        "fullName": "sap.f.cards.loading.PlaceholderBase",
+        "sapMethod": "PLACEHOLDER_BASE",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Responsive Flow Layout",
+        "fullName": "sap.ui.layout.ResponsiveFlowLayout",
+        "sapMethod": "RESPONSIVE_FLOW_LAYOUT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Responsive Grid Layout",
+        "fullName": "sap.ui.layout.form.ResponsiveGridLayout",
+        "sapMethod": "RESPONSIVE_GRID_LAYOUT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Responsive Grid Layout Panel",
+        "fullName": "sap.ui.layout.form.ResponsiveGridLayoutPanel",
+        "sapMethod": "RESPONSIVE_GRID_LAYOUT_PANEL",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Responsive Layout",
+        "fullName": "sap.ui.layout.form.ResponsiveLayout",
+        "sapMethod": "RESPONSIVE_LAYOUT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Responsive Layout Panel",
+        "fullName": "sap.ui.layout.form.ResponsiveLayoutPanel",
+        "sapMethod": "RESPONSIVE_LAYOUT_PANEL",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Row Action",
+        "fullName": "sap.ui.table.RowAction",
+        "sapMethod": "ROW_ACTION",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Scroll Bar",
+        "fullName": "sap.m.ScrollBar",
+        "sapMethod": "SCROLL_BAR",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Scroll Bar",
+        "fullName": "sap.ui.core.ScrollBar",
+        "sapMethod": "UI_CORE_SCROLL_BAR",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Search",
+        "fullName": "sap.f.shellBar.Search",
+        "sapMethod": "SEARCH",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Semantic Overflow Toolbar Button",
+        "fullName": "sap.m.semantic.SemanticOverflowToolbarButton",
+        "sapMethod": "SEMANTIC_OVERFLOW_TOOLBAR_BUTTON",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Semantic Overflow Toolbar Toggle Button",
+        "fullName": "sap.m.semantic.SemanticOverflowToolbarToggleButton",
+        "sapMethod": "SEMANTIC_OVERFLOW_TOOLBAR_TOGGLE_BUTTON",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Share Menu Page",
+        "fullName": "sap.m.semantic.ShareMenuPage",
+        "sapMethod": "SHARE_MENU_PAGE",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Shell",
+        "fullName": "sap.m.Shell",
+        "sapMethod": "SHELL",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Shell",
+        "fullName": "sap.ui.unified.Shell",
+        "sapMethod": "UI_UNIFIED_SHELL",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Shell Header",
+        "fullName": "sap.ui.unified.ShellHeader",
+        "sapMethod": "SHELL_HEADER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Shell Layout",
+        "fullName": "sap.ui.unified.ShellLayout",
+        "sapMethod": "SHELL_LAYOUT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Shell Overlay",
+        "fullName": "sap.ui.unified.ShellOverlay",
+        "sapMethod": "SHELL_OVERLAY",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Simple Fix Flex",
+        "fullName": "sap.m.SimpleFixFlex",
+        "sapMethod": "SIMPLE_FIX_FLEX",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Split Button",
+        "fullName": "sap.m.SplitButton",
+        "sapMethod": "SPLIT_BUTTON",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Standard Tree Item",
+        "fullName": "sap.m.StandardTreeItem",
+        "sapMethod": "STANDARD_TREE_ITEM",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Suggestions List",
+        "fullName": "sap.m.SuggestionsList",
+        "sapMethod": "SUGGESTIONS_LIST",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Tab Strip",
+        "fullName": "sap.m.TabStrip",
+        "sapMethod": "TAB_STRIP",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Tab Strip Select",
+        "fullName": "sap.m.internal.TabStripSelect",
+        "sapMethod": "TAB_STRIP_SELECT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Tab Strip Select List",
+        "fullName": "sap.m.internal.TabStripSelectList",
+        "sapMethod": "TAB_STRIP_SELECT_LIST",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Template Control",
+        "fullName": "sap.ui.core.tmpl.TemplateControl",
+        "sapMethod": "TEMPLATE_CONTROL",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Template View",
+        "fullName": "sap.ui.core.mvc.TemplateView",
+        "sapMethod": "TEMPLATE_VIEW",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Tile",
+        "fullName": "sap.m.Tile",
+        "sapMethod": "TILE",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Tile Attribute",
+        "fullName": "sap.m.TileAttribute",
+        "sapMethod": "TILE_ATTRIBUTE",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Timeline Placeholder",
+        "fullName": "sap.f.cards.loading.TimelinePlaceholder",
+        "sapMethod": "TIMELINE_PLACEHOLDER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Toggle Spin Button",
+        "fullName": "sap.m.internal.ToggleSpinButton",
+        "sapMethod": "TOGGLE_SPIN_BUTTON",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Token",
+        "fullName": "sap.m.Token",
+        "sapMethod": "TOKEN",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Tooltip",
+        "fullName": "sap.ui.core.tooltip.Tooltip",
+        "sapMethod": "TOOLTIP",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Tooltip Base",
+        "fullName": "sap.ui.core.TooltipBase",
+        "sapMethod": "TOOLTIP_BASE",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Value State Header",
+        "fullName": "sap.m.ValueStateHeader",
+        "sapMethod": "VALUE_STATE_HEADER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Web Component",
+        "fullName": "sap.ui.core.webc.WebComponent",
+        "sapMethod": "WEB_COMPONENT",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Weeks Row",
+        "fullName": "sap.ui.unified.calendar.WeeksRow",
+        "sapMethod": "WEEKS_ROW",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Wheel Slider",
+        "fullName": "sap.m.WheelSlider",
+        "sapMethod": "WHEEL_SLIDER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Wheel Slider Container",
+        "fullName": "sap.m.WheelSliderContainer",
+        "sapMethod": "WHEEL_SLIDER_CONTAINER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Xml After Rendering Notifier",
+        "fullName": "sap.ui.core.mvc.XMLAfterRenderingNotifier",
+        "sapMethod": "XML_AFTER_RENDERING_NOTIFIER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Year Picker",
+        "fullName": "sap.ui.unified.calendar.YearPicker",
+        "sapMethod": "YEAR_PICKER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      },
+      {
+        "text": "Year Range Picker",
+        "fullName": "sap.ui.unified.calendar.YearRangePicker",
+        "sapMethod": "YEAR_RANGE_PICKER",
+        "nameSource": "generated",
+        "categorySource": "none"
+      }
+    ]
+  },
+  {
+    "category": "User Input",
+    "controls": [
+      {
+        "text": "Action Select",
+        "fullName": "sap.m.ActionSelect",
+        "sapMethod": "ACTION_SELECT"
+      },
+      {
+        "text": "Calendar",
+        "fullName": "sap.ui.unified.Calendar",
+        "sapMethod": "CALENDAR"
+      },
+      {
+        "text": "Calendar In Card",
+        "fullName": "sap.f.CalendarInCard",
+        "sapMethod": "CALENDAR_IN_CARD",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Calendar\""
+      },
+      {
+        "text": "Calendar Legend",
+        "fullName": "sap.ui.unified.CalendarLegend",
+        "sapMethod": "CALENDAR_LEGEND",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Calendar\""
+      },
+      {
+        "text": "Calendar Month Interval",
+        "fullName": "sap.ui.unified.CalendarMonthInterval",
+        "sapMethod": "CALENDAR_MONTH_INTERVAL",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Calendar\""
+      },
+      {
+        "text": "Calendar One Month Interval",
+        "fullName": "sap.ui.unified.CalendarOneMonthInterval",
+        "sapMethod": "CALENDAR_ONE_MONTH_INTERVAL",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Calendar\""
+      },
+      {
+        "text": "Calendar Placeholder",
+        "fullName": "sap.f.cards.loading.CalendarPlaceholder",
+        "sapMethod": "CALENDAR_PLACEHOLDER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Calendar\""
+      },
+      {
+        "text": "Calendar Row",
+        "fullName": "sap.ui.unified.CalendarRow",
+        "sapMethod": "CALENDAR_ROW",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Calendar\""
+      },
+      {
+        "text": "Calendar Time Interval",
+        "fullName": "sap.ui.unified.CalendarTimeInterval",
+        "sapMethod": "CALENDAR_TIME_INTERVAL",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Calendar\""
+      },
+      {
+        "text": "Calendar Week Interval",
+        "fullName": "sap.ui.unified.CalendarWeekInterval",
+        "sapMethod": "CALENDAR_WEEK_INTERVAL",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Calendar\""
+      },
+      {
+        "text": "CalendarDateInterval",
+        "fullName": "sap.ui.unified.CalendarDateInterval",
+        "sapMethod": "CALENDAR_DATE_INTERVAL"
+      },
+      {
+        "text": "Check Box",
+        "fullName": "sap.m.CheckBox",
+        "sapMethod": "CHECK_BOX"
+      },
+      {
+        "text": "Color Palette",
+        "fullName": "sap.m.ColorPalette",
+        "sapMethod": "COLOR_PALETTE"
+      },
+      {
+        "text": "Color Palette Popover",
+        "fullName": "sap.m.ColorPalettePopover",
+        "sapMethod": "COLOR_PALETTE_POPOVER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"ColorPalette\""
+      },
+      {
+        "text": "Color Picker",
+        "fullName": "sap.ui.unified.ColorPicker",
+        "sapMethod": "COLOR_PICKER"
+      },
+      {
+        "text": "Color Picker Popover",
+        "fullName": "sap.ui.unified.ColorPickerPopover",
+        "sapMethod": "COLOR_PICKER_POPOVER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"ColorPicker\""
+      },
+      {
+        "text": "Combo Box Base",
+        "fullName": "sap.m.ComboBoxBase",
+        "sapMethod": "COMBO_BOX_BASE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"ComboBox\""
+      },
+      {
+        "text": "Combo Box Text Field",
+        "fullName": "sap.m.ComboBoxTextField",
+        "sapMethod": "COMBO_BOX_TEXT_FIELD",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"ComboBox\""
+      },
+      {
+        "text": "ComboBox",
+        "fullName": "sap.m.ComboBox",
+        "sapMethod": "COMBO_BOX"
+      },
+      {
+        "text": "Date Picker",
+        "fullName": "sap.m.DatePicker",
+        "sapMethod": "DATE_PICKER"
+      },
+      {
+        "text": "Date Range Selection",
+        "fullName": "sap.m.DateRangeSelection",
+        "sapMethod": "DATE_RANGE_SELECTION"
+      },
+      {
+        "text": "Date Time Input",
+        "fullName": "sap.m.DateTimeInput",
+        "sapMethod": "DATE_TIME_INPUT"
+      },
+      {
+        "text": "Date Time Picker",
+        "fullName": "sap.m.DateTimePicker",
+        "sapMethod": "DATE_TIME_PICKER"
+      },
+      {
+        "text": "Date Time Picker Popup",
+        "fullName": "sap.m.internal.DateTimePickerPopup",
+        "sapMethod": "DATE_TIME_PICKER_POPUP",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"DateTimePicker\""
+      },
+      {
+        "text": "Dynamic Date Range",
+        "fullName": "sap.m.DynamicDateRange",
+        "sapMethod": "DYNAMIC_DATE_RANGE"
+      },
+      {
+        "text": "Dynamic Date Range Input",
+        "fullName": "sap.m.internal.DynamicDateRangeInput",
+        "sapMethod": "DYNAMIC_DATE_RANGE_INPUT",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"DynamicDateRange\""
+      },
+      {
+        "text": "Dynamic Date Range List Item",
+        "fullName": "sap.m.DynamicDateRangeListItem",
+        "sapMethod": "DYNAMIC_DATE_RANGE_LIST_ITEM",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"DynamicDateRange\""
+      },
+      {
+        "text": "Facet Filter",
+        "fullName": "sap.m.FacetFilter",
+        "sapMethod": "FACET_FILTER"
+      },
+      {
+        "text": "Facet Filter Item",
+        "fullName": "sap.m.FacetFilterItem",
+        "sapMethod": "FACET_FILTER_ITEM",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"FacetFilter\""
+      },
+      {
+        "text": "Facet Filter List",
+        "fullName": "sap.m.FacetFilterList",
+        "sapMethod": "FACET_FILTER_LIST",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"FacetFilter\""
+      },
+      {
+        "text": "File Uploader",
+        "fullName": "sap.ui.unified.FileUploader",
+        "sapMethod": "FILE_UPLOADER"
+      },
+      {
+        "text": "Input",
+        "fullName": "sap.m.Input",
+        "sapMethod": "INPUT"
+      },
+      {
+        "text": "Input Base",
+        "fullName": "sap.m.InputBase",
+        "sapMethod": "INPUT_BASE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Input\""
+      },
+      {
+        "text": "Mask Input",
+        "fullName": "sap.m.MaskInput",
+        "sapMethod": "MASK_INPUT"
+      },
+      {
+        "text": "Multi Combo Box",
+        "fullName": "sap.m.MultiComboBox",
+        "sapMethod": "MULTI_COMBO_BOX"
+      },
+      {
+        "text": "Multi Input",
+        "fullName": "sap.m.MultiInput",
+        "sapMethod": "MULTI_INPUT"
+      },
+      {
+        "text": "OverflowToolbarTokenizer",
+        "fullName": "sap.m.OverflowToolbarTokenizer",
+        "sapMethod": "OVERFLOW_TOOLBAR_TOKENIZER"
+      },
+      {
+        "text": "Planning Calendar",
+        "fullName": "sap.m.PlanningCalendar",
+        "sapMethod": "PLANNING_CALENDAR"
+      },
+      {
+        "text": "Planning Calendar Header",
+        "fullName": "sap.m.PlanningCalendarHeader",
+        "sapMethod": "PLANNING_CALENDAR_HEADER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"PlanningCalendar\""
+      },
+      {
+        "text": "Planning Calendar In Card Legend",
+        "fullName": "sap.f.PlanningCalendarInCardLegend",
+        "sapMethod": "PLANNING_CALENDAR_IN_CARD_LEGEND",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"PlanningCalendar\""
+      },
+      {
+        "text": "Planning Calendar Legend",
+        "fullName": "sap.m.PlanningCalendarLegend",
+        "sapMethod": "PLANNING_CALENDAR_LEGEND",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"PlanningCalendar\""
+      },
+      {
+        "text": "Planning Calendar Row List Item",
+        "fullName": "sap.m.internal.PlanningCalendarRowListItem",
+        "sapMethod": "PLANNING_CALENDAR_ROW_LIST_ITEM",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"PlanningCalendar\""
+      },
+      {
+        "text": "Radio Button",
+        "fullName": "sap.m.RadioButton",
+        "sapMethod": "RADIO_BUTTON"
+      },
+      {
+        "text": "Radio Button Group",
+        "fullName": "sap.m.RadioButtonGroup",
+        "sapMethod": "RADIO_BUTTON_GROUP"
+      },
+      {
+        "text": "RangeSlider",
+        "fullName": "sap.m.RangeSlider",
+        "sapMethod": "RANGE_SLIDER"
+      },
+      {
+        "text": "Rating Indicator",
+        "fullName": "sap.m.RatingIndicator",
+        "sapMethod": "RATING_INDICATOR"
+      },
+      {
+        "text": "Search Field",
+        "fullName": "sap.m.SearchField",
+        "sapMethod": "SEARCH_FIELD"
+      },
+      {
+        "text": "Segmented Button",
+        "fullName": "sap.m.SegmentedButton",
+        "sapMethod": "SEGMENTED_BUTTON"
+      },
+      {
+        "text": "Select",
+        "fullName": "sap.m.Select",
+        "sapMethod": "SELECT"
+      },
+      {
+        "text": "Selection Details",
+        "fullName": "sap.m.SelectionDetails",
+        "sapMethod": "SELECTION_DETAILS",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Select\""
+      },
+      {
+        "text": "Selection Details List Item",
+        "fullName": "sap.m.SelectionDetailsListItem",
+        "sapMethod": "SELECTION_DETAILS_LIST_ITEM",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Select\""
+      },
+      {
+        "text": "Single Planning Calendar",
+        "fullName": "sap.m.SinglePlanningCalendar",
+        "sapMethod": "SINGLE_PLANNING_CALENDAR"
+      },
+      {
+        "text": "Single Planning Calendar Grid",
+        "fullName": "sap.m.SinglePlanningCalendarGrid",
+        "sapMethod": "SINGLE_PLANNING_CALENDAR_GRID",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"SinglePlanningCalendar\""
+      },
+      {
+        "text": "Slider",
+        "fullName": "sap.m.Slider",
+        "sapMethod": "SLIDER"
+      },
+      {
+        "text": "Slider Tooltip",
+        "fullName": "sap.m.SliderTooltip",
+        "sapMethod": "SLIDER_TOOLTIP",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Slider\""
+      },
+      {
+        "text": "Slider Tooltip Base",
+        "fullName": "sap.m.SliderTooltipBase",
+        "sapMethod": "SLIDER_TOOLTIP_BASE",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Slider\""
+      },
+      {
+        "text": "Slider Tooltip Container",
+        "fullName": "sap.m.SliderTooltipContainer",
+        "sapMethod": "SLIDER_TOOLTIP_CONTAINER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"Slider\""
+      },
+      {
+        "text": "Step Input",
+        "fullName": "sap.m.StepInput",
+        "sapMethod": "STEP_INPUT"
+      },
+      {
+        "text": "Switch",
+        "fullName": "sap.m.Switch",
+        "sapMethod": "SWITCH"
+      },
+      {
+        "text": "Text Area",
+        "fullName": "sap.m.TextArea",
+        "sapMethod": "TEXT_AREA"
+      },
+      {
+        "text": "Time Picker",
+        "fullName": "sap.m.TimePicker",
+        "sapMethod": "TIME_PICKER"
+      },
+      {
+        "text": "Time Picker Clock",
+        "fullName": "sap.m.TimePickerClock",
+        "sapMethod": "TIME_PICKER_CLOCK",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"TimePicker\""
+      },
+      {
+        "text": "Time Picker Clocks",
+        "fullName": "sap.m.TimePickerClocks",
+        "sapMethod": "TIME_PICKER_CLOCKS",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"TimePicker\""
+      },
+      {
+        "text": "Time Picker Inputs",
+        "fullName": "sap.m.TimePickerInputs",
+        "sapMethod": "TIME_PICKER_INPUTS",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"TimePicker\""
+      },
+      {
+        "text": "Time Picker Internals",
+        "fullName": "sap.m.TimePickerInternals",
+        "sapMethod": "TIME_PICKER_INTERNALS",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"TimePicker\""
+      },
+      {
+        "text": "Time Picker Slider",
+        "fullName": "sap.m.TimePickerSlider",
+        "sapMethod": "TIME_PICKER_SLIDER",
+        "nameSource": "generated",
+        "categorySource": "inferred from sibling \"TimePicker\""
+      },
+      {
+        "text": "Time Picker Sliders",
+        "fullName": "sap.m.TimePickerSliders",
+        "sapMethod": "TIME_PICKER_SLIDERS"
+      },
+      {
+        "text": "Tokenizer",
+        "fullName": "sap.m.Tokenizer",
+        "sapMethod": "TOKENIZER"
+      }
+    ]
+  },
+  {
+    "category": "_PRIVATE_",
+    "controls": [
+      {
+        "text": "Shell Bar",
+        "fullName": "sap.f.ShellBar",
+        "sapMethod": "SHELL_BAR"
+      }
+    ]
+  }
+]

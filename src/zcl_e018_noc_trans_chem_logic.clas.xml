@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEOCLASS>
+    <CLSNAME>ZCL_E018_NOC_TRANS_CHEM_LOGIC</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>EPDA: Approval to move chemical materials locally</DESCRIPT>
+    <STATE>1</STATE>
+    <CLSCCINCL>X</CLSCCINCL>
+    <FIXPT>X</FIXPT>
+    <UNICODE>X</UNICODE>
+   </VSEOCLASS>
+   <DESCRIPTIONS_SUB>
+    <SEOSUBCOTX>
+     <CMPNAME>CHEM_FORM_LOAD</CMPNAME>
+     <SCONAME>IO_CTX</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>zif_rak_journey</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>RENDER_CHEM_DETAILS</CMPNAME>
+     <SCONAME>IO_CTX</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>zif_rak_journey</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>RENDER_CHEM_DETAILS</CMPNAME>
+     <SCONAME>IO_VIEW</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>abap2UI5 - view parser</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>RENDER_OWN_POPUP</CMPNAME>
+     <SCONAME>IO_CTX</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>zif_rak_journey</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>RENDER_OWN_POPUP</CMPNAME>
+     <SCONAME>IO_POPUP</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>abap2UI5 - view parser</DESCRIPT>
+    </SEOSUBCOTX>
+   </DESCRIPTIONS_SUB>
+  </asx:values>
+ </asx:abap>
+</abapGit>

@@ -54,21 +54,11 @@ ENDCLASS.
 CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->CONSTRUCTOR
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_ENGINE                      TYPE REF TO ZCL_RAK_JOURNEY_ENGINE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD constructor.
     mo_e = io_engine.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->GRID_ADD
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD grid_add.
 *   A read-only grid draws no Add button, but the event can still arrive from a
 *   stale page. Refusing it here means the render and the handler agree on one
@@ -104,13 +94,6 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->GRID_CHECK
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [<---] ET_COLS                        TYPE        ZIF_RAK_CJS_TYPES=>TT_GCOL
-* | [<-()] RV_OK                          TYPE        ABAP_BOOL
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD grid_check.
 *   Every precondition a grid read or write depends on, checked once, and each
 *   failure named. The four public grid methods used to return silently on all
@@ -174,12 +157,6 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->GRID_COLS
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* | [<-()] RT                             TYPE        ZIF_RAK_CJS_TYPES=>TT_GCOL
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD grid_cols.
     DATA(spec) = is_field-default.
     IF spec IS INITIAL.
@@ -237,12 +214,6 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->GRID_DEL
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [--->] IV_UID                         TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD grid_del.
 *   Same rule, same reason as grid_add. The per-row Delete is not drawn on a
 *   read-only or a fixed grid, and neither is a place to enforce anything - a
@@ -280,12 +251,6 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->GRID_FIX
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* | [<-()] RV                             TYPE        ABAP_BOOL
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD grid_fix.
 *   Presence is the whole switch. FIX and FIX:X both mean the same thing, because
 *   there is no second setting for it to carry and an author writing FIX:X should
@@ -305,12 +270,6 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->GRID_FROM_JSON
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [--->] IV_JSON                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD grid_from_json.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
@@ -344,13 +303,6 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->GRID_INDEX
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [--->] IV_UID                         TYPE        STRING
-* | [<-()] RV                             TYPE        I
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD grid_index.
     IF iv_uid IS INITIAL.
       RETURN.
@@ -380,12 +332,6 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->GRID_REACT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* | [<-()] RT                             TYPE        ZIF_RAK_JOURNEY=>TT_STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD grid_react.
     DATA(spec) = is_field-default.
     IF spec IS INITIAL.
@@ -412,13 +358,6 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->GRID_SEL
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* | [<---] EV_MODE                        TYPE        STRING
-* | [<---] EV_TARGET                      TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD grid_sel.
     CLEAR ev_mode.
     CLEAR ev_target.
@@ -443,11 +382,6 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->GRID_SEL_COLLECT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD grid_sel_collect.
     DATA(ls_f) = mo_e->safe_field( iv_field ).
     grid_sel( EXPORTING is_field = ls_f
@@ -499,12 +433,6 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->GRID_SEL_PICK
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [--->] IV_UID                         TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD grid_sel_pick.
     DATA(ls_f) = mo_e->safe_field( iv_field ).
     grid_sel( EXPORTING is_field = ls_f IMPORTING ev_mode = DATA(lv_mode) ).
@@ -544,11 +472,6 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->GRID_SEL_SYNC
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD grid_sel_sync.
     grid_sel( EXPORTING is_field = is_field
               IMPORTING ev_mode = DATA(lv_mode) ev_target = DATA(lv_tgt) ).
@@ -599,12 +522,6 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->GRID_TO_JSON
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [<-()] RV                             TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD grid_to_json.
     DATA(ls_fld) = mo_e->safe_field( iv_field ).
     DATA(lt_gc)  = grid_cols( ls_fld ).
@@ -643,12 +560,6 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_GRID->RENDER_GRID
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_PARENT                      TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_grid.
     io_parent->title( text = zcl_rak_journey_util=>esc( is_field-label ) class = 'rakBlkTitle' ).
 

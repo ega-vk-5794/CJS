@@ -178,12 +178,6 @@ ENDCLASS.
 CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Protected Method ZCL_RAK_JOURNEY_LOGIC->BUILD_PAY_URL
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [<-()] RV_URL                         TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD build_pay_url.
     DATA(lv_app) = io_ctx->get_val( 'PAY_APPURL' ).
     IF lv_app IS NOT INITIAL.
@@ -198,17 +192,6 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Protected Method ZCL_RAK_JOURNEY_LOGIC->DIALOG_FORM
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IO_POPUP                       TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IV_TITLE                       TYPE        STRING
-* | [--->] IT_FIELDS                      TYPE        TT_POP_FIELD
-* | [--->] IV_OK_TEXT                     TYPE        STRING (default ='Save')
-* | [--->] IV_OK_EVT                      TYPE        STRING (default ='OK')
-* | [--->] IV_CXL_EVT                     TYPE        STRING (default ='CANCEL')
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD dialog_form.
     DATA(lo_dlg)  = io_popup->dialog( title = iv_title contentwidth = '34rem' ).
     DATA(lo_form) = lo_dlg->content(
@@ -240,12 +223,6 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Protected Method ZCL_RAK_JOURNEY_LOGIC->PAY_ENGINE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [<-()] RO                             TYPE REF TO ZCL_RAK_PAY_ENGINE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD pay_engine.
 * iv_caseid is the CONTAINER case number - the ext_key on SCMG_T_CASE_ATTR - and
 * GET_CASE( ) supplies it, though only after the case exists.
@@ -301,12 +278,6 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Protected Method ZCL_RAK_JOURNEY_LOGIC->PAY_FIELD_STEP
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [<-()] RV_STEP                        TYPE        I
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD pay_field_step.
     rv_step = -1.
     DATA lv_ix TYPE i.
@@ -323,11 +294,6 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Protected Method ZCL_RAK_JOURNEY_LOGIC->PAY_READ_ITEMS
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RT                             TYPE        ZIF_RAK_JOURNEY=>TT_ITEM
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD pay_read_items.
 *   The bridge seeds CT_DEFINITION from this list before calling the read FM, and the
 *   BAdI only fills rows that are already there - so a name missing here comes back
@@ -361,16 +327,6 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Protected Method ZCL_RAK_JOURNEY_LOGIC->PAY_RENDER
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IO_VIEW                        TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [--->] IT_FEE                         TYPE        ZCL_RAK_PAY_ENGINE=>TT_FEE
-* | [--->] IV_TOTAL                       TYPE        KBETR
-* | [--->] IV_POLL                        TYPE        ABAP_BOOL
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD pay_render.
     IF iv_poll = abap_true.
 *     ---- the waiting screen ------------------------------------------------
@@ -521,12 +477,6 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Protected Method ZCL_RAK_JOURNEY_LOGIC->PAY_TERMS
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IO_VIEW                        TYPE REF TO Z2UI5_CL_XML_VIEW
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD pay_terms.
 *   The order is the legacy order and it is the right one: what is being used to
 *   pay, then what using it costs, then the one thing the citizen has to do to
@@ -613,12 +563,6 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Protected Method ZCL_RAK_JOURNEY_LOGIC->PREPARE_PAYMENT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_QUIET                       TYPE        ABAP_BOOL (default =ABAP_FALSE)
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD prepare_payment.
 *---------------------------------------------------------------------------------------*
 * Ask this journey's own payment screen for a gateway URL. That is the whole method.
@@ -805,110 +749,47 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~GET_ATTACHMENTS
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [<-()] RT                             TYPE        ZIF_RAK_JOURNEY=>TT_ATTACH
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~get_attachments.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~GET_ATTACH_URL
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [<-()] RV_URL                         TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~get_attach_url.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~GET_TABLE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<-()] RS_DATA                        TYPE        ZIF_RAK_JOURNEY=>TY_TABLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~get_table.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_after_read.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_ATTACH
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_FIELD                       TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_attach.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_FIELDS
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [<-->] CT_FIELDS                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TT_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_before_fields.
     DELETE ct_fields WHERE name CP 'PAY_*'.
     DELETE ct_fields WHERE name = c_pay_field.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_POST
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [<-->] CT_KV                          TYPE        ZIF_RAK_JOURNEY=>TT_KV
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_before_post.
     DELETE ct_kv WHERE key CP 'PAY_*'.
     DELETE ct_kv WHERE key = c_pay_field.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [<-->] CT_TABLES                      TYPE        /QNV/SB_TABL_DEF_TT
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_before_tables.
 
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_FIELD                       TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_change.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_STEP                        TYPE        I
-* | [<-()] RT                             TYPE        ZIF_RAK_JOURNEY=>TT_MSG
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_custom_validate.
 *   The PAID gate, minus the deadlock it used to cause.
 *
@@ -938,42 +819,18 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_FEEDBACK
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_RATING                      TYPE        STRING
-* | [--->] IV_COMMENT                     TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_feedback.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_FEE_CALC
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_fee_calc.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_init.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_POPUP_EVENT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_ID                          TYPE        STRING
-* | [--->] IV_EVENT                       TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_popup_event.
     CASE iv_event.
       WHEN c_pay_now.
@@ -1290,111 +1147,46 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_AFTER_FIELD
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IO_VIEW                        TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_render_after_field.
 
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_BEFORE_FIELD
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IO_VIEW                        TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_render_before_field.
 
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_END
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IO_VIEW                        TYPE REF TO Z2UI5_CL_XML_VIEW
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_render_end.
 
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_POPUP
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IO_POPUP                       TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IV_ID                          TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_render_popup.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_START
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IO_VIEW                        TYPE REF TO Z2UI5_CL_XML_VIEW
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_render_start.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_SAVE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_save.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_FIELD                       TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_search.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_SUBMIT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [<-()] RT                             TYPE        ZIF_RAK_JOURNEY=>TT_MSG
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_submit.
 
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [<-()] RT                             TYPE        ZIF_RAK_JOURNEY=>TT_OPTION
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_value_help.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~RENDER_FIELD
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IO_FORM                        TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* | [<-()] RV_DONE                        TYPE        ABAP_BOOL
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~render_field.
     rv_done = abap_false.
     CHECK to_upper( is_field-name ) = c_pay_field.
@@ -1466,12 +1258,6 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_LOGIC->ZIF_RAK_JOURNEY_LOGIC~WANTS_FEEDBACK
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [<-()] RV                             TYPE        ABAP_BOOL
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~wants_feedback.
     rv = abap_true.
   ENDMETHOD.

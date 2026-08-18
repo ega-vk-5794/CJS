@@ -39,12 +39,6 @@ ENDCLASS.
 CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_NOT_APPROVAL_LOGIC->BLUEPRINT_LEGAL_TEXT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_BE                          TYPE REF TO ZCL_RAK_BE_NOT
-* | [<-()] RV_TEXT                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD blueprint_legal_text.
 
     DATA(lv_json) = io_be->subservice_json( ).
@@ -70,13 +64,6 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_NOT_APPROVAL_LOGIC->ZIF_RAK_JOURNEY_LOGIC~GET_TABLE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<-()] RS_DATA                        TYPE        ZIF_RAK_JOURNEY=>TY_TABLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~get_table.
 
     CASE to_upper( iv_name ).
@@ -127,13 +114,6 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_NOT_APPROVAL_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_STEP                        TYPE        I
-* | [<-()] RT                             TYPE        ZIF_RAK_JOURNEY=>TT_MSG
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_custom_validate.
 
 *   Preserve the base payment PAID-gate first.
@@ -149,12 +129,6 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_NOT_APPROVAL_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_FIELD                       TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_search.
 
 *   BP party lookup. The id type chosen drives the Notary search type; a hit
@@ -241,13 +215,6 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_NOT_APPROVAL_LOGIC->ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_CTX                         TYPE REF TO ZIF_RAK_JOURNEY
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [<-()] RT                             TYPE        ZIF_RAK_JOURNEY=>TT_OPTION
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_logic~on_value_help.
 
 *   Every list here is resolved live. dyn_list_for( ) maps a field name to

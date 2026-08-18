@@ -79,34 +79,16 @@ ENDCLASS.
 CLASS ZCL_RAK_BE_LOCAL IMPLEMENTATION.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_LOCAL->CONSTRUCTOR
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_JOURNEY                     TYPE        STRING(optional)
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD constructor.
     mv_journey = iv_journey.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_LOCAL->FIELD
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IT_FIELDS                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TT_FIELD
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<-()] RV_VALUE                       TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD field.
     rv_value = VALUE #( it_fields[ name = to_upper( iv_name ) ]-value OPTIONAL ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_LOCAL->KV_JSON
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IT_FIELDS                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TT_FIELD
-* | [<-()] RV_JSON                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD kv_json.
     IF it_fields IS INITIAL.
       rv_json = '{}'.
@@ -125,24 +107,12 @@ CLASS ZCL_RAK_BE_LOCAL IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_LOCAL->MSG
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_TYPE                        TYPE        BAPIRET2-TYPE
-* | [--->] IV_TEXT                        TYPE        STRING
-* | [<-->] CT_RETURN                      TYPE        BAPIRET2_T
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD msg.
     APPEND VALUE bapiret2( type = iv_type id = 'ZCJS' number = '000' message = iv_text )
            TO ct_return.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_LOCAL->NEW_GUID
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RV                             TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD new_guid.
     TRY.
         rv = cl_system_uuid=>create_uuid_c32_static( ).
@@ -152,13 +122,6 @@ CLASS ZCL_RAK_BE_LOCAL IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_LOCAL->ZIF_RAK_JOURNEY_BACKEND~ATTACH
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IS_FILE                        TYPE        TY_FILE
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~attach.
     " Local backend does not persist file bytes; acknowledge so the flow proceeds.
     msg( EXPORTING iv_type = 'S'
@@ -167,11 +130,6 @@ CLASS ZCL_RAK_BE_LOCAL IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_LOCAL->ZIF_RAK_JOURNEY_BACKEND~CAPABILITIES
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RS_CAP                         TYPE        TY_CAP
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~capabilities.
     rs_cap = VALUE #( immediate   = abap_true
                       resumable   = abap_true
@@ -180,24 +138,12 @@ CLASS ZCL_RAK_BE_LOCAL IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_LOCAL->ZIF_RAK_JOURNEY_BACKEND~DESCRIBE_STEP
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_STEP                        TYPE        STRING
-* | [<-()] RT_FIELDS                      TYPE        TT_DYN_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~describe_step.
 *   Local staging has no dynamic steps.
     RETURN.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_LOCAL->ZIF_RAK_JOURNEY_BACKEND~DISCARD
-* +-------------------------------------------------------------------------------------------------+
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~discard.
     IF cs_handle-request_id IS INITIAL.
       RETURN.
@@ -208,13 +154,6 @@ CLASS ZCL_RAK_BE_LOCAL IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_LOCAL->ZIF_RAK_JOURNEY_BACKEND~INIT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IT_FIELDS                      TYPE        TT_FIELD
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~init.
     DATA(lv_id) = new_guid( ).
     GET TIME STAMP FIELD DATA(lv_ts).
@@ -241,14 +180,6 @@ CLASS ZCL_RAK_BE_LOCAL IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_LOCAL->ZIF_RAK_JOURNEY_BACKEND~PAY
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_EVENT                       TYPE        STRING
-* | [--->] IT_FIELDS                      TYPE        TT_FIELD
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~pay.
     " Local backend simulates payment so the journey can complete without a gateway.
     CASE iv_event.
@@ -276,13 +207,6 @@ CLASS ZCL_RAK_BE_LOCAL IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_LOCAL->ZIF_RAK_JOURNEY_BACKEND~RESUME
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_REQUEST_ID                  TYPE        STRING
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~resume.
     SELECT SINGLE journey_id, status, bo_id, amount
       FROM zrak_t_be_loc
@@ -306,14 +230,6 @@ CLASS ZCL_RAK_BE_LOCAL IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_LOCAL->ZIF_RAK_JOURNEY_BACKEND~STEP_COMMIT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_STEP                        TYPE        STRING
-* | [--->] IT_FIELDS                      TYPE        TT_FIELD
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~step_commit.
     GET TIME STAMP FIELD DATA(lv_ts).
 
@@ -357,13 +273,6 @@ CLASS ZCL_RAK_BE_LOCAL IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_LOCAL->ZIF_RAK_JOURNEY_BACKEND~SUBMIT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IT_FIELDS                      TYPE        TT_FIELD
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~submit.
     GET TIME STAMP FIELD DATA(lv_ts).
     UPDATE zrak_t_be_loc

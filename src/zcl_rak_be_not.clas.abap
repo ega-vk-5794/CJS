@@ -32,14 +32,24 @@
 *&   GET    /static/nationalities | occupation | countries | region
 *&   GET    /static/regionbycountry/{c} | /static/{c}/cities/{r}
 *&
-*& TWO THINGS THAT WERE WRONG AND ARE NOW FIXED
+*& THREE THINGS THAT WERE WRONG AND ARE NOW FIXED
 *&
-*& 1. Authorization was sent as |Bearer { token }|. Every request in the
-*&    shared collection sends the raw token value with no prefix, and the
-*&    team's own clarification document says so in section 5. A prefix the
-*&    server does not expect fails as 401 on every call after login, which
-*&    reads like an expired credential. c_bearer flips it back if Notary
-*&    ever says otherwise.
+*& 1. Authorization was sent as the raw token with no prefix, on the
+*&    strength of the shared collection. The login response settles it:
+*&    it returns "type":"Bearer", so the prefix belongs there and
+*&    mc_bearer is abap_true. The earlier 401 on every call after login
+*&    was this, not an expired credential.
+*&
+*& 3. Success was decided from the HTTP status alone. Notary answers
+*&    200 OK to logical failures and puts the real outcome in the
+*&    envelope, so a rejected request read as a successful one and every
+*&    result downstream of it was untrustworthy. ok_of( ) now decides.
+*&    Proven on the live QA API 15 Aug 2026, requests 13301-13304:
+*&      success   statusCode 201, respMessage CREATED, notaryCode 10007
+*&      failure   statusCode and respMessage absent, notaryCode 7006 or
+*&                7018, notaryDescription carrying the text
+*&    notaryCode is present on both and cannot decide alone; the
+*&    envelope's own statusCode is the discriminator wherever it appears.
 *&
 *& 2. The BO payload quoted every value. The collection posts numbers
 *&    unquoted (caseNumber: 1111, saleAmountValue: 5000.00, caseType: 1).
@@ -241,6 +251,23 @@ CLASS zcl_rak_be_not DEFINITION
                 iv_text   TYPE string
       CHANGING  ct_return TYPE bapiret2_t.
 
+*   Did the call actually work? HTTP first, then the Notary envelope.
+*   ev_code is handed back so a caller can wave through a code that is
+*   benign at that one call site - 7006 on a party the draft already
+*   created, 9042 on a business object this sub-service does not take.
+*   Nothing is waved through centrally.
+    METHODS ok_of
+      IMPORTING iv_resp      TYPE string
+                iv_status    TYPE i
+      EXPORTING ev_code      TYPE string
+                ev_msg       TYPE string
+      RETURNING VALUE(rv_ok) TYPE abap_bool.
+
+    METHODS json_scalar
+      IMPORTING iv_json   TYPE string
+                iv_key    TYPE string
+      RETURNING VALUE(rv) TYPE string.
+
 ENDCLASS.
 
 
@@ -248,13 +275,6 @@ ENDCLASS.
 CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->AUTHENTICATE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_FORCE                       TYPE        ABAP_BOOL (default =ABAP_FALSE)
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD authenticate.
 
     DATA lv_status TYPE i.
@@ -305,9 +325,12 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
                                                   ev_reason  = lv_reason ).
     zcl_rak_not_trace=>http( iv_method = 'POST' iv_path = '/client/authenticate' iv_status = lv_status iv_reason = lv_reason iv_resp = lv_resp ).
 
-    IF lv_status <> 200 AND lv_status <> 201.
+    DATA lv_amsg TYPE string.
+    IF ok_of( EXPORTING iv_resp   = lv_resp
+                        iv_status = lv_status
+              IMPORTING ev_msg    = lv_amsg ) = abap_false.
       msg( EXPORTING iv_type   = 'E'
-                     iv_text   = |Notary authenticate failed ({ lv_status }): { lv_resp }|
+                     iv_text   = |Notary authenticate failed ({ lv_status }): { lv_amsg }|
            CHANGING  ct_return = et_return ).
       RETURN.
     ENDIF.
@@ -330,12 +353,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->AUTH_HDR
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IS_HANDLE                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TY_HANDLE
-* | [<-()] RT_HEADER                      TYPE        TIHTTPNVP
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD auth_hdr.
     DATA(lv_val) = COND string( WHEN mc_bearer = abap_true
                                 THEN |Bearer { is_handle-token }|
@@ -349,12 +366,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->BILLING_OWNERS
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_REQUEST_ID                  TYPE        STRING
-* | [<-()] RT_OPT                         TYPE        ZIF_RAK_JOURNEY_BACKEND=>TT_DYN_OPT
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD billing_owners.
 
     IF iv_request_id IS INITIAL.
@@ -380,18 +391,13 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         ev_status      = lv_status ).
     zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = '/request/{reqId}/fetchPossibleBillingDocumentOwners' iv_status = lv_status iv_resp = lv_resp ).
 
-    IF lv_status = 200.
+    IF ok_of( iv_resp = lv_resp iv_status = lv_status ) = abap_true.
       rt_opt = to_options( lv_resp ).
     ENDIF.
 
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->BLUEPRINT
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RV_JSON                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD blueprint.
 
     IF gv_bp_sub = mv_subservice AND gv_bp_json IS NOT INITIAL.
@@ -421,7 +427,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         ev_reason      = lv_reason ).
     zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = '/subservice/{sub}' iv_status = lv_status iv_reason = lv_reason ).
 
-    IF lv_status <> 200.
+    IF ok_of( iv_resp = rv_json iv_status = lv_status ) = abap_false.
       CLEAR rv_json.
       RETURN.
     ENDIF.
@@ -434,12 +440,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->BO_JSON
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IT_FIELDS                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TT_FIELD
-* | [<-()] RV_JSON                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD bo_json.
 
 *   Only blueprint fields, under the API's own names, typed as the
@@ -478,13 +478,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->COMPANY_JSON
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IT_FIELDS                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TT_FIELD
-* | [--->] IV_FIRST                       TYPE        ABAP_BOOL
-* | [<-()] RV_JSON                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD company_json.
 
     TYPES: BEGIN OF ty_addr, house_number TYPE string, street TYPE string, city TYPE string,
@@ -544,13 +537,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->CONSTRUCTOR
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_SUBSERVICE                  TYPE        STRING(optional)
-* | [--->] IV_LOGINBP                     TYPE        STRING(optional)
-* | [--->] IV_USERDATA                    TYPE        STRING(optional)
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD constructor.
     mv_subservice = iv_subservice.
     mv_loginbp    = iv_loginbp.
@@ -558,24 +544,12 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->DOC_TYPES
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RT_DOC                         TYPE        TT_DOC
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD doc_types.
     blueprint( ).
     rt_doc = gt_doc.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->DYN_LIST_FOR
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<---] EV_DEPENDENT                   TYPE        ABAP_BOOL
-* | [<-()] RV_LIST                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD dyn_list_for.
 
 *   Matched on the name the blueprint gives the field. Longest / most
@@ -605,12 +579,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->ENSURE_TOKEN
-* +-------------------------------------------------------------------------------------------------+
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD ensure_token.
     IF cs_handle-token IS NOT INITIAL.
       gv_token = cs_handle-token.
@@ -620,12 +588,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->ESC
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_IN                          TYPE        STRING
-* | [<-()] RV_OUT                         TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD esc.
     rv_out = iv_in.
     REPLACE ALL OCCURRENCES OF '\' IN rv_out WITH '\\'.
@@ -635,24 +597,63 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->FIELD
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IT_FIELDS                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TT_FIELD
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<-()] RV_VALUE                       TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD field.
     rv_value = VALUE #( it_fields[ name = to_upper( iv_name ) ]-value OPTIONAL ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->LEGAL_TEXT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_REQUEST_ID                  TYPE        STRING
-* | [<-()] RV_TEXT                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD json_scalar.
+
+    DATA lv_off TYPE i.
+    DATA lv_pos TYPE i.
+    DATA lv_end TYPE i.
+    DATA lv_st  TYPE i.
+    DATA lv_len TYPE i.
+
+    DATA(lv_pat) = |"{ iv_key }"|.
+
+    FIND FIRST OCCURRENCE OF lv_pat IN iv_json MATCH OFFSET lv_off.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    lv_pos = lv_off + strlen( lv_pat ).
+    lv_end = strlen( iv_json ).
+
+    WHILE lv_pos < lv_end
+      AND ( iv_json+lv_pos(1) = ` ` OR iv_json+lv_pos(1) = ':' ).
+      lv_pos = lv_pos + 1.
+    ENDWHILE.
+
+    IF lv_pos >= lv_end.
+      RETURN.
+    ENDIF.
+
+    IF iv_json+lv_pos(1) = '"'.
+      lv_pos = lv_pos + 1.
+      lv_st  = lv_pos.
+      WHILE lv_pos < lv_end AND iv_json+lv_pos(1) <> '"'.
+        lv_pos = lv_pos + 1.
+      ENDWHILE.
+    ELSE.
+      lv_st = lv_pos.
+      WHILE lv_pos < lv_end
+        AND iv_json+lv_pos(1) <> ','
+        AND iv_json+lv_pos(1) <> '}'
+        AND iv_json+lv_pos(1) <> ']'.
+        lv_pos = lv_pos + 1.
+      ENDWHILE.
+    ENDIF.
+
+    lv_len = lv_pos - lv_st.
+    IF lv_len > 0.
+      rv = iv_json+lv_st(lv_len).
+      CONDENSE rv.
+    ENDIF.
+
+  ENDMETHOD.
+
+
   METHOD legal_text.
 
     IF iv_request_id IS INITIAL.
@@ -678,7 +679,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         ev_status      = lv_status ).
     zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = '/request/{reqId}/legaltext' iv_status = lv_status iv_resp = lv_resp ).
 
-    IF lv_status <> 200.
+    IF ok_of( iv_resp = lv_resp iv_status = lv_status ) = abap_false.
       RETURN.
     ENDIF.
 
@@ -702,14 +703,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->LOOKUP
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_LIST                        TYPE        STRING
-* | [--->] IV_ARG1                        TYPE        STRING(optional)
-* | [--->] IV_ARG2                        TYPE        STRING(optional)
-* | [<-()] RT_OPT                         TYPE        ZIF_RAK_JOURNEY_BACKEND=>TT_DYN_OPT
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD lookup.
 
     DATA(lv_key) = |{ to_upper( iv_list ) }#{ iv_arg1 }#{ iv_arg2 }|.
@@ -772,7 +765,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         ev_status      = lv_status ).
     zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = lv_path iv_status = lv_status iv_resp = lv_resp ).
 
-    IF lv_status = 200.
+    IF ok_of( iv_resp = lv_resp iv_status = lv_status ) = abap_true.
       rt_opt = to_options( lv_resp ).
     ENDIF.
 
@@ -783,33 +776,66 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->MSG
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_TYPE                        TYPE        BAPIRET2-TYPE
-* | [--->] IV_TEXT                        TYPE        STRING
-* | [<-->] CT_RETURN                      TYPE        BAPIRET2_T
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD msg.
     APPEND VALUE bapiret2( type = iv_type id = 'ZCJS' number = '000' message = iv_text )
            TO ct_return.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->NOW_TS
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RV_TS                          TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD now_ts.
     rv_ts = |{ today( ) } { sy-uzeit+0(2) }:{ sy-uzeit+2(2) }:{ sy-uzeit+4(2) }.000|.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->PARSE_BLUEPRINT
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD ok_of.
+
+    CLEAR: ev_code, ev_msg.
+    rv_ok = abap_false.
+
+    ev_code = json_scalar( iv_json = iv_resp iv_key = 'notaryCode' ).
+    DATA(lv_desc) = json_scalar( iv_json = iv_resp iv_key = 'notaryDescription' ).
+    DATA(lv_stat) = json_scalar( iv_json = iv_resp iv_key = 'statusCode' ).
+    DATA(lv_rmsg) = to_upper( json_scalar( iv_json = iv_resp iv_key = 'respMessage' ) ).
+
+    IF lv_desc IS INITIAL.
+      lv_desc = json_scalar( iv_json = iv_resp iv_key = 'respMessageDetail' ).
+    ENDIF.
+
+    IF iv_status <> 200 AND iv_status <> 201.
+      ev_msg = COND string( WHEN lv_desc IS NOT INITIAL
+                            THEN |HTTP { iv_status } - { lv_desc }|
+                            ELSE |HTTP { iv_status }| ).
+      RETURN.
+    ENDIF.
+
+    IF lv_stat IS NOT INITIAL.
+      IF lv_stat = '200' OR lv_stat = '201' OR lv_stat = '202' OR lv_stat = '204'.
+        rv_ok = abap_true.
+      ELSE.
+        ev_msg = COND string( WHEN lv_desc IS NOT INITIAL
+                              THEN lv_desc
+                              ELSE |Notary statusCode { lv_stat }| ).
+      ENDIF.
+      RETURN.
+    ENDIF.
+
+    IF lv_rmsg = 'SUCCESS' OR lv_rmsg = 'CREATED' OR lv_rmsg = 'OK'.
+      rv_ok = abap_true.
+      RETURN.
+    ENDIF.
+
+    IF ev_code IS INITIAL OR ev_code = '0' OR ev_code = 'null'.
+      rv_ok = abap_true.
+      RETURN.
+    ENDIF.
+
+    ev_msg = COND string( WHEN lv_desc IS NOT INITIAL
+                          THEN lv_desc
+                          ELSE |Notary code { ev_code }| ).
+
+  ENDMETHOD.
+
+
   METHOD parse_blueprint.
 
 *   ------------------------------------------------------------------
@@ -1036,12 +1062,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->PARSE_PARTY
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_RESPONSE                    TYPE        STRING
-* | [<-()] RT_FIELDS                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TT_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD parse_party.
 
     IF iv_response IS INITIAL.
@@ -1131,13 +1151,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->PARTY_JSON
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IT_FIELDS                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TT_FIELD
-* | [--->] IV_FIRST                       TYPE        ABAP_BOOL
-* | [<-()] RV_JSON                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD party_json.
 
     DATA(lv_is_company) = xsdbool(
@@ -1242,12 +1255,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->PAYMENT_STATUS
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IS_HANDLE                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TY_HANDLE
-* | [<-()] RV_STATUS                      TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD payment_status.
 
     IF is_handle-request_id IS INITIAL OR is_handle-bdo IS INITIAL.
@@ -1275,7 +1282,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         ev_status      = lv_status ).
     zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = '/request/{reqId}/transaction/{bdo}/status' iv_status = lv_status iv_resp = lv_resp ).
 
-    IF lv_status <> 200.
+    IF ok_of( iv_resp = lv_resp iv_status = lv_status ) = abap_false.
       RETURN.
     ENDIF.
 
@@ -1299,12 +1306,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->REAUTH
-* +-------------------------------------------------------------------------------------------------+
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD reauth.
     zcl_rak_not_trace=>add( 'token rejected - discarding cached token and re-authenticating' ).
     authenticate( EXPORTING iv_force  = abap_true
@@ -1313,14 +1314,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->SEARCH_PARTY
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_SEARCH_TYPE                 TYPE        STRING
-* | [--->] IT_FIELDS                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TT_FIELD
-* | [--->] IV_REQUEST_ID                  TYPE        STRING(optional)
-* | [<-()] RV_RESPONSE                    TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD search_party.
 
     DATA lv_json TYPE string.
@@ -1394,39 +1387,23 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         ev_status  = lv_status ).
     zcl_rak_not_trace=>http( iv_method = 'POST' iv_path = lv_path iv_status = lv_status ).
 
-    IF lv_status <> 200 AND lv_status <> 201.
+    IF ok_of( iv_resp = rv_response iv_status = lv_status ) = abap_false.
       CLEAR rv_response.
     ENDIF.
 
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->SUBSERVICE_JSON
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RV_JSON                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD subservice_json.
     rv_json = blueprint( ).
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->TODAY
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RV_D                           TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD today.
     rv_d = |{ sy-datum+0(4) }-{ sy-datum+4(2) }-{ sy-datum+6(2) }|.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->TO_OPTIONS
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_JSON                        TYPE        STRING
-* | [<-()] RT_OPT                         TYPE        ZIF_RAK_JOURNEY_BACKEND=>TT_DYN_OPT
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD to_options.
 
     DATA(lv_json) = condense( iv_json ).
@@ -1504,12 +1481,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_BE_NOT->TRANSFER_JSON
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IT_FIELDS                      TYPE        ZIF_RAK_JOURNEY_BACKEND=>TT_FIELD
-* | [<-()] RV_JSON                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD transfer_json.
 
     TYPES: BEGIN OF ty_t,
@@ -1549,13 +1520,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->ZIF_RAK_JOURNEY_BACKEND~ATTACH
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IS_FILE                        TYPE        TY_FILE
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~attach.
 
     DATA lv_status TYPE i.
@@ -1625,20 +1589,18 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         ev_reason      = lv_reason ).
     zcl_rak_not_trace=>http( iv_method = 'POST' iv_path = '/request/{reqId}/attachment' iv_status = lv_status iv_reason = lv_reason iv_resp = lv_resp ).
 
-    IF lv_status <> 200 AND lv_status <> 201.
+    DATA lv_fmsg TYPE string.
+    IF ok_of( EXPORTING iv_resp   = lv_resp
+                        iv_status = lv_status
+              IMPORTING ev_msg    = lv_fmsg ) = abap_false.
       msg( EXPORTING iv_type   = 'E'
-                     iv_text   = |Attachment '{ is_file-name }' failed ({ lv_status }): { lv_resp }|
+                     iv_text   = |Attachment '{ is_file-name }' failed: { lv_fmsg }|
            CHANGING  ct_return = et_return ).
     ENDIF.
 
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->ZIF_RAK_JOURNEY_BACKEND~CAPABILITIES
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RS_CAP                         TYPE        TY_CAP
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~capabilities.
 *   payment = abap_true now. The Notary API owns the initial payment end
 *   to end - calculate, create the billing document, lock, mark paid - so
@@ -1650,12 +1612,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->ZIF_RAK_JOURNEY_BACKEND~DESCRIBE_STEP
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_STEP                        TYPE        STRING
-* | [<-()] RT_FIELDS                      TYPE        TT_DYN_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~describe_step.
 
     CHECK to_upper( iv_step ) = 'BO'.
@@ -1812,12 +1768,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->ZIF_RAK_JOURNEY_BACKEND~DISCARD
-* +-------------------------------------------------------------------------------------------------+
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~discard.
 
     DATA lv_status TYPE i.
@@ -1833,7 +1783,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
     ENDIF.
 
     zcl_rak_not_trace=>http( iv_method = 'DELETE' iv_path = '/request/{reqId}' ).
-    zcl_rak_http=>call(
+    DATA(lv_resp) = zcl_rak_http=>call(
       EXPORTING
         iv_api         = mc_api
         iv_path        = '/request/{reqId}'
@@ -1845,9 +1795,15 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         ev_reason      = lv_reason ).
     zcl_rak_not_trace=>http( iv_method = 'DELETE' iv_path = '/request/{reqId}' iv_status = lv_status iv_reason = lv_reason ).
 
-    IF lv_status <> 200 AND lv_status <> 204.
+*   204 carries no body, so there is no envelope to read - the HTTP
+*   status is the whole answer for that one case.
+    DATA lv_dmsg TYPE string.
+    IF lv_status <> 204
+       AND ok_of( EXPORTING iv_resp   = lv_resp
+                            iv_status = lv_status
+                  IMPORTING ev_msg    = lv_dmsg ) = abap_false.
       msg( EXPORTING iv_type   = 'W'
-                     iv_text   = |Discard failed ({ lv_status })|
+                     iv_text   = |Discard failed ({ lv_status }): { lv_dmsg }|
            CHANGING  ct_return = et_return ).
     ELSE.
       CLEAR cs_handle.
@@ -1856,13 +1812,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->ZIF_RAK_JOURNEY_BACKEND~INIT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IT_FIELDS                      TYPE        TT_FIELD
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~init.
 
     DATA lv_status TYPE i.
@@ -1953,9 +1902,12 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    IF lv_status <> 200 AND lv_status <> 201.
+    DATA lv_cmsg TYPE string.
+    IF ok_of( EXPORTING iv_resp   = lv_resp
+                        iv_status = lv_status
+              IMPORTING ev_msg    = lv_cmsg ) = abap_false.
       msg( EXPORTING iv_type   = 'E'
-                     iv_text   = |Create draft failed ({ lv_status }): { lv_resp }|
+                     iv_text   = |Create draft failed: { lv_cmsg }|
            CHANGING  ct_return = et_return ).
       LOOP AT zcl_rak_not_trace=>dump( ) INTO DATA(lv_tl).
         msg( EXPORTING iv_type = 'E' iv_text = lv_tl CHANGING ct_return = et_return ).
@@ -1993,14 +1945,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->ZIF_RAK_JOURNEY_BACKEND~PAY
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_EVENT                       TYPE        STRING
-* | [--->] IT_FIELDS                      TYPE        TT_FIELD
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~pay.
 
     DATA lv_status TYPE i.
@@ -2042,7 +1986,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
             ev_reason      = lv_reason ).
         zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = '/request/{reqId}/payment/initial' iv_status = lv_status iv_reason = lv_reason ).
 
-        IF lv_status = 200.
+        IF ok_of( iv_resp = lv_resp iv_status = lv_status ) = abap_true.
           DATA ls_calc TYPE ty_calc_resp.
           /ui2/cl_json=>deserialize( EXPORTING json        = lv_resp
                                                pretty_name = /ui2/cl_json=>pretty_mode-camel_case
@@ -2080,7 +2024,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
             ev_reason      = lv_reason ).
         zcl_rak_not_trace=>http( iv_method = 'POST' iv_path = '/request/{reqId}/payment/initial' iv_status = lv_status iv_reason = lv_reason ).
 
-        IF lv_status = 200 OR lv_status = 201.
+        IF ok_of( iv_resp = lv_resp iv_status = lv_status ) = abap_true.
           DATA ls_bd TYPE ty_bd_resp.
           /ui2/cl_json=>deserialize( EXPORTING json        = lv_resp
                                                pretty_name = /ui2/cl_json=>pretty_mode-camel_case
@@ -2120,7 +2064,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
             ev_reason      = lv_reason ).
         zcl_rak_not_trace=>http( iv_method = 'PUT' iv_path = '/request/{reqId}/payment/transaction/{bdo}/event/lock' iv_status = lv_status iv_reason = lv_reason ).
 
-        IF lv_status = 200 OR lv_status = 201.
+        IF ok_of( iv_resp = lv_resp iv_status = lv_status ) = abap_true.
           cs_handle-status = 'LOCKED'.
         ENDIF.
 
@@ -2165,7 +2109,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
             ev_reason      = lv_reason ).
         zcl_rak_not_trace=>http( iv_method = 'PUT' iv_path = '/request/{reqId}/payment/transaction/{bdo}/event/paid' iv_status = lv_status iv_reason = lv_reason ).
 
-        IF lv_status = 200 OR lv_status = 201.
+        IF ok_of( iv_resp = lv_resp iv_status = lv_status ) = abap_true.
           cs_handle-status = 'PAID'.
         ENDIF.
 
@@ -2174,22 +2118,18 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 
     ENDCASE.
 
-    IF lv_status <> 200 AND lv_status <> 201.
+    DATA lv_pmsg TYPE string.
+    IF ok_of( EXPORTING iv_resp   = lv_resp
+                        iv_status = lv_status
+              IMPORTING ev_msg    = lv_pmsg ) = abap_false.
       msg( EXPORTING iv_type   = 'E'
-                     iv_text   = |Payment { iv_event } failed ({ lv_status }): { lv_resp }|
+                     iv_text   = |Payment { iv_event } failed: { lv_pmsg }|
            CHANGING  ct_return = et_return ).
     ENDIF.
 
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->ZIF_RAK_JOURNEY_BACKEND~RESUME
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_REQUEST_ID                  TYPE        STRING
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~resume.
 
     DATA lv_status TYPE i.
@@ -2215,9 +2155,12 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         ev_reason      = lv_reason ).
     zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = '/request/{reqId}' iv_status = lv_status iv_reason = lv_reason iv_resp = lv_resp ).
 
-    IF lv_status <> 200.
+    DATA lv_rmsg TYPE string.
+    IF ok_of( EXPORTING iv_resp   = lv_resp
+                        iv_status = lv_status
+              IMPORTING ev_msg    = lv_rmsg ) = abap_false.
       msg( EXPORTING iv_type   = 'E'
-                     iv_text   = |Resume failed ({ lv_status }): { lv_resp }|
+                     iv_text   = |Resume failed: { lv_rmsg }|
            CHANGING  ct_return = et_return ).
       RETURN.
     ENDIF.
@@ -2254,14 +2197,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->ZIF_RAK_JOURNEY_BACKEND~STEP_COMMIT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_STEP                        TYPE        STRING
-* | [--->] IT_FIELDS                      TYPE        TT_FIELD
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~step_commit.
 
     DATA lv_status TYPE i.
@@ -2332,7 +2267,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
                     ev_reason      = lv_reason ).
         zcl_rak_not_trace=>http( iv_method = 'POST' iv_path = lv_path iv_status = lv_status iv_reason = lv_reason ).
 
-        IF lv_status = 200 OR lv_status = 201.
+        IF ok_of( iv_resp = lv_resp iv_status = lv_status ) = abap_true.
           DATA ls_party TYPE ty_party_resp.
           /ui2/cl_json=>deserialize( EXPORTING json        = lv_resp
                                                pretty_name = /ui2/cl_json=>pretty_mode-camel_case
@@ -2370,7 +2305,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
             ev_reason      = lv_reason ).
         zcl_rak_not_trace=>http( iv_method = COND string( WHEN cs_handle-bo_id IS NOT INITIAL THEN 'PUT' ELSE 'POST' ) iv_path = lv_bopath iv_status = lv_status iv_reason = lv_reason ).
 
-        IF lv_status = 200 OR lv_status = 201.
+        IF ok_of( iv_resp = lv_resp iv_status = lv_status ) = abap_true.
           DATA ls_bo TYPE ty_bo_resp.
           /ui2/cl_json=>deserialize( EXPORTING json        = lv_resp
                                                pretty_name = /ui2/cl_json=>pretty_mode-camel_case
@@ -2412,10 +2347,20 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 
       WHEN 'LEGAL'.
 
+*       ARABICLEGALTEXT is an RO_PANEL: get_table( ) paints it straight
+*       from the API and it is never held as a model value, so there is
+*       nothing here to send back. PUTting the empty string overwrites
+*       the API's own legal text with nothing, which is the 500. Only
+*       post when a journey actually captured edited text.
+        DATA(lv_ltxt) = field( it_fields = it_fields iv_name = 'arabicLegalText' ).
+        IF lv_ltxt IS INITIAL.
+          RETURN.
+        ENDIF.
+
         TYPES: BEGIN OF ty_lt, arabic_legal_text TYPE string, END OF ty_lt,
                BEGIN OF ty_ltb, legal_text TYPE ty_lt, END OF ty_ltb.
         DATA(ls_lt) = VALUE ty_ltb( legal_text = VALUE #(
-                        arabic_legal_text = field( it_fields = it_fields iv_name = 'arabicLegalText' ) ) ).
+                        arabic_legal_text = lv_ltxt ) ).
 
         zcl_rak_not_trace=>http( iv_method = 'PUT' iv_path = '/request/{reqId}/legaltext' ).
         lv_resp = zcl_rak_http=>call(
@@ -2463,22 +2408,31 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 
     ENDCASE.
 
-    IF lv_status <> 200 AND lv_status <> 201.
-      msg( EXPORTING iv_type   = 'E'
-                     iv_text   = |Step { iv_step } failed ({ lv_status }): { lv_resp }|
-           CHANGING  ct_return = et_return ).
+*   Two codes are benign at their own step and nowhere else. 7006 says
+*   the party is already on the request, which is what the draft did for
+*   the applicant and what a re-committed step does the second time.
+*   9042 says this sub-service takes no business object, which is true of
+*   90. Everything else, 7018 and 7034 included, is a real failure and
+*   now says so instead of passing as a green screen.
+    DATA lv_scode TYPE string.
+    DATA lv_smsg  TYPE string.
+    IF ok_of( EXPORTING iv_resp   = lv_resp
+                        iv_status = lv_status
+              IMPORTING ev_code   = lv_scode
+                        ev_msg    = lv_smsg ) = abap_false.
+      IF NOT ( to_upper( iv_step ) CS 'PARTY' AND lv_scode = '7006' )
+         AND NOT ( to_upper( iv_step ) = 'BO' AND lv_scode = '9042' ).
+        msg( EXPORTING iv_type   = 'E'
+                       iv_text   = |Step { iv_step } failed: { lv_smsg }|
+             CHANGING  ct_return = et_return ).
+      ELSE.
+        zcl_rak_not_trace=>add( |STEP { iv_step } tolerated notaryCode { lv_scode }| ).
+      ENDIF.
     ENDIF.
 
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_BE_NOT->ZIF_RAK_JOURNEY_BACKEND~SUBMIT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IT_FIELDS                      TYPE        TT_FIELD
-* | [<---] ET_RETURN                      TYPE        BAPIRET2_T
-* | [<-->] CS_HANDLE                      TYPE        TY_HANDLE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD zif_rak_journey_backend~submit.
 
     DATA lv_status TYPE i.
@@ -2512,9 +2466,12 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
                 ev_reason      = lv_reason ).
     zcl_rak_not_trace=>http( iv_method = lv_method iv_path = '/request/{reqId}/events/submit' iv_status = lv_status iv_reason = lv_reason iv_resp = lv_resp ).
 
-    IF lv_status <> 200 AND lv_status <> 201.
+    DATA lv_bmsg TYPE string.
+    IF ok_of( EXPORTING iv_resp   = lv_resp
+                        iv_status = lv_status
+              IMPORTING ev_msg    = lv_bmsg ) = abap_false.
       msg( EXPORTING iv_type   = 'E'
-                     iv_text   = |Submit failed ({ lv_status }): { lv_resp }|
+                     iv_text   = |Submit failed: { lv_bmsg }|
            CHANGING  ct_return = et_return ).
       RETURN.
     ENDIF.

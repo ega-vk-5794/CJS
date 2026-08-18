@@ -1,0 +1,26 @@
+CLASS z2ui5_cl_app_style_css DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+
+    CLASS-METHODS get
+      RETURNING
+        VALUE(result) TYPE string.
+
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS Z2UI5_CL_APP_STYLE_CSS IMPLEMENTATION.
+
+
+  METHOD get.
+
+    result = '' && ''.
+
+  ENDMETHOD.
+ENDCLASS.

@@ -61,16 +61,27 @@ CLASS zcl_rak_journey_render DEFINITION
                        RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
     METHODS bind_of IMPORTING iv_name TYPE string RETURNING VALUE(rv_bind) TYPE string.
     METHODS bind_state IMPORTING iv_name TYPE string RETURNING VALUE(rv) TYPE string.
+    METHODS render_block_laid_out
+      IMPORTING io_parent  TYPE REF TO z2ui5_cl_xml_view
+                iv_journey TYPE zcl_rak_cj_lay=>ty_key
+                iv_step    TYPE zcl_rak_cj_lay=>ty_key
+                iv_block   TYPE zcl_rak_cj_lay=>ty_key
+                it_fields  TYPE zif_rak_journey=>ty_step-fields.
 
+    METHODS render_cell
+      IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view
+                is_cell   TYPE zcl_rak_cj_lay=>ty_cell
+                is_field  TYPE zif_rak_journey=>ty_field
+                iv_break  TYPE abap_bool DEFAULT abap_false.
   PRIVATE SECTION.
     CLASS-DATA gt_f4c TYPE zif_rak_cjs_types=>tt_f4c.
     DATA mo_e TYPE REF TO zcl_rak_journey_engine.
     DATA mv_in_cell TYPE abap_bool.
     METHODS pay_field IMPORTING iv_index       TYPE i
                       RETURNING VALUE(rv_name) TYPE string.
-    METHODS status_state IMPORTING iv_value      TYPE string
-                                   iv_map        TYPE string OPTIONAL
-                         RETURNING VALUE(rv_st)  TYPE string.
+    METHODS status_state IMPORTING iv_value     TYPE string
+                                   iv_map       TYPE string OPTIONAL
+                         RETURNING VALUE(rv_st) TYPE string.
 ENDCLASS.
 
 
@@ -78,12 +89,6 @@ ENDCLASS.
 CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->AFTER_FIELD
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_VIEW                        TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD after_field.
     IF mo_e->mo_logic IS INITIAL.
       RETURN.
@@ -97,12 +102,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->BEFORE_FIELD
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_VIEW                        TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD before_field.
     IF mo_e->mo_logic IS INITIAL.
       RETURN.
@@ -116,12 +115,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->BIND_OF
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<-()] RV_BIND                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD bind_of.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
@@ -132,12 +125,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->BIND_STATE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_NAME                        TYPE        STRING
-* | [<-()] RV                             TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD bind_state.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
@@ -148,22 +135,11 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->CONSTRUCTOR
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_ENGINE                      TYPE REF TO ZCL_RAK_JOURNEY_ENGINE
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD constructor.
     mo_e = io_engine.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->DISP
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_VALUE                       TYPE        STRING
-* | [<-()] RV                             TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD disp.
     rv = iv_value.
     IF rv CO '0123456789' AND rv IS NOT INITIAL.
@@ -175,12 +151,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->F4_OPTS
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* | [<-()] RT                             TYPE        ZIF_RAK_JOURNEY=>TT_OPTION
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD f4_opts.
     DATA(lv_key) = mo_e->mv_lang && '#' && to_upper( is_field-rollname )
                             && '#' && to_upper( is_field-shlp )
@@ -217,12 +187,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->IS_RESULT_STEP
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_STEP                        TYPE        I
-* | [<-()] RV_IS                          TYPE        ABAP_BOOL
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD is_result_step.
     READ TABLE mo_e->ms_config-steps INTO DATA(ls_s) INDEX iv_step + 1.
     IF sy-subrc <> 0.
@@ -245,11 +209,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->JOURNEY_DONE
-* +-------------------------------------------------------------------------------------------------+
-* | [<-()] RV                             TYPE        ABAP_BOOL
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD journey_done.
 *   Closed counts as done. It is a different ending from submitted - nothing was
 *   created - but it is still an ending, and the auto-draw on the last step has to
@@ -273,12 +232,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_JOURNEY_RENDER->PAY_FIELD
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_INDEX                       TYPE        I
-* | [<-()] RV_NAME                        TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD pay_field.
     READ TABLE mo_e->ms_config-steps INTO DATA(ls_s) INDEX iv_index + 1.
     IF sy-subrc <> 0.
@@ -301,10 +254,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render.
     DATA(view) = z2ui5_cl_xml_view=>factory( ).
     DATA(page) = view->shell( )->page(
@@ -327,10 +276,10 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       CLEAR mo_e->mv_open_url.
     ENDIF.
     IF mo_e->mv_close_page = abap_true.
-      page->html( content = `<script>(function(){try{if(window.parent!==window){` &&
-                            `window.parent.postMessage({rakAction:"CLOSE"},"*");}}catch(e){}` &&
-                            `try{window.close();}catch(e){}` &&
-                            `setTimeout(function(){if(history.length>1){history.back();}},2600);})();</script>`
+      page->html( content         = `<script>(function(){try{if(window.parent!==window){` &&
+                                    `window.parent.postMessage({rakAction:"CLOSE"},"*");}}catch(e){}` &&
+                                    `try{window.close();}catch(e){}` &&
+                                    `setTimeout(function(){if(history.length>1){history.back();}},2600);})();</script>`
                   sanitizecontent = abap_false ).
       CLEAR mo_e->mv_close_page.
     ENDIF.
@@ -374,11 +323,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_ACCORDION
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_PARENT                      TYPE REF TO Z2UI5_CL_XML_VIEW
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_accordion.
     DATA lv_i TYPE i.
     LOOP AT mo_e->ms_config-steps INTO DATA(ls_step).
@@ -394,12 +338,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_ATTACH
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_FORM                        TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_attach.
     io_form->label(
       text  = zcl_rak_journey_util=>esc( COND #( WHEN is_field-attach_label IS NOT INITIAL
@@ -420,12 +358,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_BLOCK
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_PARENT                      TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_block.
     CASE is_field-type.
       WHEN 'PAYFEE'.
@@ -734,14 +666,90 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_CHIPS
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_BOX                         TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [--->] IV_KEY                         TYPE        STRING(optional)
-* | [<-()] RV_COUNT                       TYPE        I
-* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD render_block_laid_out.
+
+    DATA lt_elem  TYPE zcl_rak_cj_lay=>ty_t_elem.
+    DATA lv_break TYPE abap_bool.
+
+    LOOP AT it_fields INTO DATA(ls_scan).
+      IF mo_e->mo_rules->is_hidden( ls_scan ) = abap_true.
+        CONTINUE.
+      ENDIF.
+      APPEND CONV zcl_rak_cj_lay=>ty_key( ls_scan-name ) TO lt_elem.
+    ENDLOOP.
+
+    IF lt_elem IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA(lt_rows) = zcl_rak_cj_lay=>get_instance( )->plan( iv_journey = iv_journey
+                                                           iv_step    = iv_step
+                                                           iv_block   = iv_block
+                                                           it_elem    = lt_elem ).
+
+    DATA(lo_grid) = io_parent->grid( default_span = 'XL12 L12 M12 S12'
+                                     hspacing     = '1'
+                                     vspacing     = '1' )->content( ns = 'layout' ).
+
+    LOOP AT lt_rows ASSIGNING FIELD-SYMBOL(<ls_row>).
+
+      lv_break = abap_true.
+
+      LOOP AT <ls_row>-cells ASSIGNING FIELD-SYMBOL(<ls_cell>).
+
+        READ TABLE it_fields INTO DATA(ls_fld)
+             WITH KEY name = CONV string( <ls_cell>-elem_id ).
+        IF sy-subrc <> 0.
+          CONTINUE.
+        ENDIF.
+
+        render_cell( io_parent = lo_grid
+                     is_cell   = <ls_cell>
+                     is_field  = ls_fld
+                     iv_break  = lv_break ).
+
+        lv_break = abap_false.
+
+      ENDLOOP.
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD render_cell.
+
+    DATA(lv_align) = COND string( WHEN is_cell-attr-align = zcl_rak_cj_lay=>c_align-center THEN 'Center'
+                                  WHEN is_cell-attr-align = zcl_rak_cj_lay=>c_align-end    THEN 'End'
+                                  ELSE 'Start' ).
+
+    DATA(lv_width) = COND string( WHEN is_cell-attr-width IS NOT INITIAL
+                                  THEN CONV string( is_cell-attr-width )
+                                  ELSE '100%' ).
+
+    DATA(lo_cell) = io_parent->vbox( class      = 'rakCell'
+                                     width      = lv_width
+                                     alignitems = lv_align ).
+
+    lo_cell->layout_data( )->grid_data(
+      span      = zcl_rak_cj_lay=>span_str( is_cell-attr-col_span )
+      linebreak = COND string( WHEN iv_break = abap_true THEN 'true' ELSE 'false' ) ).
+
+    mv_in_cell = abap_true.
+    before_field( io_view = lo_cell is_field = is_field ).
+
+    IF zcl_rak_journey_util=>is_block( is_field-type ) = abap_true.
+      render_block( io_parent = lo_cell is_field = is_field ).
+    ELSE.
+      render_one( io_form = lo_cell is_field = is_field ).
+    ENDIF.
+
+    after_field( io_view = lo_cell is_field = is_field ).
+    CLEAR mv_in_cell.
+
+  ENDMETHOD.
+
+
   METHOD render_chips.
     LOOP AT mo_e->mt_attach INTO DATA(ls_a).
       DATA(lv_idx) = sy-tabix.
@@ -797,11 +805,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_FEEDBACK
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_PARENT                      TYPE REF TO Z2UI5_CL_XML_VIEW
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_feedback.
     IF mo_e->mo_logic IS NOT BOUND.
       RETURN.
@@ -891,12 +894,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_FOOTER
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_PARENT                      TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IV_LINEAR                      TYPE        ABAP_BOOL
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_footer.
     DATA(lv_open) = abap_true.
     DATA lv_why   TYPE string.
@@ -1040,11 +1037,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_HEADER
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_PARENT                      TYPE REF TO Z2UI5_CL_XML_VIEW
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_header.
     DATA(lo_h)   = io_parent->vbox( class = |{ mo_e->mo_css->cls( 'SHELL' ) } rakHdr| ).
     DATA(lo_top) = lo_h->hbox( justifycontent = 'SpaceBetween' alignitems = 'Center' ).
@@ -1073,12 +1065,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_ONE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_FORM                        TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_one.
     IF mo_e->mo_logic IS BOUND.
       TRY.
@@ -1128,7 +1114,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                          valuestate     = lv_vs
                                          valuestatetext = lv_vst
                                          width          = lv_w
-                            class = mo_e->mo_css->cls( 'COMBO' ) ).
+                                         class          = mo_e->mo_css->cls( 'COMBO' ) ).
         LOOP AT lt_opt INTO DATA(ls_o).
           lo_cb->item( key = ls_o-key text = zcl_rak_journey_util=>opt_text( iv_key = ls_o-key iv_text = ls_o-text ) ).
         ENDLOOP.
@@ -1139,7 +1125,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                                selectionchange = mo_e->opt_evt( is_field-name )
                                                valuestate      = lv_vs
                                                width           = lv_w
-                            class = mo_e->mo_css->cls( 'COMBO' ) ).
+                                               class           = mo_e->mo_css->cls( 'COMBO' ) ).
         LOOP AT lt_opt INTO DATA(ls_m).
           lo_mc->item( key = ls_m-key text = zcl_rak_journey_util=>opt_text( iv_key = ls_m-key iv_text = ls_m-text ) ).
         ENDLOOP.
@@ -1161,7 +1147,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                                    editable      = lv_edit
                                                    select        = mo_e->change_evt( is_field-name )
                                                    width         = lv_w
-                            class = mo_e->mo_css->cls( 'RADIO' ) ).
+                                                   class         = mo_e->mo_css->cls( 'RADIO' ) ).
         LOOP AT lt_opt INTO DATA(ls_r).
           lo_rg->radio_button( text = zcl_rak_journey_util=>opt_text( iv_key = ls_r-key iv_text = ls_r-text ) ).
         ENDLOOP.
@@ -1411,7 +1397,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                             showexceededtext = xsdbool( is_field-validation-max_len > 0 )
                             valuestate       = lv_vs
                             valuestatetext   = lv_vst
-                            class = mo_e->mo_css->cls( 'TEXTAREA' ) ).
+                            class            = mo_e->mo_css->cls( 'TEXTAREA' ) ).
 
       WHEN 'NUMBER'.
         req_label( io_form = io_form is_field = is_field ).
@@ -1531,12 +1517,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_PAY
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_PARENT                      TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_pay.
     IF mo_e->mo_logic IS NOT BOUND.
       io_parent->message_strip(
@@ -1566,10 +1546,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_POPUP
-* +-------------------------------------------------------------------------------------------------+
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_popup.
     IF mo_e->mv_popup IS INITIAL.
       IF mo_e->mv_popup_shown = abap_true.
@@ -1669,12 +1645,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_RESULT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_PARENT                      TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_result.
 
     IF mo_e->mv_closed = abap_true.
@@ -1820,11 +1790,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_SINGLE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_PARENT                      TYPE REF TO Z2UI5_CL_XML_VIEW
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_single.
     DATA lv_i TYPE i.
     LOOP AT mo_e->ms_config-steps INTO DATA(ls_step).
@@ -1836,13 +1801,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_STEP
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_PARENT                      TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IS_STEP                        TYPE        ZIF_RAK_JOURNEY=>TY_STEP
-* | [--->] IV_INDEX                       TYPE        I
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_step.
     mo_e->zif_rak_journey~set_val( iv_name = 'PAY_FOOTER' iv_value = '' ).
     IF is_step-next_req IS NOT INITIAL.
@@ -1874,6 +1832,31 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           mo_e->mo_logic->on_render_start( io_ctx = mo_e io_view = io_parent ).
         CATCH cx_root.
       ENDTRY.
+    ENDIF.
+
+    DATA(lv_jid) = CONV zcl_rak_cj_lay=>ty_key( mo_e->ms_config-journey_id ).
+    DATA(lv_sid) = CONV zcl_rak_cj_lay=>ty_key( is_step-id ).
+
+    IF zcl_rak_cj_lay=>get_instance( )->has_layout( iv_journey = lv_jid
+                                                    iv_step    = lv_sid ) = abap_true.
+
+      render_block_laid_out( io_parent  = io_parent
+                             iv_journey = lv_jid
+                             iv_step    = lv_sid
+                             iv_block   = space
+                             it_fields  = is_step-fields ).
+
+      IF mo_e->mo_logic IS BOUND.
+        TRY.
+            mo_e->mo_logic->on_render_end( io_ctx = mo_e io_view = io_parent ).
+          CATCH cx_root INTO DATA(lx_lay).
+            mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
+              text = |on_render_end failed: { lx_lay->get_text( ) }| ) ).
+        ENDTRY.
+      ENDIF.
+
+      RETURN.
+
     ENDIF.
 
     DATA(lv_auto_result) = abap_false.
@@ -2050,11 +2033,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_TABS
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_PARENT                      TYPE REF TO Z2UI5_CL_XML_VIEW
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_tabs.
     DATA(lo_strip) = io_parent->hbox( class = 'sapUiSmallMarginBegin sapUiSmallMarginTop' ).
     DATA lv_i TYPE i.
@@ -2072,16 +2050,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_UPLOADER
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_BOX                         TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IV_FIELD                       TYPE        STRING
-* | [--->] IV_TYPES                       TYPE        STRING
-* | [--->] IV_MAXMB                       TYPE        I (default =0)
-* | [--->] IV_SCOPE                       TYPE        STRING(optional)
-* | [--->] IV_KEY                         TYPE        STRING(optional)
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_uploader.
     DATA(lv_ks) = to_upper( iv_key ).
     REPLACE ALL OCCURRENCES OF REGEX '[^A-Z0-9]' IN lv_ks WITH ``.
@@ -2128,11 +2096,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_WIZARD
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_PARENT                      TYPE REF TO Z2UI5_CL_XML_VIEW
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_wizard.
     io_parent->html( content = mo_e->mo_css->build_stepper( ) sanitizecontent = abap_false ).
     READ TABLE mo_e->ms_config-steps INTO DATA(ls_step) INDEX mo_e->mv_step + 1.
@@ -2141,11 +2104,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->RENDER_WIZARD_LEFT
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_PARENT                      TYPE REF TO Z2UI5_CL_XML_VIEW
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD render_wizard_left.
     DATA(lo_split) = io_parent->hbox( alignitems = 'Stretch' class = 'rakSplit' ).
     DATA(lo_rail)  = lo_split->vbox( width = '15rem' class = 'rakRail' ).
@@ -2157,12 +2115,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Public Method ZCL_RAK_JOURNEY_RENDER->REQ_LABEL
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IO_FORM                        TYPE REF TO Z2UI5_CL_XML_VIEW
-* | [--->] IS_FIELD                       TYPE        ZIF_RAK_JOURNEY=>TY_FIELD
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD req_label.
     DATA(lv_req) = mo_e->mo_rules->is_required( is_field ).
     io_form->label( text  = zcl_rak_journey_util=>esc( is_field-label )
@@ -2172,13 +2124,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
-* <SIGNATURE>---------------------------------------------------------------------------------------+
-* | Instance Private Method ZCL_RAK_JOURNEY_RENDER->STATUS_STATE
-* +-------------------------------------------------------------------------------------------------+
-* | [--->] IV_VALUE                       TYPE        STRING
-* | [--->] IV_MAP                         TYPE        STRING(optional)
-* | [<-()] RV_ST                          TYPE        STRING
-* +--------------------------------------------------------------------------------------</SIGNATURE>
   METHOD status_state.
 
     DATA(lv_v) = to_upper( condense( iv_value ) ).
