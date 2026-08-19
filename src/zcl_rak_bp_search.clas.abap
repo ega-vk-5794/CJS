@@ -80,6 +80,46 @@ CLASS zcl_rak_bp_search DEFINITION
              "            nothing else would ever set those numbers, so it is surfaced here
              "            rather than left as folklore. Leave it false unless you are ZP28.
              zp28          TYPE abap_bool,
+*            ---- per-check switches -------------------------------------------
+*            FLAG above is one field carrying three unrelated decisions, and that
+*            is why it keeps being used as a general "skip validation" switch when
+*            it is not one. 'X' only stops a MOI mismatch rejecting; 'T' only
+*            turns off the two expiry checks. Nothing could ask for one without
+*            the other, and no popup could state its intent in its own terms.
+*
+*            These say it directly, one switch per check. FLAG still works exactly
+*            as it did - VALIDATE( ) ORs the two together - so every existing
+*            caller is unaffected and a new caller never has to learn the codes.
+*
+*            MOI is still CALLED and the BP still updated from it; this only stops
+*            a date-of-birth or nationality mismatch being an error. Equivalent to
+*            FLAG = 'X'.
+*            Do not call MOI AT ALL, even on an EId search. Different from
+*            SKIP_MOI_MISMATCH above, which still makes the call and still updates
+*            the BP from it - this suppresses the call itself.
+*
+*            It exists because that call is not free and not read-only: see the
+*            note at the top of this class. ZCRM_MOI_CR_UPD_MASS writes, costs at
+*            least five seconds by construction, and its WAIT UP TO ends the LUW
+*            and forces an implicit COMMIT of whatever the caller had open. A
+*            popup that only needs to look a partner up should be able to say so.
+             no_moi_call       TYPE abap_bool,
+             skip_moi_mismatch TYPE abap_bool,
+*            Trade licence expiry, category 2. Half of FLAG = 'T'.
+             skip_tl_expiry    TYPE abap_bool,
+*            Emirates ID expiry, category 1. The other half of FLAG = 'T', and the
+*            same thing EID_CHECK_OFF already said - both are honoured.
+             skip_eid_expiry   TYPE abap_bool,
+*            Severity for the validation findings. Blank or 'E' rejects, which is
+*            what every caller gets today. 'W' reports the same texts as warnings
+*            and lets the partner through - for a popup that wants to show an
+*            expired licence rather than refuse to find it. Anything that lets a
+*            partner through on a warning owns that decision.
+             msg_type          TYPE string,
+*            Cap the hit list. Zero means "as BP_QUERY returns it", which is the
+*            behaviour every caller has today. Independent of ZP28, which sets
+*            paging to a sentinel for a different reason entirely.
+             max_rows          TYPE i,
            END OF ty_req.
 
 *   ROWS is the ENTITY type, and that is a correction rather than a preference.
@@ -139,6 +179,7 @@ CLASS zcl_rak_bp_search DEFINITION
 *   BP row, so every one of them needs it.
     METHODS add
       IMPORTING VALUE(iv_text) TYPE string
+                VALUE(iv_type) TYPE string DEFAULT 'E'
       CHANGING  ct_msg         TYPE bapiret2_t.
 
 *   One filter row. A method and not a DEFINE: a macro splits its arguments on
@@ -169,7 +210,9 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
 
 
   METHOD add.
-    APPEND VALUE #( type = 'E' message = iv_text ) TO ct_msg.
+*   Severity is the caller's now, defaulting to the 'E' every finding used to be.
+    APPEND VALUE #( type    = COND #( WHEN iv_type IS INITIAL THEN 'E' ELSE iv_type )
+                    message = iv_text ) TO ct_msg.
   ENDMETHOD.
 
 
@@ -240,7 +283,11 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
                        iv_val    = is_req-flag
              CHANGING  ct_filter = lt_filter ).
 
-    DATA(lv_moi) = COND string( WHEN is_req-call_moi = abap_true THEN 'X' ELSE '' ).
+*   NO_MOI_CALL wins over CALL_MOI. One says "call it", the other "never call it",
+*   and a caller that sets both meant the second - suppressing a write is not a
+*   thing to get wrong by precedence.
+    DATA(lv_moi) = COND string( WHEN is_req-call_moi = abap_true
+                                 AND is_req-no_moi_call = abap_false THEN 'X' ELSE '' ).
     add_flt( EXPORTING iv_prop   = 'CallMoi'
                        iv_val    = lv_moi
              CHANGING  ct_filter = lt_filter ).
@@ -273,6 +320,15 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
         rt_data                  = lt_root ).
 
     et_rows = lt_root.
+
+*   MAX_ROWS is applied AFTER the call and not as paging. BP_QUERY's IS_PAGING is
+*   already spoken for by the ZP28 sentinel, and a TOP that clashed with it would
+*   silently switch that back door off. Trimming the answer cannot interfere with
+*   either, and zero leaves the set exactly as BP_QUERY returned it.
+    IF is_req-max_rows > 0 AND lines( et_rows ) > is_req-max_rows.
+      DELETE et_rows FROM is_req-max_rows + 1.
+    ENDIF.
+
     et_msg  = lt_ret.
   ENDMETHOD.
 
@@ -311,17 +367,34 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
+ . 
+*   ---- effective switches ---------------------------------------------
+*   FLAG and the explicit booleans are ORed, never one instead of the other. An
+*   existing caller passes FLAG and gets exactly what it always got; a new one
+*   names the check it means and never has to learn 'X' from 'T'.
+    DATA(lv_skip_moi) = xsdbool( is_req-skip_moi_mismatch = abap_true
+                              OR is_req-flag IS NOT INITIAL ).
+    DATA(lv_skip_tl)  = xsdbool( is_req-skip_tl_expiry = abap_true
+                              OR is_req-flag = c_tenancy ).
+    DATA(lv_skip_eid) = xsdbool( is_req-skip_eid_expiry = abap_true
+                              OR is_req-eid_check_off = abap_true
+                              OR is_req-flag = c_tenancy ).
+*   Applies to the findings below and NOT to the "No data found" in SEARCH( ) -
+*   that one is not a validation verdict, it is the absence of a row.
+    DATA(lv_sev)      = COND string( WHEN is_req-msg_type IS INITIAL THEN 'E'
+                                     ELSE to_upper( is_req-msg_type ) ).
 
 *   ---- MOI cross-check ------------------------------------------------
 *   MOI call with no flag set. Two separate appends on purpose: a row wrong on
 *   both date of birth and nationality says so twice, as it always did.
-    IF is_req-call_moi = abap_true AND is_req-flag IS INITIAL.
+    IF is_req-call_moi = abap_true AND is_req-no_moi_call = abap_false
+       AND lv_skip_moi = abap_false.
       DATA(lv_moi) = CONV string( cl_hrtmc_dr_utilities=>get_otr_text_by_alias( iv_alias = c_moi_msg ) ).
       IF ls_bp-dob <> is_req-dob.
-        add( EXPORTING iv_text = lv_moi CHANGING ct_msg = ct_msg ).
+        add( EXPORTING iv_text = lv_moi iv_type = lv_sev CHANGING ct_msg = ct_msg ).
       ENDIF.
       IF ls_bp-nationality <> is_req-nationality.
-        add( EXPORTING iv_text = lv_moi CHANGING ct_msg = ct_msg ).
+        add( EXPORTING iv_text = lv_moi iv_type = lv_sev CHANGING ct_msg = ct_msg ).
       ENDIF.
     ENDIF.
 
@@ -331,9 +404,10 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
 *   the work area. Harmless - an initial category matches neither '1' nor '2' -
 *   but guarded above now rather than relied upon.
     IF ls_bp-category = '2' AND ls_bp-valid_date_to < sy-datum
-       AND is_req-flag <> c_tenancy.
+       AND lv_skip_tl = abap_false.
       add( EXPORTING iv_text = COND #( WHEN sy-langu = 'E' THEN 'Trade License is expired'
                                        ELSE 'الرخصة التجارية منتهية الصلاحية' )
+           iv_type = lv_sev
            CHANGING  ct_msg  = ct_msg ).
     ENDIF.
 
@@ -367,10 +441,10 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
 
     IF lv_ask = lv_eid
        AND ls_bp-category = '1' AND ls_bp-valid_date_to < sy-datum
-       AND is_req-eid_check_off = abap_false
-       AND is_req-flag <> c_tenancy.
+       AND lv_skip_eid = abap_false.
       add( EXPORTING iv_text = COND #( WHEN sy-langu = 'E' THEN 'Emirates ID is expired'
                                        ELSE 'هوية الإمارات منتهية الصلاحية' )
+           iv_type = lv_sev
            CHANGING  ct_msg  = ct_msg ).
     ENDIF.
   ENDMETHOD.

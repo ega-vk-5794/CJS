@@ -112,7 +112,39 @@ CLASS zcl_rak_journey_logic DEFINITION
     TYPES: BEGIN OF ty_pop_field,
              name  TYPE string,
              label TYPE string,
-             type  TYPE string,   " '' = input, 'TEXTAREA', 'DATE'
+             type  TYPE string,   " '' = input, TEXTAREA, DATE, SELECT, CHECKBOX, NUMBER
+*            ---- value help ----------------------------------------------------
+*            A popup could previously draw a plain input, a textarea or a date and
+*            nothing else, so any dialog needing a dropdown or an F4 had to
+*            hand-build its own - which is why most of them simply went without.
+*
+*            These are the SAME four sources the main form uses, resolved by the
+*            SAME class, ZCL_RAK_F4_RESOLVER. A popup field and a configured field
+*            carrying the same data element now offer the same list, which is the
+*            point: two resolutions of one domain is how a dialog starts accepting
+*            a value the form rejects.
+*
+*            Precedence: OPTIONS wins outright; otherwise the resolver's own
+*            documented order applies - DOMNAME, then ROLLNAME (fixed values, then
+*            the element's default search help), then SHLP.
+             options  TYPE zif_rak_journey=>tt_option,
+             rollname TYPE string,
+             domname  TYPE string,
+             shlp     TYPE string,
+*            ---- presentation --------------------------------------------------
+*            REQUIRED marks the label only. Nothing here enforces it: a popup is
+*            the handler's, so the handler validates it in the OK event - the
+*            engine's VALIDATE_STEP never sees these fields.
+             required    TYPE abap_bool,
+             readonly    TYPE abap_bool,
+             placeholder TYPE string,
+             width       TYPE string,
+             maxlen      TYPE i,
+*            ---- an F4 button on the field -------------------------------------
+*            Draws sap.m.Input's own value-help icon and fires this event, caught
+*            in ON_POPUP_EVENT like any other. For a lookup the handler owns - a
+*            BP browse, a licence picker - where no static list can answer.
+             f4_evt      TYPE string,
            END OF ty_pop_field,
            tt_pop_field TYPE STANDARD TABLE OF ty_pop_field WITH EMPTY KEY.
 
@@ -200,15 +232,79 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
                       columnsxl = '1' columnsl = '1' columnsm = '1'
       )->content( ns = 'form' ).
 
+*   Created on first use, not per field. The resolver caches per instance, so one
+*   instance across the whole dialog means two fields on the same data element
+*   cost one DDIC read - and a dialog with no value help at all costs none.
+    DATA lo_f4 TYPE REF TO zcl_rak_f4_resolver.
+
     LOOP AT it_fields INTO DATA(ls).
-      lo_form->label( ls-label ).
-      CASE ls-type.
+
+      lo_form->label( text  = ls-label
+                      class = COND string( WHEN ls-required = abap_true THEN 'rakReq' ) ).
+
+*     Explicit list wins outright; otherwise ask the resolver, which applies its
+*     own documented precedence across the three names.
+      DATA(lt_opt) = ls-options.
+      IF lt_opt IS INITIAL
+         AND ( ls-rollname IS NOT INITIAL
+            OR ls-domname  IS NOT INITIAL
+            OR ls-shlp     IS NOT INITIAL ).
+        IF lo_f4 IS INITIAL.
+          lo_f4 = NEW zcl_rak_f4_resolver( ).
+        ENDIF.
+        lt_opt = lo_f4->resolve( iv_rollname = ls-rollname
+                                 iv_shlp     = ls-shlp
+                                 iv_domname  = ls-domname ).
+      ENDIF.
+
+      DATA(lv_edit) = xsdbool( ls-readonly = abap_false ).
+      DATA(lv_w)    = COND string( WHEN ls-width IS NOT INITIAL THEN ls-width ELSE '100%' ).
+      DATA(lv_len)  = COND string( WHEN ls-maxlen > 0 THEN |{ ls-maxlen }| ).
+
+*     A resolved list beats the declared type, deliberately. A field that names a
+*     data element wants that element's values whether or not anybody remembered
+*     to also write SELECT - and a SELECT whose sources resolve to nothing falls
+*     through to an input below rather than rendering an empty dropdown.
+      IF lt_opt IS NOT INITIAL.
+        DATA(lo_cb) = lo_form->combobox( selectedkey = io_ctx->bind( ls-name )
+                                         enabled     = lv_edit
+                                         width       = lv_w
+                                         placeholder = ls-placeholder ).
+        LOOP AT lt_opt INTO DATA(ls_o).
+          lo_cb->item( key = ls_o-key text = ls_o-text ).
+        ENDLOOP.
+        CONTINUE.
+      ENDIF.
+
+      CASE to_upper( ls-type ).
         WHEN 'TEXTAREA'.
-          lo_form->text_area( value = io_ctx->bind( ls-name ) rows = '3' ).
+          lo_form->text_area( value       = io_ctx->bind( ls-name )
+                              rows        = '3'
+                              editable    = lv_edit
+                              width       = lv_w
+                              placeholder = ls-placeholder ).
+
         WHEN 'DATE'.
-          lo_form->date_picker( value = io_ctx->bind( ls-name ) ).
+          lo_form->date_picker( value   = io_ctx->bind( ls-name )
+                                enabled = lv_edit
+                                width   = lv_w ).
+
+        WHEN 'CHECKBOX'.
+          lo_form->checkbox( selected = io_ctx->bind( ls-name )
+                             enabled  = lv_edit ).
+
         WHEN OTHERS.
-          lo_form->input( value = io_ctx->bind( ls-name ) ).
+*         F4_EVT draws sap.m.Input's own value-help icon. Blank leaves the input
+*         exactly as it rendered before any of this existed.
+          lo_form->input( value            = io_ctx->bind( ls-name )
+                          type             = COND string( WHEN to_upper( ls-type ) = 'NUMBER' THEN 'Number' )
+                          editable         = lv_edit
+                          width            = lv_w
+                          placeholder      = ls-placeholder
+                          maxlength        = lv_len
+                          showvaluehelp    = COND string( WHEN ls-f4_evt IS NOT INITIAL THEN abap_true )
+                          valuehelprequest = COND string( WHEN ls-f4_evt IS NOT INITIAL
+                                                          THEN io_ctx->event( ls-f4_evt ) ) ).
       ENDCASE.
     ENDLOOP.
 

@@ -64,7 +64,18 @@ CLASS zcl_rak_bp_popup DEFINITION
     METHODS constructor
       IMPORTING io_ctx     TYPE REF TO zif_rak_journey
                 iv_subject TYPE string
-                iv_title   TYPE string OPTIONAL.
+                iv_title   TYPE string OPTIONAL
+*               A TEMPLATE, not a full request. The popup fills the five identity
+*               fields from what the citizen typed - IDTYPE, EID, TRADE_LICENCE,
+*               DOB, NATIONALITY - and takes EVERYTHING else from here verbatim:
+*               NO_MOI_CALL, the three SKIP_ switches, MSG_TYPE, MAX_ROWS, FLAG,
+*               ZP28, SEARCH_TERM.
+*
+*               Passing nothing reproduces the behaviour this popup has always
+*               had, so every existing caller is unaffected. Typed as TY_REQ
+*               rather than a private options structure so a field added to the
+*               request in future needs no change here at all.
+                is_search  TYPE zcl_rak_bp_search=>ty_req OPTIONAL.
 
 *   Call from on_render_popup( ). Draws the dialog, or the found-partner card when
 *   a search has already succeeded.
@@ -118,6 +129,7 @@ CLASS zcl_rak_bp_popup DEFINITION
     DATA mo_ctx     TYPE REF TO zif_rak_journey.
     DATA mv_subject TYPE string.
     DATA mv_title   TYPE string.
+    DATA ms_search  TYPE zcl_rak_bp_search=>ty_req.
 ENDCLASS.
 
 
@@ -159,6 +171,7 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
     mo_ctx     = io_ctx.
     mv_subject = to_upper( iv_subject ).
     mv_title   = COND #( WHEN iv_title IS NOT INITIAL THEN iv_title ELSE 'Partner Search' ).
+    ms_search  = is_search.
   ENDMETHOD.
 
 
@@ -375,7 +388,9 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 
 
   METHOD run_search.
-    DATA ls_req TYPE zcl_rak_bp_search=>ty_req.
+*   Start from the caller's template so NO_MOI_CALL, the SKIP_ switches, MSG_TYPE
+*   and MAX_ROWS are theirs. Only the identity fields below are the popup's.
+    DATA(ls_req) = ms_search.
 
     DATA(lv_by)  = mo_ctx->get_val( fld( 'SEARCHBY' ) ).
     DATA(lv_num) = mo_ctx->get_val( fld( 'IDNUM' ) ).
@@ -391,6 +406,8 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *       updated from it, and a date of birth or nationality that disagrees is
 *       rejected. That is the point of asking for those two on this branch - they
 *       are not search narrowing, they are the verification.
+*       Still the default, and still overridable: NO_MOI_CALL on the template
+*       suppresses the call, which ZCL_RAK_BP_SEARCH honours over this.
         ls_req-call_moi = abap_true.
       WHEN c_tlic.
         ls_req-trade_licence = lv_num.
