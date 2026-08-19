@@ -493,7 +493,7 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.sapMCb,.sapMCb *\{border-radius:3px!important;\}| &&
 *     Same red and weight as .rakReq::after, so a required checkbox is marked
 *     identically to every other required field.
-        |.rakReqStar\{color:#bb0000!important;font-weight:700;margin-inline-start:.15rem;\}| &&
+        |.rakReqStar\{color:#bb0000!important;font-weight:700;margin-inline-end:.15rem;\}| &&
         |.rakFStep\{gap:.65rem;\}| &&
 
 *     CONTROL WIDTH. Selects and pickers size to their own content while inputs
@@ -766,7 +766,7 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     REQUIRED MARKER. Inline, not absolutely positioned - labels sit above their
 *     field now, so a positioned asterisk lands a card away from its text.
       |.rakReq::after\{content:'*';color:#bb0000;font-weight:700;margin-inline-start:.2rem;\}| &&
-      |.rakReqStar\{color:#bb0000!important;font-weight:700;margin-inline-start:.15rem;\}| &&
+      |.rakReqStar\{color:#bb0000!important;font-weight:700;margin-inline-end:.15rem;\}| &&
 
 *     ROW AND CELL GRID. flex-wrap carries !important because sap.m.FlexBox writes
 *     NoWrap as an inline style. The child selector is .rakRow>* and not .rakCell:

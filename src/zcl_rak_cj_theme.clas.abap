@@ -274,7 +274,7 @@ CLASS ZCL_RAK_CJ_THEME IMPLEMENTATION.
       |.rakCjs .rakReqStar \{\n| &&
       |  color:var(--rakBrand);\n| &&
       |  font-weight:700;\n| &&
-      |  padding-inline-start:.25rem;\n| &&
+      |  padding-inline-end:.25rem;\n| &&
       |\}\n|.
 
     rv_css = rv_css &&

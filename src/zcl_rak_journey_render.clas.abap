@@ -1374,15 +1374,28 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
       WHEN 'CHECKBOX'.
         DATA(lo_cbx) = io_form->hbox( alignitems = 'Start' width = '100%' ).
+*       THE MARKER LEADS THE STATEMENT, unlike every other field, where
+*       REQ_LABEL puts it after the label via .rakReq::after - which is what
+*       sap.m.Label does for required and what the rest of the form should keep.
+*
+*       A checkbox is not a label. Its text is a whole consent sentence, and the
+*       star is a SIBLING in the hbox rather than part of the text, so trailing
+*       placement pushes it past the entire wrapped block - level with the first
+*       line but at the far end of the row, reading as a stray character rather
+*       than a marker on the statement. ALIGNITEMS 'Start' keeps it on the first
+*       line here, which is where a reader looks for it.
+*
+*       Order is DOM order, not CSS: the hbox reverses under dir=rtl, so this is
+*       leading in Arabic too, with no direction-specific rule.
+        IF mo_e->mo_rules->is_required( is_field ) = abap_true.
+          lo_cbx->text( text = `*` class = 'rakReqStar' ).
+        ENDIF.
         lo_cbx->checkbox( class    = mo_e->mo_css->cls( 'CHECKBOX' )
                           text     = zcl_rak_journey_util=>esc( is_field-label )
                           selected = lv_bind
                           editable = lv_edit
                           wrapping = abap_true
                           select   = mo_e->opt_evt( is_field-name ) ).
-        IF mo_e->mo_rules->is_required( is_field ) = abap_true.
-          lo_cbx->text( text = `*` class = 'rakReqStar' ).
-        ENDIF.
 
       WHEN 'SWITCH'.
         req_label( io_form = io_form is_field = is_field ).
