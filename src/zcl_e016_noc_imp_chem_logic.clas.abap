@@ -174,8 +174,9 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
 *     Name over Emirates ID, as the legacy screen had it.
       DATA(lo_nm) = lo_cells->vbox( ).
       lo_nm->text( text = lv_hs_code ).
-      lo_nm->text( text = lv_chem_name class = 'rakRecMeta' ).
+**      lo_nm->text( text = lv_chem_name class = 'rakRecMeta' ).
       lo_cells->text( lv_material_name ).
+      lo_cells->text( lv_chem_name ).
       lo_cells->text( lv_cas_number ).
       lo_cells->text( lv_gross_weight ).
 **      lo_cells->object_status(
@@ -224,7 +225,7 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
     DATA(lo_c1) = lo_r1->vbox( class = 'rakCell' ).
     lo_c1->label( text = 'HS Code' class = 'rakReq' ).
     lo_c1->input( value = io_ctx->bind( C_HS_CODE_POP ) width = '17rem' ).
-    DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
+*    DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
 **    lo_c2->label( text = 'HS Code' class = 'rakReq' ).
 *   Enter in the ID box does the same as pressing Search. Somebody who has just
 *   typed fifteen digits should not have to reach for the mouse.
@@ -234,42 +235,42 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
 **                  submit      = io_ctx->event( c_evt_ownsr ) ).
 
     DATA(lo_r2) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
+    DATA(lo_c2) = lo_r2->vbox( class = 'rakCell' ).
+    lo_c2->label( text = 'Material Name' ).
+    lo_c2->input( value = io_ctx->bind( 'C_MATERIAL_NAME_POP' ) width = '17rem' ).
     DATA(lo_c3) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c3->label( text = 'Material Name' ).
-    lo_c3->input( value = io_ctx->bind( 'C_MATERIAL_NAME_POP' ) width = '17rem' ).
+    lo_c3->label( text = 'Chemical Name' ).
+    lo_c3->input( value = io_ctx->bind( 'C_CHEMICAL_NAME_POP' ) width = '17rem' ).
     DATA(lo_c4) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c4->label( text = 'Chemical Name' ).
-    lo_c4->input( value = io_ctx->bind( 'C_CHEMICAL_NAME_POP' ) width = '17rem' ).
+    lo_c4->label( text = 'CAS Number' ).
+    lo_c4->input( value = io_ctx->bind( 'C_CAS_POP' ) width = '17rem' ).
     DATA(lo_c5) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c5->label( text = 'CAS Number' ).
-    lo_c5->input( value = io_ctx->bind( 'C_CAS_POP' ) width = '17rem' ).
+    lo_c5->label( text = 'Chemical formula' ).
+    lo_c5->input( value = io_ctx->bind( C_CHEMICAL_FORMULA_POP ) width = '17rem' ).
     DATA(lo_c6) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c6->label( text = 'Chemical formula' ).
-    lo_c6->input( value = io_ctx->bind( C_CHEMICAL_FORMULA_POP ) width = '17rem' ).
+    lo_c6->label( text = 'Packing' class = 'rakReq' ).
+    lo_c6->input( value = io_ctx->bind( C_PACKAGING_POP ) type = 'Number' width = '17rem' ).
     DATA(lo_c7) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c7->label( text = 'Packing' class = 'rakReq' ).
-    lo_c7->input( value = io_ctx->bind( C_PACKAGING_POP ) type = 'Number' width = '17rem' ).
+    lo_c7->label( text = 'Quantity' class = 'rakReq' ).
+    lo_c7->input( value = io_ctx->bind( C_QUANTITY_POP ) type = 'Number' width = '17rem' ).
     DATA(lo_c8) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c8->label( text = 'Quantity' class = 'rakReq' ).
-    lo_c8->input( value = io_ctx->bind( C_QUANTITY_POP ) type = 'Number' width = '17rem' ).
+    lo_c8->label( text = 'Gross Weight' class = 'rakReq' ).
+    lo_c8->input( value = io_ctx->bind( C_GROSS_WEIGHT_POP ) type = 'Number' width = '17rem' ).
     DATA(lo_c9) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c9->label( text = 'Gross Weight' class = 'rakReq' ).
-    lo_c9->input( value = io_ctx->bind( C_GROSS_WEIGHT_POP ) type = 'Number' width = '17rem' ).
+    lo_c9->label( text = 'UOM' class = 'rakReq' ).
+    lo_c9->input( value = io_ctx->bind( C_UOM_POP ) width = '17rem' ).
     DATA(lo_c10) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c10->label( text = 'UOM' class = 'rakReq' ).
-    lo_c10->input( value = io_ctx->bind( C_UOM_POP ) width = '17rem' ).
+    lo_c10->label( text = 'Invoice Number' class = 'rakReq' ).
+    lo_c10->input( value = io_ctx->bind( C_INVOICE_POP ) width = '17rem' ).
     DATA(lo_c11) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c11->label( text = 'Invoice Number' class = 'rakReq' ).
-    lo_c11->input( value = io_ctx->bind( C_INVOICE_POP ) width = '17rem' ).
+    lo_c11->label( text = 'Country of Origin' class = 'rakReq' ).
+    lo_c11->input( value = io_ctx->bind( C_ORIGIN_POP ) width = '17rem' ).
     DATA(lo_c12) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c12->label( text = 'Country of Origin' class = 'rakReq' ).
-    lo_c12->input( value = io_ctx->bind( C_ORIGIN_POP ) width = '17rem' ).
+    lo_c12->label( text = 'Point of Entrance/End User' class = 'rakReq' ).
+    lo_c12->input( value = io_ctx->bind( C_END_USER_POP ) width = '17rem' ).
     DATA(lo_c13) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c13->label( text = 'Point of Entrance/End User' class = 'rakReq' ).
-    lo_c13->input( value = io_ctx->bind( C_END_USER_POP ) width = '17rem' ).
-    DATA(lo_c14) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c14->label( text = 'Bill of Lading' class = 'rakReq' ).
-    lo_c14->input( value = io_ctx->bind( C_BOL_POP ) width = '17rem' ).
+    lo_c13->label( text = 'Bill of Lading' class = 'rakReq' ).
+    lo_c13->input( value = io_ctx->bind( C_BOL_POP ) width = '17rem' ).
 
 *   ---- their documents ------------------------------------------------
 *   iv_key is what makes a repeating list work. Every uploader here is keyed on

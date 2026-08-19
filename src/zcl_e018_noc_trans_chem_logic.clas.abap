@@ -107,20 +107,20 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 **    io_ctx->set_val( iv_name = c_bol_pop              iv_value = '' ).
 **    io_ctx->set_val( iv_name = c_trans_comp           iv_value = '' ).
 
-    io_ctx->set_val( iv_name = 'HS_CODE_POP'         iv_value = '' ).
-    io_ctx->set_val( iv_name = 'MATERIAL_NAME_HF'     iv_value = '' ).
-    io_ctx->set_val( iv_name = 'CHEMICAL_NAME_HF'     iv_value = '' ).
-    io_ctx->set_val( iv_name = 'CAS_POP'              iv_value = '' ).
-    io_ctx->set_val( iv_name = 'CHEMICAL_FORMULA_POP' iv_value = '' ).
-    io_ctx->set_val( iv_name = 'PACKAGING_POP'        iv_value = '' ).
-    io_ctx->set_val( iv_name = 'QUANTITY_POP'         iv_value = '' ).
-    io_ctx->set_val( iv_name = 'GROSS_WEIGHT_POP'     iv_value = '' ).
-    io_ctx->set_val( iv_name = 'UOM_POP'              iv_value = '' ).
-    io_ctx->set_val( iv_name = 'INVOICE_POP'          iv_value = '' ).
-    io_ctx->set_val( iv_name = 'ORIGIN_POP'           iv_value = '' ).
-    io_ctx->set_val( iv_name = 'END_USER_POP'         iv_value = '' ).
-    io_ctx->set_val( iv_name = 'BOL_POP'              iv_value = '' ).
-    io_ctx->set_val( iv_name = 'TRANS_COMP'           iv_value = '' ).
+    io_ctx->set_val( iv_name = 'HS_CODE_POP'          iv_value = 'HS1' ).
+    io_ctx->set_val( iv_name = 'MATERIAL_NAME_HF'     iv_value = 'MAT1' ).
+    io_ctx->set_val( iv_name = 'CHEMICAL_NAME_HF'     iv_value = 'CHEM1' ).
+    io_ctx->set_val( iv_name = 'CAS_POP'              iv_value = 'CAS1' ).
+    io_ctx->set_val( iv_name = 'CHEMICAL_FORMULA_POP' iv_value = 'CHEMF1' ).
+    io_ctx->set_val( iv_name = 'PACKAGING_POP'        iv_value = 'PACKING1' ).
+    io_ctx->set_val( iv_name = 'QUANTITY_POP'         iv_value = '1' ).
+    io_ctx->set_val( iv_name = 'GROSS_WEIGHT_POP'     iv_value = '2' ).
+    io_ctx->set_val( iv_name = 'UOM_POP'              iv_value = 'KG' ).
+    io_ctx->set_val( iv_name = 'INVOICE_POP'          iv_value = 'INV1' ).
+    io_ctx->set_val( iv_name = 'ORIGIN_POP'           iv_value = 'CTR1' ).
+    io_ctx->set_val( iv_name = 'END_USER_POP'         iv_value = 'ENDUSER' ).
+    io_ctx->set_val( iv_name = 'BOL_POP'              iv_value = 'BOL1' ).
+    io_ctx->set_val( iv_name = 'TRANS_COMP'           iv_value = 'POP1' ).
 
 
 ****    IF iv_id IS INITIAL.
@@ -286,10 +286,6 @@ ENDMETHOD.
 
     DATA(lo_c6) = lo_r2->vbox( class = 'rakCell' ).
     lo_c6->label( text = 'Packing' class = 'rakReq' ).
-*   NOT type 'Number'. Packing carries a packaging description - drum, IBC, the
-*   legacy PACKAGING_POP value - and sap.m.Input with type Number shows nothing
-*   at all for a non-numeric value, so a bound field with real data rendered
-*   blank. Quantity and Gross Weight below keep type Number: those are numbers.
     lo_c6->input( value = io_ctx->bind( c_packaging_pop ) width = '17rem' ).
 
     DATA(lo_c7) = lo_r2->vbox( class = 'rakCell' ).
