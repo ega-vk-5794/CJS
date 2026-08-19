@@ -7,18 +7,15 @@ posts it. ABAP is for what configuration cannot express.
 Full detail is in [README.md](README.md). This file is the short version plus the rules that
 have already cost time when broken.
 
-## Ownership boundary
+## Namespace boundary
 
-Everything in the `ZRAK_*` / `Z2UI5_*` / `EGA` namespaces is ours. `/QNV/*` is the legacy
-ShapeIt product.
+**Never modify anything under `/QNV/`.** It is the legacy backend and must keep behaving exactly
+as it does today — other consumers still depend on it, and a regression there surfaces far from
+the change. Fix on the CJS side instead: handler class, config, or engine. If a defect genuinely
+cannot be fixed CJS-side, say so and stop rather than proposing a `/QNV/` edit.
 
-**Never modify anything under `/QNV/`.** It must keep behaving exactly as legacy — other
-consumers still depend on it, and a regression there surfaces far from the change. Fix on the CJS
-side instead: handler class, config, or engine. If a defect genuinely cannot be fixed CJS-side,
-say so and stop rather than proposing a `/QNV/` edit.
-
-The BAdI chain is ours despite serving the legacy path — `ZIF_EGA_FW_CJI`,
-`ZCL_EGA_CJ_*_ABS`, `ZCL_EGA_CJ_ENH_IMPL_*`, `ZFM_EGA_CJ_FW_*`, `ZEGA_T_CJ_*`.
+In scope for changes: `ZRAK_*`, `Z2UI5_*`, and the BAdI chain despite it serving the legacy path —
+`ZIF_EGA_FW_CJI`, `ZCL_EGA_CJ_*_ABS`, `ZCL_EGA_CJ_ENH_IMPL_*`, `ZFM_EGA_CJ_FW_*`, `ZEGA_T_CJ_*`.
 
 ## Handler classes
 
