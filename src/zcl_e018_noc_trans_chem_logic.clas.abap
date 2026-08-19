@@ -32,8 +32,8 @@ private section.
   constants C_GRID type STRING value 'CHEMICALS_DETAILS' ##NO_TEXT.
   constants C_EVT_DETAILS type STRING value 'ADD Details' ##NO_TEXT.
   constants C_HS_CODE_POP type STRING value 'HS_CODE_POP' ##NO_TEXT.
-  constants C_MATERIAL_NAME_POP type STRING value 'MATERIAL_NAME_HF' ##NO_TEXT.
-  constants C_CHEMICAL_NAME_POP type STRING value 'CHEMICAL_NAME_HF' ##NO_TEXT.
+  constants C_MATERIAL_NAME_POP type STRING value 'MATERIAL_NAME_POP' ##NO_TEXT.
+  constants C_CHEMICAL_NAME_POP type STRING value 'CHEMICAL_NAME_POP' ##NO_TEXT.
   constants C_CAS_POP type STRING value 'CAS_POP' ##NO_TEXT.
   constants C_CHEMICAL_FORMULA_POP type STRING value 'CHEMICAL_FORMULA_POP' ##NO_TEXT.
   constants C_PACKAGING_POP type STRING value 'PACKAGING_POP' ##NO_TEXT.
@@ -44,7 +44,7 @@ private section.
   constants C_ORIGIN_POP type STRING value 'ORIGIN_POP' ##NO_TEXT.
   constants C_END_USER_POP type STRING value 'END_USER_POP' ##NO_TEXT.
   constants C_BOL_POP type STRING value 'BOL_POP' ##NO_TEXT.
-  constants C_TRANS_COMP type STRING value 'TRANS_COMP' ##NO_TEXT.
+  constants C_TRANS_COMP type STRING value 'BOL_POP' ##NO_TEXT.
   constants C_CHEM type STRING value 'CHEM' ##NO_TEXT.
   constants C_EVT_OWNOK type STRING value 'OWN_OK' ##NO_TEXT.
   constants C_EVT_OWNCX type STRING value 'OWN_CANCEL' ##NO_TEXT.
@@ -107,20 +107,20 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 **    io_ctx->set_val( iv_name = c_bol_pop              iv_value = '' ).
 **    io_ctx->set_val( iv_name = c_trans_comp           iv_value = '' ).
 
-    io_ctx->set_val( iv_name = 'HS_CODE_POP'         iv_value = '' ).
-    io_ctx->set_val( iv_name = 'MATERIAL_NAME_HF'     iv_value = '' ).
-    io_ctx->set_val( iv_name = 'CHEMICAL_NAME_HF'     iv_value = '' ).
-    io_ctx->set_val( iv_name = 'CAS_POP'              iv_value = '' ).
-    io_ctx->set_val( iv_name = 'CHEMICAL_FORMULA_POP' iv_value = '' ).
-    io_ctx->set_val( iv_name = 'PACKAGING_POP'        iv_value = '' ).
-    io_ctx->set_val( iv_name = 'QUANTITY_POP'         iv_value = '' ).
-    io_ctx->set_val( iv_name = 'GROSS_WEIGHT_POP'     iv_value = '' ).
-    io_ctx->set_val( iv_name = 'UOM_POP'              iv_value = '' ).
-    io_ctx->set_val( iv_name = 'INVOICE_POP'          iv_value = '' ).
-    io_ctx->set_val( iv_name = 'ORIGIN_POP'           iv_value = '' ).
-    io_ctx->set_val( iv_name = 'END_USER_POP'         iv_value = '' ).
-    io_ctx->set_val( iv_name = 'BOL_POP'              iv_value = '' ).
-    io_ctx->set_val( iv_name = 'TRANS_COMP'           iv_value = '' ).
+    io_ctx->set_val( iv_name = 'HS_CODE_POP'          iv_value = 'HS1' ).
+    io_ctx->set_val( iv_name = 'MATERIAL_NAME_HF'     iv_value = 'MAT1' ).
+    io_ctx->set_val( iv_name = 'CHEMICAL_NAME_HF'     iv_value = 'CHEM1' ).
+    io_ctx->set_val( iv_name = 'CAS_POP'              iv_value = 'CAS1' ).
+    io_ctx->set_val( iv_name = 'CHEMICAL_FORMULA_POP' iv_value = 'CHEMF1' ).
+    io_ctx->set_val( iv_name = 'PACKAGING_POP'        iv_value = 'PACKING1' ).
+    io_ctx->set_val( iv_name = 'QUANTITY_POP'         iv_value = '1' ).
+    io_ctx->set_val( iv_name = 'GROSS_WEIGHT_POP'     iv_value = '2' ).
+    io_ctx->set_val( iv_name = 'UOM_POP'              iv_value = 'KG' ).
+    io_ctx->set_val( iv_name = 'INVOICE_POP'          iv_value = 'INV1' ).
+    io_ctx->set_val( iv_name = 'ORIGIN_POP'           iv_value = 'CTR1' ).
+    io_ctx->set_val( iv_name = 'END_USER_POP'         iv_value = 'ENDUSER' ).
+    io_ctx->set_val( iv_name = 'BOL_POP'              iv_value = 'BOL1' ).
+    io_ctx->set_val( iv_name = 'TRANS_COMP'           iv_value = 'POP1' ).
 
 
 ****    IF iv_id IS INITIAL.
@@ -267,18 +267,18 @@ ENDMETHOD.
 
     DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
     lo_c2->label( text = 'Material Name' ).
-    lo_c2->input( value = io_ctx->bind( c_material_name_pop ) width = '17rem' ).
+    lo_c2->input( value = io_ctx->bind( 'C_MATERIAL_NAME_POP' ) width = '17rem' ).
 
     DATA(lo_c3) = lo_r1->vbox( class = 'rakCell' ).
     lo_c3->label( text = 'Chemical Name' ).
-    lo_c3->input( value = io_ctx->bind( c_chemical_name_pop ) width = '17rem' ).
+    lo_c3->input( value = io_ctx->bind( 'C_CHEMICAL_NAME_POP' ) width = '17rem' ).
 
 *&--------Row 2-----------&
     DATA(lo_r2) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
 
     DATA(lo_c4) = lo_r2->vbox( class = 'rakCell' ).
     lo_c4->label( text = 'CAS Number' ).
-    lo_c4->input( value = io_ctx->bind( c_cas_pop ) width = '17rem' ).
+    lo_c4->input( value = io_ctx->bind( 'C_CAS_POP' ) width = '17rem' ).
 
     DATA(lo_c5) = lo_r2->vbox( class = 'rakCell' ).
     lo_c5->label( text = 'Chemical formula' ).
@@ -286,11 +286,7 @@ ENDMETHOD.
 
     DATA(lo_c6) = lo_r2->vbox( class = 'rakCell' ).
     lo_c6->label( text = 'Packing' class = 'rakReq' ).
-*   NOT type 'Number'. Packing carries a packaging description - drum, IBC, the
-*   legacy PACKAGING_POP value - and sap.m.Input with type Number shows nothing
-*   at all for a non-numeric value, so a bound field with real data rendered
-*   blank. Quantity and Gross Weight below keep type Number: those are numbers.
-    lo_c6->input( value = io_ctx->bind( c_packaging_pop ) width = '17rem' ).
+    lo_c6->input( value = io_ctx->bind( c_packaging_pop ) type = 'Number' width = '17rem' ).
 
     DATA(lo_c7) = lo_r2->vbox( class = 'rakCell' ).
     lo_c7->label( text = 'Quantity' class = 'rakReq' ).
@@ -495,16 +491,6 @@ ENDMETHOD.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
-*   The base method IS the PAID gate - it refuses a submit while PAYFEE is not
-*   'PAID'. A redefinition REPLACES it, so without this call the gate is simply
-*   not there for this journey. It must come before any CHECK below: a CHECK that
-*   fails exits the method, and anything after it would never run.
-*
-*   Self-guarding - PAY_FIELD_STEP returns -1 when the journey has no PAYFEE
-*   field, so this is a no-op on a journey with no payment step.
-    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
-                                                         iv_step = iv_step ).
-
 
     CASE iv_step.
 
@@ -807,10 +793,10 @@ ENDMETHOD.
     ENDLOOP.
 
     DATA(lv_hs_code)    = condense( io_ctx->get_val( 'HS_CODE_POP' ) ).
-    DATA(lv_mat_name)   = condense( io_ctx->get_val( 'MATERIAL_NAME_POP') ).
+    DATA(lv_mat_name)   = condense( io_ctx->get_val( 'MATERIAL_NAME_HF') ).
 *    DATA(lv_mat_name)   = condense( io_ctx->get_val( C_MATERIAL_NAME_POP ) ).
 
-    DATA(lv_chem_name)  = condense( io_ctx->get_val( 'CHEMICAL_NAME_POP' ) ).
+    DATA(lv_chem_name)  = condense( io_ctx->get_val( 'CHEMICAL_NAME_HF' ) ).
     DATA(lv_cas)        = condense( io_ctx->get_val( 'CAS_POP' ) ).
     DATA(lv_chem_form)  = condense( io_ctx->get_val( 'CHEMICAL_FORMULA_POP' ) ).
     DATA(lv_packaging)  = condense( io_ctx->get_val( 'PACKAGING_POP' ) ).

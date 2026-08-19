@@ -28,8 +28,4 @@ interface Z2UI5_IF_EXT_RAKSTAGEBAR
 
   data MT_STAGES type TT_STAGES .
   data CLIENT type ref to Z2UI5_IF_CLIENT .
-
-  methods RAKSTAGEBAR
-    importing
-      !IO_PARENT type ref to Z2UI5_CL_XML_FRAGMENT .
 endinterface.

@@ -10,6 +10,17 @@ public section.
   methods CONSTRUCTOR
     importing
       !CLIENT type ref to Z2UI5_IF_CLIENT optional .
+  methods STEP_FORWARD
+    importing
+      !DIRECTION type CHAR1 optional
+    returning
+      value(SCREEN) type STRING .
+  methods GET_CURRENT_SCREEN
+    returning
+      value(SCREEN) type STRING .
+  methods RAKSTAGEBAR
+    importing
+      !IO_PARENT type ref to Z2UI5_CL_XML_FRAGMENT .
 protected section.
 private section.
 ENDCLASS.
@@ -20,38 +31,29 @@ CLASS Z2UI5_CL_EXT_RAKSTAGEBAR IMPLEMENTATION.
 
 
   METHOD constructor.
-    me->z2ui5_if_ext_rakstagebar~client = client.
-
-    client->_bind_edit( me->z2ui5_if_ext_rakstagebar~mt_stages ).
-
-    CLEAR: me->z2ui5_if_ext_rakstagebar~mt_stages[].
-    APPEND INITIAL LINE TO me->z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING FIELD-SYMBOL(<stage>).
-    <stage>-stagelabel      = 'Case details'.
-    <stage>-screen          = 'SCREEN_NP001_1_1'.
-    APPEND INITIAL LINE TO me->z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage>.
-    <stage>-stagelabel      = 'Case details'.
-    <stage>-screen          = 'SCREEN_NP001_1_2'.
-    APPEND INITIAL LINE TO me->z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage>.
-    <stage>-stagelabel      = 'Documents'.
-    <stage>-screen          = 'SCREEN_NP001_1_3'.
-    APPEND INITIAL LINE TO me->z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage>.
-    <stage>-stagelabel      = 'Payment'.
-    <stage>-screen          = 'SCREEN_NP001_1_4'.
-    APPEND INITIAL LINE TO me->z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage>.
-    <stage>-stagelabel      = 'Confirmation'.
-    <stage>-screen          = 'SCREEN_NP001_1_5'.
+*    me->z2ui5_if_ext_rakstagebar~client = client.
 
   ENDMETHOD.
 
 
-  METHOD z2ui5_if_ext_rakstagebar~rakstagebar.
+  METHOD get_current_screen.
+    READ TABLE z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING FIELD-SYMBOL(<stage>) WITH KEY current = abap_true.
+    IF sy-subrc EQ 0.
+      screen = <stage>-screen.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD rakstagebar.
+
+
     DATA(id_rak_stagebar) = io_parent->vbox( id = 'id-rak-stagebar' width = '100%' class = 'rak-stagebar-margin' rendertype = 'Bare' ).
 
     " ===================== DESKTOP =====================
     DATA(desktop) = id_rak_stagebar->hbox( width = '100%' visible = 'true' rendertype = 'Bare' ).
 
     " repeating aggregation - one HBox per stage, bound to oStageBarData>/stages
-    DATA(stages) = desktop->hbox( items = '{/XX/MT_STAGES}' justifycontent = 'Start' alignitems = 'Start' rendertype = 'Bare' ).
+    DATA(stages) = desktop->hbox( items = '{/XX/Z2UI5_IF_EXT_RAKSTAGEBAR~MT_STAGES}' justifycontent = 'Start' alignitems = 'Start' rendertype = 'Bare' ).
 *    LOOP AT mt_stages INTO DATA(ls_stage).
     DATA(stage_item) = stages->hbox( rendertype = 'Bare' ).
 
@@ -117,5 +119,91 @@ CLASS Z2UI5_CL_EXT_RAKSTAGEBAR IMPLEMENTATION.
     DATA(mobile_step_text) = mobile_progress_row->text(
                                 text  = '{i18n>step} {oStageBarData>/settings/CurrentStage} {i18n>of} {oStageBarData>/settings/TotalStages}'
                                 class = 'Body_2_3 color-gray7' ).
+  ENDMETHOD.
+
+
+  METHOD step_forward.
+    READ TABLE z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING FIELD-SYMBOL(<stage>) WITH KEY current = abap_true.
+    IF sy-subrc EQ 0.
+      DATA(lv_tabix) = sy-tabix.
+      <stage>-current = abap_false.
+      CASE direction.
+        WHEN '-'.
+          SUBTRACT 1 FROM lv_tabix.
+        WHEN '+'.
+          ADD 1 TO lv_tabix.
+        WHEN '='.
+        WHEN OTHERS.
+      ENDCASE.
+      IF lv_tabix GT 0.
+        READ TABLE z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage> INDEX lv_tabix.
+      ELSE.
+        READ TABLE z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage> INDEX 1.
+      ENDIF.
+    ELSE.
+      READ TABLE z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage> INDEX 1.
+    ENDIF.
+    IF sy-subrc EQ 0.
+      lv_tabix = sy-tabix.
+
+      LOOP AT z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING FIELD-SYMBOL(<next_stage>).
+        DATA(lv_line) = sy-tabix.
+        <next_stage>-stagenumber = lv_line.
+        SHIFT <next_stage>-stagenumber LEFT DELETING LEADING space.
+
+        <next_stage>-grayleftline      = ''.
+        <next_stage>-greenleftline     = ''.
+        <next_stage>-redcircle         = ''.
+        <next_stage>-greencircle       = ''.
+        <next_stage>-graycircle        = ''.
+        <next_stage>-grayrightline     = ''.
+        <next_stage>-greenrightline    = ''.
+        <next_stage>-redstagelabel     = ''.
+        <next_stage>-graystagelabel    = ''.
+        <next_stage>-greenstagelabel   = ''.
+        <next_stage>-graygap           = ''.
+        <next_stage>-greengap          = ''.
+        <next_stage>-islast            = 'X'.
+        IF lv_line EQ lines( z2ui5_if_ext_rakstagebar~mt_stages ).
+          <next_stage>-islast          = ''.
+        ENDIF.
+
+        IF lv_line LT lv_tabix.
+          <next_stage>-status          = 'Completed'.
+          IF lv_line GT 1.
+            <next_stage>-greenleftline   = 'X'.
+          ENDIF.
+          <next_stage>-greenrightline  = 'X'.
+          <next_stage>-greengap        = 'X'.
+          <next_stage>-greencircle     = 'X'.
+          <next_stage>-greenstagelabel = 'X'.
+        ENDIF.
+        IF lv_line GT lv_tabix.
+          <next_stage>-status          = 'Disabled'.
+          <next_stage>-graycircle      = 'X'.
+          <next_stage>-graystagelabel  = 'X'.
+          <next_stage>-grayleftline   = 'X'.
+          IF <next_stage>-islast EQ 'X'.
+            <next_stage>-grayrightline = 'X'.
+            <next_stage>-graygap       = 'X'.
+          ENDIF.
+        ENDIF.
+      ENDLOOP.
+
+      <stage>-current                  = abap_true.
+      <stage>-status                   = 'Current'.
+      <stage>-redcircle                = 'X'.
+      <stage>-redstagelabel            = 'X'.
+      <stage>-grayrightline            = 'X'.
+      <stage>-graygap                  = 'X'.
+      IF lv_tabix GT 1.
+        <stage>-greenleftline          = 'X'.
+      ENDIF.
+      CALL METHOD (<stage>-screen).
+
+      screen = <stage>-screen.
+
+
+    ENDIF.
   ENDMETHOD.
 ENDCLASS.

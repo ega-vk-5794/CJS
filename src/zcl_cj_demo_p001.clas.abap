@@ -1,15 +1,15 @@
-CLASS zcl_cj_demo_p001 DEFINITION
-  PUBLIC
-  CREATE PUBLIC .
+class ZCL_CJ_DEMO_P001 definition
+  public
+  create public .
 
-  PUBLIC SECTION.
+public section.
 
-    INTERFACES if_serializable_object .
-    INTERFACES z2ui5_if_app .
-    INTERFACES z2ui5_if_ext_rakstagebar .
+  interfaces IF_SERIALIZABLE_OBJECT .
+  interfaces Z2UI5_IF_APP .
+  interfaces Z2UI5_IF_EXT_RAKSTAGEBAR .
 
-    TYPES:
-      BEGIN OF ty_s_tab,
+  types:
+    BEGIN OF ty_s_tab,
         selkz            TYPE abap_bool,
         product          TYPE string,
         create_date      TYPE string,
@@ -17,8 +17,8 @@ CLASS zcl_cj_demo_p001 DEFINITION
         storage_location TYPE string,
         quantity         TYPE i,
       END OF ty_s_tab .
-    TYPES:
-      BEGIN OF ty_lic_no_list,
+  types:
+    BEGIN OF ty_lic_no_list,
         intreno    TYPE recaintreno,
         recnnr     TYPE recnnumber,
         recntype   TYPE recncontracttype,
@@ -30,10 +30,10 @@ CLASS zcl_cj_demo_p001 DEFINITION
         recntxt    TYPE recntxt,
         selkz      TYPE abap_bool,
       END OF ty_lic_no_list .
-    TYPES:
-      tt_lic_no_list TYPE STANDARD TABLE OF ty_lic_no_list WITH DEFAULT KEY .
-    TYPES:
-      BEGIN OF ty_stages,
+  types:
+    tt_lic_no_list TYPE STANDARD TABLE OF ty_lic_no_list WITH DEFAULT KEY .
+  types:
+    BEGIN OF ty_stages,
         status          TYPE string,
         stagenumber     TYPE string,
         stagelabel      TYPE string,
@@ -53,10 +53,10 @@ CLASS zcl_cj_demo_p001 DEFINITION
         screen          TYPE string,
         current         TYPE flag,
       END OF ty_stages .
-    TYPES:
-      tt_stages TYPE STANDARD TABLE OF ty_stages WITH DEFAULT KEY .
-    TYPES:
-      BEGIN OF ty_attach,
+  types:
+    tt_stages TYPE STANDARD TABLE OF ty_stages WITH DEFAULT KEY .
+  types:
+    BEGIN OF ty_attach,
         file_name     TYPE string,
         file_data     TYPE string,
         file_type     TYPE string,
@@ -66,10 +66,10 @@ CLASS zcl_cj_demo_p001 DEFINITION
         required      TYPE flag,
         read_mode     TYPE flag,
       END OF ty_attach .
-    TYPES:
-      tt_attach TYPE STANDARD TABLE OF ty_attach WITH DEFAULT KEY .
-    TYPES:
-      BEGIN OF ty_payment,
+  types:
+    tt_attach TYPE STANDARD TABLE OF ty_attach WITH DEFAULT KEY .
+  types:
+    BEGIN OF ty_payment,
         quick                TYPE flag,
         mrak                 TYPE flag,
         kiosk                TYPE flag,
@@ -82,8 +82,8 @@ CLASS zcl_cj_demo_p001 DEFINITION
         title                TYPE string,
         text                 TYPE string,
       END OF ty_payment .
-    TYPES:
-      BEGIN OF ty_happy,
+  types:
+    BEGIN OF ty_happy,
         initilized   TYPE flag,
         rate         TYPE string,
         excellent    TYPE flag,
@@ -94,27 +94,26 @@ CLASS zcl_cj_demo_p001 DEFINITION
         textareatext TYPE string,
       END OF ty_happy .
 
-    DATA:
-      mt_table TYPE STANDARD TABLE OF ty_s_tab WITH EMPTY KEY .
-    DATA mv_check_popover TYPE abap_bool .
-    DATA mv_product TYPE string .
-    DATA gs_data TYPE zcl_ega_cj_ppd_abs=>ty_data .
-    DATA mt_stages TYPE tt_stages .
-    DATA mt_results TYPE wdy_key_value_list .
-    DATA mt_attach TYPE tt_attach .
-    DATA ms_payment TYPE ty_payment .
-    DATA ms_happy TYPE ty_happy .
+  data:
+    mt_table TYPE STANDARD TABLE OF ty_s_tab WITH EMPTY KEY .
+  data MV_CHECK_POPOVER type ABAP_BOOL .
+  data MV_PRODUCT type STRING .
+  data GS_DATA type ZCL_EGA_CJ_PPD_ABS=>TY_DATA .
+  data MT_STAGES type TT_STAGES .
+  data MT_RESULTS type WDY_KEY_VALUE_LIST .
+  data MT_ATTACH type TT_ATTACH .
+  data MS_PAYMENT type TY_PAYMENT .
+  data MS_HAPPY type TY_HAPPY .
 
-    METHODS set_data .
-    METHODS view_display .
-    METHODS popover_display
-      IMPORTING
-        !id TYPE string .
-    METHODS screen_np001_1_1 .
-    METHODS screen_np001_1_2 .
-    METHODS screen_np001_1_3 .
-    METHODS screen_np001_1_4 .
-    METHODS screen_np001_1_5 .
+  methods VIEW_DISPLAY .
+  methods POPOVER_DISPLAY
+    importing
+      !ID type STRING .
+  methods SCREEN_NP001_1_1 .
+  methods SCREEN_NP001_1_2 .
+  methods SCREEN_NP001_1_3 .
+  methods SCREEN_NP001_1_4 .
+  methods SCREEN_NP001_1_5 .
   PROTECTED SECTION.
     DATA client TYPE REF TO z2ui5_if_client.
 
@@ -342,24 +341,24 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
       ENDIF.
     ENDIF.
     "
-    CLEAR: mt_stages[].
-    APPEND INITIAL LINE TO mt_stages ASSIGNING FIELD-SYMBOL(<stage>).
+    CLEAR: z2ui5_if_ext_rakstagebar~mt_stages[].
+    APPEND INITIAL LINE TO z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING FIELD-SYMBOL(<stage>).
     <stage>-stagelabel      = 'Case details'.
     <stage>-screen          = 'SCREEN_NP001_1_1'.
-    APPEND INITIAL LINE TO mt_stages ASSIGNING <stage>.
+    APPEND INITIAL LINE TO z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage>.
     <stage>-stagelabel      = 'Case details'.
     <stage>-screen          = 'SCREEN_NP001_1_2'.
-    APPEND INITIAL LINE TO mt_stages ASSIGNING <stage>.
+    APPEND INITIAL LINE TO z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage>.
     <stage>-stagelabel      = 'Documents'.
     <stage>-screen          = 'SCREEN_NP001_1_3'.
-    APPEND INITIAL LINE TO mt_stages ASSIGNING <stage>.
+    APPEND INITIAL LINE TO z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage>.
     <stage>-stagelabel      = 'Payment'.
     <stage>-screen          = 'SCREEN_NP001_1_4'.
-    APPEND INITIAL LINE TO mt_stages ASSIGNING <stage>.
+    APPEND INITIAL LINE TO z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage>.
     <stage>-stagelabel      = 'Confirmation'.
     <stage>-screen          = 'SCREEN_NP001_1_5'.
 
-    client->_bind_edit( mt_stages ).
+    client->_bind_edit( z2ui5_if_ext_rakstagebar~mt_stages ).
 *    DATA(rakstagebar) = NEW z2ui5_cl_ext_rakstagebar( me->client ).
   ENDMETHOD.
 
@@ -493,7 +492,7 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     " TODO(STAGES): RAKSTAGEBAR is a custom extension control (EXTENDED=X) - exact z2ui5 API not yet confirmed.
     "   source data: steps=4 current=1
     DATA(stages) = card->hbox( class = 'sapUiLargeMarginBegin' ).  " placeholder - see TODO above
-    rakstagebar( stages ).
+    NEW z2ui5_cl_ext_rakstagebar( )->rakstagebar( stages ).
 
     DATA(body) = card->vbox( class = 'shapeIT-part2' ).
     DATA(hbox_4) = body->hbox( justifycontent = 'Center' ).
@@ -874,61 +873,6 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
 
     client->view_display( view->stringify( ) ).
     me->rakhappy( ).
-
-  ENDMETHOD.
-
-
-  METHOD SET_DATA.
-
-    mt_table = VALUE #(
-        ( product = `table` create_date = `01.01.2023` create_by = `Peter` storage_location = `AREA_001` quantity = 400 )
-        ( product = `chair` create_date = `01.01.2022` create_by = `James` storage_location = `AREA_001` quantity = 123 )
-        ( product = `sofa` create_date = `01.05.2021` create_by = `Simone` storage_location = `AREA_001` quantity = 700 )
-        ( product = `computer` create_date = `27.01.2023` create_by = `Theo` storage_location = `AREA_001` quantity = 200 )
-        ( product = `printer` create_date = `01.01.2023` create_by = `Hannah` storage_location = `AREA_001` quantity = 90 )
-        ( product = `table2` create_date = `01.01.2023` create_by = `Julia` storage_location = `AREA_001` quantity = 110 )
-        ( product = `table` create_date = `01.01.2023` create_by = `Peter` storage_location = `AREA_001` quantity = 400 )
-        ( product = `chair` create_date = `01.01.2022` create_by = `James` storage_location = `AREA_001` quantity = 123 )
-        ( product = `sofa` create_date = `01.05.2021` create_by = `Simone` storage_location = `AREA_001` quantity = 700 )
-        ( product = `computer` create_date = `27.01.2023` create_by = `Theo` storage_location = `AREA_001` quantity = 200 )
-        ( product = `printer` create_date = `01.01.2023` create_by = `Hannah` storage_location = `AREA_001` quantity = 90 )
-        ( product = `table2` create_date = `01.01.2023` create_by = `Julia` storage_location = `AREA_001` quantity = 110 )
-        ( product = `table` create_date = `01.01.2023` create_by = `Peter` storage_location = `AREA_001` quantity = 400 )
-        ( product = `chair` create_date = `01.01.2022` create_by = `James` storage_location = `AREA_001` quantity = 123 )
-        ( product = `sofa` create_date = `01.05.2021` create_by = `Simone` storage_location = `AREA_001` quantity = 700 )
-        ( product = `computer` create_date = `27.01.2023` create_by = `Theo` storage_location = `AREA_001` quantity = 200 )
-        ( product = `printer` create_date = `01.01.2023` create_by = `Hannah` storage_location = `AREA_001` quantity = 90 )
-        ( product = `table2` create_date = `01.01.2023` create_by = `Julia` storage_location = `AREA_001` quantity = 110 )
-        ( product = `table` create_date = `01.01.2023` create_by = `Peter` storage_location = `AREA_001` quantity = 400 )
-        ( product = `chair` create_date = `01.01.2022` create_by = `James` storage_location = `AREA_001` quantity = 123 )
-        ( product = `sofa` create_date = `01.05.2021` create_by = `Simone` storage_location = `AREA_001` quantity = 700 )
-        ( product = `computer` create_date = `27.01.2023` create_by = `Theo` storage_location = `AREA_001` quantity = 200 )
-        ( product = `printer` create_date = `01.01.2023` create_by = `Hannah` storage_location = `AREA_001` quantity = 90 )
-        ( product = `table2` create_date = `01.01.2023` create_by = `Julia` storage_location = `AREA_001` quantity = 110 )
-        ( product = `table` create_date = `01.01.2023` create_by = `Peter` storage_location = `AREA_001` quantity = 400 )
-        ( product = `chair` create_date = `01.01.2022` create_by = `James` storage_location = `AREA_001` quantity = 123 )
-        ( product = `sofa` create_date = `01.05.2021` create_by = `Simone` storage_location = `AREA_001` quantity = 700 )
-        ( product = `computer` create_date = `27.01.2023` create_by = `Theo` storage_location = `AREA_001` quantity = 200 )
-        ( product = `printer` create_date = `01.01.2023` create_by = `Hannah` storage_location = `AREA_001` quantity = 90 )
-        ( product = `table2` create_date = `01.01.2023` create_by = `Julia` storage_location = `AREA_001` quantity = 110 )
-        ( product = `table` create_date = `01.01.2023` create_by = `Peter` storage_location = `AREA_001` quantity = 400 )
-        ( product = `chair` create_date = `01.01.2022` create_by = `James` storage_location = `AREA_001` quantity = 123 )
-        ( product = `sofa` create_date = `01.05.2021` create_by = `Simone` storage_location = `AREA_001` quantity = 700 )
-        ( product = `computer` create_date = `27.01.2023` create_by = `Theo` storage_location = `AREA_001` quantity = 200 )
-        ( product = `printer` create_date = `01.01.2023` create_by = `Hannah` storage_location = `AREA_001` quantity = 90 )
-        ( product = `table2` create_date = `01.01.2023` create_by = `Julia` storage_location = `AREA_001` quantity = 110 )
-        ( product = `table` create_date = `01.01.2023` create_by = `Peter` storage_location = `AREA_001` quantity = 400 )
-        ( product = `chair` create_date = `01.01.2022` create_by = `James` storage_location = `AREA_001` quantity = 123 )
-        ( product = `sofa` create_date = `01.05.2021` create_by = `Simone` storage_location = `AREA_001` quantity = 700 )
-        ( product = `computer` create_date = `27.01.2023` create_by = `Theo` storage_location = `AREA_001` quantity = 200 )
-        ( product = `printer` create_date = `01.01.2023` create_by = `Hannah` storage_location = `AREA_001` quantity = 90 )
-        ( product = `table2` create_date = `01.01.2023` create_by = `Julia` storage_location = `AREA_001` quantity = 110 )
-        ( product = `table` create_date = `01.01.2023` create_by = `Peter` storage_location = `AREA_001` quantity = 400 )
-        ( product = `chair` create_date = `01.01.2022` create_by = `James` storage_location = `AREA_001` quantity = 123 )
-        ( product = `sofa` create_date = `01.05.2021` create_by = `Simone` storage_location = `AREA_001` quantity = 700 )
-        ( product = `computer` create_date = `27.01.2023` create_by = `Theo` storage_location = `AREA_001` quantity = 200 )
-        ( product = `printer` create_date = `01.01.2023` create_by = `Hannah` storage_location = `AREA_001` quantity = 90 )
-        ( product = `table2` create_date = `01.01.2023` create_by = `Julia` storage_location = `AREA_001` quantity = 110 ) ).
 
   ENDMETHOD.
 
@@ -1473,10 +1417,6 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
 
     ENDIF.
   ENDMETHOD.
-
-
-  method Z2UI5_IF_EXT_RAKSTAGEBAR~RAKSTAGEBAR.
-  endmethod.
 
 
   METHOD rakhappy.
