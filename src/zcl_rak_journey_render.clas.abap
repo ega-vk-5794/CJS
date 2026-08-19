@@ -12,6 +12,8 @@ CLASS zcl_rak_journey_render DEFINITION
     METHODS render_header    IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_wizard    IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_wizard_left IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view.
+*   Hidden buttons the stepper markup fires - see RENDER_GOTO.
+    METHODS render_goto      IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_tabs      IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_accordion IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_single    IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view.
@@ -270,7 +272,15 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     ENDIF.
 
     page->html( content = mo_e->mo_css->build_theme_css( ) sanitizecontent = abap_false ).
-    page->html( content = mo_e->mo_css->scroll_keeper( ) sanitizecontent = abap_false ).
+*   A blocked Next or Submit leaves an Error line in MT_MSG. That is the signal to
+*   take the citizen to the field at fault instead of restoring the scroll
+*   position they had - see SCROLL_KEEPER.
+    DATA(lv_bad) = abap_false.
+    LOOP AT mo_e->mt_msg TRANSPORTING NO FIELDS WHERE type = 'Error'.
+      lv_bad = abap_true.
+      EXIT.
+    ENDLOOP.
+    page->html( content = mo_e->mo_css->scroll_keeper( lv_bad ) sanitizecontent = abap_false ).
     IF mo_e->mv_open_url IS NOT INITIAL.
       page->html( content = zcl_rak_journey_util=>open_url_html( mo_e->mv_open_url ) sanitizecontent = abap_false ).
       CLEAR mo_e->mv_open_url.
@@ -2050,11 +2060,16 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     DATA(lo_strip) = io_parent->hbox( class = 'sapUiSmallMarginBegin sapUiSmallMarginTop' ).
     DATA lv_i TYPE i.
     LOOP AT mo_e->ms_config-steps INTO DATA(ls_step).
+*     Numbered, because a tab strip says nothing about order and TABS journeys are
+*     still meant to be worked through front to back. The current tab is the only
+*     one carrying the accent colour, so the number is what tells the citizen how
+*     far along the strip they are.
       lo_strip->button(
-        text  = zcl_rak_journey_util=>esc( ls_step-title )
-        icon  = ls_step-icon
-        type  = COND string( WHEN lv_i = mo_e->mv_step THEN mo_e->ms_config-theme-accent_type ELSE 'Transparent' )
-        press = mo_e->mo_client->_event( |TAB{ lv_i }| ) ).
+        text    = zcl_rak_journey_util=>esc( |{ lv_i + 1 }. { ls_step-title }| )
+        icon    = ls_step-icon
+        type    = COND string( WHEN lv_i = mo_e->mv_step THEN mo_e->ms_config-theme-accent_type ELSE 'Transparent' )
+        tooltip = zcl_rak_journey_util=>esc( ls_step-title )
+        press   = mo_e->mo_client->_event( |TAB{ lv_i }| ) ).
       lv_i = lv_i + 1.
     ENDLOOP.
     READ TABLE mo_e->ms_config-steps INTO DATA(ls_cur) INDEX mo_e->mv_step + 1.
@@ -2111,9 +2126,29 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
   METHOD render_wizard.
     io_parent->html( content = mo_e->mo_css->build_stepper( ) sanitizecontent = abap_false ).
+    render_goto( io_parent ).
     READ TABLE mo_e->ms_config-steps INTO DATA(ls_step) INDEX mo_e->mv_step + 1.
     render_step( io_parent = io_parent is_step = ls_step iv_index = mo_e->mv_step ).
     render_footer( io_parent = io_parent iv_linear = abap_true ).
+  ENDMETHOD.
+
+
+  METHOD render_goto.
+*   One hidden button per step the citizen has already passed, carrying the class
+*   the stepper markup fires. Raw HTML cannot raise an ABAP event, so this is the
+*   same hidden-control bridge RENDER_UPLOADER uses; rakHide keeps them in the DOM
+*   and scriptable rather than display:none, which would not be.
+*
+*   Only steps BEFORE the current one, matching what BUILD_STEPPER makes
+*   clickable. A button with no markup pointing at it is harmless, but one for a
+*   step ahead would be a way round the validation on NEXT.
+    DATA lv_i TYPE i.
+    WHILE lv_i < mo_e->mv_step.
+      io_parent->button( text  = 'go'
+                         class = |rakHide rakGoto_{ lv_i }|
+                         press = mo_e->mo_client->_event( |GOTO_{ lv_i }| ) ).
+      lv_i = lv_i + 1.
+    ENDWHILE.
   ENDMETHOD.
 
 
@@ -2121,6 +2156,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     DATA(lo_split) = io_parent->hbox( alignitems = 'Stretch' class = 'rakSplit' ).
     DATA(lo_rail)  = lo_split->vbox( width = '15rem' class = 'rakRail' ).
     lo_rail->html( content = mo_e->mo_css->build_stepper( abap_true ) sanitizecontent = abap_false ).
+    render_goto( lo_rail ).
     DATA(lo_main)  = lo_split->vbox( class = 'rakMain' ).
     READ TABLE mo_e->ms_config-steps INTO DATA(ls_wl) INDEX mo_e->mv_step + 1.
     render_step( io_parent = lo_main is_step = ls_wl iv_index = mo_e->mv_step ).

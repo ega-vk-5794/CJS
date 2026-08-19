@@ -14,7 +14,10 @@ CLASS zcl_rak_journey_css DEFINITION
     METHODS build_stepper IMPORTING iv_vertical    TYPE abap_bool DEFAULT abap_false
                           RETURNING VALUE(rv_html) TYPE string.
     METHODS density_class RETURNING VALUE(rv) TYPE string.
-    METHODS scroll_keeper RETURNING VALUE(rv) TYPE string.
+*   IV_ALERT switches this from "put the page back where it was" to "take the
+*   citizen to the thing that is wrong". See the method body.
+    METHODS scroll_keeper IMPORTING iv_alert TYPE abap_bool DEFAULT abap_false
+                          RETURNING VALUE(rv) TYPE string.
 
 *   The class name a renderer should put on a control for a given semantic role,
 *   in whichever vocabulary the ACTIVE theme selects. Every renderer asks for a
@@ -62,7 +65,46 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     brace escaping zcl_rak_journey_util=>esc( ) does.
       DATA(lv_ttl) = zcl_rak_journey_util=>esc( escape( val    = ls_step-title
                                   format = cl_abap_format=>e_xml_text ) ).
-      lv = lv && |<div class="{ lv_cls }"><span class="rakDot">{ lv_i + 1 }</span>| &&
+*     A step already behind the citizen is a step they can go back to. The dots
+*     have looked like a control since the first version and did nothing when
+*     pressed, which reads as the page being stuck - the engine has handled GOTO_n
+*     all along, nothing was ever wired to raise it.
+*
+*     Backwards only, deliberately. Jumping FORWARD past a step would skip the
+*     validation NEXT performs, which is the one thing the stepper must not do.
+*
+*     The click reaches ABAP the same way the file uploader does: a hidden UI5
+*     button carrying a known class, fired from injected JS. RENDER_WIZARD and
+*     RENDER_WIZARD_LEFT place those buttons - raw HTML cannot raise an event on
+*     its own.
+      DATA lv_open TYPE string.
+      IF lv_i < mo_e->mv_step.
+*       Braces are escaped for the injected script only, not over the whole of
+*       RV_HTML at the end. The step titles have already been through ESC( ), so a
+*       second pass would escape their escapes and put a stray backslash on the
+*       screen.
+        DATA(lv_fire) = `var b=document.querySelector('.rakGoto_` && |{ lv_i }| && `');` &&
+                        `if(b){sap.ui.getCore().byId(b.id).firePress();}`.
+        REPLACE ALL OCCURRENCES OF `{` IN lv_fire WITH `\{`.
+        REPLACE ALL OCCURRENCES OF `}` IN lv_fire WITH `\}`.
+*       role and tabindex without a key handler would put the dot in the tab order
+*       and then refuse the keyboard, which is worse for a screen reader than not
+*       being focusable at all. Enter and Space, the two keys a role=button is
+*       expected to answer.
+        DATA(lv_key) = `if(event.key==='Enter'||event.key===' '){event.preventDefault();` &&
+                       lv_fire && `}`.
+        REPLACE ALL OCCURRENCES OF `{` IN lv_key WITH `\{`.
+        REPLACE ALL OCCURRENCES OF `}` IN lv_key WITH `\}`.
+        DATA(lv_tip) = zcl_rak_journey_util=>esc( escape(
+          val    = |{ zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-back
+                                         iv_default = 'Back' ) }: { ls_step-title }|
+          format = cl_abap_format=>e_xml_text ) ).
+        lv_open = |<div class="{ lv_cls } clk" role="button" tabindex="0" | &&
+                  |title="{ lv_tip }" onclick="{ lv_fire }" onkeydown="{ lv_key }">|.
+      ELSE.
+        lv_open = |<div class="{ lv_cls }">|.
+      ENDIF.
+      lv = lv && lv_open && |<span class="rakDot">{ lv_i + 1 }</span>| &&
                  |<span class="rakLbl">{ lv_ttl }</span></div>|.
       IF lv_i < lines( mo_e->ms_config-steps ) - 1.
         DATA(lv_bar) = COND string( WHEN lv_i < mo_e->mv_step THEN 'rakBar done' ELSE 'rakBar' ).
@@ -273,6 +315,13 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
       lv_css = lv_css &&
         |.rakStepper\{display:flex;align-items:center;padding:.8rem 1rem 1rem;flex-wrap:wrap;\}| &&
         |.rakStep\{display:flex;flex-direction:column;align-items:center;min-width:88px;\}| &&
+*       Only the steps BUILD_STEPPER marked clickable get the affordance. A dot
+*       that looks pressable and is not is worse than a flat one.
+        |.rakStep.clk\{cursor:pointer;border-radius:8px;padding:2px 4px;| &&
+        |transition:background .15s;\}| &&
+        |.rakStep.clk:hover\{background:rgba(16,35,62,.06);\}| &&
+        |.rakStep.clk:hover .rakLbl\{color:{ b };\}| &&
+        |.rakStep.clk:focus-visible\{outline:2px solid { b };outline-offset:2px;\}| &&
         |.rakDot\{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;| &&
         |justify-content:center;font-size:14px;font-weight:700;border:2px solid #c7ccd4;| &&
         |color:#9aa3af;background:#fff;transition:all .2s;\}| &&
@@ -1024,12 +1073,38 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
       `if(!window._rakScrollWired){window._rakScrollWired=1;` &&
       `document.addEventListener('scroll',function(e){var s=q();` &&
       `if(s&&e.target===s){try{sessionStorage.setItem(window._rakScrollKey,s.scrollTop);}catch(x){}}},true);}` &&
-      `window._rakScrollKey=k;` &&
-      `var p=0;try{p=parseInt(sessionStorage.getItem(k)||'0',10);}catch(x){}` &&
-      `if(p>0){var n=0;var f=function(){var s=q();n=n+1;` &&
-      `if(s&&(s.scrollHeight-s.clientHeight)>=p){s.scrollTop=p;}` &&
-      `else if(n<30){requestAnimationFrame(f);}};requestAnimationFrame(f);}` &&
-      `this.remove();`.
+      `window._rakScrollKey=k;`.
+
+    IF iv_alert = abap_true.
+*     Restoring the old scroll position is exactly the wrong thing to do after a
+*     failed submit. The errors are drawn at the top of the page and the citizen
+*     was somewhere near the bottom when they pressed the button, so the page came
+*     back looking unchanged and the form appeared to have ignored them.
+*
+*     The first field carrying valueState=Error is the useful destination, not the
+*     top: it says WHICH answer is the problem. Focusing it also puts the
+*     keyboard there and makes UI5 speak the value-state text. If nothing is
+*     marked - a message from the backend rather than from field validation - the
+*     message strip itself will do.
+      lv_js = lv_js &&
+        `var n=0;var f=function(){n=n+1;` &&
+        `var t=document.querySelector('.sapMInputBaseError,.sapMSltError,` &&
+        `.sapMCbErr,.sapMRbErr');` &&
+        `if(t){t.scrollIntoView({block:'center'});` &&
+        `var i=t.querySelector('input,textarea')||t;try{i.focus({preventScroll:true});}catch(x){}` &&
+        `return;}` &&
+        `var m=document.querySelector('.sapMMsgStripError,.sapMMsgStripWarning');` &&
+        `if(m){m.scrollIntoView({block:'center'});return;}` &&
+        `if(n<20){requestAnimationFrame(f);}};requestAnimationFrame(f);`.
+    ELSE.
+      lv_js = lv_js &&
+        `var p=0;try{p=parseInt(sessionStorage.getItem(k)||'0',10);}catch(x){}` &&
+        `if(p>0){var n=0;var f=function(){var s=q();n=n+1;` &&
+        `if(s&&(s.scrollHeight-s.clientHeight)>=p){s.scrollTop=p;}` &&
+        `else if(n<30){requestAnimationFrame(f);}};requestAnimationFrame(f);}`.
+    ENDIF.
+
+    lv_js = lv_js && `this.remove();`.
     DATA(lv_html) =
       `<div><img src="data:," style="display:none" onerror="` && lv_js && `"/></div>`.
     REPLACE ALL OCCURRENCES OF `{` IN lv_html WITH `\{`.

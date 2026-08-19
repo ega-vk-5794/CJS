@@ -397,6 +397,24 @@ CLASS zcl_rak_cjs DEFINITION
 *   Unsaved work exists. Set by every edit, cleared by load / save / new. The
 *   Studio had no way to say this, and lint_all( ) used to throw it away silently.
     DATA mv_dirty        TYPE abap_bool.
+*   --- Author panel state ------------------------------------------------
+*   sap.m.Panel's expanded flag is written into the view at construction, and
+*   abap2UI5 rebuilds the whole view on every round trip. Hard-coding it meant
+*   Options, Columns and Rules snapped shut on every single event: pressing Edit
+*   on an option row filled the form and then hid it, which reads as the button
+*   having done nothing. The flags below survive the round trip, the EXPAND event
+*   keeps them in step with what the author actually did, and the ED* handlers
+*   open the panel they just filled.
+    DATA mv_pn_hdr       TYPE abap_bool.
+    DATA mv_pn_steps     TYPE abap_bool.
+    DATA mv_pn_flds      TYPE abap_bool.
+    DATA mv_pn_opts      TYPE abap_bool.
+    DATA mv_pn_cols      TYPE abap_bool.
+    DATA mv_pn_rules     TYPE abap_bool.
+    DATA mv_pn_doc       TYPE abap_bool.
+*   Panel key to bring into view on THIS render, then cleared. Empty means the
+*   page keeps the scroll position it had - see SCROLL_JS.
+    DATA mv_focus        TYPE string.
     DATA mt_f4_scan      TYPE tt_f4_scan.
     DATA mv_f4_scanned   TYPE abap_bool.
     DATA mv_chg_by       TYPE string.
@@ -479,6 +497,15 @@ CLASS zcl_rak_cjs DEFINITION
     METHODS clear_field_form.
     METHODS clear_rule_form.
     METHODS css         RETURNING VALUE(rv) TYPE string.
+*   Keeps the Author page where the author left it. Two jobs in one script,
+*   because they are the same decision: if an event named a panel, bring that
+*   panel into view; otherwise put the page back at the scroll position it had
+*   before the round trip. Without the second half every button press threw the
+*   author back to the top of a page that runs to sixty fields.
+    METHODS scroll_js   RETURNING VALUE(rv) TYPE string.
+*   Opens one Author panel and asks the page to scroll to it. Called by the ED*
+*   handlers - filling a form the author cannot see is the same as doing nothing.
+    METHODS focus_panel IMPORTING iv_key TYPE string.
     METHODS tpl_chips   IMPORTING iv_id TYPE string RETURNING VALUE(rv) TYPE string.
     METHODS engine_url  IMPORTING iv_journey TYPE string iv_ar TYPE abap_bool DEFAULT abap_false
                                   iv_step TYPE i DEFAULT -1
@@ -587,6 +614,12 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     IF mv_init = abap_false.
       mv_init = abap_true.
       mv_mode = 'COMPOSE'.
+*     The three panels that used to be hard-coded open. Options, Columns, Rules
+*     and the document stay shut until the author opens them or an ED* event
+*     needs one of them.
+      mv_pn_hdr   = abap_true.
+      mv_pn_steps = abap_true.
+      mv_pn_flds  = abap_true.
       load_list( ).
       new_journey( ).
     ENDIF.
@@ -603,6 +636,26 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   Save & Preview are one gate. Anything that is not a save disarms it.
     IF ev <> 'SAVE' AND ev <> 'SAVEPREV'.
       CLEAR mv_arm_save.
+    ENDIF.
+
+*   sap.m.Panel fires EXPAND on collapse as well as on expand and does not say
+*   which, so the flag is toggled rather than set. It stays in step because the
+*   next render writes the flag straight back onto the panel.
+    IF strlen( ev ) > 4 AND substring( val = ev len = 4 ) = 'PNL~'.
+      CASE substring( val = ev off = 4 ).
+        WHEN 'HDR'.   mv_pn_hdr   = xsdbool( mv_pn_hdr   = abap_false ).
+        WHEN 'STEPS'. mv_pn_steps = xsdbool( mv_pn_steps = abap_false ).
+        WHEN 'FLDS'.  mv_pn_flds  = xsdbool( mv_pn_flds  = abap_false ).
+        WHEN 'OPTS'.  mv_pn_opts  = xsdbool( mv_pn_opts  = abap_false ).
+        WHEN 'COLS'.  mv_pn_cols  = xsdbool( mv_pn_cols  = abap_false ).
+        WHEN 'RULES'. mv_pn_rules = xsdbool( mv_pn_rules = abap_false ).
+        WHEN 'DOC'.   mv_pn_doc   = xsdbool( mv_pn_doc   = abap_false ).
+      ENDCASE.
+*     Deliberately NOT returning here. MV_LINT_OK was cleared at the top of this
+*     method, so a short-circuit would render the field list with an empty !
+*     column and the findings would appear to have gone away. Falling through
+*     reaches the lint pass at the bottom; nothing else in the chain matches a
+*     PNL~ event.
     ENDIF.
 
     IF strlen( ev ) > 8 AND substring( val = ev len = 8 ) = 'PREVIEW_'.
@@ -652,6 +705,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         fv_tech = ls_dup-tech_name. fv_roll = ls_dup-rollname. fv_shlp = ls_dup-shlp. fv_dom = ls_dup-domname.
         fv_hasatt = ls_dup-has_attach. fv_attlabel = ls_dup-attach_label. fv_atttypes = ls_dup-att_types.
         fv_attmb = ls_dup-att_maxmb. fv_attmulti = ls_dup-att_multi.
+        focus_panel( 'FLDS' ).
         mv_msg = |Duplicated { ls_dup-field_name } → rename '{ fv_field }' and Add / update field|. mv_mtype = 'Information'.
       ENDIF.
 
@@ -663,6 +717,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         sv_title_ar = ls_es-title_ar. sv_icon = ls_es-icon.
         sv_cols = ls_es-columns. sv_bscreen = ls_es-bknd_screen.
         sv_nextreq = ls_es-next_requires. sv_nofwd = ls_es-no_forward.
+        focus_panel( 'STEPS' ).
         mv_msg = |Step { lv_es } loaded — change values, then Add / update step|. mv_mtype = 'Information'.
       ENDIF.
 
@@ -680,6 +735,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         fv_tech = ls_ef-tech_name. fv_roll = ls_ef-rollname. fv_shlp = ls_ef-shlp. fv_dom = ls_ef-domname.
         fv_hasatt = ls_ef-has_attach. fv_attlabel = ls_ef-attach_label. fv_atttypes = ls_ef-att_types.
         fv_attmb = ls_ef-att_maxmb. fv_attmulti = ls_ef-att_multi.
+        focus_panel( 'FLDS' ).
         mv_msg = |Field { lv_efs }/{ lv_eff } loaded — change values, then Add / update field|. mv_mtype = 'Information'.
       ENDIF.
 
@@ -689,6 +745,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       IF sy-subrc = 0.
         ov_seq = ls_eo-seqnr. ov_step = ls_eo-step_id. ov_field = ls_eo-field_name.
         ov_key = ls_eo-opt_key. ov_text = ls_eo-opt_text. ov_text_ar = ls_eo-opt_text_ar.
+        focus_panel( 'OPTS' ).
         mv_msg = |Option { lv_eok } loaded — change values, then Add / update option|. mv_mtype = 'Information'.
       ENDIF.
 
@@ -701,6 +758,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         cv_shlp = ls_ec-shlp. cv_rollname = ls_ec-rollname. cv_width = ls_ec-width. cv_align = ls_ec-align.
         cv_hidden = ls_ec-hidden. cv_pinned = ls_ec-pinned. cv_readonly = ls_ec-readonly. cv_required = ls_ec-required.
         cv_decimals = ls_ec-decimals. cv_maxlen = ls_ec-maxlen. cv_total = ls_ec-total.
+        focus_panel( 'COLS' ).
         mv_msg = |Column { lv_eck } loaded — change values, then Add / update column|. mv_mtype = 'Information'.
       ENDIF.
 
@@ -711,6 +769,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         rv_id = ls_er-rule_id. rv_srcf = ls_er-src_field. rv_srcop = ls_er-src_op.
         rv_srcval = ls_er-src_value. rv_action = ls_er-action.
         rv_tgtf = ls_er-tgt_field. rv_tgtval = ls_er-tgt_value. rv_totable = ls_er-totable.
+        focus_panel( 'RULES' ).
         mv_msg = |Rule { lv_er } loaded — change values, then Add / update rule|. mv_mtype = 'Information'.
       ENDIF.
 
@@ -1470,10 +1529,72 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       `.rakCardD { color:#5b6b7f; font-size:0.78rem; }` &&
       `.rakChips { margin:2px 0 6px; }` &&
       `.rakChip { display:inline-block; background:#f2f5f9; color:#33475e; border:1px solid #e2e8f0; border-radius:999px; padding:2px 8px; font-size:0.7rem; margin:0 4px 4px 0; }` &&
-      `.rakCardX { color:#8a97a8; font-size:0.72rem; font-style:italic; }`.
+      `.rakCardX { color:#8a97a8; font-size:0.72rem; font-style:italic; }` &&
+*     Design tab. The twelve-segment width bar, and the tint that marks the one
+*     field whose label is open in the text editor above - without it the editor
+*     names a field and nothing on the list says which row that is.
+      `.rakDsgBar { display:inline-flex; gap:2px; width:120px; flex:none; }` &&
+      `.rakDsgBar i { flex:1; height:12px; border-radius:2px; background:#e6eaf0; }` &&
+      `.rakDsgBar i.on { background: rgb(196,30,38); }` &&
+      `.rakDsgSel { background:#fdf3f4; border-inline-start:3px solid rgb(196,30,38); ` &&
+      `border-radius:6px; padding-inline-start:6px; }` &&
+      `.rakLintMsg { flex:1 1 auto; min-width:0; }`.
     REPLACE ALL OCCURRENCES OF `{` IN c WITH `\{`.
     REPLACE ALL OCCURRENCES OF `}` IN c WITH `\}`.
     rv = `<div><style>` && c && `</style></div>`.
+  ENDMETHOD.
+
+
+  METHOD focus_panel.
+    CASE to_upper( iv_key ).
+      WHEN 'HDR'.   mv_pn_hdr   = abap_true.
+      WHEN 'STEPS'. mv_pn_steps = abap_true.
+      WHEN 'FLDS'.  mv_pn_flds  = abap_true.
+      WHEN 'OPTS'.  mv_pn_opts  = abap_true.
+      WHEN 'COLS'.  mv_pn_cols  = abap_true.
+      WHEN 'RULES'. mv_pn_rules = abap_true.
+      WHEN 'DOC'.   mv_pn_doc   = abap_true.
+      WHEN OTHERS.  RETURN.
+    ENDCASE.
+    mv_mode  = 'AUTHOR'.
+    mv_focus = to_upper( iv_key ).
+  ENDMETHOD.
+
+
+  METHOD scroll_js.
+*   The scroll container is the page, not the window - sap.m.Page scrolls its own
+*   div, so window.scrollTo does nothing here. Same container the engine's
+*   SCROLL_KEEPER uses.
+    DATA(lv_js) =
+      `var q=function(){return document.querySelector('.sapMPageEnableScrolling');};` &&
+      `if(!window._cjsWired){window._cjsWired=1;` &&
+      `document.addEventListener('scroll',function(e){var s=q();` &&
+      `if(s&&e.target===s){try{sessionStorage.setItem('cjsScroll',s.scrollTop);}catch(x){}}},true);}`.
+
+    IF mv_focus IS NOT INITIAL.
+*     A panel that was collapsed a moment ago has not finished its expand
+*     animation, so its height is still wrong on the first frame. Retry for a
+*     few frames rather than measuring once and landing short.
+      lv_js = lv_js &&
+        `var n=0;var f=function(){n=n+1;` &&
+        `var t=document.querySelector('.rakPnl` && to_upper( mv_focus ) && `');` &&
+        `if(t){t.scrollIntoView({block:'start'});` &&
+        `if(n<12){requestAnimationFrame(f);}}` &&
+        `else if(n<40){requestAnimationFrame(f);}};requestAnimationFrame(f);`.
+      CLEAR mv_focus.
+    ELSE.
+      lv_js = lv_js &&
+        `var p=0;try{p=parseInt(sessionStorage.getItem('cjsScroll')||'0',10);}catch(x){}` &&
+        `if(p>0){var n=0;var f=function(){var s=q();n=n+1;` &&
+        `if(s&&(s.scrollHeight-s.clientHeight)>=p){s.scrollTop=p;}` &&
+        `else if(n<30){requestAnimationFrame(f);}};requestAnimationFrame(f);}`.
+    ENDIF.
+
+    lv_js = lv_js && `this.remove();`.
+    DATA(lv_html) = `<div><img src="data:," style="display:none" onerror="` && lv_js && `"/></div>`.
+    REPLACE ALL OCCURRENCES OF `{` IN lv_html WITH `\{`.
+    REPLACE ALL OCCURRENCES OF `}` IN lv_html WITH `\}`.
+    rv = lv_html.
   ENDMETHOD.
 
 
@@ -1481,6 +1602,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(view) = z2ui5_cl_xml_view=>factory( ).
     DATA(page) = view->shell( )->page( title = 'RAK Customer Journey Studio' class = 'sapUiSizeCompact' ).
     page->html( content = css( ) sanitizecontent = abap_false ).
+    page->html( content = scroll_js( ) sanitizecontent = abap_false ).
     render_toolbar( page ).
     IF mv_msg IS NOT INITIAL.
       page->message_strip( text = mv_msg type = mv_mtype showicon = abap_true class = 'sapUiSmallMargin' ).
@@ -1582,7 +1704,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
 
   METHOD render_hdr.
-    DATA(p) = io->panel( headertext = 'Journey header' expandable = abap_true expanded = abap_true class = 'sapUiSmallMarginBeginEnd' ).
+    DATA(p) = io->panel( headertext = 'Journey header'
+                         expandable = abap_true
+                         expanded   = mv_pn_hdr
+                         expand     = mo_client->_event( 'PNL~HDR' )
+                         class      = 'sapUiSmallMarginBeginEnd rakPnlHDR' ).
     DATA(f) = p->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '2' columnsl = '2' columnsm = '1' )->content( ns = 'form' ).
     f->title( ns = 'core' text = 'Identity' ).
     f->label( 'UI journey code (generated)' ). f->input( value = mo_client->_bind_edit( mv_journey_id ) ).
@@ -1623,7 +1749,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
 
   METHOD render_steps.
-    DATA(p) = io->panel( headertext = 'Steps' expandable = abap_true expanded = abap_true class = 'sapUiSmallMarginBeginEnd' ).
+    DATA(p) = io->panel( headertext = |Steps — { lines( mt_steps ) }|
+                         expandable = abap_true
+                         expanded   = mv_pn_steps
+                         expand     = mo_client->_event( 'PNL~STEPS' )
+                         class      = 'sapUiSmallMarginBeginEnd rakPnlSTEPS' ).
     DATA(f) = p->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '4' columnsl = '4' columnsm = '2' )->content( ns = 'form' ).
     f->label( 'Seq' ).            f->input( value = mo_client->_bind_edit( sv_seq ) ).
     f->label( 'Step ID' ).        f->input( value = mo_client->_bind_edit( sv_step ) ).
@@ -1682,8 +1812,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                    COND string( WHEN mv_only_bad = abap_true      THEN ` · showing findings only`
                                 WHEN mv_fld_filter IS NOT INITIAL THEN ` · filtered` )
       expandable = abap_true
-      expanded   = abap_true
-      class      = 'sapUiSmallMarginBeginEnd' ).
+      expanded   = mv_pn_flds
+      expand     = mo_client->_event( 'PNL~FLDS' )
+      class      = 'sapUiSmallMarginBeginEnd rakPnlFLDS' ).
     DATA(f) = p->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '2' columnsl = '2' columnsm = '1' )->content( ns = 'form' ).
 
     f->title( ns = 'core' text = 'Basics' ).
@@ -1935,7 +2066,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
 
   METHOD render_opts.
-    DATA(p) = io->panel( headertext = 'Options' expandable = abap_true expanded = abap_false class = 'sapUiSmallMarginBeginEnd' ).
+    DATA(p) = io->panel( headertext = |Options — { lines( mt_opts ) }|
+                         expandable = abap_true
+                         expanded   = mv_pn_opts
+                         expand     = mo_client->_event( 'PNL~OPTS' )
+                         class      = 'sapUiSmallMarginBeginEnd rakPnlOPTS' ).
     DATA(f) = p->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '3' columnsl = '3' columnsm = '1' )->content( ns = 'form' ).
     f->label( 'Step ID' ).    f->input( value = mo_client->_bind_edit( ov_step ) ).
     f->label( 'Field name' ). f->input( value = mo_client->_bind_edit( ov_field ) ).
@@ -1975,7 +2110,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   step/field-scoping convention as Options above: Step ID / Field name are
 *   plain inputs the author must match to an existing grid field by hand,
 *   not auto-filled from the Fields panel.
-    DATA(p) = io->panel( headertext = 'Columns (grid fields)' expandable = abap_true expanded = abap_false class = 'sapUiSmallMarginBeginEnd' ).
+    DATA(p) = io->panel( headertext = |Columns (grid fields) — { lines( mt_cols ) }|
+                         expandable = abap_true
+                         expanded   = mv_pn_cols
+                         expand     = mo_client->_event( 'PNL~COLS' )
+                         class      = 'sapUiSmallMarginBeginEnd rakPnlCOLS' ).
     DATA(f) = p->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '3' columnsl = '3' columnsm = '1' )->content( ns = 'form' ).
     f->label( 'Step ID' ).       f->input( value = mo_client->_bind_edit( cv_step ) ).
     f->label( 'Grid field name' ). f->input( value = mo_client->_bind_edit( cv_field ) ).
@@ -2046,7 +2185,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
 
   METHOD render_rules.
-    DATA(p) = io->panel( headertext = 'Rules (side effects)' expandable = abap_true expanded = abap_false class = 'sapUiSmallMarginBeginEnd' ).
+    DATA(p) = io->panel( headertext = |Rules (side effects) — { lines( mt_rules ) }|
+                         expandable = abap_true
+                         expanded   = mv_pn_rules
+                         expand     = mo_client->_event( 'PNL~RULES' )
+                         class      = 'sapUiSmallMarginBeginEnd rakPnlRULES' ).
     DATA(f) = p->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '2' columnsl = '2' columnsm = '1' )->content( ns = 'form' ).
     f->title( ns = 'core' text = 'When (condition)' ).
     f->label( 'Rule ID' ).      f->input( value = mo_client->_bind_edit( rv_id ) placeholder = 'blank = auto' ).
@@ -2477,12 +2620,45 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   Highest row currently in use, and how many fields share the moved field's
+*   row. Both are needed before the move: a lone field in the last row has
+*   nowhere to go downwards, and pressing Down anyway used to increment a row
+*   number nobody could see, leaving the screen unchanged and one press of Up
+*   needed to undo an invisible change.
+    DATA lv_maxrow TYPE i.
+    DATA lv_kin    TYPE i.
+    LOOP AT lt INTO DATA(ls_mx).
+      IF ls_mx-row > lv_maxrow.
+        lv_maxrow = ls_mx-row.
+      ENDIF.
+      IF ls_mx-row = <d>-row.
+        lv_kin = lv_kin + 1.
+      ENDIF.
+    ENDLOOP.
+
+*   Which fields shared the row being left. After the move these two sets - the
+*   row the field went to, and the row it came from - are the only ones whose
+*   membership changed, so they are the only ones that get re-spaced. Re-spacing
+*   every row (which is what this did) threw away every width the author had set
+*   anywhere on the step, for the sake of moving one field one row.
+    DATA lt_left TYPE string_table.
+    LOOP AT lt INTO DATA(ls_lf) WHERE row = <d>-row.
+      IF ls_lf-field <> lv_fld.
+        APPEND ls_lf-field TO lt_left.
+      ENDIF.
+    ENDLOOP.
+
     CASE lv_cmd.
       WHEN 'DSG_RU'.
-        IF <d>-row > 1.
-          <d>-row = <d>-row - 1.
+        IF <d>-row <= 1.
+          RETURN.
         ENDIF.
+        <d>-row = <d>-row - 1.
       WHEN 'DSG_RD'.
+*       Past the last row only if the field is not already alone there.
+        IF <d>-row >= lv_maxrow AND lv_kin <= 1.
+          RETURN.
+        ENDIF.
         <d>-row = <d>-row + 1.
       WHEN 'DSG_ML' OR 'DSG_MR'.
         DATA(lv_dir) = COND i( WHEN lv_cmd = 'DSG_ML' THEN -1 ELSE 1 ).
@@ -2495,16 +2671,32 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         <s>-col = <d>-col.
         <d>-col = lv_tgt.
       WHEN 'DSG_SM'.
-        IF <d>-span > 1.
-          <d>-span = <d>-span - 1.
+        IF <d>-span <= 1.
+          RETURN.
         ENDIF.
+        <d>-span = <d>-span - 1.
       WHEN 'DSG_SP'.
-        IF <d>-span < 12.
-          <d>-span = <d>-span + 1.
+        IF <d>-span >= 12.
+          RETURN.
         ENDIF.
+        <d>-span = <d>-span + 1.
       WHEN OTHERS.
         RETURN.
     ENDCASE.
+
+*   Close any gap the move opened. Moving the only field out of row 2 used to
+*   leave rows 1 and 3, and the editor then labelled them "Row 1" and "Row 3"
+*   with no Row 2 in between.
+    SORT lt BY row ASCENDING col ASCENDING.
+    DATA lv_seen TYPE i.
+    DATA lv_next TYPE i.
+    LOOP AT lt ASSIGNING FIELD-SYMBOL(<g>).
+      IF <g>-row <> lv_seen.
+        lv_seen = <g>-row.
+        lv_next = lv_next + 1.
+      ENDIF.
+      <g>-row = lv_next.
+    ENDLOOP.
 
     SORT lt BY row ASCENDING col ASCENDING.
     DATA lv_prow TYPE i.
@@ -2519,23 +2711,57 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     ENDLOOP.
 
     IF lv_cmd = 'DSG_RU' OR lv_cmd = 'DSG_RD'.
+*     The two rows whose membership changed, found by field rather than by row
+*     number - the compaction above may have renumbered both of them.
+      DATA lt_touch TYPE STANDARD TABLE OF i WITH EMPTY KEY.
+      READ TABLE lt INTO DATA(ls_now) WITH KEY field = lv_fld.
+      IF sy-subrc = 0.
+        APPEND ls_now-row TO lt_touch.
+      ENDIF.
+      LOOP AT lt_left INTO DATA(lv_was).
+        READ TABLE lt INTO DATA(ls_old) WITH KEY field = lv_was.
+        IF sy-subrc <> 0.
+          CONTINUE.
+        ENDIF.
+*       Not COLLECT: the line type is a bare integer, so every component is
+*       numeric and COLLECT would sum the row numbers into one line instead of
+*       keeping them distinct.
+        READ TABLE lt_touch TRANSPORTING NO FIELDS WITH KEY table_line = ls_old-row.
+        IF sy-subrc <> 0.
+          APPEND ls_old-row TO lt_touch.
+        ENDIF.
+      ENDLOOP.
+
       DATA lv_mem TYPE i.
-      LOOP AT lt ASSIGNING FIELD-SYMBOL(<a>).
+      LOOP AT lt_touch INTO DATA(lv_r).
         lv_mem = 0.
-        LOOP AT lt TRANSPORTING NO FIELDS WHERE row = <a>-row.
+        LOOP AT lt TRANSPORTING NO FIELDS WHERE row = lv_r.
           lv_mem = lv_mem + 1.
         ENDLOOP.
         IF lv_mem < 1.
-          lv_mem = 1.
+          CONTINUE.
         ENDIF.
-        <a>-span = COND i( WHEN 12 / lv_mem < 1 THEN 1 ELSE 12 / lv_mem ).
+        LOOP AT lt ASSIGNING FIELD-SYMBOL(<a>) WHERE row = lv_r.
+          <a>-span = COND i( WHEN 12 / lv_mem < 1 THEN 1 ELSE 12 / lv_mem ).
+        ENDLOOP.
       ENDLOOP.
     ENDIF.
 
     dsg_save( iv_step = mv_dsg_step it = lt ).
 
-    mv_msg   = |{ lv_fld }: row { <d>-row }, span { <d>-span } of 12|.
-    mv_mtype = 'Success'.
+*   Read the moved field back out of LT - <d> pointed into the table before it
+*   was sorted twice, so it no longer names the field the message is about.
+    READ TABLE lt INTO DATA(ls_msg) WITH KEY field = lv_fld.
+    IF sy-subrc = 0.
+      DATA lv_fill TYPE i.
+      LOOP AT lt INTO DATA(ls_fi) WHERE row = ls_msg-row.
+        lv_fill = lv_fill + ls_fi-span.
+      ENDLOOP.
+      mv_msg   = |{ lv_fld }: row { ls_msg-row }, position { ls_msg-col }, | &&
+                 |span { ls_msg-span } of 12 — row now { lv_fill } of 12| &&
+                 COND string( WHEN lv_fill > 12 THEN ` (over: the row will wrap)` ).
+      mv_mtype = COND string( WHEN lv_fill > 12 THEN 'Warning' ELSE 'Success' ).
+    ENDIF.
 
   ENDMETHOD.
 
@@ -3833,6 +4059,7 @@ TO rt.
     ENDIF.
 
     DATA(bar) = io->hbox( alignitems = 'Center' class = 'sapUiSmallMargin' ).
+    bar->label( text = 'Step:' class = 'sapUiTinyMarginEnd' ).
     DATA(cb) = bar->combobox( selectedkey = mo_client->_bind_edit( mv_dsg_step )
                               change      = mo_client->_event( 'DSG_STEP' )
                               width       = '16rem' ).
@@ -3941,43 +4168,143 @@ TO rt.
                    press = mo_client->_event( 'DSG_TXCA' ) ).
     ENDIF.
 
+*   Row totals up front, so each row header can say how much of the twelve
+*   columns is spoken for and every arrow can be disabled when the move it offers
+*   does not exist. A button that is enabled and does nothing was the most
+*   confusing thing here: the author cannot tell "there is nowhere to go" from
+*   "the editor is broken".
+    DATA lv_maxrow TYPE i.
+    LOOP AT lt INTO DATA(ls_mr).
+      IF ls_mr-row > lv_maxrow.
+        lv_maxrow = ls_mr-row.
+      ENDIF.
+    ENDLOOP.
+
     DATA(box) = left->vbox( ).
+
+    box->message_strip(
+      text     = 'Twelve columns to a row. Every change saves at once and the preview reloads. Clear puts the whole step back to classic rendering.'
+      type     = 'Information'
+      showicon = abap_true
+      class    = 'sapUiTinyMarginBottom' ).
 
     LOOP AT lt INTO DATA(ls_d).
 
       IF ls_d-row <> lv_last.
-        box->title( text = |Row { ls_d-row }| class = 'sapUiTinyMarginTop' ).
         lv_last = ls_d-row.
+
+        DATA lv_fill TYPE i.
+        DATA lv_mem  TYPE i.
+        CLEAR: lv_fill, lv_mem.
+        LOOP AT lt INTO DATA(ls_rf) WHERE row = ls_d-row.
+          lv_fill = lv_fill + ls_rf-span.
+          lv_mem  = lv_mem + 1.
+        ENDLOOP.
+
+        DATA(hdr) = box->hbox( alignitems = 'Center' class = 'sapUiSmallMarginTop' ).
+        hdr->title( text = |Row { ls_d-row }| class = 'sapUiTinyMarginEnd' ).
+*       Success only at exactly twelve. Under twelve is not wrong, it just leaves
+*       white space, so it reads as information rather than as a fault.
+        hdr->object_status(
+          text  = |{ lv_fill } of 12| &&
+                  COND string( WHEN lv_fill < 12 THEN |, { 12 - lv_fill } free| ) &&
+                  COND string( WHEN lv_fill > 12 THEN ` - over, the row wraps` )
+          state = COND string( WHEN lv_fill > 12 THEN 'Warning'
+                               WHEN lv_fill = 12 THEN 'Success'
+                               ELSE 'Information' )
+          class = 'sapUiTinyMarginEnd' ).
+        hdr->object_status( text  = |{ lv_mem } field| && COND string( WHEN lv_mem <> 1 THEN `s` )
+                            state = 'None' ).
       ENDIF.
 
-      DATA(row) = box->hbox( alignitems = 'Center' class = 'sapUiTinyMarginBottom' ).
-      row->text( text = ls_d-field class = 'sapUiSmallMarginEnd' ).
+*     How many fields share the row this one is on. That is what decides whether
+*     earlier / later / down are available at all.
+      DATA lv_rmem TYPE i.
+      CLEAR lv_rmem.
+      LOOP AT lt TRANSPORTING NO FIELDS WHERE row = ls_d-row.
+        lv_rmem = lv_rmem + 1.
+      ENDLOOP.
+
+      DATA(lv_sel) = xsdbool( to_upper( mv_dsg_fld ) = to_upper( ls_d-field ) ).
+
+      DATA(row) = box->hbox( alignitems = 'Center'
+                             class      = COND string( WHEN lv_sel = abap_true
+                                                       THEN 'sapUiTinyMarginBottom rakDsgSel'
+                                                       ELSE 'sapUiTinyMarginBottom' ) ).
+
+*     Twelve segments, the first SPAN of them filled. The number was already on
+*     screen; what was missing was being able to put two fields side by side and
+*     see at a glance that one is twice the width of the other.
+      DATA lv_bar TYPE string.
+      DATA lv_seg TYPE i.
+      lv_bar = `<div class="rakDsgBar">`.
+      lv_seg = 1.
+      WHILE lv_seg <= 12.
+        lv_bar = lv_bar && COND string( WHEN lv_seg <= ls_d-span
+                                        THEN `<i class="on"></i>`
+                                        ELSE `<i></i>` ).
+        lv_seg = lv_seg + 1.
+      ENDWHILE.
+      lv_bar = lv_bar && `</div>`.
+      REPLACE ALL OCCURRENCES OF `{` IN lv_bar WITH `\{`.
+      REPLACE ALL OCCURRENCES OF `}` IN lv_bar WITH `\}`.
+      row->html( content = lv_bar sanitizecontent = abap_false ).
+
+      row->text( text = ls_d-field class = 'sapUiSmallMarginBegin sapUiSmallMarginEnd' ).
       row->object_status( text = ls_d-ftype state = 'None' class = 'sapUiSmallMarginEnd' ).
-      row->object_status( text  = |span { ls_d-span }/12|
+      row->object_status( text  = |{ ls_d-span }/12|
                           state = COND string( WHEN ls_d-span = 12 THEN 'None' ELSE 'Information' )
                           class = 'sapUiSmallMarginEnd' ).
+
       row->button( icon    = 'sap-icon://text-formatting'
+                   type    = COND string( WHEN lv_sel = abap_true THEN 'Emphasized' ELSE 'Transparent' )
                    tooltip = 'Edit English / Arabic label'
                    press   = mo_client->_event( |DSG_TX~{ ls_d-field }| )
                    class   = 'sapUiTinyMarginEnd' ).
       row->button( icon    = 'sap-icon://navigation-left-arrow'
-                   tooltip = 'Move earlier in this row'
+                   type    = 'Transparent'
+                   enabled = xsdbool( ls_d-col > 1 )
+                   tooltip = COND string( WHEN ls_d-col > 1
+                                          THEN 'Move earlier in this row'
+                                          ELSE 'Already first in this row' )
                    press   = mo_client->_event( |DSG_ML~{ ls_d-field }| ) ).
       row->button( icon    = 'sap-icon://navigation-right-arrow'
-                   tooltip = 'Move later in this row'
+                   type    = 'Transparent'
+                   enabled = xsdbool( ls_d-col < lv_rmem )
+                   tooltip = COND string( WHEN ls_d-col < lv_rmem
+                                          THEN 'Move later in this row'
+                                          ELSE 'Already last in this row' )
                    press   = mo_client->_event( |DSG_MR~{ ls_d-field }| ) ).
       row->button( icon    = 'sap-icon://navigation-up-arrow'
-                   tooltip = 'Move up a row'
+                   type    = 'Transparent'
+                   enabled = xsdbool( ls_d-row > 1 )
+                   tooltip = COND string( WHEN ls_d-row > 1
+                                          THEN 'Move up a row'
+                                          ELSE 'Already on the first row' )
                    press   = mo_client->_event( |DSG_RU~{ ls_d-field }| ) ).
+*     Down is available while there is a row below, or while this row has company
+*     - a field alone on the last row would only move to a new last row.
       row->button( icon    = 'sap-icon://navigation-down-arrow'
-                   tooltip = 'Move down a row'
+                   type    = 'Transparent'
+                   enabled = xsdbool( ls_d-row < lv_maxrow OR lv_rmem > 1 )
+                   tooltip = COND string( WHEN ls_d-row < lv_maxrow OR lv_rmem > 1
+                                          THEN 'Move down a row'
+                                          ELSE 'Already alone on the last row' )
                    press   = mo_client->_event( |DSG_RD~{ ls_d-field }| ) ).
       row->button( icon    = 'sap-icon://less'
-                   tooltip = 'Narrower'
+                   type    = 'Transparent'
+                   enabled = xsdbool( ls_d-span > 1 )
+                   tooltip = COND string( WHEN ls_d-span > 1
+                                          THEN 'Narrower'
+                                          ELSE 'Already at the minimum of one column' )
                    press   = mo_client->_event( |DSG_SM~{ ls_d-field }| )
                    class   = 'sapUiTinyMarginBegin' ).
       row->button( icon    = 'sap-icon://add'
-                   tooltip = 'Wider'
+                   type    = 'Transparent'
+                   enabled = xsdbool( ls_d-span < 12 )
+                   tooltip = COND string( WHEN ls_d-span < 12
+                                          THEN 'Wider'
+                                          ELSE 'Already the full twelve columns' )
                    press   = mo_client->_event( |DSG_SP~{ ls_d-field }| ) ).
 
     ENDLOOP.
@@ -3988,8 +4315,9 @@ TO rt.
   METHOD render_doc.
     DATA(p) = io->panel( headertext = 'Journey document (export / import)'
                          expandable = abap_true
-                         expanded   = abap_false
-                         class      = 'sapUiSmallMarginBeginEnd' ).
+                         expanded   = mv_pn_doc
+                         expand     = mo_client->_event( 'PNL~DOC' )
+                         class      = 'sapUiSmallMarginBeginEnd rakPnlDOC' ).
     p->message_strip(
       text     = 'One record per line, so two versions of a journey can be diffed and a change can be reviewed. ' &&
                  'Import replaces the draft in memory only — press Save afterwards, and it goes through the same checks as hand-authored config.'
@@ -4074,12 +4402,42 @@ TO rt.
 *   same lint( ) run over every journey in one pass later.
     DATA(lv_jny) = to_upper( mv_journey_id ).
     LOOP AT lt INTO DATA(m).
-      p->message_strip(
+      DATA(lo_row) = p->hbox( alignitems = 'Center'
+                              class      = 'sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiTinyMarginTop' ).
+*     rakLintMsg only exists because sap.m.MessageStrip has no width property and
+*     an HBox does not grow its children. Without it a long finding wrapped into a
+*     narrow column with the button stranded beside it.
+      lo_row->message_strip(
         text     = COND string( WHEN lv_jny IS INITIAL THEN m-text
                                 ELSE |{ lv_jny } · { m-text }| )
         type     = m-type
         showicon = abap_true
-        class    = 'sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiTinyMarginTop' ).
+        class    = 'rakLintMsg' ).
+
+*     Reading a finding and then hunting for the field it names is the slow half
+*     of fixing it, and the field list runs to sixty rows. Where the rule wrote
+*     the "STEP/FIELD:" prefix - the same prefix LINT_REFRESH indexes on - the
+*     finding can carry the button that loads that field into the editor. Rules
+*     without the prefix simply get no button; the parse is verified against the
+*     journey so a message that merely contains a slash does not grow one.
+      SPLIT m-text AT ':' INTO DATA(lv_lh) DATA(lv_lr).
+      IF lv_lr IS NOT INITIAL AND lv_lh CS '/'.
+        SPLIT lv_lh AT '/' INTO DATA(lv_ls) DATA(lv_lf).
+        DATA(lv_gs) = to_upper( condense( lv_ls ) ).
+        DATA(lv_gf) = to_upper( condense( lv_lf ) ).
+        IF lv_gs IS NOT INITIAL AND lv_gf IS NOT INITIAL.
+          READ TABLE mt_fields TRANSPORTING NO FIELDS
+               WITH KEY step_id = lv_gs field_name = lv_gf.
+          IF sy-subrc = 0.
+            lo_row->button( text    = 'Fix'
+                            icon    = 'sap-icon://edit'
+                            type    = 'Transparent'
+                            tooltip = |Load { lv_gs }/{ lv_gf } into the field editor|
+                            press   = mo_client->_event( |EDFLD_{ lv_gs }~{ lv_gf }| )
+                            class   = 'sapUiTinyMarginBegin' ).
+          ENDIF.
+        ENDIF.
+      ENDIF.
     ENDLOOP.
     ENDIF.
 
