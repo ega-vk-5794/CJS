@@ -1,10 +1,18 @@
 CLASS zcl_epda_e019_trans_used_logic DEFINITION
- PUBLIC
+  PUBLIC
+  INHERITING FROM zcl_rak_journey_logic
   FINAL
   CREATE PUBLIC.
 
   PUBLIC SECTION.
-    INTERFACES zif_rak_journey_logic.
+*   Redefinitions, NOT "INTERFACES zif_rak_journey_logic". Declaring the interface
+*   directly obliges this class to implement all ~25 of its methods; it implements
+*   three, so it never activated. Inheriting the base supplies the empty defaults
+*   for the rest AND the payment card - the shape every other handler in this
+*   package uses, e.g. ZCL_EPDA_E022_DEV_PROJ_LOGIC.
+    METHODS zif_rak_journey_logic~on_after_read      REDEFINITION.
+    METHODS zif_rak_journey_logic~on_change          REDEFINITION.
+    METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
 
   PRIVATE SECTION.
     CONSTANTS c_partner_owner_1 TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
@@ -162,6 +170,13 @@ CLASS ZCL_EPDA_E019_TRANS_USED_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
+*   The base method IS the PAID gate: it refuses a submit while the fee is still
+*   unpaid. Redefining without calling it would silently take that gate off this
+*   journey. It self-guards - PAY_FIELD_STEP returns -1 when the journey has no
+*   PAYFEE field - so this costs nothing on a journey with no payment step.
+    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
+                                                         iv_step = iv_step ).
+
 *   REQUIRED does not reach grid rows. The grid field holds no scalar, so an
 *   empty grid satisfies field validation and the application submits with
 *   no rows in it - which the backend accepts.
@@ -170,18 +185,18 @@ CLASS ZCL_EPDA_E019_TRANS_USED_LOGIC IMPLEMENTATION.
 *   step number in the seed.
 
     IF io_ctx->get_step( ) = 2.
-*      IF lines( io_ctx->get_rows( `MATERIALS_DET` ) ) = 0.
+*      IF lines( io_ctx->get_grid_data( `MATERIALS_DET` )-rows ) = 0.
 *        APPEND VALUE #( type = 'Error'
 *                        text = |At least one row is required in Materials Det| )
-*               TO rt_msg.
+*               TO rt.
 *      ENDIF.
     ENDIF.
 
     IF io_ctx->get_step( ) = 2.
-*      IF lines( io_ctx->get_rows( `VEHICLES` ) ) = 0.
+*      IF lines( io_ctx->get_grid_data( `VEHICLES` )-rows ) = 0.
 *        APPEND VALUE #( type = 'Error'
 *                        text = |At least one row is required in Vehicles| )
-*               TO rt_msg.
+*               TO rt.
 *      ENDIF.
     ENDIF.
   ENDMETHOD.
