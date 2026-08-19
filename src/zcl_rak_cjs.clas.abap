@@ -381,6 +381,19 @@ CLASS zcl_rak_cjs DEFINITION
 *   made between two saves. One pass per round trip now feeds both.
     DATA mt_lint         TYPE tt_lint.
     DATA mv_lint_ok      TYPE abap_bool.
+*   ShapeIt cross-check findings, from ZCL_RAK_CJS_XCHECK. Kept SEPARATE from
+*   MT_LINT on purpose, for two reasons:
+*
+*     They describe the SAVED journey, not the draft in front of the author.
+*     XCHECK re-reads ZRAK_T_JNY* from the database and compares it against
+*     /QNV/SB_UI_DEFIN, so mixing it into MT_LINT would put stale findings next
+*     to live ones with nothing to tell them apart.
+*
+*     They must NOT reach BLOCKING_COUNT( ). A brand new journey has no rows in
+*     ZRAK_T_JNY yet, so XCHECK opens with "journey does not exist" - and if that
+*     counted as blocking, the save gate would refuse the very first save of
+*     every new journey.
+    DATA mt_xchk         TYPE tt_lint.
 *   Unsaved work exists. Set by every edit, cleared by load / save / new. The
 *   Studio had no way to say this, and lint_all( ) used to throw it away silently.
     DATA mv_dirty        TYPE abap_bool.
@@ -526,6 +539,12 @@ CLASS zcl_rak_cjs DEFINITION
 *   go to be ignored - today a field with no tech_name sat there while the
 *   journey was tested, saved and run. On the row, it is unmissable.
     METHODS lint_refresh.
+*   Runs ZCL_RAK_CJS_XCHECK against the SAVED journey and caches the result in
+*   MT_XCHK. Called from the two places the database state actually changes - a
+*   person-initiated load and a save - and not from the per-round-trip refresh:
+*   the check SELECTs the whole /QNV/SB_UI_DEFIN category, which is not a query
+*   to repeat on every keystroke.
+    METHODS xcheck_refresh.
     METHODS blocking_count RETURNING VALUE(rv) TYPE i.
     METHODS preview_f4 IMPORTING iv_rollname TYPE string OPTIONAL
                                  iv_shlp     TYPE string OPTIONAL
@@ -1049,7 +1068,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
            mt_steps, mt_fields, mt_opts, mt_cols, mt_rules, mv_preview, mv_tile_code,
            mv_bknd_act, mv_bknd_cat, mv_bknd_jny, mv_bknd_fmp, mv_bknd_fmr,
            mv_roll_term, mt_roll_hits, mt_roll_preview, mv_shlp_term, mt_shlp_hits,
-           mt_lint, mt_lint_row, mv_dirty, mt_f4_scan, mv_f4_scanned,
+           mt_lint, mt_lint_row, mt_xchk, mv_dirty, mt_f4_scan, mv_f4_scanned,
            mv_fld_filter, mv_only_bad, mv_doc, mv_chg_by, mv_chg_at.
     clear_field_form( ).
     clear_rule_form( ).
@@ -1167,6 +1186,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     zcl_rak_cj_cfg_cache=>invalidate( iv_journey = mv_sel ).
 
     lint_refresh( ).
+    xcheck_refresh( ).
     mv_msg = |Loaded { mv_sel }|.
     DATA(lv_bad) = REDUCE i( INIT k = 0 FOR w IN mt_lint_row
                              WHERE ( type = 'Error' ) NEXT k = k + 1 ).
@@ -1363,6 +1383,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     zcl_rak_cj_cfg_cache=>invalidate( iv_journey = jid ).
     load_list( ). mv_sel = jid.
     lint_refresh( ).
+    xcheck_refresh( ).
     CLEAR mv_dirty.
     mv_msg = |Saved { jid } — { lines( mt_steps ) } steps, { lines( mt_fields ) } fields, { lines( mt_rules ) } rules| &&
              COND string( WHEN mt_lint IS NOT INITIAL
@@ -1685,7 +1706,13 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     f->label( 'Group' ).      f->input( value = mo_client->_bind_edit( fv_group )
     placeholder = 'container heading, OR ROW:name to share a row with the neighbouring ROW:name fields' ).
     f->label( 'Section' ).    f->input( value = mo_client->_bind_edit( fv_sect ) ).
-    f->label( 'Width' ).      f->input( value = mo_client->_bind_edit( fv_width ) placeholder = 'e.g. 12rem / 100%' ).
+*   Stored in ZRAK_T_JNY_FLD-WIDTH, but ZCL_RAK_JOURNEY_UTIL=>CTRL_WIDTH( )
+*   never reads it - the renderer calls that method and it returns a per-type
+*   default and nothing else. Say so rather than let an author set a width and
+*   then hunt for why the control did not move.
+    f->label( 'Width (not applied yet)' ).
+    f->input( value = mo_client->_bind_edit( fv_width )
+      placeholder = 'stored, but CTRL_WIDTH( ) still returns the per-type default' ).
     f->label( 'State' ).      DATA(fs) = f->combobox( selectedkey = mo_client->_bind_edit( fv_state ) ).
     fs->item( key = '' text = '(none)' ).
     fs->item( key = 'None' text = 'None' ).
@@ -1962,8 +1989,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
          INTO DATA(lv_ct).
       cc->item( key = lv_ct text = lv_ct ).
     ENDLOOP.
-    f->label( 'Search help' ).   f->input( value = mo_client->_bind_edit( cv_shlp )
-      placeholder = 'not yet wired to a real F4 popup' ).
+    f->label( 'Search help (captured, no F4 yet)' ).
+    f->input( value = mo_client->_bind_edit( cv_shlp )
+      placeholder = 'stored, but SELECT still resolves via data element or the handler' ).
     f->label( 'Data element (SELECT)' ). f->input( value = mo_client->_bind_edit( cv_rollname ) ).
     f->label( 'Width' ).         f->input( value = mo_client->_bind_edit( cv_width ) placeholder = 'e.g. 8rem' ).
     f->label( 'Align' ).
@@ -1972,10 +2000,24 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       ca->item( key = lv_ca text = lv_ca ).
     ENDLOOP.
     f->label( 'Hidden' ).        f->checkbox( selected = mo_client->_bind_edit( cv_hidden ) ).
-    f->label( 'Pinned' ).        f->checkbox( selected = mo_client->_bind_edit( cv_pinned ) ).
+*   PINNED IS NOT IMPLEMENTABLE, and saying so on the control is the only honest
+*   option. sap.m.Table has no frozen / sticky column feature, so there is nothing
+*   for this flag to bind to and no renderer change that would give it one.
+*
+*   Disabled rather than deleted: the column still exists in ZRAK_T_JNY_COL and
+*   journeys already carry values in it. Removing the control would leave those
+*   values on rows with nothing on screen to explain where they came from.
+    f->label( 'Pinned (not supported)' ).
+    f->checkbox( selected = mo_client->_bind_edit( cv_pinned ) enabled = abap_false ).
     f->label( 'Read only' ).     f->checkbox( selected = mo_client->_bind_edit( cv_readonly ) ).
-    f->label( 'Required' ).      f->checkbox( selected = mo_client->_bind_edit( cv_required ) ).
-    f->label( 'Decimals' ).      f->input( value = mo_client->_bind_edit( cv_decimals ) ).
+*   Still editable, unlike PINNED - per-row required validation is missing, not
+*   impossible. It is simply not wired into VALIDATE_STEP / MISSING_REQUIRED yet,
+*   so a grid with an empty mandatory cell passes validation and submits.
+    f->label( 'Required (not enforced yet)' ).
+    f->checkbox( selected = mo_client->_bind_edit( cv_required ) ).
+    f->label( 'Decimals (not applied yet)' ).
+    f->input( value = mo_client->_bind_edit( cv_decimals )
+      placeholder = 'stored, but no decimal formatting is applied to the cell' ).
     f->label( 'Max length' ).    f->input( value = mo_client->_bind_edit( cv_maxlen ) ).
     f->label( 'Total (sum in footer)' ). f->checkbox( selected = mo_client->_bind_edit( cv_total ) ).
     DATA(bc) = p->hbox( class = 'sapUiSmallMargin' ).
@@ -3445,6 +3487,54 @@ TO rt.
   ENDMETHOD.
 
 
+  METHOD xcheck_refresh.
+*   CJS and ShapeIt fail SILENTLY when they disagree - a step pointing at a
+*   screen with no /QNV rows renders, validates and posts, the BAdI reads an
+*   empty LT_DEFIN and does nothing, and there is no error anywhere. That is
+*   what ZCL_RAK_CJS_XCHECK exists to catch, and until now it was reachable
+*   only from ZRAK_CJS_XCHECK, a report nobody remembers to run.
+    CLEAR mt_xchk.
+
+*   Nothing saved, nothing to cross-check. A new journey has no ZRAK_T_JNY row
+*   yet, and XCHECK would open with "journey does not exist" - true, useless,
+*   and alarming on the screen where the author is still typing the id.
+    IF mv_journey_id IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA lv_jid TYPE zrak_t_jny-journey_id.
+    DATA lt_x   TYPE zcl_rak_cjs_xcheck=>tt_msg.
+
+    lv_jid = to_upper( mv_journey_id ).
+
+*   Wrapped because this reaches OUTSIDE the CJS tables: /QNV/SB_UI_DEFIN and
+*   ZEGA_T_CJ_2_OBJ belong to the legacy stack, and on a system where they are
+*   absent or restricted the SELECT raises. A cross-check is a convenience; it
+*   must never be the reason the Studio will not open.
+    TRY.
+        lt_x = zcl_rak_cjs_xcheck=>check( iv_journey = lv_jid ).
+      CATCH cx_root INTO DATA(lx).
+        mt_xchk = VALUE #( ( type = 'Information'
+          text = |Cross-check could not run: { lx->get_text( ) }| ) ).
+        RETURN.
+    ENDTRY.
+
+    LOOP AT lt_x INTO DATA(ls_x).
+      APPEND VALUE #(
+        type = SWITCH string( ls_x-sev
+                              WHEN 'E' THEN 'Error'
+                              WHEN 'W' THEN 'Warning'
+                              ELSE 'Information' )
+*       The rule id travels with the text. XCHECK names its rules X01..X12 and
+*       those ids are what its own documentation is written against, so a
+*       finding pasted into a ticket stays traceable to the rule that raised it.
+        text = |[{ ls_x-rule }]| &&
+               COND string( WHEN ls_x-step IS NOT INITIAL THEN | { ls_x-step }| ) &&
+               | { ls_x-text }| ) TO mt_xchk.
+    ENDLOOP.
+  ENDMETHOD.
+
+
   METHOD next_fseq.
     DATA lv_max TYPE i.
     LOOP AT mt_fields INTO DATA(f) WHERE step_id = to_upper( iv_step ).
@@ -3973,8 +4063,7 @@ TO rt.
       class      = 'sapUiSmallMarginBeginEnd' ).
     IF lt IS INITIAL.
       p->message_strip( text = 'No structural problems detected in the current draft.' type = 'Success' showicon = abap_true class = 'sapUiSmallMargin' ).
-      RETURN.
-    ENDIF.
+    ELSE.
 *   The journey goes on every line, not only in the header. A finding reads
 *   "L1/NO_OPTIONS: ..." - step and field - which is enough while you are looking
 *   at the Studio and useless the moment one line is pasted into a ticket or a
@@ -3992,6 +4081,37 @@ TO rt.
         showicon = abap_true
         class    = 'sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiTinyMarginTop' ).
     ENDLOOP.
+    ENDIF.
+
+*   ShapeIt cross-check, in a panel of its own. Deliberately NOT merged into the
+*   Validation panel above: that one describes the DRAFT in front of the author,
+*   this one describes the journey AS SAVED. Two different objects, and showing
+*   them as one list would make a stale finding look current.
+*
+*   Collapsed unless something blocks, because the healthy answer is a single
+*   "CJS and ShapeIt agree" line and an author does not need that unfolded.
+    IF mt_xchk IS NOT INITIAL.
+      DATA(lv_xbad) = REDUCE i( INIT k = 0 FOR x IN mt_xchk
+                                WHERE ( type = 'Error' ) NEXT k = k + 1 ).
+      DATA(px) = io->panel(
+        headertext = |ShapeIt cross-check — { to_upper( mv_journey_id ) } — | &&
+                     COND string( WHEN lv_xbad = 0
+                                  THEN |{ lines( mt_xchk ) } note{ COND string( WHEN lines( mt_xchk ) = 1 THEN `` ELSE `s` ) }|
+                                  ELSE |{ lv_xbad } blocker{ COND string( WHEN lv_xbad = 1 THEN `` ELSE `s` ) }| ) &&
+*                    Say so when the draft has moved on. Without this the panel
+*                    reads as a verdict on what is on screen, which it is not.
+                     COND string( WHEN mv_dirty = abap_true THEN ` · as last saved, not the current draft` )
+        expandable = abap_true
+        expanded   = xsdbool( lv_xbad > 0 )
+        class      = 'sapUiSmallMarginBeginEnd' ).
+      LOOP AT mt_xchk INTO DATA(mx).
+        px->message_strip(
+          text     = mx-text
+          type     = mx-type
+          showicon = abap_true
+          class    = 'sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiTinyMarginTop' ).
+      ENDLOOP.
+    ENDIF.
   ENDMETHOD.
 
 
