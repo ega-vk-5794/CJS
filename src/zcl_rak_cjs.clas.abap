@@ -506,6 +506,13 @@ CLASS zcl_rak_cjs DEFINITION
 *   Opens one Author panel and asks the page to scroll to it. Called by the ED*
 *   handlers - filling a form the author cannot see is the same as doing nothing.
     METHODS focus_panel IMPORTING iv_key TYPE string.
+*   Two-press confirm for a destructive action that is not a DL_ row delete. The
+*   row deletes in the tables have always armed before acting; Deactivate, the
+*   Design tab Clear and Import did not, and all three are irreversible from the
+*   Studio. Returns TRUE only on the second press of the same button.
+    METHODS armed       IMPORTING iv_ev          TYPE string
+                                  iv_warn        TYPE string
+                        RETURNING VALUE(rv_go)   TYPE abap_bool.
     METHODS tpl_chips   IMPORTING iv_id TYPE string RETURNING VALUE(rv) TYPE string.
     METHODS engine_url  IMPORTING iv_journey TYPE string iv_ar TYPE abap_bool DEFAULT abap_false
                                   iv_step TYPE i DEFAULT -1
@@ -851,7 +858,18 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         WHEN 'SAVE'. save_journey( ).
         WHEN 'SAVEPREV'. save_journey( ). IF mv_mtype = 'Success'. mv_preview = to_upper( mv_journey_id ). mv_mode = 'PREVIEW'. ENDIF.
         WHEN 'COPY'. copy_journey( ).
-        WHEN 'DEACT'. deactivate_journey( ).
+        WHEN 'DEACT'.
+*         Nothing selected is not something to confirm - it is something to say.
+*         Arming first would ask the author to confirm deactivating a blank id, and
+*         the second press would then tell them to pick a journey. DEACTIVATE_JOURNEY
+*         already words that case, so let it.
+          IF mv_sel IS INITIAL.
+            deactivate_journey( ).
+          ELSEIF armed( iv_ev   = 'DEACT'
+                        iv_warn = |Deactivate { to_upper( mv_sel ) }? It disappears from launch | &&
+                                  |immediately. Press Deactivate again to confirm.| ) = abap_true.
+            deactivate_journey( ).
+          ENDIF.
         WHEN 'CFGCLR'. clear_cache( ).
         WHEN 'THEMELOAD'.
 *         Load the preset into the FORM only. Nothing is stored until Save, so a
@@ -964,7 +982,15 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
           CLEAR: mv_fld_filter, mv_only_bad.
 
         WHEN 'DOCEXP'. doc_export( ).
-        WHEN 'DOCIMP'. doc_import( ).
+        WHEN 'DOCIMP'.
+*         Same reasoning as DEACT: an empty box is a message, not a confirmation.
+          IF mv_doc IS INITIAL.
+            doc_import( ).
+          ELSEIF armed( iv_ev   = 'DOCIMP'
+                        iv_warn = 'Import replaces every step, field, option, column and rule in ' &&
+                                  'the loaded draft. Unsaved edits are lost. Press Import again to confirm.' ) = abap_true.
+            doc_import( ).
+          ENDIF.
 
         WHEN 'MIGGO'.
           IF auth_ok( '02' ) = abap_true.
@@ -1538,10 +1564,34 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       `.rakDsgBar i.on { background: rgb(196,30,38); }` &&
       `.rakDsgSel { background:#fdf3f4; border-inline-start:3px solid rgb(196,30,38); ` &&
       `border-radius:6px; padding-inline-start:6px; }` &&
-      `.rakLintMsg { flex:1 1 auto; min-width:0; }`.
+      `.rakLintMsg { flex:1 1 auto; min-width:0; }` &&
+*     Bottom right, not top: the toolbar and the panel headers are what the author
+*     is aiming at, and a banner across the top covers exactly those. z-index 90
+*     sits above the page and below UI5's own dialogs, which start around 1000 -
+*     a value help must never open behind this.
+      `.rakToast { position:fixed; right:1.5rem; bottom:1.5rem; z-index:90; ` &&
+      `max-width:34rem; animation:rakToastIn .18s ease-out; }` &&
+      `.rakToast .sapMMsgStrip { box-shadow:0 10px 28px rgba(16,35,62,0.22); border-radius:10px; }` &&
+      `@keyframes rakToastIn { from { opacity:0; transform:translateY(10px); } ` &&
+      `to { opacity:1; transform:none; } }`.
     REPLACE ALL OCCURRENCES OF `{` IN c WITH `\{`.
     REPLACE ALL OCCURRENCES OF `}` IN c WITH `\}`.
     rv = `<div><style>` && c && `</style></div>`.
+  ENDMETHOD.
+
+
+  METHOD armed.
+*   MV_ARM_EVT is cleared at the top of MAIN whenever the next event differs, so an
+*   arm cannot survive the author going off to do something else and coming back.
+*   Same mechanism the DL_ row deletes use - one arm at a time, on purpose.
+    IF mv_arm_evt = iv_ev.
+      CLEAR mv_arm_evt.
+      rv_go = abap_true.
+      RETURN.
+    ENDIF.
+    mv_arm_evt = iv_ev.
+    mv_msg     = iv_warn.
+    mv_mtype   = 'Warning'.
   ENDMETHOD.
 
 
@@ -1562,32 +1612,63 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
 
   METHOD scroll_js.
-*   The scroll container is the page, not the window - sap.m.Page scrolls its own
-*   div, so window.scrollTo does nothing here. Same container the engine's
-*   SCROLL_KEEPER uses.
+*   The Studio rebuilds its whole view on every round trip, so the new DOM opens at
+*   scrollTop 0 and the author is thrown back to the top of a page that runs to
+*   sixty fields. This records the position and puts it back.
+*
+*   The scroll container is deliberately NOT found by class name. sap.m.Page
+*   renders an OUTER div carrying sapMPageEnableScrolling, which is overflow
+*   hidden, and an INNER section that does the actual scrolling. A listener that
+*   compared e.target with the outer div therefore never matched, nothing was ever
+*   written, and the restore below always read back a zero - the whole mechanism
+*   was inert. PICK takes whichever candidate is genuinely scrollable instead, so
+*   it does not matter which element UI5 chose to put the overflow on.
+*
+*   Note for the engine: ZCL_RAK_JOURNEY_CSS->SCROLL_KEEPER still compares against
+*   sapMPageEnableScrolling the same way and has the same problem.
     DATA(lv_js) =
-      `var q=function(){return document.querySelector('.sapMPageEnableScrolling');};` &&
-      `if(!window._cjsWired){window._cjsWired=1;` &&
-      `document.addEventListener('scroll',function(e){var s=q();` &&
-      `if(s&&e.target===s){try{sessionStorage.setItem('cjsScroll',s.scrollTop);}catch(x){}}},true);}`.
+      `var K='cjsScroll';` &&
+      `var pick=function(){` &&
+      `var l=document.querySelectorAll('.sapMPageScroll,.sapMPageEnableScrolling,` &&
+      `.sapMScrollCont,.sapUiScrollDelegate,section');var b=null;` &&
+      `for(var i=0;i<l.length;i++){var e=l[i];` &&
+      `if(e.scrollHeight-e.clientHeight>20&&(!b||e.scrollHeight>b.scrollHeight)){b=e;}}` &&
+      `return b;};` &&
+      `var put=function(){var s=pick();` &&
+      `if(s){try{sessionStorage.setItem(K,s.scrollTop);}catch(x){}}};` &&
+*     Debounced on scroll, because scroll fires continuously and PICK walks the
+*     DOM. Also on mousedown: a press landing inside the debounce window would
+*     otherwise round-trip with a stale position recorded, which is exactly the
+*     case that matters - the author scrolls to a button and presses it.
+      `if(!window._cjsWired){window._cjsWired=1;var t=null;` &&
+      `document.addEventListener('scroll',function(){` &&
+      `if(t){clearTimeout(t);}t=setTimeout(put,80);},true);` &&
+      `document.addEventListener('mousedown',put,true);}`.
 
     IF mv_focus IS NOT INITIAL.
 *     A panel that was collapsed a moment ago has not finished its expand
-*     animation, so its height is still wrong on the first frame. Retry for a
-*     few frames rather than measuring once and landing short.
+*     animation, so its height is still wrong on the first frame. Retry for a few
+*     frames rather than measuring once and landing short.
+*
+*     PUT( ) after the scroll, so the position the author was TAKEN to becomes the
+*     remembered one. Without it the next action would restore the position they
+*     were at before pressing Edit and undo the navigation.
       lv_js = lv_js &&
         `var n=0;var f=function(){n=n+1;` &&
-        `var t=document.querySelector('.rakPnl` && to_upper( mv_focus ) && `');` &&
-        `if(t){t.scrollIntoView({block:'start'});` &&
-        `if(n<12){requestAnimationFrame(f);}}` &&
-        `else if(n<40){requestAnimationFrame(f);}};requestAnimationFrame(f);`.
+        `var g=document.querySelector('.rakPnl` && to_upper( mv_focus ) && `');` &&
+        `if(g){g.scrollIntoView({block:'start'});put();` &&
+        `if(n<12){requestAnimationFrame(f);}return;}` &&
+        `if(n<40){requestAnimationFrame(f);}};requestAnimationFrame(f);`.
       CLEAR mv_focus.
     ELSE.
+*     Keep re-asserting for a few frames after the first success. UI5 lays the
+*     form out in stages, so a single assignment lands and is then overwritten.
       lv_js = lv_js &&
-        `var p=0;try{p=parseInt(sessionStorage.getItem('cjsScroll')||'0',10);}catch(x){}` &&
-        `if(p>0){var n=0;var f=function(){var s=q();n=n+1;` &&
-        `if(s&&(s.scrollHeight-s.clientHeight)>=p){s.scrollTop=p;}` &&
-        `else if(n<30){requestAnimationFrame(f);}};requestAnimationFrame(f);}`.
+        `var p=0;try{p=parseInt(sessionStorage.getItem(K)||'0',10);}catch(x){}` &&
+        `if(p>0){var n=0;var f=function(){n=n+1;var s=pick();` &&
+        `if(s&&(s.scrollHeight-s.clientHeight)>=p){s.scrollTop=p;` &&
+        `if(n<12){requestAnimationFrame(f);}return;}` &&
+        `if(n<60){requestAnimationFrame(f);}};requestAnimationFrame(f);}`.
     ENDIF.
 
     lv_js = lv_js && `this.remove();`.
@@ -1604,8 +1685,20 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     page->html( content = css( ) sanitizecontent = abap_false ).
     page->html( content = scroll_js( ) sanitizecontent = abap_false ).
     render_toolbar( page ).
+*   Floating, not in the flow. An inline strip appears and disappears between the
+*   toolbar and the panels, so every action that produced a message pushed the
+*   whole page down or let it snap back up under the author - and the message could
+*   only be read from the top of the page anyway. position:fixed costs no layout in
+*   either direction, so nothing moves, and it stays legible wherever the author
+*   happens to be scrolled to.
+*
+*   Closable, because it is now overlaying content rather than sitting above it.
+*   Closing is a client-side act with no round trip, so it cannot lose anything.
     IF mv_msg IS NOT INITIAL.
-      page->message_strip( text = mv_msg type = mv_mtype showicon = abap_true class = 'sapUiSmallMargin' ).
+      page->vbox( class = 'rakToast' )->message_strip( text            = mv_msg
+                                                       type            = mv_mtype
+                                                       showicon        = abap_true
+                                                       showclosebutton = abap_true ).
     ENDIF.
     CASE mv_mode.
       WHEN 'AUTHOR'.  render_author( page ).
@@ -1634,7 +1727,18 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                  press = mo_client->_event( 'SAVE' ) ).
     bar->input( value = mo_client->_bind_edit( mv_copy_to ) placeholder = 'Copy to (new ID)' width = '12rem' class = 'sapUiTinyMarginBegin' ).
     bar->button( text = 'Copy' icon = 'sap-icon://copy' press = mo_client->_event( 'COPY' ) ).
-    bar->button( text = 'Deactivate' icon = 'sap-icon://pause' press = mo_client->_event( 'DEACT' ) class = 'sapUiTinyMarginBegin' ).
+*   Armed state on the control itself, not only in the message. The same shape the
+*   row deletes use: red, an alert icon and a tooltip that says what a second press
+*   will do - so the button that is now dangerous looks different from the one that
+*   merely asked a question.
+    DATA(lv_arm_de) = xsdbool( mv_arm_evt = 'DEACT' ).
+    bar->button( text    = COND #( WHEN lv_arm_de = abap_true THEN 'Deactivate anyway' ELSE 'Deactivate' )
+                 icon    = COND #( WHEN lv_arm_de = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://pause' )
+                 type    = COND #( WHEN lv_arm_de = abap_true THEN 'Reject' )
+                 tooltip = COND #( WHEN lv_arm_de = abap_true
+                                   THEN 'Click again to take this journey off launch' )
+                 press   = mo_client->_event( 'DEACT' )
+                 class   = 'sapUiTinyMarginBegin' ).
 *   Clear cache. Save, Copy, Deactivate and Migrate already invalidate, and so
 *   does Load now - which leaves exactly one case for this button: config changed
 *   OUTSIDE the Studio. A seed report, a direct table update, a transport import.
@@ -2547,7 +2651,12 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(lv_cmd) = CONV string( lt_k[ 1 ] ).
 
     IF lv_cmd = 'DSG_CLR'.
-      dsg_clear( mv_dsg_step ).
+      IF armed( iv_ev   = 'DSG_CLR'
+                iv_warn = |Clear the layout for { to_upper( mv_dsg_step ) }? Every row and width | &&
+                          |on this step goes, and it renders the classic way again. | &&
+                          |Press Clear again to confirm.| ) = abap_true.
+        dsg_clear( mv_dsg_step ).
+      ENDIF.
       RETURN.
     ENDIF.
 
@@ -4082,9 +4191,14 @@ TO rt.
                  class = 'sapUiSmallMarginBegin' ).
 
     IF lv_on = abap_true.
-      bar->button( text  = 'Clear'
-                   icon  = 'sap-icon://reset'
-                   press = mo_client->_event( 'DSG_CLR' ) ).
+      DATA(lv_arm_cl) = xsdbool( mv_arm_evt = 'DSG_CLR' ).
+      bar->button( text    = COND #( WHEN lv_arm_cl = abap_true THEN 'Clear anyway' ELSE 'Clear' )
+                   icon    = COND #( WHEN lv_arm_cl = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://reset' )
+                   type    = COND #( WHEN lv_arm_cl = abap_true THEN 'Reject' )
+                   tooltip = COND #( WHEN lv_arm_cl = abap_true
+                                     THEN 'Click again to drop every row and width on this step'
+                                     ELSE 'Drop the layout and render this step the classic way' )
+                   press   = mo_client->_event( 'DSG_CLR' ) ).
     ENDIF.
 
     DATA(lt) = dsg_plan( mv_dsg_step ).
@@ -4329,9 +4443,13 @@ TO rt.
                icon  = 'sap-icon://download'
                type  = 'Emphasized'
                press = mo_client->_event( 'DOCEXP' ) ).
-    b->button( text    = 'Import from box'
-               icon    = 'sap-icon://upload'
-               tooltip = 'Replaces the loaded draft. Nothing is written until Save.'
+    DATA(lv_arm_im) = xsdbool( mv_arm_evt = 'DOCIMP' ).
+    b->button( text    = COND #( WHEN lv_arm_im = abap_true THEN 'Import anyway' ELSE 'Import from box' )
+               icon    = COND #( WHEN lv_arm_im = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://upload' )
+               type    = COND #( WHEN lv_arm_im = abap_true THEN 'Reject' )
+               tooltip = COND #( WHEN lv_arm_im = abap_true
+                                 THEN 'Click again to replace the loaded draft'
+                                 ELSE 'Replaces the loaded draft. Nothing is written until Save.' )
                press   = mo_client->_event( 'DOCIMP' )
                class   = 'sapUiTinyMarginBegin' ).
     p->text_area( value = mo_client->_bind_edit( mv_doc )
