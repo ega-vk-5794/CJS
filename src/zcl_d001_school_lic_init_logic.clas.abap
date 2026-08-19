@@ -211,6 +211,16 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
+*   The base method IS the PAID gate - it refuses a submit while PAYFEE is not
+*   'PAID'. A redefinition REPLACES it, so without this call the gate is simply
+*   not there for this journey. It must come before any CHECK below: a CHECK that
+*   fails exits the method, and anything after it would never run.
+*
+*   Self-guarding - PAY_FIELD_STEP returns -1 when the journey has no PAYFEE
+*   field, so this is a no-op on a journey with no payment step.
+    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
+                                                         iv_step = iv_step ).
+
     CASE iv_step.
       WHEN 1.   " step 2 "Partners"
 *       DATA(lv_owners) = io_ctx->get_val( 'OWNERS_SEARCH' ).
@@ -240,7 +250,7 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
           ENDIF.
         ENDLOOP.
         IF lv_any_stage = abap_false.
-          rt = VALUE #( ( type = 'Error' text = 'Select at least one education stage.' ) ).
+          rt = VALUE #( BASE rt ( type = 'Error' text = 'Select at least one education stage.' ) ).
         ENDIF.
 
 *        DATA(lv_buildings) = io_ctx->get_val( 'BUILDINGS' ).
