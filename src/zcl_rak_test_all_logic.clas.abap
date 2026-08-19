@@ -26,6 +26,29 @@
 *&   render_field( )      claiming PAYFEE and drawing the fee card
 *&   wants_feedback( ) / on_feedback( )   the post-submit happiness step
 *&
+*& POPUP VALUE HELP. The help dialog covers every source dialog_form( ) can
+*& resolve, because until recently it could resolve none of them and popups
+*& were built without dropdowns as a result:
+*&
+*&   options   = ...        an explicit list the handler owns
+*&   domname   = 'XFELD'    domain fixed values           (resolver path 1)
+*&   rollname  = 'MEINS'    data element -> fixed values, else its own
+*&                          default search help           (resolver paths 2, 3)
+*&   shlp      = 'H_T005'   an explicit search help       (resolver path 4)
+*&   f4_evt    = ...        sap.m.Input's value-help icon, answered by the
+*&                          handler in on_popup_event
+*&   type        SELECT / CHECKBOX / NUMBER as well as TEXTAREA and DATE
+*&   required / readonly / placeholder / width / maxlen
+*&
+*& Resolution goes through ZCL_RAK_F4_RESOLVER - the same class the main form
+*& uses - so a popup field and a configured field on one data element offer the
+*& same list. The DDIC names above are chosen because they exist on every
+*& system, not because they suit those fields.
+*&
+*& PER-POPUP BP SEARCH. bp_opts( ) gives the two partner searches different
+*& rules: the lessor is verified, the lessee is looked up with no MOI call,
+*& findings as warnings, and a capped hit list. See ZCL_RAK_BP_SEARCH=>TY_REQ.
+*&
 *& PAYMENT IS SIMULATED. render_field builds a fixed fee table instead of
 *& calling ZCL_RAK_PAY_ENGINE, and on_popup_event intercepts PAYNOW and
 *& PAYPOLL. Nothing here contacts the gateway, takes a lock, or needs a
@@ -74,6 +97,9 @@ CLASS zcl_rak_test_all_logic DEFINITION
     CONSTANTS c_evt_help  TYPE string VALUE 'OPENHELP'.
     CONSTANTS c_evt_hsave TYPE string VALUE 'HELPSAVE'.
     CONSTANTS c_evt_hcxl  TYPE string VALUE 'HELPCANCEL'.
+*   Fired by the F4 icon on the dialog's Partner field. A popup field can now ask
+*   the handler for a value the way a configured SEARCH field does.
+    CONSTANTS c_evt_hf4   TYPE string VALUE 'HELPF4'.
     CONSTANTS c_evt_lines TYPE string VALUE 'RECALCLINES'.
     CONSTANTS c_evt_tidy  TYPE string VALUE 'TIDYLINES'.
     CONSTANTS c_evt_relic TYPE string VALUE 'RELOADLIC'.
@@ -204,6 +230,11 @@ CLASS zcl_rak_test_all_logic DEFINITION
     METHODS vehicles  RETURNING VALUE(rs) TYPE zif_rak_journey=>ty_table.
     METHODS doc_matrix RETURNING VALUE(rs) TYPE zif_rak_journey=>ty_table.
     METHODS recalc    IMPORTING io_ctx TYPE REF TO zif_rak_journey.
+*   Per-subject BP search options. The whole point of ZCL_RAK_BP_POPUP taking a
+*   TY_REQ template is that two partners on one journey do not need the same
+*   rules, and until now they had no way to differ.
+    METHODS bp_opts   IMPORTING iv_subject TYPE string
+                      RETURNING VALUE(rs)  TYPE zcl_rak_bp_search=>ty_req.
     METHODS seed_fees IMPORTING io_ctx TYPE REF TO zif_rak_journey.
 
 ENDCLASS.
@@ -497,6 +528,39 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
     io_ctx->add_msg( iv_type = 'Success'
                      iv_text = |Found { ls_bp-name } ({ ls_bp-partner }). | &&
                                |Add the nationality and shares, then press Add.| ).
+  ENDMETHOD.
+
+
+  METHOD bp_opts.
+*   Two partners on one journey with two different requirements, which is exactly
+*   the case ZCL_RAK_BP_POPUP's template parameter exists for. Before it, both
+*   searches ran the same rules whether that suited them or not.
+    CASE to_upper( iv_subject ).
+
+      WHEN 'LESSOR'.
+*       The party being VERIFIED. Everything runs: MOI is called, the BP is
+*       updated from it, and a date-of-birth or nationality mismatch is an error.
+*       That is the default behaviour, so this branch deliberately sets nothing -
+*       the empty template is the full-strength one.
+
+      WHEN 'LESSEE'.
+*       The party being LOOKED UP. Three different requirements, each stated on
+*       its own rather than smuggled through one overloaded flag:
+*
+*       NO_MOI_CALL suppresses the MOI call itself. Worth doing on its own terms
+*       and not only for speed: it WRITES, it costs at least five seconds by
+*       construction, and its WAIT UP TO ends the LUW and forces an implicit
+*       COMMIT of whatever the journey had open mid-step.
+        rs-no_moi_call = abap_true.
+*       An expired licence is still worth SHOWING and should not stop the lessee
+*       being found. 'W' reports the same texts as warnings and lets the partner
+*       through - and this branch owns that decision.
+        rs-msg_type    = 'W'.
+*       A picker does not need a hundred rows.
+        rs-max_rows    = 20.
+
+      WHEN OTHERS.
+    ENDCASE.
   ENDMETHOD.
 
 
@@ -1315,9 +1379,10 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *   It is stateless - every value it touches is a model field - so a fresh instance
 *   each round trip is the same instance.
     IF iv_event CP 'BPP_*' AND io_ctx->get_val( 'BP_ACTIVE_SUBJECT' ) IS NOT INITIAL.
-      NEW zcl_rak_bp_popup(
-            io_ctx     = io_ctx
-            iv_subject = io_ctx->get_val( 'BP_ACTIVE_SUBJECT' ) )->handle( iv_event ).
+      DATA(lv_asubj) = io_ctx->get_val( 'BP_ACTIVE_SUBJECT' ).
+      NEW zcl_rak_bp_popup( io_ctx     = io_ctx
+                            iv_subject = lv_asubj
+                            is_search  = bp_opts( lv_asubj ) )->handle( iv_event ).
       RETURN.
     ENDIF.
 
@@ -1348,6 +1413,19 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 
       WHEN c_evt_hcxl.
         io_ctx->close_popup( ).
+
+*     --- the F4 icon on the dialog's Partner field --------------------
+*     A popup field asking the handler for a value. The dialog STAYS OPEN - this
+*     is a value help, not a navigation: closing it would throw away everything
+*     else the citizen had typed into the form.
+*
+*     A real one would open a second dialog or call a search. Filling the field
+*     is enough to show the wiring, and it keeps this class free of any database
+*     dependency, which is what lets it run on an empty system.
+      WHEN c_evt_hf4.
+        io_ctx->set_val( iv_name = 'PARTNER' iv_value = '1000000001' ).
+        io_ctx->add_msg( iv_type = 'Information'
+                         iv_text = 'F4 fired from inside the dialog - the dialog stays open.' ).
 
 *     --- hand-built popup: search, own state, attachment --------------
 *     --- owners: list on the step, one popup to add or edit a row ----
@@ -1608,11 +1686,10 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *   the other and its OK button fires the wrong branch.
 
     IF iv_id CP 'BP_*'.
-      NEW zcl_rak_bp_popup(
-        io_ctx = io_ctx
-        iv_subject = substring_after(
-        val = iv_id
-        sub = 'BP_' ) )->render( io_popup ).
+      DATA(lv_subj) = substring_after( val = iv_id sub = 'BP_' ).
+      NEW zcl_rak_bp_popup( io_ctx     = io_ctx
+                            iv_subject = lv_subj
+                            is_search  = bp_opts( lv_subj ) )->render( io_popup ).
       RETURN.
     ENDIF.
 
@@ -1627,6 +1704,13 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 
     CHECK iv_id = c_pop_help.
 
+*   EVERY POPUP CAPABILITY, ON ONE DIALOG. The first two lines are what a popup
+*   could draw before; everything after them is new.
+*
+*   One caveat on the DDIC names below. MEINS, H_T005 and XFELD are used because
+*   they exist on every system, which makes this dialog activate and run anywhere -
+*   NOT because they belong to those fields semantically. Copy the pattern, not the
+*   names.
     dialog_form(
       io_ctx     = io_ctx
       io_popup   = io_popup
@@ -1635,9 +1719,43 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
       iv_ok_evt  = c_evt_hsave
       iv_cxl_evt = c_evt_hcxl
       it_fields  = VALUE #(
-        ( name = 'NOTES'        label = 'What are you applying for?' type = 'TEXTAREA' )
-        ( name = 'BIRTH_DATE'   label = 'Date of birth'              type = 'DATE' )
-        ( name = 'ID_COPY_REF'  label = 'Reference, if you have one' type = '' ) ) ).
+
+*       --- what a popup could always do ---------------------------------
+        ( name = 'NOTES'          label = 'What are you applying for?' type = 'TEXTAREA'
+          required = abap_true    placeholder = 'A sentence is enough' )
+        ( name = 'ID_COPY_REF'    label = 'Reference, if you have one'
+          placeholder = 'e.g. RAK-2026-00123' maxlen = 20 )
+
+*       --- SELECT from a list the handler owns --------------------------
+*       OPTIONS wins over every other source, so this needs no DDIC object at
+*       all. The same shape on_value_help returns for a configured field.
+        ( name = 'SERVICE_CAT'    label = 'Service category' type = 'SELECT'
+          options = VALUE #( ( key = 'NEW' text = 'New application' )
+                             ( key = 'RNW' text = 'Renewal' )
+                             ( key = 'AMD' text = 'Amendment' ) ) )
+
+*       --- resolver path 1: domain fixed values, DD07L / DD07T ----------
+        ( name = 'STATUS_TXT'     label = 'Flag (domain fixed values)' domname = 'XFELD' )
+
+*       --- resolver path 2 then 3: data element -------------------------
+*       Fixed values behind the element if it has any; otherwise the element's
+*       OWN default search help. MEINS has no fixed values, so this resolves
+*       through H_T006 and lists real units of measure.
+        ( name = 'PARTNER_IDTYPE' label = 'Unit (via data element)' rollname = 'MEINS' )
+
+*       --- resolver path 4: an explicit search help ---------------------
+        ( name = 'REF_CODE'       label = 'Country (via search help)' shlp = 'H_T005' )
+
+*       --- the other control types --------------------------------------
+        ( name = 'QUANTITY'       label = 'Quantity'     type = 'NUMBER'   width = '8rem' )
+        ( name = 'IS_URGENT'      label = 'Urgent'       type = 'CHECKBOX' )
+
+*       --- read only, and an F4 the handler answers itself ---------------
+*       READONLY greys the control and still binds it, so the value posts.
+        ( name = 'FULL_NAME'      label = 'Applicant'    readonly = abap_true )
+*       F4_EVT draws sap.m.Input's value-help icon and fires the event below.
+*       For a lookup no static list can answer - a partner, a live licence.
+        ( name = 'PARTNER'        label = 'Partner (F4)' f4_evt = c_evt_hf4 ) ) ).
   ENDMETHOD.
 
 
