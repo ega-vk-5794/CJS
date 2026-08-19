@@ -969,7 +969,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                                THEN |All { lines( mt_f4_scan ) } value help(s) resolve to options|
                                ELSE |{ lv_f4bad } of { lines( mt_f4_scan ) } value help(s) resolve to NO options — | &&
                                     |those dropdowns render empty on the page and report nothing| ).
-            mv_mtype = COND #( WHEN lv_f4bad = 0 THEN 'Success' ELSE 'Error' ).
+            mv_mtype = COND string( WHEN lv_f4bad = 0 THEN 'Success' ELSE 'Error' ).
           ENDIF.
 
         WHEN 'FLDFILT'.
@@ -1006,7 +1006,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
               IMPORTING
                 ev_ok       = DATA(lv_mig_ok)
                 ev_msg      = mv_msg ).
-            mv_mtype = COND #( WHEN lv_mig_ok = abap_true THEN 'Success' ELSE 'Error' ).
+            mv_mtype = COND string( WHEN lv_mig_ok = abap_true THEN 'Success' ELSE 'Error' ).
             IF lv_mig_ok = abap_true.
 *             Every other write path in this class invalidates and this one did
 *             not, so a re-migrate over an existing ID wrote correct rows and
@@ -1281,7 +1281,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       mv_msg = |{ mv_msg } — { lines( mt_lint_row ) } field finding(s)| &&
                COND string( WHEN lv_bad > 0 THEN |, { lv_bad } blocking| ) &&
                |. See the ! column.|.
-      mv_mtype = COND #( WHEN lv_bad > 0 THEN 'Warning' ELSE 'Information' ).
+      mv_mtype = COND string( WHEN lv_bad > 0 THEN 'Warning' ELSE 'Information' ).
     ELSE.
       mv_mtype = 'Success'.
     ENDIF.
@@ -1360,11 +1360,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     INSERT zrak_t_jny FROM @( VALUE #( mandt = sy-mandt journey_id = jid title = mv_title title_ar = mv_title_ar
       layout_mode = mv_layout theme_variant = mv_variant accent_type = mv_accent brand_color = mv_brand
       navy_color = mv_navy density = mv_density subtitle = mv_subtitle subtitle_ar = mv_subtitle_ar
-      theme_own     = COND #( WHEN mv_theme_own = abap_true THEN 'X' ELSE ' ' )
+      theme_own     = COND string( WHEN mv_theme_own = abap_true THEN 'X' ELSE ' ' )
       handler_class = to_upper( mv_handler )
-      show_actions  = COND #( WHEN mv_show_act = abap_true THEN 'X' ELSE ' ' )
-      active        = COND #( WHEN mv_active   = abap_true THEN 'X' ELSE ' ' )
-      bknd_active   = COND #( WHEN mv_bknd_act = abap_true THEN 'X' ELSE ' ' )
+      show_actions  = COND string( WHEN mv_show_act = abap_true THEN 'X' ELSE ' ' )
+      active        = COND string( WHEN mv_active   = abap_true THEN 'X' ELSE ' ' )
+      bknd_active   = COND string( WHEN mv_bknd_act = abap_true THEN 'X' ELSE ' ' )
       bknd_category = mv_bknd_cat
       bknd_journey  = to_upper( mv_bknd_jny )
       bknd_fm_post  = to_upper( mv_bknd_fmp )
@@ -1391,14 +1391,14 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         field_name = f-field_name seqnr = to_int( f-seqnr ) ftype = f-ftype
         zlabel = f-label zlabel_ar = f-label_ar placeholder = f-placeholder placeholder_ar = f-place_ar
         default_val = f-default_val fgroup = f-fgroup zsection = f-section fstate = f-fstate width = f-width
-        hidden   = COND #( WHEN f-hidden   = abap_true THEN 'X' ELSE ' ' )
-        readonly = COND #( WHEN f-readonly = abap_true THEN 'X' ELSE ' ' )
-        required = COND #( WHEN f-required = abap_true THEN 'X' ELSE ' ' )
+        hidden   = COND string( WHEN f-hidden   = abap_true THEN 'X' ELSE ' ' )
+        readonly = COND string( WHEN f-readonly = abap_true THEN 'X' ELSE ' ' )
+        required = COND string( WHEN f-required = abap_true THEN 'X' ELSE ' ' )
         regex = f-regex min_len = to_int( f-min_len ) max_len = to_int( f-max_len )
         min_val = f-min_val max_val = f-max_val msg = f-msg msg_ar = f-msg_ar
-        has_attach = COND #( WHEN f-has_attach = abap_true THEN 'X' ELSE ' ' )
+        has_attach = COND string( WHEN f-has_attach = abap_true THEN 'X' ELSE ' ' )
         attach_label = f-attach_label attach_types = f-att_types attach_maxmb = to_int( f-att_maxmb )
-        attach_multi = COND #( WHEN f-att_multi = abap_true THEN 'X' ELSE ' ' )
+        attach_multi = COND string( WHEN f-att_multi = abap_true THEN 'X' ELSE ' ' )
         rollname = f-rollname shlp = f-shlp domname = f-domname tech_name = f-tech_name ) ).
       IF sy-subrc <> 0.
         lv_err = abap_true.
@@ -1419,12 +1419,12 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         field_name = c-field_name col_name = c-col_name seqnr = to_int( c-seqnr )
         zlabel = c-label zlabel_ar = c-label_ar ctrl = c-ctrl shlp = c-shlp rollname = c-rollname
         width = c-width align = c-align
-        hidden   = COND #( WHEN c-hidden   = abap_true THEN 'X' ELSE ' ' )
-        pinned   = COND #( WHEN c-pinned   = abap_true THEN 'X' ELSE ' ' )
-        readonly = COND #( WHEN c-readonly = abap_true THEN 'X' ELSE ' ' )
-        required = COND #( WHEN c-required = abap_true THEN 'X' ELSE ' ' )
+        hidden   = COND string( WHEN c-hidden   = abap_true THEN 'X' ELSE ' ' )
+        pinned   = COND string( WHEN c-pinned   = abap_true THEN 'X' ELSE ' ' )
+        readonly = COND string( WHEN c-readonly = abap_true THEN 'X' ELSE ' ' )
+        required = COND string( WHEN c-required = abap_true THEN 'X' ELSE ' ' )
         decimals = to_int( c-decimals ) maxlen = to_int( c-maxlen )
-        total    = COND #( WHEN c-total    = abap_true THEN 'X' ELSE ' ' ) ) ).
+        total    = COND string( WHEN c-total    = abap_true THEN 'X' ELSE ' ' ) ) ).
       IF sy-subrc <> 0.
         lv_err = abap_true.
         EXIT.
@@ -1473,7 +1473,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     mv_msg = |Saved { jid } — { lines( mt_steps ) } steps, { lines( mt_fields ) } fields, { lines( mt_rules ) } rules| &&
              COND string( WHEN mt_lint IS NOT INITIAL
                           THEN |. { lines( mt_lint ) } finding(s) still open| ).
-    mv_mtype = COND #( WHEN blocking_count( ) > 0 THEN 'Warning' ELSE 'Success' ).
+    mv_mtype = COND string( WHEN blocking_count( ) > 0 THEN 'Warning' ELSE 'Success' ).
   ENDMETHOD.
 
 
@@ -1721,9 +1721,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     bar->button( text = 'Load' icon = 'sap-icon://open-folder' press = mo_client->_event( 'LOAD' ) class = 'sapUiTinyMarginBegin' ).
     bar->button( text = 'New'  icon = 'sap-icon://add-document' press = mo_client->_event( 'NEW' ) ).
     DATA(lv_armed) = xsdbool( mv_arm_save IS NOT INITIAL AND mv_arm_save = to_upper( mv_journey_id ) ).
-    bar->button( text  = COND #( WHEN lv_armed = abap_true THEN 'Save anyway' ELSE 'Save' )
+    bar->button( text  = COND string( WHEN lv_armed = abap_true THEN 'Save anyway' ELSE 'Save' )
                  icon  = 'sap-icon://save'
-                 type  = COND #( WHEN lv_armed = abap_true THEN 'Reject' ELSE 'Emphasized' )
+                 type  = COND string( WHEN lv_armed = abap_true THEN 'Reject' ELSE 'Emphasized' )
                  press = mo_client->_event( 'SAVE' ) ).
     bar->input( value = mo_client->_bind_edit( mv_copy_to ) placeholder = 'Copy to (new ID)' width = '12rem' class = 'sapUiTinyMarginBegin' ).
     bar->button( text = 'Copy' icon = 'sap-icon://copy' press = mo_client->_event( 'COPY' ) ).
@@ -1732,10 +1732,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   will do - so the button that is now dangerous looks different from the one that
 *   merely asked a question.
     DATA(lv_arm_de) = xsdbool( mv_arm_evt = 'DEACT' ).
-    bar->button( text    = COND #( WHEN lv_arm_de = abap_true THEN 'Deactivate anyway' ELSE 'Deactivate' )
-                 icon    = COND #( WHEN lv_arm_de = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://pause' )
-                 type    = COND #( WHEN lv_arm_de = abap_true THEN 'Reject' )
-                 tooltip = COND #( WHEN lv_arm_de = abap_true
+    bar->button( text    = COND string( WHEN lv_arm_de = abap_true THEN 'Deactivate anyway' ELSE 'Deactivate' )
+                 icon    = COND string( WHEN lv_arm_de = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://pause' )
+                 type    = COND string( WHEN lv_arm_de = abap_true THEN 'Reject' )
+                 tooltip = COND string( WHEN lv_arm_de = abap_true
                                    THEN 'Click again to take this journey off launch' )
                  press   = mo_client->_event( 'DEACT' )
                  class   = 'sapUiTinyMarginBegin' ).
@@ -1758,27 +1758,27 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(seg) = io->hbox( class = 'sapUiSmallMarginBegin sapUiSmallMarginBottom' ).
     seg->button( text  = 'Compose'
                  icon  = 'sap-icon://palette'
-                 type  = COND #( WHEN mv_mode = 'COMPOSE' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'COMPOSE' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_COMPOSE' ) ).
     seg->button( text  = 'Author'
                  icon  = 'sap-icon://edit'
-                 type  = COND #( WHEN mv_mode = 'AUTHOR' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'AUTHOR' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_AUTHOR' ) ).
     seg->button( text  = 'Preview'
                  icon  = 'sap-icon://show'
-                 type  = COND #( WHEN mv_mode = 'PREVIEW' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'PREVIEW' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_PREVIEW' ) ).
     seg->button( text  = 'Migrate'
                  icon  = 'sap-icon://journey-arrive'
-                 type  = COND #( WHEN mv_mode = 'MIGRATE' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'MIGRATE' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_MIGRATE' ) ).
     seg->button( text  = 'Audit all'
                  icon  = 'sap-icon://validate'
-                 type  = COND #( WHEN mv_mode = 'AUDIT' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'AUDIT' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_AUDIT' ) ).
     seg->button( text  = 'Design'
                  icon  = 'sap-icon://screen-split-two'
-                 type  = COND #( WHEN mv_mode = 'DESIGN' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'DESIGN' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_DESIGN' ) ).
   ENDMETHOD.
 
@@ -1890,9 +1890,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         )->text( r-bknd_screen )->text( |{ lv_fcnt }| ).
       DATA(act) = cells->hbox( ).
       act->button( icon = 'sap-icon://edit' type = 'Transparent' tooltip = 'Edit' press = mo_client->_event( |EDSTEP_{ r-step_id }| ) ).
-      act->button( icon = COND #( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                   type = COND #( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
-                   tooltip = COND #( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
+      act->button( icon = COND string( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                   type = COND string( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
                    press = mo_client->_event( lv_dev ) ).
     ENDLOOP.
   ENDMETHOD.
@@ -2076,7 +2076,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                 class = 'sapUiTinyMarginBegin' ).
     ff->button( text    = 'Findings only'
                 icon    = 'sap-icon://alert'
-                type    = COND #( WHEN mv_only_bad = abap_true THEN 'Emphasized' ELSE 'Transparent' )
+                type    = COND string( WHEN mv_only_bad = abap_true THEN 'Emphasized' ELSE 'Transparent' )
                 tooltip = 'Show only the fields carrying a lint finding'
                 press   = mo_client->_event( 'FLDBAD' )
                 class   = 'sapUiTinyMarginBegin' ).
@@ -2115,10 +2115,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       DATA(cells) = it->column_list_item( )->cells( ).
       cells->text( r-seqnr )->text( r-step_id )->text( r-field_name )->text( r-ftype
         )->text( r-label )->text( r-tech_name )->text( r-rollname
-        )->text( COND #( WHEN r-required = abap_true THEN 'X' ELSE '' )
-        )->text( COND #( WHEN r-hidden = abap_true THEN 'X' ELSE '' )
-        )->text( COND #( WHEN r-has_attach = abap_true THEN 'X' ELSE '' )
-        )->text( COND #( WHEN r-label_ar IS NOT INITIAL THEN 'X' ELSE '' ) ).
+        )->text( COND string( WHEN r-required = abap_true THEN 'X' ELSE '' )
+        )->text( COND string( WHEN r-hidden = abap_true THEN 'X' ELSE '' )
+        )->text( COND string( WHEN r-has_attach = abap_true THEN 'X' ELSE '' )
+        )->text( COND string( WHEN r-label_ar IS NOT INITIAL THEN 'X' ELSE '' ) ).
 *     The pair toggle lives in the Row cell, NOT in the action cluster. Putting
 *     it first among the actions pushed Edit / Duplicate / Delete past the right
 *     edge of a table that had just gained a twelfth column, so Delete looked
@@ -2129,9 +2129,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       IF lv_rtok IS NOT INITIAL.
         rowc->text( text = substring( val = lv_rtok off = 4 ) class = 'sapUiTinyMarginEnd' ).
       ENDIF.
-      rowc->button( text    = COND #( WHEN lv_rtok IS NOT INITIAL THEN 'Unpair' ELSE 'Pair' )
+      rowc->button( text    = COND string( WHEN lv_rtok IS NOT INITIAL THEN 'Unpair' ELSE 'Pair' )
                     type    = 'Transparent'
-                    tooltip = COND #( WHEN lv_rtok IS NOT INITIAL
+                    tooltip = COND string( WHEN lv_rtok IS NOT INITIAL
                                       THEN 'Take this field off the shared row'
                                       ELSE 'Put this field on the same row as the field above' )
                     press   = mo_client->_event( |ROWPAIR_{ r-step_id }~{ r-field_name }| ) ).
@@ -2145,9 +2145,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       LOOP AT mt_lint_row INTO DATA(ls_lr)
            WHERE step = to_upper( r-step_id ) AND field = to_upper( r-field_name ).
         lv_marker->button(
-          icon    = COND #( WHEN ls_lr-type = 'Error' THEN 'sap-icon://error'
+          icon    = COND string( WHEN ls_lr-type = 'Error' THEN 'sap-icon://error'
                             ELSE 'sap-icon://alert' )
-          type    = COND #( WHEN ls_lr-type = 'Error' THEN 'Reject' ELSE 'Transparent' )
+          type    = COND string( WHEN ls_lr-type = 'Error' THEN 'Reject' ELSE 'Transparent' )
           tooltip = ls_lr-text
           press   = mo_client->_event( |EDFLD_{ r-step_id }~{ r-field_name }| ) ).
       ENDLOOP.
@@ -2161,9 +2161,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                    type    = 'Transparent'
                    tooltip = 'Duplicate'
                    press   = mo_client->_event( |DUPFLD_{ r-step_id }~{ r-field_name }| ) ).
-      act->button( icon = COND #( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                   type = COND #( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
-                   tooltip = COND #( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
+      act->button( icon = COND string( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                   type = COND string( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
                    press = mo_client->_event( lv_dev ) ).
     ENDLOOP.
   ENDMETHOD.
@@ -2199,9 +2199,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                    type    = 'Transparent'
                    tooltip = 'Edit'
                    press   = mo_client->_event( |EDOPT_{ r-step_id }~{ r-field_name }~{ r-opt_key }| ) ).
-      act->button( icon = COND #( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                   type = COND #( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
-                   tooltip = COND #( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
+      act->button( icon = COND string( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                   type = COND string( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
                    press = mo_client->_event( lv_dev ) ).
     ENDLOOP.
   ENDMETHOD.
@@ -2280,9 +2280,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                     type    = 'Transparent'
                     tooltip = 'Edit'
                     press   = mo_client->_event( |EDCOL_{ rc-step_id }~{ rc-field_name }~{ rc-col_name }| ) ).
-      actc->button( icon = COND #( WHEN mv_arm_evt = lv_devc THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                    type = COND #( WHEN mv_arm_evt = lv_devc THEN 'Reject' ELSE 'Transparent' )
-                    tooltip = COND #( WHEN mv_arm_evt = lv_devc THEN 'Click again to confirm delete' ELSE 'Delete' )
+      actc->button( icon = COND string( WHEN mv_arm_evt = lv_devc THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                    type = COND string( WHEN mv_arm_evt = lv_devc THEN 'Reject' ELSE 'Transparent' )
+                    tooltip = COND string( WHEN mv_arm_evt = lv_devc THEN 'Click again to confirm delete' ELSE 'Delete' )
                     press = mo_client->_event( lv_devc ) ).
     ENDLOOP.
   ENDMETHOD.
@@ -2341,9 +2341,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         )->text( r-action )->text( r-tgt_field )->text( r-tgt_value ).
       DATA(act) = cells->hbox( ).
       act->button( icon = 'sap-icon://edit' type = 'Transparent' tooltip = 'Edit' press = mo_client->_event( |EDRULE_{ r-rule_id }| ) ).
-      act->button( icon = COND #( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                   type = COND #( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
-                   tooltip = COND #( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
+      act->button( icon = COND string( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                   type = COND string( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
                    press = mo_client->_event( lv_dev ) ).
     ENDLOOP.
   ENDMETHOD.
@@ -2359,10 +2359,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     lt->label( text = 'Preview language:' class = 'sapUiTinyMarginEnd' ).
     lt->button( text  = 'English'
                 press = mo_client->_event( 'PL_EN' )
-                type  = COND #( WHEN mv_prev_lang = 'AR' THEN 'Transparent' ELSE 'Emphasized' ) ).
+                type  = COND string( WHEN mv_prev_lang = 'AR' THEN 'Transparent' ELSE 'Emphasized' ) ).
     lt->button( text  = 'العربية'
                 press = mo_client->_event( 'PL_AR' )
-                type  = COND #( WHEN mv_prev_lang = 'AR' THEN 'Emphasized' ELSE 'Transparent' ) ).
+                type  = COND string( WHEN mv_prev_lang = 'AR' THEN 'Emphasized' ELSE 'Transparent' ) ).
     lt->link( text = 'Open in new tab ↗' target = '_blank' class = 'sapUiSmallMarginBegin'
               href = engine_url( iv_journey = mv_preview iv_ar = xsdbool( mv_prev_lang = 'AR' ) ) ).
     IF field_exists( 'PAYFEE' ) = abap_true.
@@ -2622,7 +2622,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
              |{ lines( mt_fields ) } fields, { lines( mt_rules ) } rules| &&
              COND string( WHEN lv_bad > 0 THEN |, { lv_bad } line(s) unreadable and skipped| ) &&
              |. Nothing is written until you Save.|.
-    mv_mtype = COND #( WHEN lv_bad > 0 THEN 'Warning' ELSE 'Success' ).
+    mv_mtype = COND string( WHEN lv_bad > 0 THEN 'Warning' ELSE 'Success' ).
   ENDMETHOD.
 
 
@@ -4103,7 +4103,7 @@ TO rt.
     hp->message_strip(
       text     = |{ lines( lt_bad ) } journey(s) with errors · { lv_err } error(s) · { lv_wrn } warning(s). | &&
                  |A journey with errors will not behave as configured - clear those before it goes to QA.|
-      type     = COND #( WHEN lt_bad IS INITIAL THEN 'Warning' ELSE 'Error' )
+      type     = COND string( WHEN lt_bad IS INITIAL THEN 'Warning' ELSE 'Error' )
       showicon = abap_true
       class    = 'sapUiSmallMargin' ).
 
@@ -4192,10 +4192,10 @@ TO rt.
 
     IF lv_on = abap_true.
       DATA(lv_arm_cl) = xsdbool( mv_arm_evt = 'DSG_CLR' ).
-      bar->button( text    = COND #( WHEN lv_arm_cl = abap_true THEN 'Clear anyway' ELSE 'Clear' )
-                   icon    = COND #( WHEN lv_arm_cl = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://reset' )
-                   type    = COND #( WHEN lv_arm_cl = abap_true THEN 'Reject' )
-                   tooltip = COND #( WHEN lv_arm_cl = abap_true
+      bar->button( text    = COND string( WHEN lv_arm_cl = abap_true THEN 'Clear anyway' ELSE 'Clear' )
+                   icon    = COND string( WHEN lv_arm_cl = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://reset' )
+                   type    = COND string( WHEN lv_arm_cl = abap_true THEN 'Reject' )
+                   tooltip = COND string( WHEN lv_arm_cl = abap_true
                                      THEN 'Click again to drop every row and width on this step'
                                      ELSE 'Drop the layout and render this step the classic way' )
                    press   = mo_client->_event( 'DSG_CLR' ) ).
@@ -4224,22 +4224,22 @@ TO rt.
     pl->label( text = 'Preview:' class = 'sapUiTinyMarginEnd' ).
     pl->button( text  = 'English'
                 press = mo_client->_event( 'PL_EN' )
-                type  = COND #( WHEN mv_prev_lang = 'AR' THEN 'Transparent' ELSE 'Emphasized' ) ).
+                type  = COND string( WHEN mv_prev_lang = 'AR' THEN 'Transparent' ELSE 'Emphasized' ) ).
     pl->button( text  = 'العربية'
                 press = mo_client->_event( 'PL_AR' )
-                type  = COND #( WHEN mv_prev_lang = 'AR' THEN 'Emphasized' ELSE 'Transparent' ) ).
+                type  = COND string( WHEN mv_prev_lang = 'AR' THEN 'Emphasized' ELSE 'Transparent' ) ).
     pl->button( text  = 'Desktop'
                 icon  = 'sap-icon://sys-monitor'
-                type  = COND #( WHEN mv_dsg_dev = 'PHONE' OR mv_dsg_dev = 'TABLET' THEN 'Transparent' ELSE 'Emphasized' )
+                type  = COND string( WHEN mv_dsg_dev = 'PHONE' OR mv_dsg_dev = 'TABLET' THEN 'Transparent' ELSE 'Emphasized' )
                 press = mo_client->_event( 'DSG_DEV~DESKTOP' )
                 class = 'sapUiSmallMarginBegin' ).
     pl->button( text  = 'Tablet'
                 icon  = 'sap-icon://ipad'
-                type  = COND #( WHEN mv_dsg_dev = 'TABLET' THEN 'Emphasized' ELSE 'Transparent' )
+                type  = COND string( WHEN mv_dsg_dev = 'TABLET' THEN 'Emphasized' ELSE 'Transparent' )
                 press = mo_client->_event( 'DSG_DEV~TABLET' ) ).
     pl->button( text  = 'Phone'
                 icon  = 'sap-icon://iphone'
-                type  = COND #( WHEN mv_dsg_dev = 'PHONE' THEN 'Emphasized' ELSE 'Transparent' )
+                type  = COND string( WHEN mv_dsg_dev = 'PHONE' THEN 'Emphasized' ELSE 'Transparent' )
                 press = mo_client->_event( 'DSG_DEV~PHONE' ) ).
 
     pl->link( text   = 'Open in new tab ↗'
@@ -4444,10 +4444,10 @@ TO rt.
                type  = 'Emphasized'
                press = mo_client->_event( 'DOCEXP' ) ).
     DATA(lv_arm_im) = xsdbool( mv_arm_evt = 'DOCIMP' ).
-    b->button( text    = COND #( WHEN lv_arm_im = abap_true THEN 'Import anyway' ELSE 'Import from box' )
-               icon    = COND #( WHEN lv_arm_im = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://upload' )
-               type    = COND #( WHEN lv_arm_im = abap_true THEN 'Reject' )
-               tooltip = COND #( WHEN lv_arm_im = abap_true
+    b->button( text    = COND string( WHEN lv_arm_im = abap_true THEN 'Import anyway' ELSE 'Import from box' )
+               icon    = COND string( WHEN lv_arm_im = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://upload' )
+               type    = COND string( WHEN lv_arm_im = abap_true THEN 'Reject' )
+               tooltip = COND string( WHEN lv_arm_im = abap_true
                                  THEN 'Click again to replace the loaded draft'
                                  ELSE 'Replaces the loaded draft. Nothing is written until Save.' )
                press   = mo_client->_event( 'DOCIMP' )
@@ -4481,7 +4481,7 @@ TO rt.
         )->object_status(
              text  = COND #( WHEN s-ok = abap_true THEN |{ s-cnt } option(s)|
                              ELSE 'NO options - renders an empty dropdown' )
-             state = COND #( WHEN s-ok = abap_true THEN 'Success' ELSE 'Error' ) ).
+             state = COND string( WHEN s-ok = abap_true THEN 'Success' ELSE 'Error' ) ).
     ENDLOOP.
   ENDMETHOD.
 

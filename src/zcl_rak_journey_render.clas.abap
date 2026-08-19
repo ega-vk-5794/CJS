@@ -587,7 +587,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                      THEN `` ELSE is_field-default ).
 
         DATA(lo_tab) = io_parent->table( alternaterowcolors = abap_true
-                                         mode               = COND #( WHEN lv_pick IS NOT INITIAL THEN 'SingleSelectMaster' ELSE 'None' )
+                                         mode               = COND string( WHEN lv_pick IS NOT INITIAL THEN 'SingleSelectMaster' ELSE 'None' )
                                          class              = 'sapUiSmallMarginBeginEnd' ).
 
         DATA lt_thide TYPE STANDARD TABLE OF i WITH EMPTY KEY.
@@ -638,7 +638,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           DATA(lv_row_key) = COND string( WHEN lt_row IS NOT INITIAL THEN lt_row[ 1 ] ELSE `` ).
           DATA(lv_sel)     = xsdbool( lv_pick IS NOT INITIAL AND mo_e->val_get( lv_pick ) = lv_row_key ).
           DATA(lo_cells)   = lo_items->column_list_item(
-                               type     = COND #( WHEN lv_pick IS NOT INITIAL THEN 'Active' ELSE 'Inactive' )
+                               type     = COND string( WHEN lv_pick IS NOT INITIAL THEN 'Active' ELSE 'Inactive' )
                                selected = lv_sel
                                press    = COND #( WHEN lv_pick IS NOT INITIAL
                                                   THEN mo_e->mo_client->_event( |ROWPICK_{ is_field-name }~{ lv_row_key }| ) ELSE `` )
@@ -1022,7 +1022,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                           THEN zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-done iv_default = 'Done' )
                                           ELSE zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-next iv_default = 'Next' ) )
                       type      = mo_e->ms_config-theme-accent_type
-                      icon      = COND #( WHEN lv_paid = abap_true
+                      icon      = COND string( WHEN lv_paid = abap_true
                                           THEN 'sap-icon://accept'
                                           ELSE 'sap-icon://navigation-right-arrow' )
                       iconfirst = xsdbool( lv_paid = abap_true )
@@ -1219,7 +1219,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             LOOP AT lr_ror INTO DATA(lv_rocell).
               lv_roc = lv_roc + 1.
               lo_rorow->text( text  = zcl_rak_journey_util=>esc( lv_rocell )
-                              class = COND #( WHEN lv_roc = 1
+                              class = COND string( WHEN lv_roc = 1
                                               THEN 'rakRoLbl sapUiTinyMarginEnd'
                                               ELSE 'rakVal sapUiTinyMarginEnd' ) ).
             ENDLOOP.
