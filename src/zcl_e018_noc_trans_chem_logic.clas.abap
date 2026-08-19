@@ -807,10 +807,10 @@ ENDMETHOD.
     ENDLOOP.
 
     DATA(lv_hs_code)    = condense( io_ctx->get_val( 'HS_CODE_POP' ) ).
-    DATA(lv_mat_name)   = condense( io_ctx->get_val( 'MATERIAL_NAME_POP') ).
+    DATA(lv_mat_name)   = condense( io_ctx->get_val( c_material_name_pop ) ).
 *    DATA(lv_mat_name)   = condense( io_ctx->get_val( C_MATERIAL_NAME_POP ) ).
 
-    DATA(lv_chem_name)  = condense( io_ctx->get_val( 'CHEMICAL_NAME_POP' ) ).
+    DATA(lv_chem_name)  = condense( io_ctx->get_val( c_chemical_name_pop ) ).
     DATA(lv_cas)        = condense( io_ctx->get_val( 'CAS_POP' ) ).
     DATA(lv_chem_form)  = condense( io_ctx->get_val( 'CHEMICAL_FORMULA_POP' ) ).
     DATA(lv_packaging)  = condense( io_ctx->get_val( 'PACKAGING_POP' ) ).
