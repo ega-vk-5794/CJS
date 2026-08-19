@@ -32,8 +32,8 @@ private section.
   constants C_GRID type STRING value 'CHEMICALS_DETAILS' ##NO_TEXT.
   constants C_EVT_DETAILS type STRING value 'ADD Details' ##NO_TEXT.
   constants C_HS_CODE_POP type STRING value 'HS_CODE_POP' ##NO_TEXT.
-  constants C_MATERIAL_NAME_POP type STRING value 'MATERIAL_NAME_POP' ##NO_TEXT.
-  constants C_CHEMICAL_NAME_POP type STRING value 'CHEMICAL_NAME_POP' ##NO_TEXT.
+  constants C_MATERIAL_NAME_POP type STRING value 'MATERIAL_NAME_HF' ##NO_TEXT.
+  constants C_CHEMICAL_NAME_POP type STRING value 'CHEMICAL_NAME_HF' ##NO_TEXT.
   constants C_CAS_POP type STRING value 'CAS_POP' ##NO_TEXT.
   constants C_CHEMICAL_FORMULA_POP type STRING value 'CHEMICAL_FORMULA_POP' ##NO_TEXT.
   constants C_PACKAGING_POP type STRING value 'PACKAGING_POP' ##NO_TEXT.
@@ -44,7 +44,7 @@ private section.
   constants C_ORIGIN_POP type STRING value 'ORIGIN_POP' ##NO_TEXT.
   constants C_END_USER_POP type STRING value 'END_USER_POP' ##NO_TEXT.
   constants C_BOL_POP type STRING value 'BOL_POP' ##NO_TEXT.
-  constants C_TRANS_COMP type STRING value 'BOL_POP' ##NO_TEXT.
+  constants C_TRANS_COMP type STRING value 'TRANS_COMP' ##NO_TEXT.
   constants C_CHEM type STRING value 'CHEM' ##NO_TEXT.
   constants C_EVT_OWNOK type STRING value 'OWN_OK' ##NO_TEXT.
   constants C_EVT_OWNCX type STRING value 'OWN_CANCEL' ##NO_TEXT.
@@ -108,8 +108,8 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 **    io_ctx->set_val( iv_name = c_trans_comp           iv_value = '' ).
 
     io_ctx->set_val( iv_name = 'HS_CODE_POP'         iv_value = '' ).
-    io_ctx->set_val( iv_name = 'MATERIAL_NAME_POP'    iv_value = '' ).
-    io_ctx->set_val( iv_name = 'CHEMICAL_NAME_POP'    iv_value = '' ).
+    io_ctx->set_val( iv_name = 'MATERIAL_NAME_HF'     iv_value = '' ).
+    io_ctx->set_val( iv_name = 'CHEMICAL_NAME_HF'     iv_value = '' ).
     io_ctx->set_val( iv_name = 'CAS_POP'              iv_value = '' ).
     io_ctx->set_val( iv_name = 'CHEMICAL_FORMULA_POP' iv_value = '' ).
     io_ctx->set_val( iv_name = 'PACKAGING_POP'        iv_value = '' ).
@@ -267,18 +267,18 @@ ENDMETHOD.
 
     DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
     lo_c2->label( text = 'Material Name' ).
-    lo_c2->input( value = io_ctx->bind( 'C_MATERIAL_NAME_POP' ) width = '17rem' ).
+    lo_c2->input( value = io_ctx->bind( c_material_name_pop ) width = '17rem' ).
 
     DATA(lo_c3) = lo_r1->vbox( class = 'rakCell' ).
     lo_c3->label( text = 'Chemical Name' ).
-    lo_c3->input( value = io_ctx->bind( 'C_CHEMICAL_NAME_POP' ) width = '17rem' ).
+    lo_c3->input( value = io_ctx->bind( c_chemical_name_pop ) width = '17rem' ).
 
 *&--------Row 2-----------&
     DATA(lo_r2) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
 
     DATA(lo_c4) = lo_r2->vbox( class = 'rakCell' ).
     lo_c4->label( text = 'CAS Number' ).
-    lo_c4->input( value = io_ctx->bind( 'C_CAS_POP' ) width = '17rem' ).
+    lo_c4->input( value = io_ctx->bind( c_cas_pop ) width = '17rem' ).
 
     DATA(lo_c5) = lo_r2->vbox( class = 'rakCell' ).
     lo_c5->label( text = 'Chemical formula' ).
@@ -286,7 +286,11 @@ ENDMETHOD.
 
     DATA(lo_c6) = lo_r2->vbox( class = 'rakCell' ).
     lo_c6->label( text = 'Packing' class = 'rakReq' ).
-    lo_c6->input( value = io_ctx->bind( c_packaging_pop ) type = 'Number' width = '17rem' ).
+*   NOT type 'Number'. Packing carries a packaging description - drum, IBC, the
+*   legacy PACKAGING_POP value - and sap.m.Input with type Number shows nothing
+*   at all for a non-numeric value, so a bound field with real data rendered
+*   blank. Quantity and Gross Weight below keep type Number: those are numbers.
+    lo_c6->input( value = io_ctx->bind( c_packaging_pop ) width = '17rem' ).
 
     DATA(lo_c7) = lo_r2->vbox( class = 'rakCell' ).
     lo_c7->label( text = 'Quantity' class = 'rakReq' ).
