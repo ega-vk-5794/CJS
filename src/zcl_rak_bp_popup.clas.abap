@@ -421,7 +421,7 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 
     DATA(lv_err) = abap_false.
     LOOP AT ls_res-msg INTO DATA(ls_m).
-      mo_ctx->add_msg( iv_type = COND #( WHEN ls_m-type = 'E' OR ls_m-type = 'A' THEN 'Error'
+      mo_ctx->add_msg( iv_type = COND string( WHEN ls_m-type = 'E' OR ls_m-type = 'A' THEN 'Error'
                                          WHEN ls_m-type = 'W' THEN 'Warning'
                                          ELSE 'Information' )
                        iv_text = CONV string( ls_m-message ) ).

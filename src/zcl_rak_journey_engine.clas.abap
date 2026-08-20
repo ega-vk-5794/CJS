@@ -1687,7 +1687,8 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *         field with a length limit accepted anything and failed at the Notary API
 *         instead of at the field - the citizen learns about it on submit, with no
 *         indication of which answer was too long.
-          validation = VALUE #( max_len = ls_dyn-max_len )
+          validation = VALUE #( max_len = ls_dyn-max_len
+                                regex   = ls_dyn-regex )
           options = VALUE #( FOR o IN ls_dyn-options ( key = o-key text = o-text ) )
         ) TO <dstep>-fields.
 

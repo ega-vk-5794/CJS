@@ -1646,6 +1646,11 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
              type           TYPE string, data_type  TYPE string, field_type TYPE string, control_type TYPE string,
              mandatory      TYPE abap_bool, required TYPE abap_bool, is_mandatory TYPE abap_bool,
              max_length     TYPE i, length TYPE i,
+*            The blueprint carries a pattern per business field. Same
+*            shape-tolerant treatment as every other attribute here - Q4 is still
+*            open, so the spelling is not assumed.
+             regex          TYPE string, regular_expression TYPE string,
+             pattern        TYPE string, validation_regex   TYPE string,
              options        TYPE tt_o, values TYPE tt_o, lookup_values TYPE tt_o, items TYPE tt_o,
            END OF ty_f,
            tt_f TYPE STANDARD TABLE OF ty_f WITH EMPTY KEY.
@@ -1760,6 +1765,14 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         required = COND abap_bool( WHEN ls_f-mandatory = abap_true OR ls_f-required = abap_true
                                      OR ls_f-is_mandatory = abap_true THEN abap_true ELSE abap_false )
         max_len  = COND i( WHEN ls_f-max_length > 0 THEN ls_f-max_length ELSE ls_f-length )
+*       A pattern is only useful on something the citizen types. Attaching one to
+*       a SELECT would let a choice the blueprint itself supplied fail validation.
+        regex    = COND string(
+          WHEN lv_type = 'SELECT' THEN ``
+          WHEN ls_f-regex              IS NOT INITIAL THEN ls_f-regex
+          WHEN ls_f-regular_expression IS NOT INITIAL THEN ls_f-regular_expression
+          WHEN ls_f-validation_regex   IS NOT INITIAL THEN ls_f-validation_regex
+          ELSE ls_f-pattern )
         options  = COND #( WHEN lt_live IS NOT INITIAL THEN lt_live
                            ELSE VALUE #( FOR o IN lt_opt (
                      key  = COND string( WHEN o-key IS NOT INITIAL THEN o-key
@@ -2304,7 +2317,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
           EXPORTING
             iv_api         = mc_api
             iv_path        = lv_bopath
-            iv_method      = COND #( WHEN cs_handle-bo_id IS NOT INITIAL THEN 'PUT' ELSE 'POST' )
+            iv_method      = COND string( WHEN cs_handle-bo_id IS NOT INITIAL THEN 'PUT' ELSE 'POST' )
             iv_payload     = lv_bo_body
             it_headers     = auth_hdr( cs_handle )
             it_url_replace = lt_rep
@@ -2344,7 +2357,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
           EXPORTING
             iv_api         = mc_api
             iv_path        = lv_tpath
-            iv_method      = COND #( WHEN lv_vid IS NOT INITIAL THEN 'PUT' ELSE 'POST' )
+            iv_method      = COND string( WHEN lv_vid IS NOT INITIAL THEN 'PUT' ELSE 'POST' )
             iv_payload     = transfer_json( it_fields )
             it_headers     = auth_hdr( cs_handle )
             it_url_replace = lt_rep

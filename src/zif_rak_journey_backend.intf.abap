@@ -89,6 +89,11 @@ INTERFACE zif_rak_journey_backend
            type     TYPE string,       " INPUT / SELECT / DATE / NUMBER / TEXTAREA
            required TYPE abap_bool,
            max_len  TYPE i,
+*          Pattern the backend wants the value to match. The Notary blueprint ships
+*          one per business field alongside the label and the choices, and
+*          ZCL_RAK_JOURNEY_RULES already enforces VALIDATION-REGEX - there was just
+*          nothing carrying it from one to the other.
+           regex    TYPE string,
            options  TYPE tt_dyn_opt,
          END OF ty_dyn_field,
          tt_dyn_field TYPE STANDARD TABLE OF ty_dyn_field WITH EMPTY KEY.
