@@ -57,6 +57,14 @@
 *&              is NOT the LESSEE template, and the difference is the one that
 *&              costs the most time to work out.
 *&
+*& The last two run against the LESSEE fields on purpose. A subject is a FIELD
+*& PREFIX and needs nine real fields behind it, because BIND( ) resolves model
+*& components only - it does NOT fall through to scratch the way SET_VAL and
+*& GET_VAL do. Point a subject at fields that do not exist and the dialog binds to
+*& nothing: the citizen picks an ID type, it never reaches the server, and the
+*& popup silently asks again. Holding the ruleset apart from the subject also
+*& isolates the variable - same partner, same form, different rules.
+*&
 *& ZP28 is deliberately not demonstrated - see the note in bp_opts( ). The full
 *& switch list is on ZCL_RAK_BP_SEARCH=>TY_REQ.
 *&
@@ -170,6 +178,19 @@ CLASS zcl_rak_test_all_logic DEFINITION
 *   branch and nothing in ZRAK_T_JNY_FLD.
     CONSTANTS c_evt_bpten TYPE string VALUE 'BP_OPEN_TENANCY'.
     CONSTANTS c_evt_bpsft TYPE string VALUE 'BP_OPEN_SOFTVERIFY'.
+*   Which TEMPLATE is in force, held separately from which SUBJECT is open.
+*
+*   They have to be separate. The subject is a FIELD PREFIX - the popup builds
+*   <SUBJECT>_SEARCHBY and eight more from it, and every one of them has to be a
+*   real field on the journey, because BIND( ) resolves model components ONLY. It
+*   does not fall through to the scratch store the way SET_VAL and GET_VAL do, so a
+*   made-up subject binds to nothing, the citizen picks an ID type, nothing comes
+*   back, and the dialog just asks again.
+*
+*   The ruleset is only rules. Varying it against a subject whose nine fields
+*   already exist is what lets these two templates be demonstrated without adding
+*   config - and it isolates the variable, which a separate partner would not.
+    CONSTANTS c_bp_rules  TYPE string VALUE 'BP_RULESET'.
 *   The form behind the popup. Scratch, because none of these is a configured
 *   field - they exist only while the dialog is open.
     CONSTANTS c_own_id    TYPE string VALUE 'OWN_ID'.
@@ -251,6 +272,13 @@ CLASS zcl_rak_test_all_logic DEFINITION
 *   Per-subject BP search options. The whole point of ZCL_RAK_BP_POPUP taking a
 *   TY_REQ template is that two partners on one journey do not need the same
 *   rules, and until now they had no way to differ.
+*   Which ruleset is in force, and a title that says so on the dialog. Without the
+*   title the four buttons open a popup that looks identical in all four cases and
+*   nobody can tell which template they are looking at.
+    METHODS bp_rules  IMPORTING io_ctx     TYPE REF TO zif_rak_journey
+                      RETURNING VALUE(rv)  TYPE string.
+    METHODS bp_title  IMPORTING io_ctx     TYPE REF TO zif_rak_journey
+                      RETURNING VALUE(rv)  TYPE string.
     METHODS bp_opts   IMPORTING iv_subject TYPE string
                       RETURNING VALUE(rs)  TYPE zcl_rak_bp_search=>ty_req.
     METHODS seed_fees IMPORTING io_ctx TYPE REF TO zif_rak_journey.
@@ -546,6 +574,27 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
     io_ctx->add_msg( iv_type = 'Success'
                      iv_text = |Found { ls_bp-name } ({ ls_bp-partner }). | &&
                                |Add the nationality and shares, then press Add.| ).
+  ENDMETHOD.
+
+
+  METHOD bp_rules.
+*   Blank means "use the subject", which is what the two real partners do and why
+*   LESSOR and LESSEE are untouched by any of this.
+    rv = io_ctx->get_val( c_bp_rules ).
+    IF rv IS INITIAL.
+      rv = io_ctx->get_val( 'BP_ACTIVE_SUBJECT' ).
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD bp_title.
+    DATA(lv_r) = bp_rules( io_ctx ).
+    rv = SWITCH string( to_upper( lv_r )
+           WHEN 'TENANCY'    THEN 'Partner Search - tenancy rules (both expiry checks off)'
+           WHEN 'SOFTVERIFY' THEN 'Partner Search - soft verify (MOI called, mismatch tolerated)'
+           WHEN 'LESSEE'     THEN 'Partner Search - lessee (looked up, no MOI call)'
+           WHEN 'LESSOR'     THEN 'Partner Search - lessor (fully verified)'
+           ELSE 'Partner Search' ).
   ENDMETHOD.
 
 
@@ -1449,7 +1498,7 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
       DATA(lv_asubj) = io_ctx->get_val( 'BP_ACTIVE_SUBJECT' ).
       NEW zcl_rak_bp_popup( io_ctx     = io_ctx
                             iv_subject = lv_asubj
-                            is_search  = bp_opts( lv_asubj ) )->handle( iv_event ).
+                            is_search  = bp_opts( bp_rules( io_ctx ) ) )->handle( iv_event ).
       RETURN.
     ENDIF.
 
@@ -1461,19 +1510,33 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *     make the popup class parse its own events to find out who it is.
       WHEN c_evt_bplsr.
         io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'LESSOR' ).
+*       Clear the ruleset, or a template picked earlier would still be in force on
+*       a partner that is meant to be fully verified. Silent if it leaked.
+        io_ctx->set_val( iv_name = c_bp_rules iv_value = '' ).
         io_ctx->open_popup( 'BP_LESSOR' ).
         RETURN.
       WHEN c_evt_bplse.
         io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'LESSEE' ).
+        io_ctx->set_val( iv_name = c_bp_rules iv_value = '' ).
         io_ctx->open_popup( 'BP_LESSEE' ).
         RETURN.
+
+*     --- the two template demonstrations ------------------------------
+*     SUBJECT stays LESSEE so the nine <S>_* fields resolve; only the RULESET
+*     changes. A subject of its own would need nine more fields in
+*     ZRAK_T_JNY_FLD - and without them BIND( ) returns nothing, the ID type the
+*     citizen picks never reaches the server, and the dialog silently re-asks the
+*     same question. Reusing the lessee fields also isolates the variable: same
+*     partner, same form, different rules.
       WHEN c_evt_bpten.
-        io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'TENANCY' ).
-        io_ctx->open_popup( 'BP_TENANCY' ).
+        io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'LESSEE' ).
+        io_ctx->set_val( iv_name = c_bp_rules iv_value = 'TENANCY' ).
+        io_ctx->open_popup( 'BP_LESSEE' ).
         RETURN.
       WHEN c_evt_bpsft.
-        io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'SOFTVERIFY' ).
-        io_ctx->open_popup( 'BP_SOFTVERIFY' ).
+        io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'LESSEE' ).
+        io_ctx->set_val( iv_name = c_bp_rules iv_value = 'SOFTVERIFY' ).
+        io_ctx->open_popup( 'BP_LESSEE' ).
         RETURN.
 
 *     --- handler-owned dialog ---------------------------------------
@@ -1732,20 +1795,19 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *     these two demonstrate rules rather than being the journey's real partners.
 *     The tooltip names the switches each one sets - that is the point of the
 *     button existing at all.
-      lo_bp->button( text    = COND string( WHEN io_ctx->get_val( 'TENANCY_PARTNER' ) IS INITIAL
-                                            THEN 'Search tenancy party' ELSE 'Change tenancy party' )
+      lo_bp->button( text    = 'Lessee, tenancy rules'
                      icon    = 'sap-icon://search'
                      type    = 'Transparent'
-                     tooltip = 'SKIP_TL_EXPIRY + SKIP_EID_EXPIRY - both expiry checks off, ' &&
-                               'the readable form of FLAG = T'
+                     tooltip = 'Same lessee fields, SKIP_TL_EXPIRY + SKIP_EID_EXPIRY - both ' &&
+                               'expiry checks off, the readable form of FLAG = T'
                      class   = 'sapUiSmallMarginBegin'
                      press   = io_ctx->event( c_evt_bpten ) ).
-      lo_bp->button( text    = COND string( WHEN io_ctx->get_val( 'SOFTVERIFY_PARTNER' ) IS INITIAL
-                                            THEN 'Search (soft verify)' ELSE 'Change (soft verify)' )
+      lo_bp->button( text    = 'Lessee, soft verify'
                      icon    = 'sap-icon://search'
                      type    = 'Transparent'
-                     tooltip = 'SKIP_MOI_MISMATCH - MOI is still called and the BP still updated ' &&
-                               'from it; only a DOB or nationality mismatch stops rejecting'
+                     tooltip = 'Same lessee fields, SKIP_MOI_MISMATCH - MOI is still called and ' &&
+                               'the BP still updated from it; only a DOB or nationality mismatch ' &&
+                               'stops rejecting'
                      press   = io_ctx->event( c_evt_bpsft ) ).
 
       render_own_list( io_ctx = io_ctx io_view = io_view ).
@@ -1783,9 +1845,13 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 
     IF iv_id CP 'BP_*'.
       DATA(lv_subj) = substring_after( val = iv_id sub = 'BP_' ).
+*     Subject for the field names, ruleset for the rules. BP_RULESET is blank for
+*     the two real partners, and BP_RULES( ) then falls back to the subject - so
+*     LESSOR and LESSEE behave exactly as before.
       NEW zcl_rak_bp_popup( io_ctx     = io_ctx
                             iv_subject = lv_subj
-                            is_search  = bp_opts( lv_subj ) )->render( io_popup ).
+                            iv_title   = bp_title( io_ctx )
+                            is_search  = bp_opts( bp_rules( io_ctx ) ) )->render( io_popup ).
       RETURN.
     ENDIF.
 
