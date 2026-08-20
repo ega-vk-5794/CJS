@@ -329,7 +329,26 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    zcl_rak_not_trace=>add( 'AUTH calling /client/authenticate for a fresh token' ).
+*   Neither half may be blank, and the reason is SERIALIZE's COMPRESS below.
+*   COMPRESS omits INITIAL components, so an empty password does not send
+*   "password":"" - it sends no password key at all, and the body
+*   {"userCredential":{"userName":"..."}} is malformed rather than wrong. The
+*   portal answers 400 Bad Request, which reads as a broken request shape and
+*   sends you looking at the payload instead of at the credential.
+    IF ls_cfg-username IS INITIAL OR ls_cfg-password IS INITIAL.
+      zcl_rak_not_trace=>add( |AUTH not attempted - | &&
+        COND string( WHEN ls_cfg-username IS INITIAL THEN 'username is blank. ' ) &&
+        COND string( WHEN ls_cfg-password IS INITIAL THEN 'password is blank. ' ) &&
+        |Maintain both in AUTHENTICATE( ).| ).
+      RETURN.
+    ENDIF.
+
+*   Length, never the value. A credential that arrives truncated - pasted over
+*   a line break, or cut by a CHAR field on the way in - looks present and
+*   fails, and the length is the one thing that tells them apart without
+*   putting a secret in a message strip on a citizen-facing page.
+    zcl_rak_not_trace=>add( |AUTH calling /client/authenticate as '{ ls_cfg-username }' | &&
+                            |(password { strlen( ls_cfg-password ) } chars)| ).
 
     TYPES: BEGIN OF ty_auth_cred, user_name TYPE string, password TYPE string, END OF ty_auth_cred,
            BEGIN OF ty_auth_body, user_credential TYPE ty_auth_cred, END OF ty_auth_body,
