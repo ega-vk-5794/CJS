@@ -1560,6 +1560,11 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
              nationality_code TYPE string, occupation_code TYPE string,
              text             TYPE string, name TYPE string, name_en TYPE string,
              english_name     TYPE string, description TYPE string,
+*            The service lookups label their rows englishTitle / arabicTitle,
+*            which nothing here read - so a sub-service row fell through every
+*            candidate to LV_KEY and the dropdown would have offered "90",
+*            "232", "231" instead of the declaration names.
+             english_title    TYPE string, arabic_title TYPE string,
              name_ar          TYPE string, arabic_name TYPE string,
            END OF ty_row,
            tt_row TYPE STANDARD TABLE OF ty_row WITH EMPTY KEY.
@@ -1570,6 +1575,33 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
              items  TYPE tt_row,
              list   TYPE tt_row,
            END OF ty_resp.
+
+*   The second shape, and the reason the service lookups returned nothing at
+*   all. TY_RESP types RESULT as a TABLE, which is right for the static
+*   endpoints - /static/nationalities answers "result":[...]. The service
+*   endpoints do not: /subservice/ answers
+*
+*     "result":{"subServices":[{"id":90,"englishTitle":"..."} ...]}
+*
+*   an OBJECT that CONTAINS the array. /ui2/cl_json cannot map an object onto
+*   a table, so RESULT came back empty, the three fallbacks were empty too,
+*   and a 200 OK with ten declarations in it produced zero options.
+*
+*   One type cannot have RESULT as both, so this is a second attempt rather
+*   than more alternatives on the first.
+    TYPES: BEGIN OF ty_lvl,
+             sub_services    TYPE tt_row,
+             main_services   TYPE tt_row,
+             classifications TYPE tt_row,
+             services        TYPE tt_row,
+             rows            TYPE tt_row,
+             items           TYPE tt_row,
+             list            TYPE tt_row,
+           END OF ty_lvl,
+           BEGIN OF ty_resp_n,
+             result TYPE ty_lvl,
+             data   TYPE ty_lvl,
+           END OF ty_resp_n.
 
     DATA ls_resp TYPE ty_resp.
     TRY.
@@ -1585,6 +1617,35 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
                                 WHEN ls_resp-items  IS NOT INITIAL THEN ls_resp-items
                                 ELSE ls_resp-list ).
 
+*   Nothing at the flat level, so try the nested one before giving up.
+    IF lt_row IS INITIAL.
+      DATA ls_respn TYPE ty_resp_n.
+      TRY.
+          /ui2/cl_json=>deserialize( EXPORTING json        = lv_json
+                                               pretty_name = /ui2/cl_json=>pretty_mode-camel_case
+                                     CHANGING  data        = ls_respn ).
+        CATCH cx_root.
+          RETURN.
+      ENDTRY.
+
+      lt_row = COND tt_row(
+        WHEN ls_respn-result-sub_services    IS NOT INITIAL THEN ls_respn-result-sub_services
+        WHEN ls_respn-result-main_services   IS NOT INITIAL THEN ls_respn-result-main_services
+        WHEN ls_respn-result-classifications IS NOT INITIAL THEN ls_respn-result-classifications
+        WHEN ls_respn-result-services        IS NOT INITIAL THEN ls_respn-result-services
+        WHEN ls_respn-result-rows            IS NOT INITIAL THEN ls_respn-result-rows
+        WHEN ls_respn-result-items           IS NOT INITIAL THEN ls_respn-result-items
+        WHEN ls_respn-result-list            IS NOT INITIAL THEN ls_respn-result-list
+        WHEN ls_respn-data-sub_services      IS NOT INITIAL THEN ls_respn-data-sub_services
+        WHEN ls_respn-data-main_services     IS NOT INITIAL THEN ls_respn-data-main_services
+        WHEN ls_respn-data-rows              IS NOT INITIAL THEN ls_respn-data-rows
+        WHEN ls_respn-data-items             IS NOT INITIAL THEN ls_respn-data-items
+        ELSE ls_respn-data-list ).
+
+      zcl_rak_not_trace=>add( |TO_OPTIONS flat shape empty, nested shape gave | &&
+                              |{ lines( lt_row ) } row(s)| ).
+    ENDIF.
+
     LOOP AT lt_row INTO DATA(ls_row).
 
       DATA(lv_key) = COND string(
@@ -1598,14 +1659,21 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         WHEN ls_row-id               IS NOT INITIAL THEN ls_row-id
         ELSE ls_row-value ).
 
+*     Arabic last, and only as a fallback, because TO_OPTIONS has no language
+*     to work with - it is called from LOOKUP( ), which knows a list name and
+*     nothing about the journey. An Arabic journey therefore still gets English
+*     declaration names here. Worth fixing, and it needs the language plumbed
+*     into LOOKUP( ) rather than a guess at this level.
       DATA(lv_txt) = COND string(
-        WHEN ls_row-text         IS NOT INITIAL THEN ls_row-text
-        WHEN ls_row-name_en      IS NOT INITIAL THEN ls_row-name_en
-        WHEN ls_row-english_name IS NOT INITIAL THEN ls_row-english_name
-        WHEN ls_row-name         IS NOT INITIAL THEN ls_row-name
-        WHEN ls_row-description  IS NOT INITIAL THEN ls_row-description
-        WHEN ls_row-name_ar      IS NOT INITIAL THEN ls_row-name_ar
-        WHEN ls_row-arabic_name  IS NOT INITIAL THEN ls_row-arabic_name
+        WHEN ls_row-text          IS NOT INITIAL THEN ls_row-text
+        WHEN ls_row-english_title IS NOT INITIAL THEN ls_row-english_title
+        WHEN ls_row-name_en       IS NOT INITIAL THEN ls_row-name_en
+        WHEN ls_row-english_name  IS NOT INITIAL THEN ls_row-english_name
+        WHEN ls_row-name          IS NOT INITIAL THEN ls_row-name
+        WHEN ls_row-description   IS NOT INITIAL THEN ls_row-description
+        WHEN ls_row-arabic_title  IS NOT INITIAL THEN ls_row-arabic_title
+        WHEN ls_row-name_ar       IS NOT INITIAL THEN ls_row-name_ar
+        WHEN ls_row-arabic_name   IS NOT INITIAL THEN ls_row-arabic_name
         ELSE lv_key ).
 
       IF lv_key IS INITIAL.
