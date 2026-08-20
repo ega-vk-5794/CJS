@@ -568,7 +568,18 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 
     CLEAR ev_dependent.
 
-    IF lv_n CS 'NATIONALITY'.
+*   SUBSERVICE and MAINSERVICE are tested FIRST, and the order is the whole
+*   point: 'SUBSERVICE' contains 'SERVICE', and 'MAINSERVICE' would also be
+*   caught by a plain 'SERVICE' test - but more importantly CLASSIFICATION's
+*   own test must not claim a field called SUBSERVICE_CLASSIFICATION. Both
+*   are dependent: neither list means anything until its parent is chosen.
+    IF lv_n CS 'SUBSERVICE'.
+      rv_list      = 'SUBSERVICE'.
+      ev_dependent = abap_true.
+    ELSEIF lv_n CS 'MAINSERVICE'.
+      rv_list      = 'MAINSERVICE'.
+      ev_dependent = abap_true.
+    ELSEIF lv_n CS 'NATIONALITY'.
       rv_list = 'NATIONALITY'.
     ELSEIF lv_n CS 'OCCUPATION' OR lv_n CS 'PROFESSION' OR lv_n CS 'JOB'.
       rv_list = 'OCCUPATION'.
@@ -738,6 +749,40 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         lv_path = '/static/countries'.
       WHEN 'CLASSIFICATION'.
         lv_path = '/classifications'.
+
+*     The declaration list. Without this the Sub Service dropdown on the
+*     first step renders EMPTY - and since everything downstream is derived
+*     from the declaration, the citizen cannot start at all.
+*
+*     classfication_Id is spelt exactly as the API spells it. The 'i' is
+*     missing in the collection's own URL
+*     (/subservice/?classfication_Id=27&applicant_type_id=1&mainService_Id=1)
+*     and correcting it here would simply not filter.
+*
+*     applicant_type_id is fixed at 1. The call settled this: "the individual
+*     all have the same permissions... usually, for the individual, all have
+*     the same role", and the printing-office difference is extra fields on
+*     the first-party call, not a different service list. Q3 in the
+*     clarification document asks which applicant categories are in scope; if
+*     the answer turns out to be more than one, this is where it becomes an
+*     argument.
+      WHEN 'SUBSERVICE'.
+        IF iv_arg1 IS INITIAL OR iv_arg2 IS INITIAL.
+*         No classification or main service yet, so there is nothing to
+*         filter by. Same reasoning as CITY: an unfiltered list is worse
+*         than none.
+          RETURN.
+        ENDIF.
+        lv_path = '/subservice/?classfication_Id={c}&applicant_type_id=1&mainService_Id={m}'.
+        lt_rep  = VALUE #( ( name = '{c}' value = iv_arg1 )
+                           ( name = '{m}' value = iv_arg2 ) ).
+
+      WHEN 'MAINSERVICE'.
+        IF iv_arg1 IS INITIAL.
+          RETURN.
+        ENDIF.
+        lv_path = '/mainservice/?classfication_Id={c}&applicant_type_id=1'.
+        lt_rep  = VALUE #( ( name = '{c}' value = iv_arg1 ) ).
       WHEN 'REGION'.
         IF iv_arg1 IS NOT INITIAL.
           lv_path = '/static/regionbycountry/{c}'.

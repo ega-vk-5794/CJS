@@ -138,9 +138,15 @@ START-OF-SELECTION.
 *   does not know would fall to WHEN OTHERS and post nothing while looking
 *   configured. A blank screen says the truth: these two steps choose the
 *   declaration, they do not send anything.
+*   NEXT_REQUIRES gates the footer on SUBSERVICE. Everything after this step
+*   is derived from the declaration - the blueprint, the business object, the
+*   documents, whether a second party is needed - so leaving step 1 without
+*   one would walk the citizen into a journey that cannot describe itself.
+*   The gate greys Next out beforehand rather than refusing the press.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 10
       title = 'Service Classifications' title_ar = 'تصنيفات الخدمة'
-      icon = 'sap-icon://tree' columns = 2 active = 'X' )
+      icon = 'sap-icon://tree' columns = 2
+      next_requires = 'SUBSERVICE' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
       title = 'Service Definition' title_ar = 'تعريف الخدمة'
       icon = 'sap-icon://document-text' columns = 2 active = 'X' )
@@ -188,30 +194,60 @@ START-OF-SELECTION.
       icon = 'sap-icon://inspection' bknd_screen = 'BILLING' active = 'X' ) ) ).
 
 * --------------------------------------------------- STP1 / STP2 fields
-* Service Classification and Main Service are fixed on the live screen -
-* "declaration attestation, this is the one you cannot change" - so they
-* are DISPLAY, not selects. Only the sub-service is chosen, and its list
-* is a live endpoint, so no OPT rows: ON_VALUE_HELP on the handler answers
-* SUBSERVICE.
+* ALL THREE selectors sit on STP1, because that is where the portal puts
+* them and because Sub Service is the only thing on this screen a citizen
+* can actually do. Splitting it onto STP2 left step 1 as two labels and a
+* Next button - a page that reads as broken.
+*
+* Classification and Main Service are READONLY SELECTs rather than DISPLAY
+* text. The live screen shows them as dropdowns that cannot be changed
+* ("declaration attestation, this is the one you cannot change"), and
+* RENDER_ONE passes READONLY through as enabled=false, so a one-option
+* combobox reproduces that exactly. DISPLAY would render them as bare text
+* and the three rows would not line up.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 10
-      field_name = 'CLASSIFICATION' ftype = 'DISPLAY'
-      zlabel = 'Service Classification' zlabel_ar = 'تصنيف الخدمة'
-      default_val = 'Declaration Attestation' )
+      field_name = 'CLASSIFICATION' ftype = 'SELECT' readonly = 'X' required = 'X'
+      zlabel = 'Service Classifications' zlabel_ar = 'تصنيفات الخدمة'
+      default_val = 'DECLATT' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 20
-      field_name = 'MAINSERVICE' ftype = 'DISPLAY'
+      field_name = 'MAINSERVICE' ftype = 'SELECT' readonly = 'X' required = 'X'
       zlabel = 'Main Service' zlabel_ar = 'الخدمة الرئيسية'
-      default_val = 'Declaration Attestation' )
-    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 10
+      default_val = 'DECLATT' )
+*   The sub-service list is a live endpoint, so no OPT rows - ON_VALUE_HELP
+*   on the handler answers SUBSERVICE. It drives everything downstream: the
+*   blueprint, the business-object fields, the documents and whether a
+*   second party is needed.
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 30
       field_name = 'SUBSERVICE' ftype = 'SELECT' required = 'X'
-      zlabel = 'Declaration Type' zlabel_ar = 'نوع الإقرار'
-      placeholder = 'Choose the declaration'
+      zlabel = 'Sub Service' zlabel_ar = 'الخدمة الفرعية'
+      placeholder = 'Choose Sub Service..'
       tech_name = 'subServiceId' )
+
+*   STP2 is the portal's Service Definition - the screen "Get Information"
+*   fills, showing what the chosen declaration involves before the citizen
+*   starts filling it in. Read-only, and the handler fills it from the same
+*   blueprint call the business object comes from.
+*
+*   DISPLAY carries long text in DEFAULT_VAL (CHAR 1000) rather than in
+*   ZLABEL, which is CHAR 150 and would truncate a description silently.
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 10
+      field_name = 'SVC_NAME' ftype = 'DISPLAY' readonly = 'X'
+      zlabel = 'Declaration' zlabel_ar = 'الإقرار' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
+      field_name = 'SVC_DESC' ftype = 'DISPLAY' readonly = 'X'
+      zlabel = 'Description' zlabel_ar = 'الوصف' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 30
+      field_name = 'SVC_FEE' ftype = 'DISPLAY' readonly = 'X'
+      zlabel = 'Fees' zlabel_ar = 'الرسوم' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 40
+      field_name = 'SVC_SECONDPARTY' ftype = 'DISPLAY' readonly = 'X'
+      zlabel = 'Second party' zlabel_ar = 'الطرف الثاني' )
 
 *   The request the draft call returns. Held so a resumed journey can find
 *   its own draft again, and shown because the live screen puts it in the
 *   success toast ("Request with request id : 13,243 created successfully").
-    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 50
       field_name = 'REQUEST_ID' ftype = 'DISPLAY' readonly = 'X'
       zlabel = 'Request' zlabel_ar = 'الطلب' ) ) ).
 
@@ -350,6 +386,18 @@ START-OF-SELECTION.
       zsection = 'Visit Details'
       zlabel = 'Notes' zlabel_ar = 'ملاحظات'
       tech_name = 'visit_transferNotes' max_len = 250 ) ) ).
+
+* -------------------------------------- fixed classification / main opts
+* One option each, so the readonly combobox has something to show. Both are
+* 'Declaration Attestation' on every declaration - the portal disables them
+* for that reason.
+  INSERT zrak_t_jny_opt FROM TABLE @( VALUE #(
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1'
+      field_name = 'CLASSIFICATION' opt_key = 'DECLATT' seqnr = 10
+      opt_text = 'Declaration Attestation' opt_text_ar = 'تصديق الإقرارات' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1'
+      field_name = 'MAINSERVICE' opt_key = 'DECLATT' seqnr = 10
+      opt_text = 'Declaration Attestation' opt_text_ar = 'تصديق الإقرارات' ) ) ).
 
 * ---------------------------------------------------- VISIT_REQUIRED opts
 * Disable first, and it is the default. The live screen opens on Disable.

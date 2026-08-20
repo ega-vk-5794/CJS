@@ -28,6 +28,16 @@ CLASS zcl_rak_not_approval_logic DEFINITION
 
     CONSTANTS mc_sub TYPE string VALUE '90'.
 
+*   The Declaration Attestation pair, used to filter the declaration list.
+*   Taken from the shared collection's own sub-service call -
+*   /subservice/?classfication_Id=27&applicant_type_id=1&mainService_Id=1 -
+*   and NOT from a document that states them, so treat them as the first
+*   thing to check if the Sub Service dropdown comes back empty against a
+*   live tenant. The collection's main-service call uses classfication_Id=31,
+*   which is a different classification, so 27 is not simply "the only one".
+    CONSTANTS mc_class_decl TYPE string VALUE '27'.
+    CONSTANTS mc_main_decl  TYPE string VALUE '1'.
+
     METHODS blueprint_legal_text
       IMPORTING io_be          TYPE REF TO zcl_rak_be_not
       RETURNING VALUE(rv_text) TYPE string.
@@ -316,6 +326,27 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 *   Region and city are dependent lists: the endpoint needs the parent that
 *   was chosen. This is the one place those values are visible.
     CASE lv_list.
+
+*     The declaration list is filtered by classification and main service.
+*     Both are fixed to Declaration Attestation on this journey - the portal
+*     disables those two dropdowns for exactly that reason - so the ids come
+*     off the model, and fall back to the Declaration Attestation pair when
+*     the citizen has not been near them.
+      WHEN 'SUBSERVICE'.
+        lv_a1 = io_ctx->get_val( 'CLASSIFICATION_ID' ).
+        IF lv_a1 IS INITIAL.
+          lv_a1 = mc_class_decl.
+        ENDIF.
+        lv_a2 = io_ctx->get_val( 'MAINSERVICE_ID' ).
+        IF lv_a2 IS INITIAL.
+          lv_a2 = mc_main_decl.
+        ENDIF.
+
+      WHEN 'MAINSERVICE'.
+        lv_a1 = io_ctx->get_val( 'CLASSIFICATION_ID' ).
+        IF lv_a1 IS INITIAL.
+          lv_a1 = mc_class_decl.
+        ENDIF.
 
       WHEN 'REGION'.
         lv_a1 = io_ctx->get_val( 'PARTY_LIVINGCOUNTRY' ).
