@@ -45,9 +45,20 @@
 *& same list. The DDIC names above are chosen because they exist on every
 *& system, not because they suit those fields.
 *&
-*& PER-POPUP BP SEARCH. bp_opts( ) gives the two partner searches different
-*& rules: the lessor is verified, the lessee is looked up with no MOI call,
-*& findings as warnings, and a capped hit list. See ZCL_RAK_BP_SEARCH=>TY_REQ.
+*& PER-POPUP BP SEARCH. bp_opts( ) gives four partner searches different rules,
+*& one template each, and step 0 carries a button for every one of them:
+*&
+*&   LESSOR     verified. Everything runs - the empty template is full strength.
+*&   LESSEE     looked up. NO_MOI_CALL, findings as warnings, capped hit list.
+*&   TENANCY    SKIP_TL_EXPIRY + SKIP_EID_EXPIRY - both expiry checks off, which
+*&              is FLAG = 'T' said as the two decisions it actually is.
+*&   SOFTVERIFY SKIP_MOI_MISMATCH - MOI IS still called and the BP still updated
+*&              from it; only a DOB or nationality mismatch stops rejecting. This
+*&              is NOT the LESSEE template, and the difference is the one that
+*&              costs the most time to work out.
+*&
+*& ZP28 is deliberately not demonstrated - see the note in bp_opts( ). The full
+*& switch list is on ZCL_RAK_BP_SEARCH=>TY_REQ.
 *&
 *& PAYMENT IS SIMULATED. render_field builds a fixed fee table instead of
 *& calling ZCL_RAK_PAY_ENGINE, and on_popup_event intercepts PAYNOW and
@@ -152,6 +163,13 @@ CLASS zcl_rak_test_all_logic DEFINITION
 *   never heard of it and silently dropped.
     CONSTANTS c_evt_bplsr TYPE string VALUE 'BP_OPEN_LESSOR'.
     CONSTANTS c_evt_bplse TYPE string VALUE 'BP_OPEN_LESSEE'.
+*   Two more subjects, and they exist for the two distinctions TY_REQ's own
+*   comments say keep being got wrong. Neither needs a configured field: the popup
+*   builds its names as <SUBJECT>_<SUFFIX> and SET_VAL falls through to scratch for
+*   a name that is not on the journey, so a new subject costs a constant and a
+*   branch and nothing in ZRAK_T_JNY_FLD.
+    CONSTANTS c_evt_bpten TYPE string VALUE 'BP_OPEN_TENANCY'.
+    CONSTANTS c_evt_bpsft TYPE string VALUE 'BP_OPEN_SOFTVERIFY'.
 *   The form behind the popup. Scratch, because none of these is a configured
 *   field - they exist only while the dialog is open.
     CONSTANTS c_own_id    TYPE string VALUE 'OWN_ID'.
@@ -559,7 +577,56 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *       A picker does not need a hundred rows.
         rs-max_rows    = 20.
 
+      WHEN 'TENANCY'.
+*       BOTH expiry checks off. This is what FLAG = 'T' has always meant, said as
+*       the two decisions it actually is:
+*
+*         SKIP_TL_EXPIRY  - trade licence expiry, category 2
+*         SKIP_EID_EXPIRY - Emirates ID expiry, category 1
+*
+*       Written this way on purpose. FLAG = 'T' still works and VALIDATE( ) ORs
+*       the two together, so nothing existing breaks - but FLAG carries three
+*       unrelated decisions in one field, which is why it keeps being reached for
+*       as a general "skip validation" switch when it is not one. A tenancy that
+*       only wants the expiry checks off can now say exactly that, and a reader
+*       does not have to know the codes.
+*
+*       EID_CHECK_OFF is the older name for the second of these and is still
+*       honoured, so it is deliberately NOT set here as well: setting both would
+*       suggest they are two different things.
+        rs-skip_tl_expiry  = abap_true.
+        rs-skip_eid_expiry = abap_true.
+
+      WHEN 'SOFTVERIFY'.
+*       The distinction that costs the most time. This is NOT the LESSEE template
+*       above, and the difference is not a matter of degree:
+*
+*         NO_MOI_CALL       (LESSEE)     - MOI is never called. Nothing is read
+*                                          from it and nothing is written back.
+*         SKIP_MOI_MISMATCH (here)       - MOI IS called and the BP IS UPDATED
+*                                          from it. Only a date-of-birth or
+*                                          nationality mismatch stops rejecting.
+*
+*       So this template still pays the whole cost of the call - ZCRM_MOI_CR_UPD_MASS
+*       writes, takes at least five seconds by construction, and its WAIT UP TO ends
+*       the LUW and forces an implicit COMMIT of whatever the journey had open
+*       mid-step. Pick it when you WANT the BP refreshed from MOI and only want to
+*       be lenient about the comparison. Pick NO_MOI_CALL when you are looking a
+*       partner up and want none of that.
+*
+*       Equivalent to FLAG = 'X', and for the same reason as TENANCY above it is
+*       spelled out rather than encoded.
+        rs-skip_moi_mismatch = abap_true.
+*       Findings still reject here. Softening the MOI comparison is one decision;
+*       letting an expired licence through is a different one, and this template
+*       does not make it.
+
       WHEN OTHERS.
+*       ZP28 is deliberately not demonstrated. It makes BP_QUERY inject
+*       TEMP_CASETYPE = 'ZP28' by setting paging SKIP and TOP to 999999999, which
+*       is how that case type reaches partners of type YP0001. It is not a tuning
+*       switch and a journey that is not ZP28 must leave it false, so an example
+*       here would only invite someone to copy it.
     ENDCASE.
   ENDMETHOD.
 
@@ -642,8 +709,8 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *     The key rides in the event id, which is how a list of unknown length wires
 *     one button per row without needing a constant for each.
       lo_list->button( text  = ls_doc-text
-                       type  = COND #( WHEN ls_doc-key = lv_sel THEN 'Emphasized' ELSE 'Transparent' )
-                       icon  = COND #( WHEN ls_doc-key = lv_sel
+                       type  = COND string( WHEN ls_doc-key = lv_sel THEN 'Emphasized' ELSE 'Transparent' )
+                       icon  = COND string( WHEN ls_doc-key = lv_sel
                                        THEN 'sap-icon://accept' ELSE 'sap-icon://circle-task-2' )
                        press = io_ctx->event( |DOCSET_{ ls_doc-key }| ) ).
     ENDLOOP.
@@ -722,8 +789,8 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
       lo_cells->text( lv_shr ).
       lo_cells->object_status(
         text  = |{ lv_docs } file(s)|
-        state = COND #( WHEN lv_docs > 0 THEN 'Success' ELSE 'Warning' )
-        icon  = COND #( WHEN lv_docs > 0 THEN 'sap-icon://attachment' ELSE 'sap-icon://alert' ) ).
+        state = COND string( WHEN lv_docs > 0 THEN 'Success' ELSE 'Warning' )
+        icon  = COND string( WHEN lv_docs > 0 THEN 'sap-icon://attachment' ELSE 'sap-icon://alert' ) ).
 *     Two buttons rather than the legacy overflow menu: one press instead of
 *     two, and nothing hidden behind an icon a citizen has to discover.
       DATA(lo_act) = lo_cells->hbox( ).
@@ -1400,6 +1467,14 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
         io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'LESSEE' ).
         io_ctx->open_popup( 'BP_LESSEE' ).
         RETURN.
+      WHEN c_evt_bpten.
+        io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'TENANCY' ).
+        io_ctx->open_popup( 'BP_TENANCY' ).
+        RETURN.
+      WHEN c_evt_bpsft.
+        io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'SOFTVERIFY' ).
+        io_ctx->open_popup( 'BP_SOFTVERIFY' ).
+        RETURN.
 
 *     --- handler-owned dialog ---------------------------------------
       WHEN c_evt_help.
@@ -1640,17 +1715,38 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *     after both was reachable on no step at all. Nothing complained: an unreachable
 *     render block is just a screen that quietly lacks two buttons.
       DATA(lo_bp) = io_view->hbox( class = 'rakRow sapUiSmallMarginTop' ).
-      lo_bp->button( text  = COND #( WHEN io_ctx->get_val( 'LESSOR_PARTNER' ) IS INITIAL
+      lo_bp->button( text  = COND string( WHEN io_ctx->get_val( 'LESSOR_PARTNER' ) IS INITIAL
                                      THEN 'Search lessor' ELSE 'Change lessor' )
                      icon  = 'sap-icon://search'
                      type  = 'Emphasized'
                      press = io_ctx->event( c_evt_bplsr ) ).
-      lo_bp->button( text  = COND #( WHEN io_ctx->get_val( 'LESSEE_PARTNER' ) IS INITIAL
-                                     THEN 'Search lessee' ELSE 'Change lessee' )
+      lo_bp->button( text  = COND string( WHEN io_ctx->get_val( 'LESSEE_PARTNER' ) IS INITIAL
+                                          THEN 'Search lessee' ELSE 'Change lessee' )
                      icon  = 'sap-icon://search'
                      type  = 'Emphasized'
                      class = 'sapUiSmallMarginBegin'
                      press = io_ctx->event( c_evt_bplse ) ).
+
+*     The other two templates in BP_OPTS( ), so every switch it sets is reachable
+*     from the screen rather than only readable in the source. Transparent, because
+*     these two demonstrate rules rather than being the journey's real partners.
+*     The tooltip names the switches each one sets - that is the point of the
+*     button existing at all.
+      lo_bp->button( text    = COND string( WHEN io_ctx->get_val( 'TENANCY_PARTNER' ) IS INITIAL
+                                            THEN 'Search tenancy party' ELSE 'Change tenancy party' )
+                     icon    = 'sap-icon://search'
+                     type    = 'Transparent'
+                     tooltip = 'SKIP_TL_EXPIRY + SKIP_EID_EXPIRY - both expiry checks off, ' &&
+                               'the readable form of FLAG = T'
+                     class   = 'sapUiSmallMarginBegin'
+                     press   = io_ctx->event( c_evt_bpten ) ).
+      lo_bp->button( text    = COND string( WHEN io_ctx->get_val( 'SOFTVERIFY_PARTNER' ) IS INITIAL
+                                            THEN 'Search (soft verify)' ELSE 'Change (soft verify)' )
+                     icon    = 'sap-icon://search'
+                     type    = 'Transparent'
+                     tooltip = 'SKIP_MOI_MISMATCH - MOI is still called and the BP still updated ' &&
+                               'from it; only a DOB or nationality mismatch stops rejecting'
+                     press   = io_ctx->event( c_evt_bpsft ) ).
 
       render_own_list( io_ctx = io_ctx io_view = io_view ).
       RETURN.
