@@ -464,7 +464,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 *   showed. There is no blueprint to fetch until there is a declaration.
     IF lv_sub IS INITIAL.
       zcl_rak_not_trace=>add( 'BLUEPRINT skipped - no declaration chosen yet ' &&
-                              '(BKND_JOURNEY is blank and SET_SUBSERVICE has not been called)' ).
+                              '- BKND_JOURNEY is blank and SET_SUBSERVICE has not been called' ).
       RETURN.
     ENDIF.
 
@@ -796,6 +796,13 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
     DATA(lv_key) = |{ to_upper( iv_list ) }#{ iv_arg1 }#{ iv_arg2 }|.
     READ TABLE gt_lk INTO DATA(ls_c) WITH KEY key = lv_key.
     IF sy-subrc = 0.
+*     Said out loud, because a cache hit made no HTTP call and the trace then
+*     reported "NO Notary API call was made on this interaction" directly above
+*     a dropdown that was visibly full. Both true, and together they read as a
+*     contradiction - a populated list with no call looks like the call failed
+*     and something else supplied the data.
+      zcl_rak_not_trace=>add( |LOOKUP { to_upper( iv_list ) } served from cache | &&
+                              |({ lines( ls_c-opts ) } option(s), no call needed)| ).
       rt_opt = ls_c-opts.
       RETURN.
     ENDIF.
