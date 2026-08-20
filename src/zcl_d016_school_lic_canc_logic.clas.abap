@@ -338,18 +338,17 @@ CLASS ZCL_D016_SCHOOL_LIC_CANC_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
-*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
-*  EXPORTING
-*    IO_CTX  =
-*    IV_STEP =
-*  RECEIVING
-*    RT      =
-*    .
+*   The base method IS the PAID gate - it refuses a submit while PAYFEE is not
+*   PAID. It has to run before the CHECK below, because a failing CHECK leaves
+*   the method and would take the gate with it.
+    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
+                                                          iv_step = iv_step ).
+
     CHECK iv_step = 1.   " zero-based: step 2 "School name" in the wizard
 
     IF io_ctx->get_val( 'NEWNAMEEN1' ) = io_ctx->get_val( 'SCHOOLNAMEEN' )
    AND io_ctx->get_val( 'NEWNAMEAR1' ) = io_ctx->get_val( 'SCHOOLNAMEAR' ).
-      rt = VALUE #( ( type = 'Error' text = 'The new name must be different from the school''s current name.' ) ).
+      rt = VALUE #( BASE rt ( type = 'Error' text = 'The new name must be different from the school''s current name.' ) ).
     ENDIF.
   ENDMETHOD.
 
