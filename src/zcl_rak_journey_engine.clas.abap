@@ -607,6 +607,17 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       trace( |journey { ms_config-journey_id } · BKND_ACTIVE { COND string( WHEN ms_config-backend-active = abap_true THEN 'X' ELSE 'blank' ) }| &&
              | · category { COND string( WHEN ms_config-backend-category IS NOT INITIAL THEN ms_config-backend-category ELSE '(empty)' ) }| &&
              | · BE journey { COND string( WHEN ms_config-backend-journey IS NOT INITIAL THEN ms_config-backend-journey ELSE '(empty)' ) }| ).
+*     The handler, said out loud. Every value help, every side effect and
+*     every custom validation on a journey runs through it, so an unbound one
+*     is not a detail - it is the reason nothing has any options and nothing
+*     reacts. The engine already reports a handler that FAILED to instantiate;
+*     it said nothing about a journey configured with none, and the two look
+*     the same from the screen.
+      trace( |handler { COND string( WHEN ms_config-handler_class IS NOT INITIAL
+                                     THEN ms_config-handler_class
+                                     ELSE '(none configured)' ) }| &&
+             | · { COND string( WHEN mo_logic IS BOUND THEN 'bound' ELSE 'NOT BOUND' ) }| ).
+
       IF mo_backend IS BOUND.
         trace( 'path = EXTERNAL backend from ZCL_RAK_BE_FACTORY. The QNV bridge and the D0xx BAdI are NOT used.' ).
       ELSEIF mo_bridge IS BOUND.
@@ -1651,7 +1662,8 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *     configured fields always survives.
       IF <dstep>-fields IS INITIAL AND lt_dyn IS INITIAL.
         APPEND lv_ix TO lt_drop.
-        mv_dyn_note = |{ mv_dyn_note }({ <dstep>-id } dropped: nothing to draw) |.
+        mv_dyn_note = |{ mv_dyn_note }{ <dstep>-id } DROPPED (no configured fields, | &&
+                      |backend described none) |.
         CONTINUE.
       ENDIF.
 

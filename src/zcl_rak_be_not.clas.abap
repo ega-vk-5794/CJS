@@ -444,13 +444,19 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 *   it again on every render of step 1 - which is exactly what the trace
 *   showed. There is no blueprint to fetch until there is a declaration.
     IF lv_sub IS INITIAL.
+      zcl_rak_not_trace=>add( 'BLUEPRINT skipped - no declaration chosen yet ' &&
+                              '(BKND_JOURNEY is blank and SET_SUBSERVICE has not been called)' ).
       RETURN.
     ENDIF.
 
     IF gv_bp_sub = lv_sub AND gv_bp_json IS NOT INITIAL.
+      zcl_rak_not_trace=>add( |BLUEPRINT sub-service { lv_sub } served from cache| ).
       rv_json = gv_bp_json.
       RETURN.
     ENDIF.
+    zcl_rak_not_trace=>add( |BLUEPRINT sub-service { lv_sub } | &&
+      COND string( WHEN gv_sub_cur IS NOT INITIAL THEN '(chosen at runtime)' ELSE '(from BKND_JOURNEY)' ) &&
+      | - fetching| ).
 
     DATA lv_status TYPE i.
     DATA lv_reason TYPE string.
@@ -814,7 +820,11 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         IF iv_arg1 IS INITIAL OR iv_arg2 IS INITIAL.
 *         No classification or main service yet, so there is nothing to
 *         filter by. Same reasoning as CITY: an unfiltered list is worse
-*         than none.
+*         than none. Said out loud, because an empty declaration dropdown
+*         with no call behind it is otherwise indistinguishable from a
+*         wrong endpoint.
+          zcl_rak_not_trace=>add( |LOOKUP SUBSERVICE skipped - classification | &&
+            |'{ iv_arg1 }' / main service '{ iv_arg2 }', one of them is empty| ).
           RETURN.
         ENDIF.
         lv_path = '/subservice/?classfication_Id={c}&applicant_type_id=1&mainService_Id={m}'.
@@ -846,6 +856,10 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
           RETURN.
         ENDIF.
       WHEN OTHERS.
+*       A list name this method has no endpoint for. DYN_LIST_FOR( ) and this
+*       CASE have to agree, and when they drift the symptom is an empty
+*       dropdown and no HTTP call - which reads as a network problem.
+        zcl_rak_not_trace=>add( |LOOKUP no endpoint for list '{ to_upper( iv_list ) }'| ).
         RETURN.
     ENDCASE.
 

@@ -1102,17 +1102,43 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       lv_w = '100%'.
     ENDIF.
 
+*   Where an empty dropdown comes from. Three sources feed one list and each
+*   can come back with nothing, so "No data" on screen used to be the same
+*   picture whether the field had no configured options, the handler declined,
+*   the handler raised, or the resolver found nothing. The exception in
+*   particular was caught and cleared without a word, which is the worst of
+*   the four to debug because it looks identical to a deliberate empty list.
     DATA(lt_opt) = is_field-options.
+    DATA(lv_vhsrc) = COND string( WHEN lt_opt IS NOT INITIAL THEN 'config' ELSE `` ).
+
     IF lt_opt IS INITIAL AND mo_e->mo_logic IS BOUND.
       TRY.
           lt_opt = mo_e->mo_logic->on_value_help( io_ctx = mo_e iv_field = is_field-name ).
-        CATCH cx_root.
+          lv_vhsrc = COND string( WHEN lt_opt IS NOT INITIAL
+                                  THEN 'on_value_help'
+                                  ELSE 'on_value_help (empty)' ).
+        CATCH cx_root INTO DATA(lx_vh).
           CLEAR lt_opt.
+          lv_vhsrc = |on_value_help RAISED { lx_vh->get_text( ) }|.
       ENDTRY.
+    ELSEIF lt_opt IS INITIAL.
+*     No handler at all. Worth saying plainly: every list on a journey whose
+*     options are not configured depends on one, so an unbound handler is not
+*     a detail, it is the reason nothing has any options.
+      lv_vhsrc = 'no handler bound'.
     ENDIF.
     IF lt_opt IS INITIAL
        AND ( is_field-rollname IS NOT INITIAL OR is_field-shlp IS NOT INITIAL OR is_field-domname IS NOT INITIAL ).
       lt_opt = f4_opts( is_field ).
+      lv_vhsrc = |{ lv_vhsrc } -> DDIC resolver| .
+    ENDIF.
+
+*   Only for the field types that actually show a list, and only under trace.
+    IF mo_e->mv_trace = abap_true
+       AND ( is_field-type = 'SELECT' OR is_field-type = 'RADIO'
+          OR is_field-type = 'CHECKGROUP' OR is_field-type = 'SEGMENTED' ).
+      mo_e->trace( |LIST    { is_field-name } ({ is_field-type }) · { lines( lt_opt ) } option(s) · | &&
+                   COND string( WHEN lv_vhsrc IS NOT INITIAL THEN lv_vhsrc ELSE 'no source tried' ) ).
     ENDIF.
 
     CASE is_field-type.
