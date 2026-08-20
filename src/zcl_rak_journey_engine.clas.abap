@@ -1410,7 +1410,22 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD opt_evt.
-    IF line_exists( ms_config-rules[ src_field = to_upper( iv_name ) ] ).
+*   A change event is raised when a RULE depends on this field - or when the
+*   journey has a handler at all.
+*
+*   The rule test on its own was a trap. ON_CHANGE( ) is the documented way for a
+*   handler to react to a field, and it simply never fired unless some rule
+*   happened to name that field as its source. A handler could redefine
+*   ON_CHANGE, the method could be correct, and nothing would call it - no error,
+*   no trace, no clue. That is what kept the Notary declaration dropdown from
+*   loading its blueprint: SET_SUBSERVICE( ) sits in ON_CHANGE and the field was
+*   nobody's rule source.
+*
+*   The cost is one round trip when a citizen changes a select on a journey that
+*   has a handler. That is the point of having one, and it is the same round trip
+*   Next already makes. Journeys with no handler class are unaffected.
+    IF line_exists( ms_config-rules[ src_field = to_upper( iv_name ) ] )
+       OR mo_logic IS BOUND.
       rv = mo_client->_event( |CHANGE_{ iv_name }| ).
     ENDIF.
   ENDMETHOD.

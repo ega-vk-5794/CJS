@@ -2068,8 +2068,27 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
                first_party_details TYPE ty_draft_fp,
              END OF ty_draft_resp.
 
-    DATA(lv_sub) = COND string( WHEN mv_subservice IS NOT INITIAL THEN mv_subservice
+*   Same precedence BLUEPRINT( ) uses, and for the same reason: the declaration
+*   is chosen at runtime and neither BKND_JOURNEY nor IT_FIELDS can be relied on
+*   to carry it.
+*
+*   IT_FIELDS in particular cannot. BE_FIELDS( ) publishes each field under
+*   ls_f-NAME - the journey's field name, upper case - and FIELD( ) uppercases
+*   what it is given, so asking for 'subServiceId' looks for SUBSERVICEID. A
+*   field named SUBSERVICE never matches, and the draft went out as
+*   "subServiceId":"" and came back notaryCode 3005 Sub Service Id Not found.
+    DATA(lv_sub) = COND string( WHEN gv_sub_cur   IS NOT INITIAL THEN gv_sub_cur
+                                WHEN mv_subservice IS NOT INITIAL THEN mv_subservice
                                 ELSE field( it_fields = it_fields iv_name = 'subServiceId' ) ).
+
+*   No declaration, no draft. Posting one anyway spends a call to be told 3005,
+*   and leaves the citizen with an error on a step they have not reached.
+    IF lv_sub IS INITIAL.
+      zcl_rak_not_trace=>add( 'DRAFT not attempted - no declaration chosen yet' ).
+      APPEND VALUE #( type = 'E' message = 'Choose the declaration before continuing.' ) TO et_return.
+      RETURN.
+    ENDIF.
+    zcl_rak_not_trace=>add( |DRAFT creating for sub-service { lv_sub }| ).
 
     DATA(lv_cat) = COND string( WHEN field( it_fields = it_fields iv_name = 'applicantCategoryId' ) IS NOT INITIAL
                                 THEN field( it_fields = it_fields iv_name = 'applicantCategoryId' )
