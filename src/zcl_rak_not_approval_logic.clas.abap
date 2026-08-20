@@ -19,6 +19,7 @@ CLASS zcl_rak_not_approval_logic DEFINITION
   CREATE PUBLIC.
 
   PUBLIC SECTION.
+    METHODS zif_rak_journey_logic~on_change          REDEFINITION.
     METHODS zif_rak_journey_logic~on_value_help      REDEFINITION.
     METHODS zif_rak_journey_logic~on_search          REDEFINITION.
     METHODS zif_rak_journey_logic~get_table          REDEFINITION.
@@ -307,6 +308,23 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
+
+  METHOD zif_rak_journey_logic~on_change.
+
+*   The declaration drives everything after step 1 - the blueprint, the
+*   business-object fields, the documents, the legal text, whether a second
+*   party is needed. The backend cannot ask for it: DESCRIBE_STEP( ) is handed
+*   a step name and nothing else, and the engine builds the backend from the
+*   journey HEADER, whose BKND_JOURNEY is one static value for a journey that
+*   serves ten declarations.
+*
+*   So the handler tells it, here, the moment the citizen chooses.
+    IF to_upper( iv_field ) = 'SUBSERVICE'.
+      zcl_rak_be_not=>set_subservice( io_ctx->get_val( 'SUBSERVICE' ) ).
+    ENDIF.
+
+  ENDMETHOD.
+
 
   METHOD zif_rak_journey_logic~on_value_help.
 

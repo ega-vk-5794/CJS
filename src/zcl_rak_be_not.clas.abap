@@ -99,6 +99,22 @@ CLASS zcl_rak_be_not DEFINITION
 *   never list CONTENT - the content is always fetched by lookup( ).
 *   rv_dependent = the list needs values this method cannot see (country,
 *   region), so it must be filled after the citizen picks its parent.
+*   The declaration the citizen chose on step 1.
+*
+*   ZCL_RAK_BE_FACTORY builds this class with iv_subservice = BKND_JOURNEY off
+*   the journey header, which is a STATIC value - fine for a backend that
+*   serves one thing, wrong here. One Notary journey serves every declaration
+*   type and the blueprint is per declaration, so the sub-service cannot be
+*   known until the citizen picks one. Left to the header alone it is blank,
+*   and BLUEPRINT( ) then GETs /subservice/ with an empty id and takes a 400
+*   on every render of step 1.
+*
+*   Static because the blueprint cache beside it already is: the engine drops
+*   its backend reference between round trips, so an instance attribute would
+*   not survive to the next one.
+    CLASS-METHODS set_subservice
+      IMPORTING iv_sub TYPE string.
+
     METHODS dyn_list_for
       IMPORTING iv_name        TYPE string
       EXPORTING ev_dependent   TYPE abap_bool
@@ -165,6 +181,9 @@ CLASS zcl_rak_be_not DEFINITION
 *   ---- per-round-trip caches --------------------------------------------
     CLASS-DATA gv_token TYPE string.
     CLASS-DATA gv_bp_sub TYPE string.
+*   Set by SET_SUBSERVICE( ) from the handler. Wins over the constructor's
+*   value, which is the journey header's static one.
+    CLASS-DATA gv_sub_cur TYPE string.
     CLASS-DATA gv_bp_json TYPE string.
     CLASS-DATA: BEGIN OF gs_lk_line,
                   key  TYPE string,
@@ -406,9 +425,29 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD set_subservice.
+*   Nothing else to do: BLUEPRINT( ) keys its cache on the sub-service, so
+*   changing this value invalidates it by itself and the next call re-reads.
+    gv_sub_cur = condense( iv_sub ).
+  ENDMETHOD.
+
+
   METHOD blueprint.
 
-    IF gv_bp_sub = mv_subservice AND gv_bp_json IS NOT INITIAL.
+*   The citizen's choice first, the header's static value second.
+    DATA(lv_sub) = COND string( WHEN gv_sub_cur IS NOT INITIAL
+                                THEN gv_sub_cur
+                                ELSE mv_subservice ).
+
+*   No declaration chosen yet. Returning here is the whole point: the call
+*   would go out as GET /subservice/ with an empty id, come back 400, and do
+*   it again on every render of step 1 - which is exactly what the trace
+*   showed. There is no blueprint to fetch until there is a declaration.
+    IF lv_sub IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    IF gv_bp_sub = lv_sub AND gv_bp_json IS NOT INITIAL.
       rv_json = gv_bp_json.
       RETURN.
     ENDIF.
@@ -429,7 +468,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         iv_path        = '/subservice/{sub}'
         iv_method      = 'GET'
         it_headers     = auth_hdr( ls_h )
-        it_url_replace = VALUE #( ( name = '{sub}' value = mv_subservice ) )
+        it_url_replace = VALUE #( ( name = '{sub}' value = lv_sub ) )
       IMPORTING
         ev_status      = lv_status
         ev_reason      = lv_reason ).
@@ -440,7 +479,12 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    gv_bp_sub  = mv_subservice.
+*   LV_SUB, not MV_SUBSERVICE. The check at the top of this method compares
+*   GV_BP_SUB against LV_SUB, so storing the constructor's value here meant the
+*   two never matched and the blueprint was re-fetched on every single call -
+*   several times per render, since BO_JSON, DOC_TYPES, DESCRIBE_STEP and
+*   LEGAL_TEXT all go through BLUEPRINT( ).
+    gv_bp_sub  = lv_sub.
     gv_bp_json = rv_json.
     CLEAR: gt_map, gt_doc.
     parse_blueprint( ).
@@ -890,6 +934,13 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 
 
   METHOD parse_blueprint.
+
+*   CLEARED, not appended to. GT_MAP and GT_DOC are CLASS-DATA and this method
+*   only ever APPENDed, so choosing a second declaration in the same session
+*   left the first one's business-object fields and documents in the table.
+*   BO_JSON( ) walks GT_MAP, so the request would have carried fields the new
+*   declaration has never heard of.
+    CLEAR: gt_map, gt_doc.
 
 *   ------------------------------------------------------------------
 *   The blueprint's exact shape is Q4 in the clarification document and
