@@ -314,6 +314,13 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   How many messages had been drawn before the fields were rendered. Anything
+*   appended past this point was added BY the field rendering - the LIST lines
+*   naming where each dropdown's options came from - and the loop above had
+*   already been and gone, so those lines were collected and never shown. This
+*   is the only reason they are drawn at the bottom rather than with the rest.
+    DATA(lv_msg_pre) = lines( mo_e->mt_msg ).
+
     CASE mo_e->ms_config-theme-layout_mode.
       WHEN 'TABS'.
         render_tabs( page ).
@@ -326,6 +333,15 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       WHEN OTHERS.
         render_wizard( page ).
     ENDCASE.
+
+    IF lines( mo_e->mt_msg ) > lv_msg_pre.
+      LOOP AT mo_e->mt_msg INTO DATA(ls_late) FROM lv_msg_pre + 1.
+        page->message_strip( text     = zcl_rak_journey_util=>esc( ls_late-text )
+                             type     = ls_late-type
+                             showicon = abap_true
+                             class    = 'sapUiTinyMarginBegin sapUiTinyMarginEnd' ).
+      ENDLOOP.
+    ENDIF.
 
     mo_e->mo_client->view_display( view->stringify( ) ).
 

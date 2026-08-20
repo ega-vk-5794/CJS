@@ -607,17 +607,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       trace( |journey { ms_config-journey_id } · BKND_ACTIVE { COND string( WHEN ms_config-backend-active = abap_true THEN 'X' ELSE 'blank' ) }| &&
              | · category { COND string( WHEN ms_config-backend-category IS NOT INITIAL THEN ms_config-backend-category ELSE '(empty)' ) }| &&
              | · BE journey { COND string( WHEN ms_config-backend-journey IS NOT INITIAL THEN ms_config-backend-journey ELSE '(empty)' ) }| ).
-*     The handler, said out loud. Every value help, every side effect and
-*     every custom validation on a journey runs through it, so an unbound one
-*     is not a detail - it is the reason nothing has any options and nothing
-*     reacts. The engine already reports a handler that FAILED to instantiate;
-*     it said nothing about a journey configured with none, and the two look
-*     the same from the screen.
-      trace( |handler { COND string( WHEN ms_config-handler_class IS NOT INITIAL
-                                     THEN ms_config-handler_class
-                                     ELSE '(none configured)' ) }| &&
-             | · { COND string( WHEN mo_logic IS BOUND THEN 'bound' ELSE 'NOT BOUND' ) }| ).
-
       IF mo_backend IS BOUND.
         trace( 'path = EXTERNAL backend from ZCL_RAK_BE_FACTORY. The QNV bridge and the D0xx BAdI are NOT used.' ).
       ELSEIF mo_bridge IS BOUND.
@@ -673,6 +662,18 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     check_types( ).
+
+*   AFTER the CREATE OBJECT above, which is the whole point. Reported from the
+*   journey banner higher up in this method it read NOT BOUND on every first
+*   load - the banner is written before the handler is built - and that false
+*   negative is worse than no line at all: it sends you looking for a broken
+*   class when the class is fine.
+    IF mv_trace = abap_true.
+      trace( |handler { COND string( WHEN ms_config-handler_class IS NOT INITIAL
+                                     THEN ms_config-handler_class
+                                     ELSE '(none configured)' ) }| &&
+             | · { COND string( WHEN mo_logic IS BOUND THEN 'bound' ELSE 'NOT BOUND' ) }| ).
+    ENDIF.
 
     IF mo_logic IS BOUND.
       TRY.
