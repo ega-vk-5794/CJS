@@ -1578,13 +1578,26 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ELSE.
       mt_msg = VALUE #( BASE mt_msg ( type = 'Information'
         text = |TRACE  BACKEND  { lv_calls } Notary API call(s) on this interaction| ) ).
-      LOOP AT lt_belog INTO DATA(lv_bl2).
-        IF lv_bl2 CS '-->' OR lv_bl2 CS '<--'.
-          mt_msg = VALUE #( BASE mt_msg ( type = 'Information'
-            text = |TRACE  BACKEND  { lv_bl2 }| ) ).
-        ENDIF.
-      ENDLOOP.
     ENDIF.
+
+*   EVERY line, not only the ones carrying --> or <--.
+*
+*   The filter that used to sit here showed HTTP arrows and discarded the rest,
+*   which quietly threw away the only lines that explain a call that did NOT
+*   happen: AUTH not attempted, LOOKUP skipped, LOOKUP no endpoint, BLUEPRINT
+*   skipped - and the request payloads, which HTTP( ) has always logged and
+*   nobody has ever been able to see.
+*
+*   That is backwards. "No Notary API call was made" is the symptom; those
+*   notes are the reason, and they were being collected and dropped one line
+*   before the screen.
+*
+*   Also moved OUT of the ELSE. The zero-call case is exactly when the notes
+*   matter most, and it was the one case that displayed none of them.
+    LOOP AT lt_belog INTO DATA(lv_bl2).
+      mt_msg = VALUE #( BASE mt_msg ( type = 'Information'
+        text = |TRACE  BACKEND  { lv_bl2 }| ) ).
+    ENDLOOP.
 
     DATA(lv_ms) = tock( mv_req_t0 ).
 
