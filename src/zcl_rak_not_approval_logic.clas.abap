@@ -32,6 +32,13 @@ CLASS zcl_rak_not_approval_logic DEFINITION
       IMPORTING io_be          TYPE REF TO zcl_rak_be_not
       RETURNING VALUE(rv_text) TYPE string.
 
+*   One value off a business-partner row, by candidate component name. See the
+*   method body for why the names cannot simply be hard-coded.
+    METHODS bp_pick
+      IMPORTING is_bp        TYPE zcl_zega_bp_mpc_ext=>ts_businesspartner
+                iv_names     TYPE string
+      RETURNING VALUE(rv)    TYPE string.
+
 ENDCLASS.
 
 
@@ -146,74 +153,150 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 
 *   The id-type combobox holds SAP identification types (YFS002 and the
 *   like) because the engine's own BP browse searches BUT0ID with them.
-*   Notary does not know those codes - its searchType values are
-*   IndividualbyEID / IndividualbyPassport / IndividualbyUID / CompanybyTL.
-*   Translate here, at the boundary, and leave the SAP codes alone.
+*   They map onto ZCL_RAK_BP_SEARCH's own request fields, not onto Notary
+*   searchType strings: party identity is resolved in SAP.
     DATA(lv_idtype) = to_upper( io_ctx->get_val( 'PARTY_SEARCH_IDTYPE' ) ).
 
-    DATA(lv_stype) = COND string(
-      WHEN lv_idtype = 'YFS002' OR lv_idtype = 'EID' OR lv_idtype = 'EMIRATESID'
-        THEN 'IndividualbyEID'
-      WHEN lv_idtype = 'PASSPORT' OR lv_idtype = 'YFS003'
-        THEN 'IndividualbyPassport'
-      WHEN lv_idtype = 'UID' OR lv_idtype = 'UNIFIED' OR lv_idtype = 'YFS004'
-        THEN 'IndividualbyUID'
-      WHEN lv_idtype = 'TL' OR lv_idtype = 'TRADELICENSE' OR lv_idtype = 'COMPANYBYTL'
-        THEN 'CompanybyTL'
-*     No id type chosen: fall back to whichever number the citizen filled.
-      WHEN io_ctx->get_val( 'PARTY_PASSPORTNUMBER' ) IS NOT INITIAL
-        THEN 'IndividualbyPassport'
-      WHEN io_ctx->get_val( 'PARTY_UNIFIEDNUMBER' ) IS NOT INITIAL
-        THEN 'IndividualbyUID'
-      ELSE 'IndividualbyEID' ).
+*   ------------------------------------------------------------------
+*   Party identity is resolved in SAP, not by the Notary portal.
+*
+*   This used to POST to Notary's search-party endpoint and pre-fill the form
+*   from its answer. Two reasons that is the wrong side of the boundary:
+*
+*     Notary's search does not carry the checks SAP does. ZCL_RAK_BP_SEARCH
+*     calls MOI, updates the BP from it, and refuses an expired Emirates ID or
+*     trade licence. A party that SAP would reject was being accepted here and
+*     the declaration then carried it all the way to the officer.
+*
+*     It made party identification depend on a credential that does not
+*     currently work - Q1 in the clarification document, still open - so the
+*     search could not be exercised at all.
+*
+*   ZCL_RAK_BE_NOT->SEARCH_PARTY( ) is deliberately left in place. It still
+*   documents Notary's contract and the pre-check in step 5a of the API flow may
+*   yet need it; nothing calls it for search any more.
+*   ------------------------------------------------------------------
+    DATA ls_req TYPE zcl_rak_bp_search=>ty_req.
 
-    DATA(lo_be) = NEW zcl_rak_be_not( ).
-    DATA(lv_resp) = lo_be->search_party(
-      iv_search_type = lv_stype
-      it_fields      = VALUE #(
-        ( name = 'PARTY_IDNUMBER'       value = io_ctx->get_val( 'PARTY_IDNUMBER' ) )
-        ( name = 'PARTY_PASSPORTNUMBER' value = io_ctx->get_val( 'PARTY_PASSPORTNUMBER' ) )
-        ( name = 'PARTY_UNIFIEDNUMBER'  value = io_ctx->get_val( 'PARTY_UNIFIEDNUMBER' ) )
-        ( name = 'PARTY_DOB'            value = io_ctx->get_val( 'PARTY_DOB' ) )
-        ( name = 'PARTY_NATIONALITY'    value = io_ctx->get_val( 'PARTY_NATIONALITY' ) ) ) ).
+    ls_req-idtype      = lv_idtype.
+    ls_req-dob         = io_ctx->get_val( 'PARTY_DOB' ).
+    ls_req-nationality = io_ctx->get_val( 'PARTY_NATIONALITY' ).
 
-    IF lv_resp IS INITIAL.
+    IF lv_idtype = 'TL' OR lv_idtype = 'TRADELICENSE' OR lv_idtype = 'COMPANYBYTL'.
+      ls_req-trade_licence = lv_id.
+    ELSE.
+*     EID, passport and unified number all go in EID - the same thing
+*     ZCL_RAK_BP_POPUP does, and for the same reason: which request field a
+*     passport or a unified number really belongs in is the one part of that
+*     contract nobody has been able to confirm.
+      ls_req-eid = lv_id.
+*     Full verification, deliberately. A notary party is being identified for a
+*     legal instrument, so MOI is called and a date-of-birth or nationality
+*     mismatch rejects - which is what asking for those two on this form is FOR.
+*     If Notary confirm a party may be merely looked up rather than verified,
+*     this is the one line to change: NO_MOI_CALL on the request suppresses the
+*     call, SKIP_MOI_MISMATCH keeps it but tolerates a mismatch.
+      IF lv_idtype IS INITIAL OR lv_idtype = 'YFS002' OR lv_idtype = 'EID'
+         OR lv_idtype = 'EMIRATESID'.
+        ls_req-call_moi = abap_true.
+      ENDIF.
+    ENDIF.
+
+    DATA(ls_res) = NEW zcl_rak_bp_search( )->search( is_req = ls_req ).
+
+*   Every finding reaches the citizen. An expired licence or a failed MOI
+*   comparison is the answer to the search, not a detail to swallow.
+    DATA(lv_err) = abap_false.
+    LOOP AT ls_res-msg INTO DATA(ls_m).
+      io_ctx->add_msg( iv_type = COND string( WHEN ls_m-type = 'E' OR ls_m-type = 'A' THEN 'Error'
+                                              WHEN ls_m-type = 'W' THEN 'Warning'
+                                              ELSE 'Information' )
+                       iv_text = CONV string( ls_m-message ) ).
+      IF ls_m-type = 'E' OR ls_m-type = 'A'.
+        lv_err = abap_true.
+      ENDIF.
+    ENDLOOP.
+
+*   A rejected party must NOT become a filled form. A caller that ignores the
+*   findings is worse than one that never had them.
+    IF lv_err = abap_true.
       RETURN.
     ENDIF.
 
-    TYPES: BEGIN OF ty_pr,
-             first_name    TYPE string,
-             last_name     TYPE string,
-             father_name   TYPE string,
-             nation        TYPE string,
-             mobile_number TYPE string,
-             email         TYPE string,
-           END OF ty_pr,
-           BEGIN OF ty_pw, result TYPE ty_pr, END OF ty_pw.
+    READ TABLE ls_res-rows INTO DATA(ls_bp) INDEX 1.
+    IF sy-subrc <> 0.
+      io_ctx->add_msg( iv_type = 'Information'
+                       iv_text = 'No business partner found. Enter the party details below.' ).
+      RETURN.
+    ENDIF.
 
-    DATA ls_p TYPE ty_pw.
-    /ui2/cl_json=>deserialize( EXPORTING json        = lv_resp
-                                         pretty_name = /ui2/cl_json=>pretty_mode-camel_case
-                               CHANGING  data        = ls_p ).
+*   PARTNER and TELEPHONE_NUMBER are the proven component names. Everything else
+*   goes through a candidate list, because the entity behind ZCL_RAK_BP_SEARCH
+*   holds a person's name in parts on one category and in one field on another.
+    io_ctx->set_val( iv_name = 'PARTY_BPID'
+                     iv_value = CONV string( ls_bp-partner ) ).
+    io_ctx->set_val( iv_name = 'PARTY_MOBILENUMBER'
+                     iv_value = CONV string( ls_bp-telephone_number ) ).
 
-    IF ls_p-result-first_name IS NOT INITIAL.
-      io_ctx->set_val( iv_name = 'PARTY_FIRSTNAME' iv_value = ls_p-result-first_name ).
+    DATA(lv_first) = bp_pick( is_bp = ls_bp iv_names = 'NAME_FIRST,FIRSTNAME' ).
+    DATA(lv_last)  = bp_pick( is_bp = ls_bp iv_names = 'NAME_LAST,LASTNAME' ).
+    DATA(lv_email) = bp_pick( is_bp = ls_bp
+                              iv_names = 'SMTP_ADDR,EMAIL,E_MAIL,EMAILADDRESS,EMAIL_ADDRESS' ).
+
+    IF lv_first IS NOT INITIAL.
+      io_ctx->set_val( iv_name = 'PARTY_FIRSTNAME' iv_value = lv_first ).
     ENDIF.
-    IF ls_p-result-last_name IS NOT INITIAL.
-      io_ctx->set_val( iv_name = 'PARTY_LASTNAME' iv_value = ls_p-result-last_name ).
+    IF lv_last IS NOT INITIAL.
+      io_ctx->set_val( iv_name = 'PARTY_LASTNAME' iv_value = lv_last ).
     ENDIF.
-    IF ls_p-result-father_name IS NOT INITIAL.
-      io_ctx->set_val( iv_name = 'PARTY_FATHERNAME' iv_value = ls_p-result-father_name ).
+    IF lv_email IS NOT INITIAL.
+      io_ctx->set_val( iv_name = 'PARTY_EMAIL' iv_value = lv_email ).
     ENDIF.
-    IF ls_p-result-mobile_number IS NOT INITIAL.
-      io_ctx->set_val( iv_name = 'PARTY_MOBILENUMBER' iv_value = ls_p-result-mobile_number ).
+
+*   Nationality and date of birth come back confirmed by MOI on the verified
+*   path, so the form shows what was checked rather than what was typed.
+    DATA(lv_nat) = bp_pick( is_bp = ls_bp iv_names = 'NATIONALITY,NATIO,COUNTRYORIGIN' ).
+    IF lv_nat IS NOT INITIAL.
+      io_ctx->set_val( iv_name = 'PARTY_NATIONALITY' iv_value = lv_nat ).
     ENDIF.
-    IF ls_p-result-email IS NOT INITIAL.
-      io_ctx->set_val( iv_name = 'PARTY_EMAIL' iv_value = ls_p-result-email ).
+    DATA(lv_dob) = bp_pick( is_bp = ls_bp iv_names = 'DOB,BIRTHDT,BIRTHDATE' ).
+    IF lv_dob IS NOT INITIAL.
+      io_ctx->set_val( iv_name = 'PARTY_DOB' iv_value = lv_dob ).
     ENDIF.
+
+*   PARTY_FATHERNAME and PARTY_ARABICFULLNAME are deliberately NOT set. Notary's
+*   own search returned a father name; no component on the SAP row has been shown
+*   to hold one, and guessing a name would either fail activation or silently
+*   fill nothing. The citizen types them, which is what the documented flow says
+*   happens when SAP holds no previous data.
 
   ENDMETHOD.
 
+
+  METHOD bp_pick.
+*   One value off a BP row, by the first component name in the list that exists
+*   and is filled. The row type is an OData entity whose component names differ
+*   by BP category, so a fixed name would work for one kind of party and quietly
+*   return nothing for the other.
+*
+*   The same candidate-list trick ZCL_RAK_BP_POPUP->PICK( ) uses. Duplicated here
+*   rather than shared because ZCL_RAK_BP_SEARCH - where a shared version belongs,
+*   since it owns the row type - showed state M_ in the abapGit pull dialog, so SAP
+*   holds changes git does not and editing it risks pushing an older copy over
+*   them. Consolidate once that object is staged.
+    SPLIT to_upper( iv_names ) AT ',' INTO TABLE DATA(lt_n).
+    LOOP AT lt_n INTO DATA(lv_n).
+      lv_n = condense( lv_n ).
+      IF lv_n IS INITIAL.
+        CONTINUE.
+      ENDIF.
+      ASSIGN COMPONENT lv_n OF STRUCTURE is_bp TO FIELD-SYMBOL(<v>).
+      IF sy-subrc = 0 AND <v> IS NOT INITIAL.
+        rv = condense( CONV string( <v> ) ).
+        RETURN.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
 
   METHOD zif_rak_journey_logic~on_value_help.
 

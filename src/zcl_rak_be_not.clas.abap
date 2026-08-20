@@ -106,6 +106,14 @@ CLASS zcl_rak_be_not DEFINITION
 
 *   Party search. Returns the raw response so the handler can decide what
 *   to pre-fill; parse_party( ) below turns it into name/value pairs.
+*   Notary's own party search. NOT called any more: party identity is resolved in
+*   SAP, by ZCL_RAK_BP_SEARCH, so that MOI runs and an expired Emirates ID or
+*   trade licence is refused before the party can reach a declaration - see
+*   ZCL_RAK_NOT_APPROVAL_LOGIC->ON_SEARCH( ).
+*
+*   Kept rather than deleted for two reasons: it is the only place Notary's
+*   searchType contract is written down, and step 5a of the API flow (pre-check
+*   party existence) may still want it.
     METHODS search_party
       IMPORTING iv_search_type     TYPE string
                 it_fields          TYPE zif_rak_journey_backend=>tt_field
