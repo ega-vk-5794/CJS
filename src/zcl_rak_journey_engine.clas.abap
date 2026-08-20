@@ -1609,8 +1609,16 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     DATA lt_dyn TYPE zif_rak_journey_backend=>tt_dyn_field.
+*   Indices of steps with nothing to draw, deleted after the loop rather than
+*   inside it - deleting from the table being looped over skips rows.
+    DATA lt_drop TYPE STANDARD TABLE OF i WITH EMPTY KEY.
 
     LOOP AT ms_config-steps ASSIGNING FIELD-SYMBOL(<dstep>).
+
+*     Captured HERE, not read later. DESCRIBE_STEP( ) reads and loops over tables
+*     of its own, and any of those resets SY-TABIX - so by the time the drop
+*     decision is made below, SY-TABIX no longer names this step.
+      DATA(lv_ix) = sy-tabix.
 
       IF <dstep>-bknd_screen IS INITIAL.
         CONTINUE.
@@ -1627,6 +1635,26 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
       mv_dyn_note = |{ mv_dyn_note }{ <dstep>-bknd_screen }={ lines( lt_dyn ) }fld |.
 
+*     A step that has no static fields of its own AND whose backend describes no
+*     fields either has nothing to draw. Note it and drop it below.
+*
+*     This is the Notary business-object case. The blueprint returns businessFields
+*     as an EMPTY ARRAY for the declaration types that have no business object -
+*     Approval & Signature, No Objection, Pledge, Clearance - and the legacy portal
+*     does not show the section at all for those. CJS was rendering an empty step
+*     with a heading, a Next button and nothing to fill in, and then POSTing to
+*     BKND_SCREEN for a business object that does not exist.
+*
+*     Deliberately narrow. DESCRIBE_STEP is implemented for the BO screen only and
+*     returns nothing for every other screen, so keying this on "backend described
+*     no fields" alone would drop every step on the journey. A step that carries
+*     configured fields always survives.
+      IF <dstep>-fields IS INITIAL AND lt_dyn IS INITIAL.
+        APPEND lv_ix TO lt_drop.
+        mv_dyn_note = |{ mv_dyn_note }({ <dstep>-id } dropped: nothing to draw) |.
+        CONTINUE.
+      ENDIF.
+
       LOOP AT lt_dyn INTO DATA(ls_dyn).
 
         DATA(lv_dnm) = to_upper( ls_dyn-name ).
@@ -1641,12 +1669,25 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
         APPEND VALUE #(
           name    = lv_dnm
-          label   = COND string( WHEN ls_dyn-label IS NOT INITIAL
+*         Arabic when the journey is Arabic. The backend already resolves
+*         LABEL_AR off the blueprint and it was being thrown away here, so every
+*         blueprint-driven field carried an English label on the Arabic journey -
+*         on a screen where every configured field beside it was translated.
+*         Same precedence ZCL_RAK_JOURNEY_REPO->PICK( ) uses: Arabic if asked for
+*         and present, English otherwise.
+          label   = COND string( WHEN mv_lang = 'A' AND ls_dyn-label_ar IS NOT INITIAL
+                                 THEN ls_dyn-label_ar
+                                 WHEN ls_dyn-label IS NOT INITIAL
                                  THEN ls_dyn-label
                                  ELSE ls_dyn-name )
           type    = COND string( WHEN ls_dyn-type IS NOT INITIAL
                                  THEN to_upper( ls_dyn-type )
                                  ELSE 'INPUT' )
+*         MAX_LEN was computed by DESCRIBE_STEP and dropped here, so a blueprint
+*         field with a length limit accepted anything and failed at the Notary API
+*         instead of at the field - the citizen learns about it on submit, with no
+*         indication of which answer was too long.
+          validation = VALUE #( max_len = ls_dyn-max_len )
           options = VALUE #( FOR o IN ls_dyn-options ( key = o-key text = o-text ) )
         ) TO <dstep>-fields.
 
@@ -1657,6 +1698,25 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDLOOP.
 
     ENDLOOP.
+
+*   Descending, so an earlier delete cannot shift a later index.
+*
+*   MS_CONFIG-STEPS is rebuilt from the same blueprint on every round trip, so the
+*   drop is the same every time and MV_STEP keeps addressing the step the citizen
+*   is actually on. The clamp is for the one case that is not stable: a resumed
+*   draft whose stored step index was recorded before a step disappeared.
+    IF lines( lt_drop ) > 0 AND lines( lt_drop ) < lines( ms_config-steps ).
+      SORT lt_drop DESCENDING.
+      LOOP AT lt_drop INTO DATA(lv_drop).
+        DELETE ms_config-steps INDEX lv_drop.
+      ENDLOOP.
+      IF mv_step >= lines( ms_config-steps ).
+        mv_step = lines( ms_config-steps ) - 1.
+      ENDIF.
+      IF mv_step < 0.
+        mv_step = 0.
+      ENDIF.
+    ENDIF.
 
   ENDMETHOD.
 
