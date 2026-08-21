@@ -375,3 +375,38 @@ Two blunt instruments, in order of preference:
 
 `$SYNC` is worth mentioning only to say it is not the answer here — it resets table
 buffers, not the export/import buffer.
+
+---
+
+# Confirmed cause: `CONNE_IMPORT_WRONG_COMP_TYPE`
+
+The exception object, read in the debugger:
+
+```
+CX_SY_IMPORT_MISMATCH_ERROR
+  KERNEL_ERRID = CONNE_IMPORT_WRONG_COMP_TYPE
+```
+
+That is not a generic mismatch. It names the specific condition: a **component of the
+structure has a different TYPE** than it had when the row was exported. Not a field
+added, not a field removed, not a reordering — a field whose type was changed.
+
+So somebody altered a field's type in `STUDENT_EXIT` (or in a structure it includes):
+a length change such as `CHAR10` to `CHAR20`, or a domain/data-element swap such as
+`NUMC` to `CHAR`. Everything buffered before that activation is now unreadable.
+
+Two things follow from it.
+
+**It confirms the fix.** Nothing in the form, the journey or the case is involved.
+The stored bytes cannot be mapped onto the current structure and never will be. The
+row is dead weight and deleting it is the only correct action.
+
+**It rules out the tempting shortcut for good.** `ACCEPTING PADDING` tolerates a
+CHARACTER field that grew, and nothing else. It does not tolerate a type change, and
+where it does absorb one it maps the old bytes into the new field and hands back a
+value that was never stored. `CONNE_IMPORT_WRONG_COMP_TYPE` is precisely the case
+where that produces a plausible-looking wrong answer. Catch and invalidate.
+
+Worth finding out which field changed and when — the transport that carried it is
+also the moment the service started failing, and any other cluster keyed on the same
+structure has the same problem waiting.
