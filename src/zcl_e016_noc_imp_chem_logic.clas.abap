@@ -371,6 +371,28 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
+*   The base method IS the PAID gate - it refuses a submit while PAYFEE is not
+*   'PAID'. A redefinition REPLACES it, so without this call the gate is simply
+*   not there for this journey, and an unpaid application submits cleanly. It must
+*   come before any CHECK below: a failing CHECK exits the method and anything
+*   after it never runs.
+*
+*   RESTORED FOR THE THIRD TIME. Deleted by the abapGit round trips 3f50a18
+*   (21 Aug 01:59) and abc15d3 (21 Aug 12:02), both of which staged the older SAP
+*   copy over newer git work, and by the same route before that - fd05dd7 restored
+*   it for D016 and E022 already.
+*
+*   It will go a fourth time unless the order changes. The CJS repository is write
+*   protected in abapGit, so Pull is blocked and Stage is the only direction that
+*   works; every stage therefore overwrites git with whatever SAP holds. Restoring
+*   it here alone cannot hold. It has to be put into SAP - in ADT, on this class -
+*   or the protection has to come off so a pull can happen before the next stage.
+*
+*   Self-guarding - PAY_FIELD_STEP returns -1 when the journey has no PAYFEE
+*   field, so this is a no-op on a journey with no payment step.
+    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
+                                                         iv_step = iv_step ).
+
 
     CASE iv_step.
 
