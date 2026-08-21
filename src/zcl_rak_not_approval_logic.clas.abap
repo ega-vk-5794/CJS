@@ -20,6 +20,7 @@ CLASS zcl_rak_not_approval_logic DEFINITION
 
   PUBLIC SECTION.
     METHODS zif_rak_journey_logic~on_change          REDEFINITION.
+    METHODS zif_rak_journey_logic~on_render_start    REDEFINITION.
     METHODS zif_rak_journey_logic~on_value_help      REDEFINITION.
     METHODS zif_rak_journey_logic~on_search          REDEFINITION.
     METHODS zif_rak_journey_logic~get_table          REDEFINITION.
@@ -308,6 +309,33 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
+
+  METHOD zif_rak_journey_logic~on_render_start.
+
+    super->zif_rak_journey_logic~on_render_start( io_ctx  = io_ctx
+                                                  io_view = io_view ).
+
+*   GV_SUB_CUR is CLASS-DATA and this app is stateless: /sap/bc/rest hands
+*   every round trip a fresh roll area, so the value ON_CHANGE stored is gone
+*   by the time the NEXT request renders. The citizen's choice does survive -
+*   it is in the model, which abap2UI5 persists - but nothing was copying it
+*   back into the backend.
+*
+*   DESCRIBE_STEP( ) cannot do that itself: it is handed a step name and
+*   nothing else, so BLUEPRINT( ) has no way to reach the model. That is why
+*   step 2 drew five empty labels, and why Next answered "Choose the
+*   declaration before continuing" on a declaration plainly selected on step 1.
+*
+*   So re-seed the static from the model at the start of every render, before
+*   anything asks for the blueprint. ON_CHANGE still fires on the press and is
+*   what makes the change immediate; this is what makes it SURVIVE.
+    DATA(lv_sub) = io_ctx->get_val( 'SUBSERVICE' ).
+    IF lv_sub IS NOT INITIAL.
+      zcl_rak_be_not=>set_subservice( lv_sub ).
+    ENDIF.
+
+  ENDMETHOD.
+
 
   METHOD zif_rak_journey_logic~on_change.
 

@@ -2088,7 +2088,15 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 *   "subServiceId":"" and came back notaryCode 3005 Sub Service Id Not found.
     DATA(lv_sub) = COND string( WHEN gv_sub_cur   IS NOT INITIAL THEN gv_sub_cur
                                 WHEN mv_subservice IS NOT INITIAL THEN mv_subservice
+                                WHEN field( it_fields = it_fields iv_name = 'SUBSERVICE' ) IS NOT INITIAL
+                                  THEN field( it_fields = it_fields iv_name = 'SUBSERVICE' )
                                 ELSE field( it_fields = it_fields iv_name = 'subServiceId' ) ).
+
+*   Re-seed the static so everything later in THIS round trip - the blueprint,
+*   the documents, the legal text - sees the declaration as well.
+    IF gv_sub_cur IS INITIAL AND lv_sub IS NOT INITIAL.
+      gv_sub_cur = lv_sub.
+    ENDIF.
 
 *   No declaration, no draft. Posting one anyway spends a call to be told 3005,
 *   and leaves the citizen with an error on a step they have not reached.
