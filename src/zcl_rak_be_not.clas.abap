@@ -1780,9 +1780,17 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
                    THEN |"attachmentConfId":{ lv_conf }\}|
                    ELSE |"attachmentConfId":null\}| ).
 
+*   The caller (ZCL_RAK_JOURNEY_BE) always hands in mime =
+*   'application/octet-stream', whatever the file. Notary's own collection
+*   sends a jpg as image/jpg specifically, not the browser's image/jpeg, so
+*   that override happens here rather than being trusted from upstream.
+    DATA(lv_mime) = COND string( WHEN to_lower( is_file-extension ) = 'jpg' OR to_lower( is_file-extension ) = 'jpeg'
+                                  THEN 'image/jpg'
+                                  ELSE is_file-mime ).
+
     DATA lt_files TYPE ztt_ega_my_attachment.
     APPEND VALUE #( file_data      = is_file-xdata
-                    file_mime_type = is_file-mime
+                    file_mime_type = lv_mime
                     file_name      = is_file-name
                     file_extension = is_file-extension
                     file_descr     = 'file' ) TO lt_files.
