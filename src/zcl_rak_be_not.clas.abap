@@ -1100,6 +1100,13 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
            tt_o TYPE STANDARD TABLE OF ty_o WITH EMPTY KEY.
 
     TYPES: BEGIN OF ty_f,
+*            This parser already looked under businessFields, but could not
+*            name what it found: the blueprint gives each field its technical
+*            key as jsonKey - caseIssuancePlace, caseNumber - and none of the
+*            aliases below carry it, so every field fell out on the blank-name
+*            CHECK. JSON_KEY and REG_EX are the two the live response uses.
+             json_key       TYPE string,
+             reg_ex         TYPE string,
              name           TYPE string,
              field_name     TYPE string,
              technical_name TYPE string,
@@ -1217,7 +1224,8 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 
     LOOP AT lt_f INTO DATA(ls_f).
 
-      DATA(lv_name) = COND string( WHEN ls_f-name           IS NOT INITIAL THEN ls_f-name
+      DATA(lv_name) = COND string( WHEN ls_f-json_key       IS NOT INITIAL THEN ls_f-json_key
+                                   WHEN ls_f-name           IS NOT INITIAL THEN ls_f-name
                                    WHEN ls_f-field_name     IS NOT INITIAL THEN ls_f-field_name
                                    WHEN ls_f-technical_name IS NOT INITIAL THEN ls_f-technical_name
                                    ELSE ls_f-code ).
@@ -1967,6 +1975,13 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
              key         TYPE string, value TYPE string, id TYPE string, code TYPE string,
              text        TYPE string, name  TYPE string, name_ar TYPE string,
              description TYPE string,
+*            What a LOOKUP choice actually looks like on the wire:
+*              {"id":1,"idStr":null,"code":null,
+*               "englishValue":"Inside RAK","arabicValue":"داخل رأس الخيمة"}
+*            id is the value the business object is posted with; CODE and
+*            IDSTR are usually null and are kept only as fallbacks.
+             id_str        TYPE string,
+             english_value TYPE string, arabic_value TYPE string,
            END OF ty_o,
            tt_o TYPE STANDARD TABLE OF ty_o WITH EMPTY KEY.
 
@@ -1984,6 +1999,25 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
              regex          TYPE string, regular_expression TYPE string,
              pattern        TYPE string, validation_regex   TYPE string,
              options        TYPE tt_o, values TYPE tt_o, lookup_values TYPE tt_o, items TYPE tt_o,
+*            The names the blueprint actually uses. Confirmed from the live
+*            response, not guessed:
+*              {"businessfieldId":7,"englishFieldName":"Case Issuance place",
+*               "arabicFieldName":"...","dataType":"LOOKUP","choices":[...],
+*               "jsonKey":"caseIssuancePlace","maxLength":5,
+*               "regEx":"^\\d{10}$","required":true}
+*
+*            JSON_KEY is the important one: it is the key the business object
+*            is POSTed with - caseIssuancePlace, caseNumber, caseType - so it,
+*            not the label, is the field's technical name.
+*
+*            REG_EX is separate from REGEX on purpose. /ui2/cl_json maps
+*            camelCase to underscores, so "regEx" arrives as REG_EX and the
+*            existing REGEX component never filled.
+             json_key           TYPE string,
+             businessfield_id   TYPE string,
+             english_field_name TYPE string, arabic_field_name TYPE string,
+             reg_ex             TYPE string,
+             choices            TYPE tt_o,
            END OF ty_f,
            tt_f TYPE STANDARD TABLE OF ty_f WITH EMPTY KEY.
 
@@ -2011,6 +2045,13 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
     ENDTRY.
 
     DATA(lt_f) = COND tt_f(
+*     businessFields is the one the live blueprint uses - result.businessFields.
+*     It was already declared on TY_ROOT and TY_LVL and simply never consulted
+*     here, so the deserialize filled it and the pick walked straight past it.
+      WHEN ls_r-result-business_fields      IS NOT INITIAL THEN ls_r-result-business_fields
+      WHEN ls_r-business_fields             IS NOT INITIAL THEN ls_r-business_fields
+      WHEN ls_r-data-business_fields        IS NOT INITIAL THEN ls_r-data-business_fields
+      WHEN ls_r-sub_service-business_fields IS NOT INITIAL THEN ls_r-sub_service-business_fields
       WHEN ls_r-business_object_fields IS NOT INITIAL THEN ls_r-business_object_fields
       WHEN ls_r-bo_fields              IS NOT INITIAL THEN ls_r-bo_fields
       WHEN ls_r-fields                 IS NOT INITIAL THEN ls_r-fields
@@ -2048,6 +2089,12 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
       DATA(lv_name) = COND string( WHEN ls_f-name           IS NOT INITIAL THEN ls_f-name
                                    WHEN ls_f-field_name     IS NOT INITIAL THEN ls_f-field_name
                                    WHEN ls_f-technical_name IS NOT INITIAL THEN ls_f-technical_name
+*                                  JSON_KEY is what the business object is
+*                                  POSTed with - caseIssuancePlace, caseNumber,
+*                                  caseType - so it is the field's real
+*                                  technical name. The generic aliases below
+*                                  are all empty on this blueprint.
+                                   WHEN ls_f-json_key       IS NOT INITIAL THEN ls_f-json_key
                                    ELSE ls_f-code ).
       IF lv_name IS INITIAL.
         CONTINUE.
@@ -2056,6 +2103,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
       DATA(lt_opt) = COND tt_o( WHEN ls_f-options       IS NOT INITIAL THEN ls_f-options
                                 WHEN ls_f-values        IS NOT INITIAL THEN ls_f-values
                                 WHEN ls_f-lookup_values IS NOT INITIAL THEN ls_f-lookup_values
+                                WHEN ls_f-choices       IS NOT INITIAL THEN ls_f-choices
                                 ELSE ls_f-items ).
 
 *     ---- live lists -------------------------------------------------
@@ -2101,12 +2149,15 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
                                     WHEN ls_f-english_name IS NOT INITIAL THEN ls_f-english_name
                                     WHEN ls_f-title        IS NOT INITIAL THEN ls_f-title
                                     WHEN ls_f-description  IS NOT INITIAL THEN ls_f-description
+                                    WHEN ls_f-english_field_name IS NOT INITIAL THEN ls_f-english_field_name
                                     ELSE lv_name ).
 
       APPEND VALUE #(
         name     = to_upper( lv_name )
         label    = lv_label
-        label_ar = COND string( WHEN ls_f-label_ar IS NOT INITIAL THEN ls_f-label_ar ELSE ls_f-arabic_name )
+        label_ar = COND string( WHEN ls_f-label_ar          IS NOT INITIAL THEN ls_f-label_ar
+                                WHEN ls_f-arabic_field_name IS NOT INITIAL THEN ls_f-arabic_field_name
+                                ELSE ls_f-arabic_name )
         type     = lv_type
         required = COND abap_bool( WHEN ls_f-mandatory = abap_true OR ls_f-required = abap_true
                                      OR ls_f-is_mandatory = abap_true THEN abap_true ELSE abap_false )
@@ -2116,17 +2167,23 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         regex    = COND string(
           WHEN lv_type = 'SELECT' THEN ``
           WHEN ls_f-regex              IS NOT INITIAL THEN ls_f-regex
+          WHEN ls_f-reg_ex             IS NOT INITIAL THEN ls_f-reg_ex
           WHEN ls_f-regular_expression IS NOT INITIAL THEN ls_f-regular_expression
           WHEN ls_f-validation_regex   IS NOT INITIAL THEN ls_f-validation_regex
           ELSE ls_f-pattern )
         options  = COND #( WHEN lt_live IS NOT INITIAL THEN lt_live
                            ELSE VALUE #( FOR o IN lt_opt (
+*                    ID is the key the business object is posted with. CODE and
+*                    IDSTR come back null on this blueprint and are fallbacks only.
                      key  = COND string( WHEN o-key IS NOT INITIAL THEN o-key
                                          WHEN o-id  IS NOT INITIAL THEN o-id
                                          WHEN o-code IS NOT INITIAL THEN o-code
+                                         WHEN o-id_str IS NOT INITIAL THEN o-id_str
                                          ELSE o-value )
                      text = COND string( WHEN o-text IS NOT INITIAL THEN o-text
                                          WHEN o-name IS NOT INITIAL THEN o-name
+                                         WHEN o-english_value IS NOT INITIAL THEN o-english_value
+                                         WHEN o-arabic_value  IS NOT INITIAL THEN o-arabic_value
                                          WHEN o-description IS NOT INITIAL THEN o-description
                                          ELSE o-value ) ) ) ) ) TO rt_fields.
 
