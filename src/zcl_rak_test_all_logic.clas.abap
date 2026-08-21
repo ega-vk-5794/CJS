@@ -1696,8 +1696,11 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
       WHEN c_evt_cok.
         io_ctx->close_popup( ).
         io_ctx->add_msg( iv_type = 'Success'
-                         iv_text = 'Saved. The column count changed the layout, not the data - ' &&
-                                   'every field bound to the same model member in all three.' ).
+*                        Backticks: ABAP truncates trailing blanks in a '...'
+*                        literal, so the space before the join is lost and this
+*                        would read "data -every field".
+                         iv_text = `Saved. The column count changed the layout, not the data - ` &&
+                                   `every field bound to the same model member in all three.` ).
       WHEN c_evt_ccxl.
         io_ctx->close_popup( ).
 

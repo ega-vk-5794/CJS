@@ -775,9 +775,15 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *                      because we went in holding nothing. PAYNOW adopts it now.
 *                      Reaching here means neither channel produced a case, so say
 *                      that and nothing more.
-                       iv_text = 'Payment cannot start: no case number came back from the ' &&
-                                 'commit, on either the case or the journey key. Nothing ' &&
-                                 'can be billed until the backend has created the case.' ).
+*                      BACKTICKS, not quotes. ABAP TRUNCATES TRAILING BLANKS in a
+*                      '...' character literal, so 'from the ' && 'commit' renders
+*                      as "from thecommit" - which is exactly how this shipped and
+*                      what the citizen was shown. A `...` string literal keeps
+*                      them. Any concatenation split across lines needs backticks
+*                      or a |...| template; this is not a style preference.
+                       iv_text = `Payment cannot start: no case number came back from the ` &&
+                                 `commit, on either the case or the journey key. Nothing ` &&
+                                 `can be billed until the backend has created the case.` ).
       zcl_rak_cj_evt=>add( iv_type   = zcl_rak_cj_evt=>c_type-pay_block
                            iv_case   = lv_case
                            iv_result = 'BLOCK'
@@ -1102,44 +1108,37 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
           RETURN.
         ENDIF.
 
-*       THE CASE CAN COME BACK AS THE KEY, and on this journey it always does.
+*       INTRENO_JOURNEY IS THE CASE, IN EVERY SCENARIO.
 *
-*       ZCL_RAK_QNV_BRIDGE->POST( ) reports EV_CASE only when the backend returns
-*       an INTRENO_JOURNEY that DIFFERS from the one it was sent. That rule is
-*       right for every ordinary step: we went in holding a key, a different one
-*       came back, and that difference is the case number.
+*       That is the backend contract, stated by the people who own it, and the
+*       engine already holds the value: the bridge reads INTRENO_JOURNEY off the
+*       returned items and hands it back, and GET_CASE( ) is where it lands.
 *
-*       It cannot fire on the press that CREATES the case. We go in with nothing,
-*       so the branch taken is the other one - EV_GUID = what came back, EV_CASE
-*       blank - and the bridge documents that value as "the draft key the backend
-*       minted". On a journey whose first backend post is the Pay press, which is
-*       exactly what a fee-only journey like E146 is, the thing it minted is the
-*       CASE. It is filed as a draft key, TAKE_CASE( ) is never called, and
-*       CASE_NUMBER stays empty.
+*       ZCL_RAK_QNV_BRIDGE->POST( ) only reports EV_CASE when the returned
+*       INTRENO_JOURNEY DIFFERS from the one it was sent. On the press that creates
+*       the case there is nothing to differ from, and on a backend that answers with
+*       the key it was given there is no difference either - so EV_CASE stays blank,
+*       TAKE_CASE( ) is never called, and CASE_NUMBER is empty on a journey that
+*       demonstrably has a case. PREPARE_PAYMENT( ) then refuses on every poll while
+*       the citizen watches a timer.
 *
-*       PREPARE_PAYMENT( ) then says "no case number ... the commit did not reach
-*       the backend", which is the one thing that did NOT happen. The commit
-*       reached it, the case was created, and the number is sitting in the journey
-*       key where nothing thought to look.
+*       An earlier version of this adopted the key ONLY when it was all digits and
+*       under 22 characters, on the theory that a GUID_22 draft key must never reach
+*       RESOLVE_CASE( ). That test rejected the very value it was meant to pass and
+*       the payment step stayed dead. The shape of the key is the backend's business,
+*       not something to be second-guessed from here.
 *
-*       ADOPTED ON THE SHAPE OF THE VALUE, not on trust. A CJS journey key is a
-*       GUID_22 and carries punctuation - it is the value the repo already warns
-*       raises CX_SY_OPEN_SQL_DATA_ERROR when it reaches a key comparison. A case
-*       number is short and numeric. Requiring digits only AND under 22 characters
-*       means a real draft key can never be mistaken for a case, which is the
-*       failure this must not introduce: writing a GUID_22 into CASE_NUMBER would
-*       send it into RESOLVE_CASE( ) and dump mid-payment with the gateway already
-*       open in another tab.
+*       So: if CASE_NUMBER is blank, the journey key IS the case number. Guarded on
+*       blank only, so every journey that already has one is untouched.
 *
-*       Guarded on CASE_NUMBER being blank, so a journey that already has one -
-*       every journey that pays on a later step - reaches none of this.
+*       WATCH THIS ONE. If a draft GUID_22 ever does reach RESOLVE_CASE( ) it goes
+*       into an SCMG_EXT_KEY comparison and raises CX_SY_OPEN_SQL_DATA_ERROR rather
+*       than simply missing - mid-payment, with the gateway open in another tab. If
+*       that appears, the answer is for the BACKEND to return the case in
+*       INTRENO_JOURNEY on this post, not to put the guess back here.
         IF io_ctx->get_val( c_pay_case ) IS INITIAL.
           DATA(lv_key) = io_ctx->get_case( ).
-          IF lv_key IS NOT INITIAL AND lv_key CO '0123456789' AND strlen( lv_key ) < 22.
-*           No TRACE( ) here, deliberately: LO_ENG is not declared until below,
-*           and ABAP will not let a variable be used ahead of its DATA statement.
-*           The PAY press trace a few lines down already prints the case, so this
-*           adoption shows up there as a case number where there was none.
+          IF lv_key IS NOT INITIAL.
             io_ctx->set_val( iv_name = c_pay_case iv_value = lv_key ).
           ENDIF.
         ENDIF.

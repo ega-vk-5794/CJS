@@ -249,3 +249,129 @@ is 8 characters, which leaves 14 for the id and truncates a 10-digit SID far
 earlier. In that case shorten the prefix and hash rather than concatenate, or move
 to a cluster table with a longer `SRTFD`. Establish the length first; it changes
 what the right key looks like.
+
+---
+
+# The clear report "did not work" — why, and what to do instead
+
+Worth saying first: **this is an argument for fixing the code rather than clearing
+the buffer.** Clearing an export/import buffer from outside is fragile for reasons
+that have nothing to do with the statement being wrong, and all four traps below
+disappear if `ACCESS_STUDENT_EXIT_BUFFER` deletes the row itself when it catches the
+mismatch. That code runs in the right client, on the right app server, in the right
+session, with the key it built itself — none of which an external report can
+guarantee.
+
+If the report is still wanted, work through these in order. "Did not work" means
+different things and they have different causes.
+
+## 1. Wrong app server — the most likely one
+
+`SHARED BUFFER` is **per application server**. The report ran wherever the batch or
+dialog work process ran; the failing journey runs wherever ICF routed the HTTP
+request. On a multi-server system those are usually not the same, and the delete
+happily reports success against a buffer that never held the row.
+
+The debugger screenshot names the server the journey was on:
+
+```
+ABAP Debugger(1) (Exclusive) -HTTP- (vhrkhe10ci_E10_00)
+```
+
+`SM51` lists the servers. The delete has to run on **that** one — or on all of them.
+There is no way to reach another server's export/import buffer from ABAP without
+executing there.
+
+## 2. Wrong client
+
+`INDX` is client-dependent and the buffer key includes the client. The journey runs
+in **client 200** (`sap-client=200` in the URL). A report run in any other client
+builds a different key and deletes nothing.
+
+Either log into 200, or state it:
+
+```abap
+DELETE FROM SHARED BUFFER indx(cj) CLIENT '200' ID lv_id.
+```
+
+## 3. Wrong key
+
+The report guesses the id. The method builds it from a field the debugger only
+showed truncated (`cs_student_exit-s…`), so the prefix or the field may not be what
+the report assumes. Take `LV_ID` **verbatim** from the debugger rather than
+rebuilding it — that value is known to be right.
+
+Note also the length question raised above: if `SRTFD` is `CHAR(22)` the 23-character
+id truncates. The report truncates identically, so this does not by itself stop the
+delete matching — but confirm the length anyway, because it is a real defect on its
+own.
+
+## 4. It reported `sy-subrc = 4`
+
+That is not a failure of the statement, it is the answer: **no row under that key on
+this server, in this client**. Causes 1 to 3 all produce it. So does a buffer that
+has already been displaced under memory pressure, in which case there is nothing
+left to delete and the dump you are still seeing is coming from somewhere else.
+
+## Probe before deleting
+
+Do not delete blind. This reports what is actually there, distinguishing "no row",
+"a good row" and "the poisoned row" — which is the thing worth knowing:
+
+```abap
+REPORT zrak_probe_student_exit.
+
+PARAMETERS p_id TYPE char30 OBLIGATORY.   " paste LV_ID from the debugger
+PARAMETERS p_del AS CHECKBOX.             " tick only after the probe says POISONED
+
+START-OF-SELECTION.
+
+* Any structure will do for the probe - a mismatch is raised by the IMPORT before
+* the target is ever filled, which is exactly the condition being tested for.
+  DATA: BEGIN OF ls_probe,
+          dummy TYPE string,
+        END OF ls_probe.
+
+  WRITE: / |server { sy-host } · client { sy-mandt } · id "{ p_id }"|.
+
+  TRY.
+      IMPORT student_exit = ls_probe FROM SHARED BUFFER indx(cj) ID p_id.
+
+      IF sy-subrc = 0.
+        WRITE: / 'Row present and it imported cleanly into a DIFFERENT structure.'.
+        WRITE: / 'That means the stored shape is not what is dumping - look elsewhere.'.
+      ELSE.
+        WRITE: / |No row under this key here. sy-subrc { sy-subrc }.|.
+        WRITE: / 'Wrong app server, wrong client, or wrong key - see the notes.'.
+      ENDIF.
+
+    CATCH cx_sy_import_mismatch_error.
+*     THIS is the row that is dumping the journey. The probe reproduces the
+*     failure on demand, which also means it confirms server, client and key are
+*     all correct - the three things a bare DELETE cannot tell you.
+      WRITE: / 'POISONED. The stored row mismatches on import - this is the one.'.
+      IF p_del = abap_true.
+        DELETE FROM SHARED BUFFER indx(cj) ID p_id.
+        WRITE: / |Deleted. sy-subrc { sy-subrc }.|.
+      ELSE.
+        WRITE: / 'Re-run with the delete box ticked to clear it.'.
+      ENDIF.
+  ENDTRY.
+```
+
+Run it on the app server named in the debugger, in client 200. The probe telling you
+`POISONED` is the confirmation that everything else lines up; anything else means one
+of causes 1 to 3 is still in play and deleting would have achieved nothing.
+
+## If it still cannot be cleared
+
+Two blunt instruments, in order of preference:
+
+1. **Apply the code fix and let it clear itself.** The next journey that touches that
+   student catches the mismatch, deletes the row on the correct server in the correct
+   client, and re-seeds it. No report, no server hunting.
+2. **Restart the app server.** `SHARED BUFFER` does not survive it. Heavy-handed, but
+   it is the one method that needs no key and no guessing.
+
+`$SYNC` is worth mentioning only to say it is not the answer here — it resets table
+buffers, not the export/import buffer.
