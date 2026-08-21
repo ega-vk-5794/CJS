@@ -639,6 +639,24 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
+*   DRAFT is a step whose entire job is to create the case, the way the Notary
+*   portal's Start Service button does. The INIT( ) block above has just run and
+*   there is nothing further to send, so this returns having posted nothing.
+*
+*   It is a NAMED branch and not a WHEN OTHERS fall-through, and that is the whole
+*   point: a screen name the backend does not know posts nothing while looking
+*   configured, which is the failure this repository already documents. DRAFT says
+*   out loud that the step sends nothing because the case creation IS the send.
+*
+*   Put it on the last step before the first screened one. Everything downstream
+*   then has a case to work against - including whatever the create call itself
+*   returns, which for Notary is the applicant already added as first party. Left
+*   to the first screened step instead, the case is created on the way OUT of that
+*   step and the step renders with nothing the create call returned.
+    IF to_upper( ls_step-bknd_screen ) = 'DRAFT'.
+      RETURN.
+    ENDIF.
+
     IF to_upper( ls_step-bknd_screen ) = 'ATTACH'.
       rv_ok = be_attach( ).
       RETURN.

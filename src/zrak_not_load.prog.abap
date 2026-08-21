@@ -21,7 +21,7 @@ REPORT zrak_not_load.
 *&   portal                          here          posts
 *&   -----------------------------------------------------------------
 *&   Service Classifications         STP1          -
-*&   Service Definition              STP2          -
+*&   Service Definition              STP2          - (DRAFT: creates case)
 *&   Add First Party (Confessor)     STP3          PARTY1
 *&   Add Second Party (for)          STP4          PARTY2
 *&   Service Information             STP5          BO
@@ -130,14 +130,25 @@ START-OF-SELECTION.
 * would demand one on every declaration, including the ones the
 * clarification table lists as Optional.
   INSERT zrak_t_jny_step FROM TABLE @( VALUE #(
-*   STP1 and STP2 name NO backend screen, and that is not an omission.
-*   The draft is created in ZCL_RAK_BE_NOT->INIT( ) - POST
-*   /request/events/draft - which the engine runs when the journey starts,
-*   before any step commits. STEP_COMMIT( ) answers PARTY1, PARTY2, BO,
-*   VISIT/TRANSFER, LEGAL and BILLING and nothing else, so a screen name it
-*   does not know would fall to WHEN OTHERS and post nothing while looking
-*   configured. A blank screen says the truth: these two steps choose the
-*   declaration, they do not send anything.
+*   STP1 names no backend screen: choosing a classification sends nothing.
+*
+*   STP2 names DRAFT, which is not a /QNV/ screen and never reaches
+*   STEP_COMMIT( ). The engine handles it in BE_COMMIT( ) and it means one
+*   thing - create the case here. That is the portal's Start Service button:
+*   press it and POST /request/events/draft runs, which is where the live
+*   screen's "Request with request id : N created successfully" comes from.
+*
+*   It sits on STP2 and not STP3 because the create call is what returns
+*   firstPartyDetails - the applicant, already added as the first party. Leave
+*   the case to the first screened step instead and it gets created on the way
+*   OUT of First Party, so First Party draws before the applicant it is meant
+*   to be showing exists. Draft creation is still lazy in the sense that it
+*   happens on a press and not on load; the press is just the right one.
+*
+*   STEP_COMMIT( ) answers PARTY1, PARTY2, BO, VISIT/TRANSFER, LEGAL and
+*   BILLING and nothing else. A screen name it does not know would fall to
+*   WHEN OTHERS and post nothing while looking configured - which is exactly
+*   why DRAFT is a named branch in the engine and not just a word written here.
 *   NEXT_REQUIRES gates the footer on SUBSERVICE. Everything after this step
 *   is derived from the declaration - the blueprint, the business object, the
 *   documents, whether a second party is needed - so leaving step 1 without
@@ -149,7 +160,8 @@ START-OF-SELECTION.
       next_requires = 'SUBSERVICE' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
       title = 'Service Definition' title_ar = 'تعريف الخدمة'
-      icon = 'sap-icon://document-text' columns = 2 active = 'X' )
+      icon = 'sap-icon://document-text' columns = 2
+      bknd_screen = 'DRAFT' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
       title = 'First Party' title_ar = 'الطرف الأول'
       icon = 'sap-icon://person-placeholder' bknd_screen = 'PARTY1' active = 'X' )
@@ -522,8 +534,13 @@ START-OF-SELECTION.
   COMMIT WORK AND WAIT.
 
   WRITE: / 'NOT journey loaded.'.
-  WRITE: / '  8 steps. Business-object and attachment fields come from the'.
-  WRITE: / '  blueprint at runtime - none are configured here on purpose.'.
-  WRITE: / '  Run ZRAK_CJS_XCHECK afterwards.'.
-  WRITE: / '  NOT exercised end to end: the Notary credential is rejected'.
-  WRITE: / '  (Q1 in the clarification document).'.
+  WRITE: / '  9 steps. The portal shows 8 - the visit request is a step of'.
+  WRITE: / '  its own here so that it is actually sent. See STP6.'.
+  WRITE: / '  STP2 carries BKND_SCREEN = DRAFT. That press creates the case,'.
+  WRITE: / '  which is the portal Start Service button.'.
+  WRITE: / '  Business-object and attachment fields come from the blueprint'.
+  WRITE: / '  at runtime - none are configured here on purpose.'.
+  WRITE: / '  Run ZRAK_CJS_XCHECK afterwards, and expect noise: it reports'.
+  WRITE: / '  every screen on this journey as missing from /QNV/SB_UI_DEFIN.'.
+  WRITE: / '  NOTARY is a REST backend and has no /QNV/ rows at all, so'.
+  WRITE: / '  those findings are false and DRAFT adds one more of them.'.
