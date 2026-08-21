@@ -173,6 +173,22 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                    | · shlp { COND string( WHEN is_field-shlp IS NOT INITIAL THEN is_field-shlp ELSE '(none)' ) }| &&
                    | · domain { COND string( WHEN is_field-domname IS NOT INITIAL THEN is_field-domname ELSE '(none)' ) }| &&
                    | · resolved { lines( rt ) } option(s)| ).
+*     A list that came back exactly at the cap was almost certainly cut, and a cut
+*     list is indistinguishable from a complete one by looking at it - the citizen
+*     cannot find their entry and nothing on the page says why.
+*
+*     A GATE rather than a plain trace line, so it lands in the blocker list next
+*     to the zero-options gate below it - the two failures are siblings and belong
+*     in the same place. Both are inside the trace guard, so both need trace=x:
+*     that is a real limitation, not a design decision, and if truncation ever
+*     bites in production this is the check to lift out of the guard.
+      IF lines( rt ) >= zcl_rak_f4_resolver=>c_max.
+        mo_e->trace_gate( |Field { is_field-name } resolved { lines( rt ) } options, | &&
+                          |which is the cap - the list is almost certainly | &&
+                          |TRUNCATED and the citizen cannot pick anything past it. | &&
+                          |Narrow the search help or raise ZCL_RAK_F4_RESOLVER=>C_MAX.| ).
+      ENDIF.
+
       IF rt IS INITIAL AND ( is_field-rollname IS NOT INITIAL OR is_field-shlp IS NOT INITIAL
                              OR is_field-domname IS NOT INITIAL ).
         mo_e->trace_gate( |Field { is_field-name } asks for value help but resolved | &&
@@ -1881,6 +1897,10 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     DATA lv_section TYPE string.
     DATA lv_group   TYPE string.
     DATA lv_taken   TYPE i.
+*   Indices already drawn out of order. LV_TAKEN is a high-water mark and can
+*   only skip a contiguous run; gathering uploads that are NOT adjacent needs to
+*   record each one it consumed.
+    DATA lt_used    TYPE STANDARD TABLE OF i WITH EMPTY KEY.
     DATA lv_flex    TYPE abap_bool.
 
     LOOP AT is_step-fields INTO DATA(ls_fx).
@@ -1940,6 +1960,9 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       IF lv_ix <= lv_taken.
         CONTINUE.
       ENDIF.
+      IF line_exists( lt_used[ table_line = lv_ix ] ).
+        CONTINUE.
+      ENDIF.
       IF mo_e->mo_rules->is_hidden( ls_f ) = abap_true.
         CONTINUE.
       ENDIF.
@@ -1967,36 +1990,57 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         CLEAR lo_form.
 
         IF to_upper( ls_f-type ) = 'UPLOAD' AND is_step-columns BETWEEN 2 AND 4.
-          DATA(lv_upn) = lv_ix.
-          DATA(lv_upc) = 0.
-          WHILE lv_upn <= lines( is_step-fields ).
-            DATA(ls_upf) = is_step-fields[ lv_upn ].
-            IF to_upper( ls_upf-type ) <> 'UPLOAD' OR ls_upf-section <> ls_f-section.
+
+*         Uploads pair up by SECTION now, not by being neighbours.
+*
+*         The old scan walked forward and stopped at the FIRST field that was not
+*         an upload, so two uploads with anything at all between them each drew
+*         full width and COLUMNS on the step appeared to do nothing. On E142 that
+*         is CV Copy and Attested Certificate with Degree sitting between them -
+*         nothing an author could see explained it, and the only fix was to
+*         reorder SEQNR until the two happened to be adjacent.
+*
+*         Now it collects up to COLUMNS uploads from anywhere in the SAME section
+*         and draws them as one row where the first of them sits. The fields it
+*         skipped over are drawn afterwards in their own order, which is why
+*         LT_USED exists: LV_TAKEN can only skip a contiguous run.
+*
+*         The section boundary is still hard. A section emits a heading, so
+*         gathering an upload from the next one would file it under the wrong
+*         title - which is a worse bug than a full-width control.
+          DATA lt_upix TYPE STANDARD TABLE OF i WITH EMPTY KEY.
+          CLEAR lt_upix.
+          APPEND lv_ix TO lt_upix.
+
+          DATA(lv_scan) = lv_ix + 1.
+          WHILE lv_scan <= lines( is_step-fields )
+                AND lines( lt_upix ) < is_step-columns.
+            DATA(ls_scan) = is_step-fields[ lv_scan ].
+            IF ls_scan-section <> ls_f-section.
               EXIT.
             ENDIF.
-            IF mo_e->mo_rules->is_hidden( ls_upf ) = abap_false.
-              lv_upc = lv_upc + 1.
-              IF lv_upc > is_step-columns.
-                EXIT.
-              ENDIF.
+            IF to_upper( ls_scan-type ) = 'UPLOAD'
+               AND mo_e->mo_rules->is_hidden( ls_scan ) = abap_false.
+              APPEND lv_scan TO lt_upix.
             ENDIF.
-            lv_upn = lv_upn + 1.
+            lv_scan = lv_scan + 1.
           ENDWHILE.
-          lv_upn = lv_upn - 1.
 
-          IF lv_upn > lv_ix.
-            lv_taken = lv_upn.
+          IF lines( lt_upix ) > 1.
             DATA(lo_uprow) = lo_target->hbox( class          = 'rakRow rakUpRow'
                                               alignitems     = 'Start'
                                               justifycontent = 'Start' ).
-            LOOP AT is_step-fields INTO DATA(ls_upr) FROM lv_ix TO lv_upn.
-              IF mo_e->mo_rules->is_hidden( ls_upr ) = abap_true.
-                CONTINUE.
-              ENDIF.
+            LOOP AT lt_upix INTO DATA(lv_upi).
+              DATA(ls_upr) = is_step-fields[ lv_upi ].
               DATA(lo_upcell) = lo_uprow->vbox( class = 'rakCell rakUpCell' ).
               before_field( io_view = lo_upcell is_field = ls_upr ).
               render_block( io_parent = lo_upcell is_field = ls_upr ).
               after_field( io_view = lo_upcell is_field = ls_upr ).
+*             Every one EXCEPT the field the outer loop is currently on, which it
+*             is about to leave by itself.
+              IF lv_upi <> lv_ix.
+                APPEND lv_upi TO lt_used.
+              ENDIF.
             ENDLOOP.
             CONTINUE.
           ENDIF.

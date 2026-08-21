@@ -9,11 +9,22 @@ CLASS zcl_rak_f4_resolver DEFINITION
     "! 3. rollname -> data element's own default search help (DD04L-SHLPNAME)
     "! 4. explicit shlp -> F4IF hit list (collective helps: first elementary)
     "! Returns empty table when nothing resolves - caller falls back to input.
+*   The row cap, and it is public so a caller can tell a full list from a cut
+*   one. Every SELECT / SHLP / DOMAIN read below is UP TO IV_MAX ROWS, and a
+*   truncated list looks exactly like a complete one on screen.
+*
+*   Was 50. That is fine for a status domain and wrong for anything real: there
+*   are about 250 countries and as many nationalities, so a nationality field
+*   pointed at T005T silently offered the first 50 and the citizen could not pick
+*   their own country. 500 clears every DDIC list this engine asks for while
+*   still refusing to pull an unbounded table into a dropdown.
+    CONSTANTS c_max TYPE i VALUE 500.
+
     METHODS resolve
       IMPORTING iv_rollname       TYPE string OPTIONAL
                 iv_shlp           TYPE string OPTIONAL
                 iv_domname        TYPE string OPTIONAL
-                iv_max            TYPE i DEFAULT 50
+                iv_max            TYPE i DEFAULT c_max
       RETURNING VALUE(rt_options) TYPE zif_rak_journey=>tt_option.
 
   PRIVATE SECTION.
