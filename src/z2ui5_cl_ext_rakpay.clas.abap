@@ -70,11 +70,11 @@ CLASS Z2UI5_CL_EXT_RAKPAY IMPLEMENTATION.
 
 
   METHOD rakpay_popup.
-    DATA: lv_script TYPE string.
-
-    DATA(script) = z2ui5_cl_xml_view=>factory( ).
-    lv_script = 'window.open("' && iv_url && '", "_blank");'.
-    script->_generic( ns = 'html' name = 'script' )->_cc_plain_xml( lv_script ).
+*    DATA: lv_script TYPE string.
+*
+*    DATA(script) = z2ui5_cl_xml_view=>factory( ).
+*    lv_script = 'window.open("' && iv_url && '", "_blank");'.
+*    script->_generic( ns = 'html' name = 'script' )->_cc_plain_xml( lv_script ).
 
 *    client->view_display( script->stringify( ) ).
 
@@ -90,6 +90,7 @@ CLASS Z2UI5_CL_EXT_RAKPAY IMPLEMENTATION.
                           id                   = 'payDialog'
                           showheader           = 'false'
                           horizontalscrolling  = 'false'
+                          afteropen            = '.afterOpen'
                           class                = 'confirmDialog payDialogBorderTopGray' ).
 
     pay_dialog->custom_data( )->core_custom_data( key = 'URL' value = iv_url ).
