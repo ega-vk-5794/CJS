@@ -222,37 +222,56 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
 *       NAME THE ONE THAT LOOKS LIKE NOTHING. Every other exception here reads as
 *       what it is; CX_SY_IMPORT_MISMATCH_ERROR arrives as the runtime's generic
 *       "an exception was raised but was not handled locally" text, which says
-*       neither what failed nor whether the application can be recovered at all.
+*       neither what failed nor whether anything can be done about it.
 *
-*       What it means: the post FM does IMPORT ... FROM DATABASE INDX(CJ) ID
-*       <guid> to pick the draft back up, and the row stored under that id was
-*       EXPORTed from a DIFFERENT structure than the one being imported into now.
-*       It is a type mismatch on the cluster - not a missing key, and not bad data
-*       in the form, which is why nothing the citizen retypes will change it.
+*       WHAT IT IS. Confirmed in the debugger, not guessed:
 *
-*       Almost always a draft that outlived a structure change: the journey was
-*       started, the backend structure was transported or reactivated with a new
-*       shape, and the old row is still sitting under the old one. It then fails
-*       identically on every retry of THAT draft and not at all on a new one -
-*       exactly the pattern that gets reported as "the service is down".
+*         ZCL_EGA_CJ_DOK_ABS->ACCESS_STUDENT_EXIT_BUFFER
+*           IMPORT student_exit = cs_student_exit
+*             FROM SHARED BUFFER indx(cj) ID lv_id.
 *
-*       The recovery is a NEW DRAFT: Delete, then start the service again. Saying
-*       so here is the difference between a citizen abandoning the application and
-*       finishing it. The root fix belongs to the backend that owns the cluster;
-*       this bridge only calls the FM and cannot see inside it.
+*       The row under that id was EXPORTed from a DIFFERENT shape of the
+*       structure than it is now imported into. A type mismatch on a CACHE - not
+*       a missing key, and nothing to do with what the citizen typed.
+*
+*       AND THE KEY IS THE STUDENT, NOT THE DRAFT:
+*
+*         LV_ID = student_exit_2013196053
+*
+*       That is the part worth writing down, because the obvious advice is wrong.
+*       Deleting the application and starting again does NOT help - the new draft
+*       builds the same id from the same student and hits the same poisoned row.
+*       SHARED BUFFER is cross-session too, so it is not one citizen: everyone
+*       who touches that student on this app server gets it, until the row is
+*       cleared or the buffer is flushed.
+*
+*       So this message must NOT send anybody round the retry loop. It says the
+*       truth - the same student will keep failing, and somebody has to clear the
+*       cache - because a citizen told to try again will try again, twice, and
+*       then telephone.
+*
+*       The real fix is four lines in ACCESS_STUDENT_EXIT_BUFFER: catch
+*       CX_SY_IMPORT_MISMATCH_ERROR, DELETE the row, report a miss. A cache must
+*       never be able to stop the application it is only there to speed up. That
+*       class is not in this repository - it lives in the BAdI chain and is
+*       maintained in ADT - so this bridge reports it as clearly as it can and
+*       does not pretend to have fixed it.
         DATA(lv_cls) = cl_abap_classdescr=>get_class_name( lx ).
         IF lv_cls CS 'CX_SY_IMPORT_MISMATCH_ERROR'.
           APPEND VALUE #( type = 'Error'
-            text = |This saved application cannot be re-opened: the backend still holds | &&
-                   |it in an older format. Press Delete and start the service again - | &&
-                   |a new application will work. Nothing you entered caused this.| ) TO et_msg.
+            text = |This service cannot continue for this student right now. The | &&
+                   |backend is holding cached data for them in an older format. | &&
+                   |Nothing you entered caused it, and starting the application | &&
+                   |again will not clear it - please report it to support.| ) TO et_msg.
 
-*         The technical half, separately. A developer reading the trace gets the
-*         guid and the screen without the citizen-facing line having to carry them.
+*         The technical half, separately, so the citizen-facing line above does not
+*         have to carry any of it.
           APPEND VALUE #( type = 'Information'
-            text = |INDX(CJ) type mismatch · guid { iv_guid } · screen { iv_screen } · | &&
-                   |{ lv_cls }. The cluster row was exported from a different structure | &&
-                   |than the post FM imports into. Backend-side: clear or migrate that row.| ) TO et_msg.
+            text = |INDX(CJ) SHARED BUFFER type mismatch · screen { iv_screen } · | &&
+                   |guid { iv_guid } · { lv_cls }. Raised by | &&
+                   |ZCL_EGA_CJ_DOK_ABS->ACCESS_STUDENT_EXIT_BUFFER, whose buffer id is | &&
+                   |student_exit_<SID> - keyed by STUDENT, so a new draft hits the same | &&
+                   |row. Clear that id from the buffer, and catch the exception there.| ) TO et_msg.
           RETURN.
         ENDIF.
 
