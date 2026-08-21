@@ -1687,7 +1687,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       CLEAR lt_dyn.
 
       TRY.
-          lt_dyn = mo_backend->describe_step( <dstep>-bknd_screen ).
+*         The model goes with the step name. A dynamic step can depend on
+*         something the citizen chose - the Notary blueprint depends on the
+*         declaration - and DESCRIBE_STEP( ) runs before on_init( ) and every
+*         other handler hook, so this is the only place it can be handed over.
+*         Guarded: MO_BE is the QNV-side helper and is not bound on every path.
+          lt_dyn = mo_backend->describe_step(
+                     iv_step   = <dstep>-bknd_screen
+                     it_fields = COND #( WHEN mo_be IS BOUND THEN mo_be->be_fields( ) ) ).
         CATCH cx_root INTO DATA(lx_dyn).
           mv_dyn_note = |{ mv_dyn_note }{ <dstep>-bknd_screen }=EXCEPTION | .
           CONTINUE.

@@ -1837,6 +1837,25 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 
     CHECK to_upper( iv_step ) = 'BO'.
 
+*   Recover the declaration from the model before asking for the blueprint.
+*
+*   GV_SUB_CUR is CLASS-DATA and this app is stateless - /sap/bc/rest gives
+*   every round trip a fresh roll area - so whatever ON_CHANGE stored is gone
+*   by the next request. The citizen's choice does survive, in the model, and
+*   IT_FIELDS is that model: BE_FIELDS( ) publishes each field under the
+*   journey's own name, so the declaration arrives here as SUBSERVICE.
+*
+*   Without this the trace reads 'BLUEPRINT skipped - no declaration chosen
+*   yet' on a declaration that was plainly chosen, and every dynamic step
+*   reports 0 fields.
+    IF gv_sub_cur IS INITIAL.
+      DATA(lv_pick) = field( it_fields = it_fields iv_name = 'SUBSERVICE' ).
+      IF lv_pick IS NOT INITIAL.
+        gv_sub_cur = lv_pick.
+        zcl_rak_not_trace=>add( |BLUEPRINT declaration { lv_pick } recovered from the model| ).
+      ENDIF.
+    ENDIF.
+
     DATA(lv_json) = blueprint( ).
     IF lv_json IS INITIAL.
       RETURN.

@@ -104,8 +104,16 @@ INTERFACE zif_rak_journey_backend
 
 * Describe a step whose fields are not configured. iv_step is the step's
 * bknd_screen. Returning an empty table means "this step is not dynamic".
+*
+* it_fields is the engine's flattened model, the same shape every other
+* backend call gets. It is here because DESCRIBE_STEP( ) runs before every
+* handler hook - deliberately, see above - and the Notary declaration is
+* chosen by the citizen at runtime. Without it the backend has a step name
+* and nothing else, cannot know which blueprint to fetch, and every dynamic
+* step comes back empty. Optional: a backend that does not need it ignores it.
   METHODS describe_step
     IMPORTING iv_step          TYPE string
+              it_fields        TYPE tt_field OPTIONAL
     RETURNING VALUE(rt_fields) TYPE tt_dyn_field.
 
 * Create the request. Called once, on the first committing step.
