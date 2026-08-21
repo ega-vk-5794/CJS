@@ -115,3 +115,137 @@ into a failure.
 some shape changes and are tempting as a one-word fix. They also silently map data
 into the wrong fields when the change is not a pure append. A wrong student record
 that renders without complaint is worse than the dump. Catch and invalidate instead.
+
+---
+
+# Should the buffer move to the database instead?
+
+Asked directly, so answered directly: **moving to `DATABASE` does not fix this bug**,
+and on its own it makes the failure permanent rather than temporary.
+
+```abap
+IMPORT student_exit = cs_student_exit FROM DATABASE indx(cj) ID lv_id.
+```
+
+raises exactly the same `CX_SY_IMPORT_MISMATCH_ERROR` on exactly the same cause —
+the stored cluster was written from a different shape of the structure. `IMPORT`
+does not care which medium the row came from; it compares the stored type against
+the target type and gives up when they differ.
+
+The difference is what happens next. A `SHARED BUFFER` row dies when the app server
+restarts, so today's poison clears itself at the next bounce whether or not anybody
+understands it. A `DATABASE` row is persistent: it survives restarts, transports and
+client copies, and sits there failing until somebody deletes it on purpose.
+
+**So the catch-and-invalidate fix above is required either way.** Do that first. The
+medium is a separate decision, and a smaller one.
+
+## What each medium is actually good for
+
+| | `SHARED BUFFER` (today) | `DATABASE` |
+| --- | --- | --- |
+| Scope | one app server | whole system |
+| Survives restart | no | yes |
+| Cost per access | memory read | DB read/write |
+| Silent eviction | **yes**, under memory pressure | never |
+| Housekeeping | automatic | **required — `INDX` grows forever** |
+| Inside the caller's LUW | no | **yes — writes commit with it** |
+
+Two rows in that table are the ones that decide it.
+
+**Silent eviction.** A `SHARED BUFFER` row can be displaced when the buffer fills, and
+the caller cannot tell an evicted row from one that was never written. That is fine
+for a cache and fatal for anything treated as storage. If any caller of
+`ACCESS_STUDENT_EXIT_BUFFER` depends on a row still being there — rather than
+re-reading from the source on a miss — it already has a latent bug that has nothing
+to do with the dump, and `DATABASE` is the correct answer for that caller.
+
+**The LUW.** `EXPORT ... TO DATABASE` is a database change in the calling transaction.
+It commits when the caller commits and rolls back when the caller rolls back — so a
+failed post would silently discard the cache write, and a cache write would land in
+the middle of a business LUW that did not ask for one. `SHARED BUFFER` has no such
+coupling. Inside a BAdI called from an update task this is worth thinking about
+before switching.
+
+## The change worth making, whichever medium you keep
+
+Put the **shape of the structure into the key**:
+
+```abap
+CONSTANTS c_shape TYPE string VALUE 'V2'.   " bump when STUDENT_EXIT changes
+
+DATA(lv_id) = CONV char30( |stex_{ c_shape }_{ cs_student_exit-student_id }| ).
+```
+
+A structure change then **misses** the old rows instead of mismatching them. No
+exception is raised at all: the read comes back empty, the caller reads from the
+source exactly as on a cold cache, and the old rows age out on their own. The class
+of bug disappears rather than being handled.
+
+Keep the `TRY ... CATCH` as well, for the release where somebody changes the
+structure and forgets to bump `c_shape`. Belt and braces: the token prevents it, the
+catch survives it.
+
+This is the pattern the CJS side already uses — `ZCL_RAK_CJ_CFG_CACHE` keys its
+entries against a counter in `ZRAK_CJ_CFG_VER` and reloads when the two disagree,
+for the same reason.
+
+## Recommendation
+
+1. **Apply the catch-and-invalidate fix.** Required regardless, and it is what
+   unblocks today.
+2. **Add the shape token to the key.** Small, and it removes the failure mode.
+3. **Keep `SHARED BUFFER`** unless a caller genuinely needs cross-server or
+   persistent data. It is a cache of something re-readable, memory is the right
+   medium for that, and a DB round trip per student is a real cost on a wizard that
+   reads this repeatedly.
+4. **If you do move to `DATABASE`**, you own three new things: a deletion policy so
+   `INDX` does not grow without limit, the LUW coupling above, and the fact that a
+   poisoned row now needs deleting by hand instead of clearing at the next restart.
+
+---
+
+# Check this too: the key may be one character too long
+
+Not verified — no ADT from the environment this was written in — but the arithmetic
+is worth ten minutes on a system.
+
+```
+'student_exit_'          13 characters
+'2013196053'             10 characters   (student SID)
+                         --
+                         23 characters
+```
+
+`INDX-SRTFD` is `CHAR(22)`.
+
+`LV_ID` is declared `CONV char30( ... )`, so the *variable* holds all 23 — the
+debugger screenshot confirms `C(30)` and shows the full `student_exit_2013196053`.
+The question is what reaches the cluster key when the export is performed, because
+the key field it lands in is shorter than the value being handed to it.
+
+If it truncates at 22, the last character of the SID is lost, and **two students
+whose ids differ only in the final digit share one buffer row**:
+
+```
+student_exit_2013196053  ->  student_exit_201319605
+student_exit_2013196054  ->  student_exit_201319605
+```
+
+That would not dump. It would serve one student's exit data for another, silently,
+and only for SIDs that happen to be adjacent — which is exactly the kind of defect
+that survives testing and surfaces as an unreproducible complaint.
+
+How to check, in order:
+
+1. `SE11` on the cluster table actually used for area `CJ` — confirm the length of
+   its `SRTFD` field. If it is a custom table with a longer key, there is nothing
+   to fix.
+2. If it is 22: export for two SIDs differing only in the last digit, then import
+   both and compare.
+
+If it is truncating, the shape token above makes it worse, not better — `stex_V2_`
+is 8 characters, which leaves 14 for the id and truncates a 10-digit SID far
+earlier. In that case shorten the prefix and hash rather than concatenate, or move
+to a cluster table with a longer `SRTFD`. Establish the length first; it changes
+what the right key looks like.
