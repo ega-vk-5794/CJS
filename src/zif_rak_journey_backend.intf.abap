@@ -74,6 +74,15 @@ INTERFACE zif_rak_journey_backend
 * model is built from configured fields, and build_model( ) runs before
 * the handler's on_init( ).
 *
+* The merge is not a one-shot at launch. MAIN( ) merges and rebuilds on
+* every round trip, because a step can only be described once the citizen
+* has made the choice that decides it - the Notary declaration is picked
+* on step 1 and the business object step follows from it. Returning a
+* different set of fields on a later call is therefore expected, and
+* build_model( ) carries existing values across so the rebuild is cheap
+* and non-destructive. Return the same names for the same state and the
+* values stay put.
+*
 * A backend with no dynamic steps returns an empty table.
 * ---------------------------------------------------------------------
   TYPES: BEGIN OF ty_dyn_opt,

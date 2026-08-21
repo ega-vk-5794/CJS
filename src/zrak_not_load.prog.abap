@@ -266,28 +266,90 @@ START-OF-SELECTION.
 * --------------------------------------------------- STP3 / STP4 fields
 * The party STEPS are lists, not forms: Party Name / Mobile Number /
 * Nationality / Action, with view and contact icons per row and an Add
-* Party button underneath. So the visible control on each step is a TABLE
-* fed by the handler, and the identity fields belong to the popup that
-* adds a row - they are not laid out here.
+* Party button underneath. So the top control on each step is a TABLE fed
+* by the handler, and the identity fields sit below it as the add form.
 *
 * PARTY1 / PARTY2 are READONLY tables for the same reason E027's licence
 * grid is: a row is added through the search, not typed. Letting a citizen
 * edit a name in the grid would send the officer a party MOI never
 * confirmed.
 *
-* The Add-party popup, the view popup and the contact edit are NOT
-* configured fields. They are handler-owned dialogs -
-* ON_RENDER_POPUP( ) - because each is a search plus a result plus an
-* attachment, which is exactly the case dialog_form( ) cannot express.
+* The identity fields ARE configured, and that is a reversal of what this
+* comment used to say. The earlier plan put the whole add-party form in a
+* handler-drawn dialog, and the cost of that only became clear once it was
+* the last thing missing: a dialog has to draw its own partner search.
+*
+* CJS already has one. ftype SEARCH renders the ID-type combobox, the
+* Search button and the Browse button; the engine answers BPOPEN_<FIELD>
+* with the BP dialog, BPGO with ZCL_RAK_BP_SEARCH, and BPPICK_<partner>
+* by writing <FIELD> and <FIELD>_NAME and calling the handler's
+* ON_CHANGE( ). All of the judgement that matters - the MOI cross-check,
+* trade-licence expiry, Emirates ID expiry and their skip conditions -
+* lives behind that one call and is not reachable any other way.
+*
+* Hand-drawing a search in a dialog reimplements the input and inherits
+* none of the judgement, which is how Notary ends up accepting an
+* Emirates ID that every other journey rejects, with nothing in either
+* place to say the two ever disagreed. So the form is seeded, the engine
+* searches, and the handler is left with the part that is genuinely its
+* own: posting the party and refreshing the list.
+*
+* P1_NAME is a separate field and not P1_BP_NAME on purpose. The engine
+* already appends <FIELD>_NAME as a model component for every SEARCH
+* field, and seeding a field of that name would ask BUILD_MODEL( ) for
+* the same component twice. The handler copies one to the other in
+* ON_CHANGE( ).
+*
+* PARTY1 / PARTY2 stay READONLY tables for the same reason E027's licence
+* grid is: a row is added through the search, not typed. Letting a citizen
+* edit a name in the grid would send the officer a party MOI never
+* confirmed. The Action column is drawn by the handler, which owns the
+* view and contact dialogs - those are genuinely handler work, being a
+* read-only restatement of a row the API already holds.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 10
       field_name = 'PARTY1' ftype = 'TABLE' readonly = 'X'
       zlabel = 'First Party' zlabel_ar = 'الطرف الأول'
       default_val = 'NAME:Party Name:TEXT|MOBILE:Mobile Number:TEXT|NAT:Nationality:TEXT' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 20
+      field_name = 'P1_BP' ftype = 'SEARCH'
+      zsection = 'Add Party'
+      zlabel = 'Search Partner' zlabel_ar = 'البحث عن شريك'
+      placeholder = 'Partner no. / Emirates ID / name' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
+      field_name = 'P1_NAME' ftype = 'INPUT' readonly = 'X'
+      zlabel = 'Party Name' zlabel_ar = 'اسم الطرف' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 40
+      field_name = 'P1_MOBILE' ftype = 'INPUT'
+      zlabel = 'Mobile Number' zlabel_ar = 'رقم الهاتف المتحرك' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 50
+      field_name = 'P1_NAT' ftype = 'INPUT'
+      zlabel = 'Nationality' zlabel_ar = 'الجنسية' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 60
+      field_name = 'P1_EMAIL' ftype = 'INPUT'
+      zlabel = 'Email' zlabel_ar = 'البريد الإلكتروني' )
+
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 10
       field_name = 'PARTY2' ftype = 'TABLE' readonly = 'X'
       zlabel = 'Second Party' zlabel_ar = 'الطرف الثاني'
-      default_val = 'NAME:Party Name:TEXT|MOBILE:Mobile Number:TEXT|NAT:Nationality:TEXT' ) ) ).
+      default_val = 'NAME:Party Name:TEXT|MOBILE:Mobile Number:TEXT|NAT:Nationality:TEXT' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 20
+      field_name = 'P2_BP' ftype = 'SEARCH'
+      zsection = 'Add Party'
+      zlabel = 'Search Partner' zlabel_ar = 'البحث عن شريك'
+      placeholder = 'Partner no. / Emirates ID / name' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 30
+      field_name = 'P2_NAME' ftype = 'INPUT' readonly = 'X'
+      zlabel = 'Party Name' zlabel_ar = 'اسم الطرف' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 40
+      field_name = 'P2_MOBILE' ftype = 'INPUT'
+      zlabel = 'Mobile Number' zlabel_ar = 'رقم الهاتف المتحرك' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 50
+      field_name = 'P2_NAT' ftype = 'INPUT'
+      zlabel = 'Nationality' zlabel_ar = 'الجنسية' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 60
+      field_name = 'P2_EMAIL' ftype = 'INPUT'
+      zlabel = 'Email' zlabel_ar = 'البريد الإلكتروني' ) ) ).
 
 * --------------------------------------------------------- STP5 fields
 * General Info first, read-only, exactly the four the live screen shows.

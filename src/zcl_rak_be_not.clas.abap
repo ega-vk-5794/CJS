@@ -157,11 +157,19 @@ CLASS zcl_rak_be_not DEFINITION
 *   never implemented, so the First Party and Second Party tables had nothing
 *   behind them and drew "No data" over a request that demonstrably had a
 *   party - the draft response names it.
+*   Wider than the three columns the list shows on purpose. The view dialog
+*   restates a party the API already holds, and a dialog that can only repeat
+*   the row above it is not worth opening - so the read takes everything the
+*   endpoint offers and the list picks three of them.
     TYPES: BEGIN OF ty_party_row,
              party_id     TYPE string,
              party_name   TYPE string,
+             name_ar      TYPE string,
              mobile       TYPE string,
+             email        TYPE string,
              nationality  TYPE string,
+             id_number    TYPE string,
+             party_kind   TYPE string,
              first_party  TYPE abap_bool,
              second_party TYPE abap_bool,
            END OF ty_party_row,
@@ -796,10 +804,29 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 *   The draft response calls the party block firstPartyDetails; the list read
 *   answers with result / parties / partyDetails depending on the endpoint, and
 *   guessing one of them and being wrong is a silent empty table.
+*   The name, the id and the kind each arrive under more than one key
+*   depending on which endpoint answered, so every spelling seen so far is
+*   declared and the first filled one wins below. A key that never arrives
+*   simply stays empty - that is cheaper than a wrong guess, which shows the
+*   citizen a blank view dialog with no way to tell why.
     TYPES: BEGIN OF ty_p,
-             party_id       TYPE string,
-             party_name     TYPE string,
-             mobile_number  TYPE string,
+             party_id            TYPE string,
+             party_name          TYPE string,
+             party_name_en       TYPE string,
+             party_name_ar       TYPE string,
+             english_name        TYPE string,
+             arabic_name         TYPE string,
+             mobile_number       TYPE string,
+             mobile              TYPE string,
+             email               TYPE string,
+             email_address       TYPE string,
+             id_number           TYPE string,
+             eid                 TYPE string,
+             passport_number     TYPE string,
+             unified_number      TYPE string,
+             trade_license_number TYPE string,
+             party_kind          TYPE string,
+             party_type          TYPE string,
              nationality_en TYPE string,
              nationality_an TYPE string,
              first_party    TYPE abap_bool,
@@ -829,11 +856,25 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 
     LOOP AT lt_p INTO DATA(ls_p).
       APPEND VALUE #( party_id     = ls_p-party_id
-                      party_name   = ls_p-party_name
-                      mobile       = ls_p-mobile_number
+                      party_name   = COND string( WHEN ls_p-party_name    IS NOT INITIAL THEN ls_p-party_name
+                                                  WHEN ls_p-party_name_en IS NOT INITIAL THEN ls_p-party_name_en
+                                                  ELSE ls_p-english_name )
+                      name_ar      = COND string( WHEN ls_p-party_name_ar IS NOT INITIAL THEN ls_p-party_name_ar
+                                                  ELSE ls_p-arabic_name )
+                      mobile       = COND string( WHEN ls_p-mobile_number IS NOT INITIAL THEN ls_p-mobile_number
+                                                  ELSE ls_p-mobile )
+                      email        = COND string( WHEN ls_p-email IS NOT INITIAL THEN ls_p-email
+                                                  ELSE ls_p-email_address )
                       nationality  = COND string( WHEN ls_p-nationality_en IS NOT INITIAL
                                                   THEN ls_p-nationality_en
                                                   ELSE ls_p-nationality_an )
+                      id_number    = COND string( WHEN ls_p-id_number            IS NOT INITIAL THEN ls_p-id_number
+                                                  WHEN ls_p-eid                  IS NOT INITIAL THEN ls_p-eid
+                                                  WHEN ls_p-passport_number      IS NOT INITIAL THEN ls_p-passport_number
+                                                  WHEN ls_p-unified_number       IS NOT INITIAL THEN ls_p-unified_number
+                                                  ELSE ls_p-trade_license_number )
+                      party_kind   = COND string( WHEN ls_p-party_kind IS NOT INITIAL THEN ls_p-party_kind
+                                                  ELSE ls_p-party_type )
                       first_party  = ls_p-first_party
                       second_party = ls_p-second_party ) TO rt.
     ENDLOOP.
@@ -2682,7 +2723,13 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 
 *       Nothing typed, nothing to post. A second party is optional on most
 *       declarations and an empty POST creates an empty party.
-        IF field( it_fields = it_fields iv_name = 'party_idNumber' )        IS INITIAL
+*       bpId counts as identification. The CJS form identifies a party through
+*       ZCL_RAK_BP_SEARCH and ends up holding a partner number rather than the
+*       Emirates ID that was typed to find it, and the POST for a known partner
+*       goes to /party/{bpId} - which needs no id in the body at all. Without
+*       this the whole search path fell through the guard and posted nothing.
+        IF field( it_fields = it_fields iv_name = 'bpId' )                   IS INITIAL
+           AND field( it_fields = it_fields iv_name = 'party_idNumber' )        IS INITIAL
            AND field( it_fields = it_fields iv_name = 'party_passportNumber' ) IS INITIAL
            AND field( it_fields = it_fields iv_name = 'party_unifiedNumber' )  IS INITIAL
            AND field( it_fields = it_fields iv_name = 'party_tradeLicenseNumber' ) IS INITIAL.
