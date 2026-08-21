@@ -960,9 +960,21 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
         io_ctx->set_val( iv_name = 'PAY_REFERENCE' iv_value = '' ).
         io_ctx->set_val( iv_name = c_pay_tries     iv_value = '0' ).
 
-*       COMMIT ONCE. The commit is what has the backend create the case, and every
-*       press was creating another one, because the case id does not survive the
-*       round trip as a key:
+*       COMMIT ON EVERY PRESS. Pressing Pay IS pressing Next internally: the
+*       commit is what has the backend create the case, and the gateway has
+*       nothing to bill against until it exists.
+*
+*       It used to run only while CASE_NUMBER was blank, which meant a press that
+*       failed anywhere after the commit - no open item yet, a lock, a gateway that
+*       never answered - could never re-post. The retry went straight to
+*       PREPARE_PAYMENT( ) against a case the backend may not have finished, and
+*       the citizen had no way to make the create happen again.
+*
+*       Re-posting is safe because the BAdI is the thing that decides: CREATE_CASE( )
+*       is skipped when the case already exists, so a second commit updates rather
+*       than duplicates. The duplicate-case loop this guard was written for was not
+*       the BAdI creating a second case on purpose - it was the key changing
+*       underneath it:
 *
 *         1  the BAdI overwrites the INTRENO_JOURNEY item with the new case id
 *         2  the bridge returns that as EV_GUID, so GET_CASE( ) becomes the case id
@@ -974,45 +986,41 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *            CREATE( ), GUID_CREATE makes a fresh draft, IS_NEW goes true,
 *            GS_DATA-CASEID is blank - and CREATE_CASE makes another case
 *
-*       So the loop is not in the BAdI's logic, it is in the key changing underneath
-*       it. Remembering the case number on this side breaks it: once we hold one,
-*       the case exists and the only thing a second press needs is the gateway
-*       prepared again.
-        IF io_ctx->get_val( c_pay_case ) IS INITIAL.
-
-*         STATUS is what tells the BAdI what this post IS. MAPPER switches on it to
-*         set GV_SAVE_DRAFT / GV_SUBMIT / GV_PAYMENT, and the D0xx UPDATE only
-*         reaches CREATE_CASE( ) under WHEN GV_SAVE_DRAFT. COMMIT_STEP( ) posts no
-*         status of its own - its own trace line says 'no STATUS' - so without this
-*         the pay commit arrives with a full payload and no instruction: no case is
-*         created, CASE_NUMBER stays blank, and PREPARE_PAYMENT( ) reports 'no case
-*         number, the commit did not reach the backend'. It did reach it. It just
-*         never said what it was for.
+*       That is a backend key problem and it belongs on the backend side. Skipping
+*       the commit hid it at the cost of a payment that could not be retried.
 *
-*         Written HERE rather than in each subclass. The seed comments on the
-*         payment step's STATUS carrier already assume the base class does it, and a
-*         payment journey that forgets fails in a way that looks like a backend
-*         problem for as long as it takes somebody to think of the status item.
-          io_ctx->set_val( iv_name = 'STATUS' iv_value = 'PAYMENT' ).
+*       STATUS is what tells the BAdI what this post IS. MAPPER switches on it to
+*       set GV_SAVE_DRAFT / GV_SUBMIT / GV_PAYMENT, and the D0xx UPDATE only
+*       reaches CREATE_CASE( ) under WHEN GV_SAVE_DRAFT. COMMIT_STEP( ) posts no
+*       status of its own - its own trace line says 'no STATUS' - so without this
+*       the pay commit arrives with a full payload and no instruction: no case is
+*       created, CASE_NUMBER stays blank, and PREPARE_PAYMENT( ) reports "no case
+*       number, the commit did not reach the backend". It did reach it. It just
+*       never said what it was for.
+*
+*       Written HERE rather than in each subclass. The seed comments on the
+*       payment step's STATUS carrier already assume the base class does it, and a
+*       payment journey that forgets fails in a way that looks like a backend
+*       problem for as long as it takes somebody to think of the status item.
+        io_ctx->set_val( iv_name = 'STATUS' iv_value = 'PAYMENT' ).
 
-          DATA(lv_committed) = io_ctx->commit_step( ).
+        DATA(lv_committed) = io_ctx->commit_step( ).
 
-*         Cleared on BOTH paths. STATUS is an ordinary model member and rides the
-*         draft, so left set it would travel on the next ordinary Next and have the
-*         BAdI run the whole submit-and-pay branch for a plain step change.
-          io_ctx->set_val( iv_name = 'STATUS' iv_value = '' ).
+*       Cleared on BOTH paths. STATUS is an ordinary model member and rides the
+*       draft, so left set it would travel on the next ordinary Next and have the
+*       BAdI run the whole submit-and-pay branch for a plain step change.
+        io_ctx->set_val( iv_name = 'STATUS' iv_value = '' ).
 
-          IF lv_committed = abap_false.
-            io_ctx->set_val( iv_name = c_pay_started iv_value = '' ).
-            RETURN.
-          ENDIF.
+        IF lv_committed = abap_false.
+          io_ctx->set_val( iv_name = c_pay_started iv_value = '' ).
+          RETURN.
+        ENDIF.
 
 *       CASE_NUMBER is written by the ENGINE, in TAKE_CASE( ), from the bridge's
 *       EV_CASE - not here. It used to be captured from GET_CASE( ) at this point,
 *       which worked only while the backend was renaming the journey key. Now that
 *       the key holds still, GET_CASE( ) is the DRAFT guid, and writing it here
 *       overwrote the real case number the engine had just published.
-        ENDIF.
 
         DATA(lo_pay) = pay_engine( io_ctx ).
 

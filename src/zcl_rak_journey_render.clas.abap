@@ -962,7 +962,21 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             ELSE |This step is not finished yet.| ).
         ENDIF.
       ELSEIF to_upper( ls_gate-type ) = 'PAYFEE'.
-        lv_paid = abap_true.
+
+*       A NON-BLANK fee field is not a PAID one. This branch used to take any
+*       value at all as payment received, so a PAYFEE carrying anything the
+*       backend read put there - or a DEFAULT_VAL on the field - opened Next and
+*       relabelled it Done while the fee card two inches above it was still
+*       showing the Pay button. The card tests = 'PAID' and so does the gate in
+*       ON_CUSTOM_VALIDATE; the footer is the only place that did not, which is
+*       how the citizen got a live Next on an unpaid step.
+        IF mo_e->zif_rak_journey~get_val( ls_gate-name ) = 'PAID'.
+          lv_paid = abap_true.
+        ELSE.
+          lv_pay  = abap_true.
+          lv_open = abap_false.
+          lv_wait = xsdbool( mo_e->zif_rak_journey~get_val( 'PAY_STARTED' ) = 'X' ).
+        ENDIF.
       ENDIF.
     ENDIF.
 
