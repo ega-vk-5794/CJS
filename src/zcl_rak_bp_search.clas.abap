@@ -160,6 +160,36 @@ CLASS zcl_rak_bp_search DEFINITION
                 it_extra_msg  TYPE bapiret2_t OPTIONAL
       RETURNING VALUE(rs_res) TYPE ty_res.
 
+
+*   784-1988-2718131-8 and 784198827181318 are the same Emirates ID. Anything
+*   comparing two of them has to say so.
+*
+*   PUBLIC and a CLASS-METHOD because callers outside this class need it. The
+*   popup and the engine both take an Emirates ID straight from a citizen, who
+*   types it the way it is printed on the card - with hyphens - and every layer
+*   below expects the digits. A caller should not have to instantiate a search to
+*   tidy a string before making one.
+    CLASS-METHODS norm_eid
+      IMPORTING VALUE(iv_eid) TYPE string
+      RETURNING VALUE(rv_id)  TYPE string.
+
+*   Is this search an Emirates ID search? Only an Emirates ID may be stripped of
+*   its hyphens.
+*
+*   TY_REQ-EID also carries passport and unified numbers - ZCL_RAK_BP_POPUP and
+*   ZCL_RAK_NOT_APPROVAL_LOGIC both put them there, and both say in their own
+*   comments that they are not certain it is right. A passport number may contain
+*   a hyphen that BELONGS to it, so stripping one would search for a document
+*   nobody holds. This is the guard that keeps the fix off those two.
+*
+*   A BLANK id type counts as Emirates ID. The field is called EID, a caller that
+*   names no type has said nothing to the contrary, and the alternative - leaving
+*   the hyphens on and dumping - is the bug being fixed.
+    CLASS-METHODS is_eid_type
+      IMPORTING VALUE(iv_idtype) TYPE string
+      RETURNING VALUE(rv)        TYPE abap_bool.
+
+
   PROTECTED SECTION.
 
     METHODS query
@@ -192,12 +222,6 @@ CLASS zcl_rak_bp_search DEFINITION
                 VALUE(iv_val)  TYPE string
       CHANGING  ct_filter      TYPE /iwbep/t_mgw_select_option.
 
-*   784-1988-2718131-8 and 784198827181318 are the same Emirates ID. Anything
-*   comparing two of them has to say so.
-    METHODS norm_eid
-      IMPORTING VALUE(iv_eid) TYPE string
-      RETURNING VALUE(rv_id)  TYPE string.
-
   PRIVATE SECTION.
     CONSTANTS c_moi_msg TYPE string VALUE 'Z_RAKEGA_MUNI/ZEGA_BP_V_MAIN_MOI_VAL_MSG'.
     CONSTANTS c_tenancy TYPE string VALUE 'T'.
@@ -227,10 +251,47 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
 
 
   METHOD norm_eid.
-    rv_id = iv_eid.
-    REPLACE ALL OCCURRENCES OF '-' IN rv_id WITH ''.
-    CONDENSE rv_id NO-GAPS.
+*   KEEP THE DIGITS, DROP EVERYTHING ELSE.
+*
+*   Not REPLACE of the hyphen. An Emirates ID is fifteen digits and nothing else,
+*   so the rule can be stated positively - and stated that way it also survives
+*   the separators a citizen actually arrives with: spaces from a careful typist,
+*   a slash, and the en-dash or em-dash that Word and most chat clients silently
+*   auto-correct a typed hyphen into. Those last two look identical to a hyphen on
+*   screen and would have walked straight past a REPLACE that named only ASCII 45.
+*
+*   Anything non-numeric is therefore discarded rather than rejected. This method
+*   normalises; it does not validate. A caller that needs to know whether what is
+*   left is a plausible Emirates ID can test STRLEN( ) on the result.
+    CLEAR rv_id.
+    DATA(lv_in) = iv_eid.
+
+*   OFF is computed into a variable rather than written as SY-INDEX - 1 inline.
+*   An arithmetic expression in an actual parameter is legal from 7.40, but this
+*   class is called from the legacy path as well and a plain variable costs
+*   nothing and cannot be the reason an activation fails on an older stack.
+    DATA lv_off TYPE i.
+    DATA lv_ch  TYPE string.
+
+    DO strlen( lv_in ) TIMES.
+      lv_off = sy-index - 1.
+      lv_ch  = substring( val = lv_in off = lv_off len = 1 ).
+      IF lv_ch CO '0123456789'.
+        rv_id = rv_id && lv_ch.
+      ENDIF.
+    ENDDO.
   ENDMETHOD.
+
+
+  METHOD is_eid_type.
+    DATA(lv) = to_upper( condense( iv_idtype ) ).
+    rv = xsdbool(    lv IS INITIAL
+                  OR lv = 'YFS002'
+                  OR lv = 'EID'
+                  OR lv = 'EMIRATESID'
+                  OR lv = 'EMIRATES_ID' ).
+  ENDMETHOD.
+
 
 
   METHOD query.
@@ -261,9 +322,30 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
 *   BP_QUERY MOVE-CORRESPONDINGs each SELECT_OPTIONS row onto a BOPF selection
 *   parameter and takes ATTRIBUTE_NAME straight from PROPERTY, then looks its own
 *   EId back up under that spelling.
+*   HYPHENS COME OFF HERE, and this is the fix for the dump.
+*
+*   A citizen types the Emirates ID the way it is printed on the card,
+*   784-1987-8624392-7, because the form asked for an Emirates ID and that is what
+*   one looks like. Everything below this line wants the fifteen digits: the value
+*   goes into the BOPF selection parameter as typed, and the MOI call behind
+*   BP_QUERY takes it into a numeric field. A hyphen there is not a search that
+*   finds nothing - it is a short dump, in front of the citizen, on a screen that
+*   had accepted the input without complaint.
+*
+*   Normalising here rather than in the popup covers every caller at once,
+*   including the two that build a TY_REQ by hand. Both formats now work and
+*   neither is preferred, which is the whole request: nobody should have to know
+*   which one this expects.
+*
+*   Guarded by IS_EID_TYPE. TY_REQ-EID also carries passport and unified numbers,
+*   whose hyphens may be part of the number - see the note on that method.
+    DATA(lv_eid_flt) = COND string( WHEN is_eid_type( is_req-idtype ) = abap_true
+                                    THEN norm_eid( is_req-eid )
+                                    ELSE is_req-eid ).
     add_flt( EXPORTING iv_prop   = 'EId'
-                       iv_val    = is_req-eid
+                       iv_val    = lv_eid_flt
              CHANGING  ct_filter = lt_filter ).
+
     add_flt( EXPORTING iv_prop   = 'TradeLicense'
                        iv_val    = is_req-trade_licence
              CHANGING  ct_filter = lt_filter ).

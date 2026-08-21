@@ -158,7 +158,22 @@ CLASS zcl_rak_journey_logic DEFINITION
                 it_fields  TYPE tt_pop_field
                 iv_ok_text TYPE string DEFAULT 'Save'
                 iv_ok_evt  TYPE string DEFAULT 'OK'
-                iv_cxl_evt TYPE string DEFAULT 'CANCEL'.
+                iv_cxl_evt TYPE string DEFAULT 'CANCEL'
+*               How many field columns the dialog lays out: 1 (the default and
+*               what every existing caller gets), 2 or 3. Anything outside that
+*               is clamped rather than refused - a popup is not the place to
+*               fail because somebody typed 5.
+*
+*               Fields flow left to right in IT_FIELDS order. There is no way to
+*               say "this one spans two columns": a form that needs that has
+*               outgrown DIALOG_FORM( ) and should be built control by control,
+*               the way RENDER_OWN_POPUP( ) in ZCL_RAK_TEST_ALL_LOGIC is.
+*
+*               A TEXTAREA in a 3-column dialog is a 3-line box a third of the
+*               width, which is worse than the same box full width. Put long
+*               free text on a 1-column dialog, or last where it hurts least.
+                iv_columns TYPE i DEFAULT 1.
+
 
     " Draw the payment card: fee list + total, a Pay button, and - while a
     " payment is in progress and not yet PAID - a status indicator plus a
@@ -225,12 +240,74 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 
 
   METHOD dialog_form.
-    DATA(lo_dlg)  = io_popup->dialog( title = iv_title contentwidth = '34rem' ).
-    DATA(lo_form) = lo_dlg->content(
-      )->simple_form( editable  = abap_true
-                      layout    = 'ResponsiveGridLayout'
-                      columnsxl = '1' columnsl = '1' columnsm = '1'
-      )->content( ns = 'form' ).
+*   COLUMNS. One is the default and draws exactly what this method always drew -
+*   same width, same attributes, no new behaviour for any existing caller.
+*
+*   Clamped, not validated. 0 and 7 both mean somebody guessed, and a dialog that
+*   refuses to open is a worse answer than a dialog with one column.
+    DATA(lv_cols) = COND i( WHEN iv_columns < 1 THEN 1
+                            WHEN iv_columns > 3 THEN 3
+                            ELSE iv_columns ).
+
+*   The dialog has to grow with the columns or the fields just get narrower and
+*   nothing is gained. These are the widths at which a label and its control stop
+*   colliding at each count.
+    DATA(lv_width) = SWITCH string( lv_cols
+                                    WHEN 2 THEN '54rem'
+                                    WHEN 3 THEN '74rem'
+                                    ELSE        '34rem' ).
+
+    DATA(lo_dlg)  = io_popup->dialog( title = iv_title contentwidth = lv_width ).
+
+*   THE THREE ATTRIBUTES THAT MAKE MULTI-COLUMN ACTUALLY WORK, and the reason
+*   this is a method parameter and not a line each caller writes for itself.
+*   Setting COLUMNSL alone looks like it should be enough and is not:
+*
+*     LABELSPAN* = 12 puts the label on its own row ABOVE its control. At one
+*     column the default side-by-side label is right; at two or three the label
+*     eats half of an already narrow cell and every control is squeezed to
+*     nothing. 12 of 12 grid units is the whole width, which is what forces the
+*     wrap.
+*
+*     ADJUSTLABELSPAN = false. Left true - the default - SAPUI5 recomputes the
+*     label span itself from the number of containers and silently discards the
+*     LABELSPAN* above. The symptom is a two-column dialog that lays out as if
+*     none of this had been set, which reads as the columns not working at all.
+*
+*     SINGLECONTAINERFULLSIZE = false. A SimpleForm with ONE container - which is
+*     every dialog built here, since none of them passes a title per group -
+*     defaults to giving that container the full width and ignoring COLUMNSL /
+*     COLUMNSXL entirely. This is the attribute that lets a single container be
+*     divided into columns at all.
+*
+*   All three are passed ONLY when there is more than one column, so the
+*   one-column dialog keeps the exact markup it had before this parameter existed.
+    DATA lo_form TYPE REF TO z2ui5_cl_xml_view.
+    IF lv_cols = 1.
+      lo_form = lo_dlg->content(
+        )->simple_form( editable  = abap_true
+                        layout    = 'ResponsiveGridLayout'
+                        columnsxl = '1' columnsl = '1' columnsm = '1'
+        )->content( ns = 'form' ).
+    ELSE.
+      lo_form = lo_dlg->content(
+        )->simple_form( editable                = abap_true
+                        layout                  = 'ResponsiveGridLayout'
+                        columnsxl               = |{ lv_cols }|
+                        columnsl                = |{ lv_cols }|
+                        columnsm                = |{ lv_cols }|
+                        labelspanxl             = '12'
+                        labelspanl              = '12'
+                        labelspanm              = '12'
+*                       A LITERAL 'false', not ABAP_FALSE. SIMPLE_FORM passes this one
+*                       through RAW - only SINGLECONTAINERFULLSIZE goes through
+*                       BOOLEAN_ABAP_2_JSON - so ABAP_FALSE would emit a blank
+*                       attribute and the default true would stand.
+                        adjustlabelspan         = 'false'
+                        singlecontainerfullsize = abap_false
+        )->content( ns = 'form' ).
+    ENDIF.
+
 
 *   Created on first use, not per field. The resolver caches per instance, so one
 *   instance across the whole dialog means two fields on the same data element

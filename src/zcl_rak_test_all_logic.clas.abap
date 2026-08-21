@@ -113,6 +113,28 @@ CLASS zcl_rak_test_all_logic DEFINITION
 *   with HPOP_ on the way out and strips it on the way back, so these are
 *   the bare ids seen in on_popup_event.
     CONSTANTS c_pop_help  TYPE string VALUE 'HELP'.
+
+*   TWO AND THREE COLUMN DIALOGS. Same DIALOG_FORM( ) as C_POP_HELP below, same
+*   field list shape - the only difference is IV_COLUMNS. They exist as separate
+*   popups rather than one popup with a toggle because the point is to see the
+*   three layouts side by side and decide which suits a form, and a toggle would
+*   mean closing and reopening to compare.
+*
+*   All three OK buttons share one event and both Cancel buttons share another.
+*   The dialogs differ in layout only, so branching their buttons would be three
+*   copies of CLOSE_POPUP( ).
+    CONSTANTS c_pop_c2    TYPE string VALUE 'COLS2'.
+    CONSTANTS c_pop_c3    TYPE string VALUE 'COLS3'.
+    CONSTANTS c_evt_c2    TYPE string VALUE 'OPENCOLS2'.
+    CONSTANTS c_evt_c3    TYPE string VALUE 'OPENCOLS3'.
+    CONSTANTS c_evt_cok   TYPE string VALUE 'COLSOK'.
+    CONSTANTS c_evt_ccxl  TYPE string VALUE 'COLSCANCEL'.
+
+*   EMIRATES ID NORMALISATION. A button that runs the same lookup twice - once
+*   with the ID hyphenated the way the card prints it, once with the bare digits -
+*   and reports that both reached the same search.
+    CONSTANTS c_evt_eid   TYPE string VALUE 'EIDDEMO'.
+
     CONSTANTS c_evt_help  TYPE string VALUE 'OPENHELP'.
     CONSTANTS c_evt_hsave TYPE string VALUE 'HELPSAVE'.
     CONSTANTS c_evt_hcxl  TYPE string VALUE 'HELPCANCEL'.
@@ -283,6 +305,21 @@ CLASS zcl_rak_test_all_logic DEFINITION
                       RETURNING VALUE(rs)  TYPE zcl_rak_bp_search=>ty_req.
     METHODS seed_fees IMPORTING io_ctx TYPE REF TO zif_rak_journey.
 
+*   The field list behind the two multi-column dialogs. One list, three layouts:
+*   that is the demonstration. Building it once also makes the point that nothing
+*   about a FIELD changes when the column count does - IV_COLUMNS is a property of
+*   the dialog, not of anything in TT_POP_FIELD.
+    METHODS col_demo_fields
+*     Unqualified, and it has to be. TT_POP_FIELD is PROTECTED on
+*     ZCL_RAK_JOURNEY_LOGIC, so it is visible here only by inheritance -
+*     ZCL_RAK_JOURNEY_LOGIC=>TT_POP_FIELD would be a syntax error.
+      RETURNING VALUE(rt) TYPE tt_pop_field.
+
+*   Emirates ID, typed four ways, all resolving to the same fifteen digits.
+    METHODS eid_demo
+      IMPORTING io_ctx TYPE REF TO zif_rak_journey.
+
+
 ENDCLASS.
 
 
@@ -290,7 +327,116 @@ ENDCLASS.
 CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 
 
+  METHOD col_demo_fields.
+*   Eight fields, deliberately. Six or fewer and a 3-column dialog draws two
+*   ragged rows that prove nothing; eight fills three rows at 3 columns, four at
+*   2 and eight at 1, so the difference is unmistakable.
+*
+*   The types are mixed on purpose - input, SELECT, DATE, CHECKBOX, NUMBER - to
+*   show that the column layout is applied by the FORM and every control type
+*   flows into it unchanged. Nothing in TT_POP_FIELD mentions columns.
+*
+*   TEXTAREA is the one type NOT in this list, and its absence is the lesson. A
+*   3-line box a third of a dialog wide is worse than the same box full width, so
+*   long free text belongs on a 1-column dialog - see C_POP_HELP, which has one
+*   and is 1-column for exactly that reason.
+    rt = VALUE #(
+      ( name = 'CD_FIRST'   label = 'First name'      required = abap_true
+        placeholder = 'As printed on the ID' )
+      ( name = 'CD_LAST'    label = 'Family name'     required = abap_true )
+      ( name = 'CD_EID'     label = 'Emirates ID'     placeholder = '784-1987-8624392-7'
+        maxlen = 20 )
+      ( name = 'CD_DOB'     label = 'Date of birth'   type = 'DATE' )
+
+*     A list the handler owns. OPTIONS beats every DDIC source, so this needs no
+*     data element - the same precedence DIALOG_FORM( ) documents.
+      ( name = 'CD_ROLE'    label = 'Role' type = 'SELECT'
+        options = VALUE #( ( key = 'OWN' text = 'Owner' )
+                           ( key = 'REP' text = 'Representative' )
+                           ( key = 'AGT' text = 'Agent' ) ) )
+
+*     Resolved from DDIC. H_T005 is used because it exists everywhere, not
+*     because a country search help belongs on a nationality field.
+      ( name = 'CD_NAT'     label = 'Nationality'     shlp = 'H_T005' )
+      ( name = 'CD_SHARE'   label = 'Share %'         type = 'NUMBER' )
+      ( name = 'CD_PRIMARY' label = 'Primary contact' type = 'CHECKBOX' ) ).
+  ENDMETHOD.
+
+
+  METHOD eid_demo.
+*   THE HYPHEN FIX, SHOWN RATHER THAN DESCRIBED.
+*
+*   A citizen types the Emirates ID the way it is printed on the card. Every layer
+*   under the search wants the fifteen digits, and a hyphen reaching the MOI call
+*   behind BP_QUERY used to be a short dump rather than an empty result - in front
+*   of the citizen, on a screen that had accepted the input without complaint.
+*
+*   NORM_EID( ) is public and static precisely so this is one line from anywhere.
+*   It keeps digits and drops everything else, so all four of these are one ID:
+*
+*     784-1987-8624392-7   as printed on the card
+*     784 1987 8624392 7   spaces, from a careful typist
+*     784198786243927      bare digits
+*     " 784-1987-8624392-7 "  pasted with the whitespace it came with
+*
+*   The fourth is the one that used to be hardest to diagnose. CONDENSE alone
+*   would not have saved it, because the hyphens were still there afterwards.
+    DATA(lt_forms) = VALUE string_table(
+      ( `784-1987-8624392-7` )
+      ( `784 1987 8624392 7` )
+      ( `784198786243927` )
+      ( ` 784-1987-8624392-7 ` ) ).
+
+    DATA lv_first TYPE string.
+    DATA lv_same  TYPE abap_bool VALUE abap_true.
+
+    LOOP AT lt_forms INTO DATA(lv_raw).
+      DATA(lv_norm) = zcl_rak_bp_search=>norm_eid( lv_raw ).
+      IF sy-tabix = 1.
+        lv_first = lv_norm.
+      ELSEIF lv_norm <> lv_first.
+        lv_same = abap_false.
+      ENDIF.
+      io_ctx->add_msg( iv_type = 'Information'
+                       iv_text = |typed "{ lv_raw }" -> searched as "{ lv_norm }"| ).
+    ENDLOOP.
+
+*   An assertion, not decoration. If this ever says NO then the normalisation has
+*   been changed underneath the fix and the dump is back - and a demo that reports
+*   its own result is worth more than four lines nobody re-reads.
+    io_ctx->add_msg(
+      iv_type = COND string( WHEN lv_same = abap_true THEN 'Success' ELSE 'Error' )
+      iv_text = COND string(
+        WHEN lv_same = abap_true
+        THEN |All { lines( lt_forms ) } forms normalise to { lv_first } - |
+          && |the search is reached identically whichever one is typed.|
+        ELSE `The four forms did NOT normalise alike. NORM_EID( ) has regressed ` &&
+             `and a hyphenated Emirates ID will dump again.` ) ).
+
+*   WHERE THE STRIPPING ACTUALLY HAPPENS, and why no caller has to do it.
+*
+*   ZCL_RAK_BP_SEARCH->QUERY( ) normalises the EId filter itself, so every caller
+*   is covered at once - this class, ZCL_RAK_BP_POPUP, ZCL_RAK_NOT_APPROVAL_LOGIC
+*   and anything written later. Calling NORM_EID( ) first, as OWN_SEARCH( ) in
+*   this class does, is therefore belt and braces rather than a requirement.
+*
+*   IT IS GUARDED, and this is the part worth remembering. TY_REQ-EID also carries
+*   PASSPORT and UNIFIED numbers - both ZCL_RAK_BP_POPUP and
+*   ZCL_RAK_NOT_APPROVAL_LOGIC put them there and both say in their own comments
+*   that they are not sure it is right. A passport number may contain a hyphen
+*   that BELONGS to it, so IS_EID_TYPE( ) keeps the stripping off those searches.
+    io_ctx->add_msg(
+      iv_type = 'Information'
+      iv_text = |Emirates ID search strips separators: | &&
+                |{ zcl_rak_bp_search=>is_eid_type( 'YFS002' ) }. | &&
+                |Passport search does not: | &&
+                |{ zcl_rak_bp_search=>is_eid_type( 'YFS004' ) }. | &&
+                |A hyphen in a passport number may be part of the number.| ).
+  ENDMETHOD.
+
+
   METHOD addrow.
+
     DATA(lv_n) = lines( cs_tab-columns ).
     APPEND INITIAL LINE TO cs_tab-rows ASSIGNING FIELD-SYMBOL(<r>).
     IF lv_n >= 1.
@@ -1539,9 +1685,30 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
         io_ctx->open_popup( 'BP_LESSEE' ).
         RETURN.
 
+*     --- the same dialog at two and three columns ---------------------
+*     One event each to open, one shared OK and one shared Cancel. The dialogs
+*     differ in LAYOUT only, so giving them separate button handlers would be
+*     three copies of CLOSE_POPUP( ).
+      WHEN c_evt_c2.
+        io_ctx->open_popup( c_pop_c2 ).
+      WHEN c_evt_c3.
+        io_ctx->open_popup( c_pop_c3 ).
+      WHEN c_evt_cok.
+        io_ctx->close_popup( ).
+        io_ctx->add_msg( iv_type = 'Success'
+                         iv_text = 'Saved. The column count changed the layout, not the data - ' &&
+                                   'every field bound to the same model member in all three.' ).
+      WHEN c_evt_ccxl.
+        io_ctx->close_popup( ).
+
+*     --- Emirates ID with and without hyphens -------------------------
+      WHEN c_evt_eid.
+        eid_demo( io_ctx ).
+
 *     --- handler-owned dialog ---------------------------------------
       WHEN c_evt_help.
         io_ctx->open_popup( c_pop_help ).
+
 
       WHEN c_evt_hsave.
         io_ctx->close_popup( ).
@@ -1864,7 +2031,41 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   TWO AND THREE COLUMNS, from one field list.
+*
+*   IV_COLUMNS is the whole difference. Nothing in COL_DEMO_FIELDS( ) knows how
+*   many columns it will be drawn in, and nothing in it needs to: the count is a
+*   property of the DIALOG. Open all three from step 0 and compare.
+*
+*   Fields flow left to right in list order. There is no way to make one field
+*   span two columns - a form needing that has outgrown DIALOG_FORM( ) and should
+*   be hand-built, the way RENDER_OWN_POPUP( ) below is.
+    IF iv_id = c_pop_c2.
+      dialog_form( io_ctx     = io_ctx
+                   io_popup   = io_popup
+                   iv_title   = 'Two columns'
+                   iv_columns = 2
+                   iv_ok_text = 'Save'
+                   iv_ok_evt  = c_evt_cok
+                   iv_cxl_evt = c_evt_ccxl
+                   it_fields  = col_demo_fields( ) ).
+      RETURN.
+    ENDIF.
+
+    IF iv_id = c_pop_c3.
+      dialog_form( io_ctx     = io_ctx
+                   io_popup   = io_popup
+                   iv_title   = 'Three columns'
+                   iv_columns = 3
+                   iv_ok_text = 'Save'
+                   iv_ok_evt  = c_evt_cok
+                   iv_cxl_evt = c_evt_ccxl
+                   it_fields  = col_demo_fields( ) ).
+      RETURN.
+    ENDIF.
+
     CHECK iv_id = c_pop_help.
+
 
 *   EVERY POPUP CAPABILITY, ON ONE DIALOG. The first two lines are what a popup
 *   could draw before; everything after them is new.
@@ -1939,6 +2140,25 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
                     icon  = 'sap-icon://sys-help'
                     type  = 'Transparent'
                     press = io_ctx->event( c_evt_help ) ).
+
+*   Step 0 only. Three buttons on every step of a six-step journey is chrome
+*   nobody asked for; the demonstrations belong where a developer opening this
+*   journey lands.
+    IF lv_step = 0.
+      lo_bar->button( text  = '2-column dialog'
+                      icon  = 'sap-icon://column-chart-dual-axis'
+                      type  = 'Transparent'
+                      press = io_ctx->event( c_evt_c2 ) ).
+      lo_bar->button( text  = '3-column dialog'
+                      icon  = 'sap-icon://multiple-line-chart'
+                      type  = 'Transparent'
+                      press = io_ctx->event( c_evt_c3 ) ).
+      lo_bar->button( text  = 'Emirates ID, hyphens or not'
+                      icon  = 'sap-icon://validate'
+                      type  = 'Transparent'
+                      press = io_ctx->event( c_evt_eid ) ).
+    ENDIF.
+
 
 *   Documents is step index 3. The grid has no change event of its own -
 *   render_grid binds cells straight to the model and only Add and Delete

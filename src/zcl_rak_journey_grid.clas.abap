@@ -192,11 +192,33 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       IF lv_cc IS INITIAL.
         CONTINUE.
       ENDIF.
-      SPLIT lv_cc AT ':' INTO DATA(lv_n) DATA(lv_l) DATA(lv_t) DATA(lv_s).
+*     FIVE slots now, not four: name:label:type:src:label_ar
+*
+*     The fifth is the ARABIC COLUMN HEADING, and it is the answer to "how do I
+*     translate a grid column" for a grid still on this packed spec. Until it
+*     existed there was no answer: the renderer reads GC-LABEL_AR when MV_LANG is
+*     A, but only COL_ROWS_OF( ) - the ZRAK_T_JNY_COL path - ever filled it, so a
+*     DEFAULT_VAL grid showed English headings in an Arabic journey and nothing
+*     anywhere said why.
+*
+*     A SPLIT with FIVE targets, and that matters. ABAP puts the unsplit REMAINDER
+*     into the last target, so with four targets a five-part spec put "src:label_ar"
+*     into SRC and the Arabic silently became part of a data element name.
+*
+*     Existing four-part specs are unaffected - LV_A comes back blank and LABEL_AR
+*     stays initial, which is exactly the state they are in today.
+*
+*     Note this is the SECOND-best way to do it. ZRAK_T_JNY_COL has ZLABEL_AR as a
+*     real column, maintained in the Studio as "Label (AR)" on the column editor,
+*     and COL_ROWS_OF( ) reads it. That path wins whenever the grid has rows there.
+*     Use the spec slot for a grid not yet migrated; use the table for a new one.
+      SPLIT lv_cc AT ':' INTO DATA(lv_n) DATA(lv_l) DATA(lv_t) DATA(lv_s) DATA(lv_a).
+
       DATA(lv_nn) = condense( lv_n ).
       DATA(lv_ll) = condense( lv_l ).
       DATA(lv_tt) = condense( lv_t ).
       DATA(lv_ss) = condense( lv_s ).
+      DATA(lv_aa) = condense( lv_a ).
       IF lv_nn IS INITIAL.
         CONTINUE.
       ENDIF.
@@ -233,7 +255,11 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
                         WHEN lv_up  IS NOT INITIAL THEN lv_up
                         ELSE 'INPUT' )
         hide  = lv_hid
+*       NOT upper-cased, unlike SRC. SRC is a DDIC name; this is text a citizen
+*       reads.
+        label_ar = lv_aa
         src   = to_upper( lv_ss ) ) TO rt.
+
     ENDLOOP.
 
     apply_grid_rules( EXPORTING iv_grid = to_upper( is_field-name )

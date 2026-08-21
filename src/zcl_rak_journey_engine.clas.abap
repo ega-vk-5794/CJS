@@ -1276,9 +1276,29 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       END OF ty_sel.
     DATA lt TYPE STANDARD TABLE OF ty_sel WITH EMPTY KEY.
 
-    DATA(lv_like) = '%' && to_upper( lv_term ) && '%'.
+*   AN ID SEARCH IS DECIDED ON THE DIGITS, NOT ON THE PUNCTUATION.
+*
+*   The test used to be LV_TERM CO '0123456789' against the raw term, so an
+*   Emirates ID entered the way it is printed on the card - 784-1987-8624392-7 -
+*   failed it on the hyphens and fell through to the ELSE branch, which searches
+*   ZZFULL_NAME_ENG. The citizen got no results for a partner that exists, and
+*   nothing on the screen suggested their ID had been searched for as a name.
+*
+*   Digits, hyphens and spaces now all count as an ID. NORM_EID( ) then strips the
+*   separators for the LIKE, because BUT0ID-IDNUMBER stores the digits - so
+*   784-1987-8624392-7 and 784198786243927 find the same row.
+*
+*   The NAME branch keeps the term exactly as typed. A name is not digits and
+*   must not have its punctuation removed.
+    DATA(lv_digits) = zcl_rak_bp_search=>norm_eid( lv_term ).
+    DATA(lv_isid)   = xsdbool( lv_digits IS NOT INITIAL AND lv_term CO '0123456789- ' ).
 
-    IF lv_term CO '0123456789'.
+    DATA(lv_like) = COND string( WHEN lv_isid = abap_true
+                                 THEN '%' && lv_digits && '%'
+                                 ELSE '%' && to_upper( lv_term ) && '%' ).
+
+    IF lv_isid = abap_true.
+
       SELECT a~partner, a~zzfull_name_eng AS name, b~idnumber
         FROM but000 AS a
         LEFT JOIN but0id AS b

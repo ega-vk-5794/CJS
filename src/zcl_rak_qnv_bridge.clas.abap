@@ -218,6 +218,44 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
             ct_attacments   = lt_att
             ct_tabledata    = lt_tab.
       CATCH cx_root INTO DATA(lx).
+
+*       NAME THE ONE THAT LOOKS LIKE NOTHING. Every other exception here reads as
+*       what it is; CX_SY_IMPORT_MISMATCH_ERROR arrives as the runtime's generic
+*       "an exception was raised but was not handled locally" text, which says
+*       neither what failed nor whether the application can be recovered at all.
+*
+*       What it means: the post FM does IMPORT ... FROM DATABASE INDX(CJ) ID
+*       <guid> to pick the draft back up, and the row stored under that id was
+*       EXPORTed from a DIFFERENT structure than the one being imported into now.
+*       It is a type mismatch on the cluster - not a missing key, and not bad data
+*       in the form, which is why nothing the citizen retypes will change it.
+*
+*       Almost always a draft that outlived a structure change: the journey was
+*       started, the backend structure was transported or reactivated with a new
+*       shape, and the old row is still sitting under the old one. It then fails
+*       identically on every retry of THAT draft and not at all on a new one -
+*       exactly the pattern that gets reported as "the service is down".
+*
+*       The recovery is a NEW DRAFT: Delete, then start the service again. Saying
+*       so here is the difference between a citizen abandoning the application and
+*       finishing it. The root fix belongs to the backend that owns the cluster;
+*       this bridge only calls the FM and cannot see inside it.
+        DATA(lv_cls) = cl_abap_classdescr=>get_class_name( lx ).
+        IF lv_cls CS 'CX_SY_IMPORT_MISMATCH_ERROR'.
+          APPEND VALUE #( type = 'Error'
+            text = |This saved application cannot be re-opened: the backend still holds | &&
+                   |it in an older format. Press Delete and start the service again - | &&
+                   |a new application will work. Nothing you entered caused this.| ) TO et_msg.
+
+*         The technical half, separately. A developer reading the trace gets the
+*         guid and the screen without the citizen-facing line having to carry them.
+          APPEND VALUE #( type = 'Information'
+            text = |INDX(CJ) type mismatch · guid { iv_guid } · screen { iv_screen } · | &&
+                   |{ lv_cls }. The cluster row was exported from a different structure | &&
+                   |than the post FM imports into. Backend-side: clear or migrate that row.| ) TO et_msg.
+          RETURN.
+        ENDIF.
+
         APPEND VALUE #( type = 'Error' text = |Backend POST failed: { lx->get_text( ) }| ) TO et_msg.
         RETURN.
     ENDTRY.
