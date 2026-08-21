@@ -196,8 +196,10 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 *       cells by position - with a gate warning - when nothing matches.
         rs_data-columns = VALUE #( ( `NAME` ) ( `MOBILE` ) ( `NAT` ) ).
 
-        LOOP AT party_rows( io_ctx   = io_ctx
-                            iv_first = xsdbool( to_upper( iv_name ) = 'PARTY1' ) ) INTO DATA(ls_pt).
+        DATA(lt_pt) = party_rows( io_ctx   = io_ctx
+                                  iv_first = xsdbool( to_upper( iv_name ) = 'PARTY1' ) ).
+
+        LOOP AT lt_pt INTO DATA(ls_pt).
           APPEND VALUE #( ( ls_pt-party_name )
                           ( ls_pt-mobile )
                           ( ls_pt-nationality ) ) TO rs_data-rows.
@@ -224,7 +226,23 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 *
 *   What is worth refusing is a party step with no party on it, which no amount
 *   of field validation can see - the list comes from the API, not the model.
-    IF to_upper( iv_step ) = 'STP3' AND party_rows( io_ctx = io_ctx iv_first = abap_true ) IS INITIAL.
+*   IV_STEP is an INDEX, not a step id - and a zero-based one, as the base's own
+*   PAY_FIELD_STEP( ) shows by counting from zero. So the step has to be resolved
+*   through the config rather than compared to 'STP3'.
+*
+*   BKND_SCREEN and not ID, because the id is a position in the seed and the
+*   backend screen is what the step actually IS. A declaration that adds a step
+*   ahead of this one renumbers every STP*; nothing renumbers PARTY1.
+    DATA(lv_ix) = iv_step + 1.
+
+    DATA(ls_cfg) = io_ctx->get_config( ).
+    READ TABLE ls_cfg-steps INTO DATA(ls_step) INDEX lv_ix.
+    IF sy-subrc <> 0 OR to_upper( ls_step-bknd_screen ) <> 'PARTY1'.
+      RETURN.
+    ENDIF.
+
+    DATA(lt_p1) = party_rows( io_ctx = io_ctx iv_first = abap_true ).
+    IF lt_p1 IS INITIAL.
       rt = VALUE #( BASE rt
         ( type = 'Error' text = 'Add the first party before continuing.' ) ).
     ENDIF.
@@ -438,7 +456,12 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    LOOP AT NEW zcl_rak_be_not( iv_subservice = mc_sub )->parties( lv_req ) INTO DATA(ls_p).
+*   Into a variable first. LOOP AT wants an internal table operand, and a
+*   functional method call is not one - unlike READ TABLE or VALUE, which do
+*   take it. Same reason for the APPEND LINES OF in ON_RENDER_POPUP( ).
+    DATA(lt_all) = NEW zcl_rak_be_not( iv_subservice = mc_sub )->parties( lv_req ).
+
+    LOOP AT lt_all INTO DATA(ls_p).
       IF ( iv_first = abap_true  AND ls_p-first_party  = abap_false )
       OR ( iv_first = abap_false AND ls_p-second_party = abap_false ).
         CONTINUE.
@@ -838,10 +861,11 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 *   another device, or an officer's correction, would not reach a copy kept
 *   here. Both sides of the request are searched because the popup id carries
 *   the party, not which list it was pressed from.
-    DATA(lt_all) = party_rows( io_ctx = io_ctx iv_first = abap_true ).
-    APPEND LINES OF party_rows( io_ctx = io_ctx iv_first = abap_false ) TO lt_all.
+    DATA(lt_both) = party_rows( io_ctx = io_ctx iv_first = abap_true ).
+    DATA(lt_second) = party_rows( io_ctx = io_ctx iv_first = abap_false ).
+    APPEND LINES OF lt_second TO lt_both.
 
-    READ TABLE lt_all INTO DATA(ls_p) WITH KEY party_id = lv_pid.
+    READ TABLE lt_both INTO DATA(ls_p) WITH KEY party_id = lv_pid.
     IF sy-subrc <> 0.
       DATA(lo_miss) = io_popup->dialog( title = 'Party' contentwidth = '30rem' ).
       lo_miss->content( )->vbox( class = 'sapUiMediumMargin'
