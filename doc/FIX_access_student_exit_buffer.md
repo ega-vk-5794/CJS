@@ -410,3 +410,89 @@ where that produces a plausible-looking wrong answer. Catch and invalidate.
 Worth finding out which field changed and when — the transport that carried it is
 also the moment the service started failing, and any other cluster keyed on the same
 structure has the same problem waiting.
+
+---
+
+# Next finding: the key is built from an EMPTY student id
+
+The catch works — no dump, `sy-subrc = 4`, execution continues past `ENDTRY`. But the
+debugger shows what the key actually was on this call:
+
+```
+LV_ID = student_exit_          " nothing after the underscore
+```
+
+`cs_student_exit-studentid` was **initial** when line 3 built the key:
+
+```abap
+DATA(lv_id) = CONV char30( |student_exit_{ cs_student_exit-studentid }| ).
+```
+
+An earlier call in the same session had `student_exit_2013196053`, so this is not
+always true — the caller fills the id sometimes and not others.
+
+## Why this matters more than the miss
+
+The template collapses a blank id silently. `|student_exit_{ }|` is `student_exit_`,
+a perfectly valid 13-character key — so **every caller that arrives without a student
+id shares one row**.
+
+That is not a cache miss. It is a bucket:
+
+* the first `EXPORT` with a blank id files one student's exit data under
+  `student_exit_`
+* the next `IMPORT` with a blank id hands that data to a **different** student
+
+No dump, no error, no `sy-subrc`. A wrong student's record, rendered as if it were
+right. Same class of defect as the key-length truncation flagged earlier, and worth
+more attention than the mismatch that started all this — the mismatch was loud, this
+one is silent.
+
+## The guard
+
+A blank id must never reach the buffer, in either direction. A miss is the only safe
+answer:
+
+```abap
+  METHOD access_student_exit_buffer.
+
+*   A BLANK STUDENT ID MUST NOT REACH THE BUFFER, and the string template will not
+*   stop it: |student_exit_{ }| is "student_exit_", a valid key that every caller
+*   without an id shares. The first EXPORT files one student under it and the next
+*   IMPORT hands that data to another - silently, with sy-subrc 0 and a record that
+*   looks entirely normal.
+*
+*   Reported as a miss because that is what it is: there is no student, so there is
+*   nothing legitimately buffered. CLEAR only on the read - CS_STUDENT_EXIT is
+*   CHANGING, and clearing it on an export would destroy the caller's own data on
+*   the way out.
+    IF cs_student_exit-studentid IS INITIAL.
+      IF iv_operation = 'I'.
+        CLEAR cs_student_exit.
+      ENDIF.
+      ev_sy_subrc = 4.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_id) = CONV char30( |student_exit_{ cs_student_exit-studentid }| ).
+    ...
+```
+
+## And then find out why it is blank
+
+The guard stops the damage; it does not answer the question. The stack is the same
+one as the working call:
+
+```
+ZIF_EGA_FW_CJI~UPDATE   (ZCL_EGA_CJ_ENH_IMPL_D…)
+  ACCESS_STUDENT_EXIT_BUFFER
+```
+
+So the same caller reaches here both with and without an id. Worth a breakpoint on
+line 3 to see which path arrives empty — most likely a read attempted before the
+student has been resolved, in which case the buffer call is simply premature and the
+right fix is upstream, not here.
+
+Note this also means the buffer has been doing nothing useful on those calls: every
+blank-id read is a miss, so the data is being re-read from source every time. Fixing
+the caller may turn out to restore a cache that has quietly not been working.
