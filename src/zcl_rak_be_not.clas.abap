@@ -518,7 +518,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
       IMPORTING
         ev_status      = lv_status
         ev_reason      = lv_reason ).
-    zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = '/subservice/{sub}' iv_status = lv_status iv_reason = lv_reason ).
+    zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = '/subservice/{sub}' iv_status = lv_status iv_reason = lv_reason iv_resp = rv_json ).
 
     IF ok_of( iv_resp = rv_json iv_status = lv_status ) = abap_false.
       CLEAR rv_json.
@@ -2028,6 +2028,20 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
       WHEN ls_r-sub_service-business_object_fields IS NOT INITIAL THEN ls_r-sub_service-business_object_fields
       WHEN ls_r-service_information-fields IS NOT INITIAL THEN ls_r-service_information-fields
       ELSE VALUE #( ) ).
+
+*   Say which wrapper matched, and how many fields came out of it. The list
+*   above guesses at a dozen shapes; when the blueprint arrives 200 OK and BO
+*   still describes 0 fields, the question is only ever "which key holds the
+*   fields, and is it one we look under" - and without this line that is
+*   indistinguishable from a call that never happened.
+    IF lt_f IS INITIAL.
+      zcl_rak_not_trace=>add( |BLUEPRINT parsed 0 fields - none of the known wrappers | &&
+        |(businessObjectFields / boFields / fields / attributes / bluePrint / serviceFields, | &&
+        |bare or under result / data / subService / serviceInformation) held anything. | &&
+        |The response body is traced above - the fields are under some other key.| ).
+    ELSE.
+      zcl_rak_not_trace=>add( |BLUEPRINT parsed { lines( lt_f ) } field(s) from the blueprint| ).
+    ENDIF.
 
     LOOP AT lt_f INTO DATA(ls_f).
 
