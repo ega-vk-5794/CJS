@@ -371,6 +371,69 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
       zcl_rak_be_not=>set_subservice( lv_sub ).
     ENDIF.
 
+*   ---- Service Definition (step 2) --------------------------------------
+*
+*   SVC_NAME / SVC_DESC / SVC_FEE / SVC_SECONDPARTY are seeded as DISPLAY
+*   fields and nothing ever filled them, so the step drew five captions with
+*   nothing after the colon. The blueprint has carried the answers all along:
+*
+*     "englishTitle":"Declaration of a Case Waiver/ Notice Waiver",
+*     "englishDescription":"", "feesDetails":{"feeType":"FIXED","feesAmount":75.0}
+*
+*   Read after SET_SUBSERVICE above, never before - BLUEPRINT( ) keys its cache
+*   on the declaration. DESCRIBE_STEP( ) has already fetched it this round trip,
+*   so this is a cache hit and costs no extra call.
+    DATA(lo_be) = NEW zcl_rak_be_not( iv_subservice = mc_sub ).
+    DATA(lv_bp) = lo_be->subservice_json( ).
+    IF lv_bp IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    TYPES: BEGIN OF ty_fees,
+             fee_type    TYPE string,
+             fees_amount TYPE string,
+           END OF ty_fees,
+           BEGIN OF ty_res,
+             english_title       TYPE string, arabic_title       TYPE string,
+             english_description TYPE string, arabic_description TYPE string,
+             fees_details        TYPE ty_fees,
+           END OF ty_res,
+           BEGIN OF ty_root, result TYPE ty_res, END OF ty_root.
+
+    DATA ls_bp TYPE ty_root.
+    TRY.
+        /ui2/cl_json=>deserialize( EXPORTING json        = lv_bp
+                                             pretty_name = /ui2/cl_json=>pretty_mode-camel_case
+                                   CHANGING  data        = ls_bp ).
+      CATCH cx_root.
+        RETURN.
+    ENDTRY.
+
+*   Arabic when the journey is Arabic, English otherwise - the same precedence
+*   the repo's PICK( ) uses.
+    DATA(lv_ar) = xsdbool( to_upper( io_ctx->get_param( 'lang' ) ) = 'A' ).
+
+    io_ctx->set_val( iv_name  = 'SVC_NAME'
+                     iv_value = COND string( WHEN lv_ar = abap_true AND ls_bp-result-arabic_title IS NOT INITIAL
+                                             THEN ls_bp-result-arabic_title
+                                             ELSE ls_bp-result-english_title ) ).
+
+    io_ctx->set_val( iv_name  = 'SVC_DESC'
+                     iv_value = COND string( WHEN lv_ar = abap_true AND ls_bp-result-arabic_description IS NOT INITIAL
+                                             THEN ls_bp-result-arabic_description
+                                             ELSE ls_bp-result-english_description ) ).
+
+*   The declaration types differ: some are FIXED, some carry no fee block at
+*   all. Show the amount when there is one and say so when there is not,
+*   rather than leaving the caption bare - a blank fee reads as "not loaded".
+    io_ctx->set_val( iv_name  = 'SVC_FEE'
+                     iv_value = COND string(
+                       WHEN ls_bp-result-fees_details-fees_amount IS NOT INITIAL
+                       THEN |AED { ls_bp-result-fees_details-fees_amount }| &&
+                            COND string( WHEN ls_bp-result-fees_details-fee_type IS NOT INITIAL
+                                         THEN | ({ ls_bp-result-fees_details-fee_type })| )
+                       ELSE 'No fee for this declaration' ) ).
+
   ENDMETHOD.
 
 
