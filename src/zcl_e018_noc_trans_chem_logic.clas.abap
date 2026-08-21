@@ -266,8 +266,12 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
     lo_c8->input( value = io_ctx->bind( c_gross_weight_pop ) type = 'Number' width = '17rem' ).
 
     DATA(lo_c9) = lo_r2->vbox( class = 'rakCell' ).
+*    DATA(lo_u) = lo_c9->select( selectedkey = io_ctx->bind( c_uom_pop ) )->items( ).
+*    lo_u->item( key = 'KG' text = 'Kilogram'
+*                key = 'EA' text = 'Each').
     lo_c9->label( text = 'UOM' class = 'rakReq' ).
     lo_c9->input( value = io_ctx->bind( c_uom_pop ) width = '17rem' ).
+
 
     DATA(lo_c10) = lo_r2->vbox( class = 'rakCell' ).
     lo_c10->label( text = 'Invoice Number' class = 'rakReq' ).
@@ -620,11 +624,11 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
         ).
 
 **    CHECK iv_id = c_pop_mat.
-    CASE iv_id.
-      WHEN c_chem."'c_chem1'.
-        render_own_popup( io_ctx = io_ctx io_popup = io_popup ).
-        RETURN.
-      WHEN c_evt_details. "c_chem. "c_evt_details. " FOr F4 use this
+    CASE iv_id. "c_chem."
+      WHEN 'c_chem1'.
+*        render_own_popup( io_ctx = io_ctx io_popup = io_popup ).
+*        RETURN.
+      WHEN c_chem. "c_evt_details. "c_chem. "c_evt_details. " FOr F4 use this
 
         dialog_form(
           io_ctx     = io_ctx
@@ -639,7 +643,12 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
                                 ( name = c_packaging_pop        label = 'Packing' )
                                 ( name = c_quantity_pop         label = 'Quantity'  )
                                 ( name = c_gross_weight_pop     label = 'Gross Weight'  )
-                                ( name = c_uom_pop              label = 'UOM' rollname = 'H_T006' ) "'UOM' rollname = 'MEINS' )
+                                ( name = c_uom_pop              label = 'UOM' type = 'SELECT'
+                                  options = VALUE #( ( key = 'GAL' text = 'Gallon' )
+                                                     ( key = 'KG'  text = 'Kilogram' )
+                                                     ( key = 'LIT' text = 'Liter' )
+                                                     ( key = 'MAT' text = 'Metric Ton' ) ) )
+
                                 ( name = c_invoice_pop          label = 'Invoice Number'  )
                                 ( name = c_origin_pop           label = 'Country of Origin' shlp = 'H_T005'  )
                                 ( name = c_end_user_pop         label = 'Point of Entrance'  )

@@ -166,6 +166,7 @@ CLASS zcl_rak_be_not DEFINITION
     METHODS subservice_json
       RETURNING VALUE(rv_json) TYPE string.
 
+protected section.
   PRIVATE SECTION.
 
     CONSTANTS mc_api        TYPE string VALUE 'NOTARY_ES'.
@@ -316,8 +317,8 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
             username TYPE string,
             password TYPE string,
           END OF ls_cfg.
-    ls_cfg-username = 'notaryportal'.
-    ls_cfg-password = 'QxC1Bgp0ZRH2VUYembjvzn0E5BI0ErpQYcSa1SPEgx3dWEpcoWHZmK35Qiz013TczymLac+6F7a91GVlE27JytvwoC8lc+m15gOgNPDJ5JcVRZu1WTLC7WO7/kshqYXchAtjOE3ufeO0MniTgP3cyG775EZKcXqq2ktegc3mEok='.
+    ls_cfg-username = 'notaryuser1'.
+    ls_cfg-password = 'hPlfkpZOnZuY1GXA04nKdbyfBp9+nxOqX5Rjm7iUjE7UAuxURPi5fbO5kVO2XmWAiCuO8czx2z2ama7FeCuS5YwA3fO3K1XtmsmNUjLSr6wDFYFQXgMtW7z7rnYtCOj1a1GxWpI0gBOa1vWKEvjRiLHAd3GpDevVhVlg3BEs5fs='.
 
     IF iv_force = abap_true.
       CLEAR: gv_token, cs_handle-token.

@@ -514,9 +514,38 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
     CASE iv_id.
       WHEN c_trigger_popup.  " On click of 'Add Owner' button on second page"
-
+*        "Not using Dialog form here as i need search button as well.
         render_own_popup( io_ctx = io_ctx io_popup = io_popup ).
         RETURN.
+
+*        dialog_form(
+*          io_ctx     = io_ctx
+*          io_popup   = io_popup
+*          iv_title   = 'Owner Details'
+*          it_fields  = VALUE #(
+*                                ( name = c_hs_pop           label = 'HS Code'  )
+*                                ( name = c_mat_pop          label = 'Material Name' )
+*                                ( name = c_chem_pop         label = 'Chemical Name' )
+*                                ( name = c_cas_no_pop       label = 'CAS Number' maxlen = 20 )
+*                                ( name = c_chem_form_pop    label = 'Chemical Formula' )
+*                                ( name = c_packaging_pop    label = 'Packing' )
+*                                ( name = c_quantity_pop     label = 'Quantity'  )
+*                                ( name = c_gross_weight_pop label = 'Gross Weight'  type = 'Number' )
+*                                ( name = c_unit_pop         label = 'Unit' "rollname = 'MEINS' )
+*                                type = 'SELECT'
+*                                options = VALUE #( ( key = 'GAL' text = 'Gallon' )
+*                                                     ( key = 'KG'  text = 'Kilogram' )
+*                                                     ( key = 'LIT' text = 'Liter' )
+*                                                     ( key = 'MAT' text = 'Metric Ton' ) ) )
+*                                ( name = c_invoice_pop      label = 'Invoice Number'  )
+*                                ( name = c_import_pop       label = 'Importing Country' shlp = 'H_T005'  )
+*                                ( name = c_exit_port_pop    label = 'Exit Port'  )
+*                                ( name = c_bol_pop          label = 'Bill of Lading'  )
+*                                ( name = c_tport_pop        label = 'Transport Details'  )
+*                              )
+*          iv_ok_text = 'Add'
+*          iv_ok_evt  = c_evt_ownok
+*          iv_cxl_evt = c_evt_owncx ).
 
       WHEN OTHERS.
     ENDCASE.

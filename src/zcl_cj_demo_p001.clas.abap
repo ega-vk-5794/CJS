@@ -45,20 +45,6 @@ public section.
   types:
     tt_attach TYPE STANDARD TABLE OF ty_attach WITH DEFAULT KEY .
   types:
-    BEGIN OF ty_payment,
-        quick                TYPE flag,
-        mrak                 TYPE flag,
-        kiosk                TYPE flag,
-        walkin               TYPE flag,
-        edirham              TYPE flag,
-        creditcard           TYPE flag,
-        nextvisible          TYPE flag,
-        donate               TYPE flag,
-        busyindicatorvisible TYPE flag,
-        title                TYPE string,
-        text                 TYPE string,
-      END OF ty_payment .
-  types:
     BEGIN OF ty_happy,
         initilized   TYPE flag,
         rate         TYPE string,
@@ -78,8 +64,10 @@ public section.
   data MT_STAGES type Z2UI5_CL_EXT_RAKSTAGEBAR=>TT_STAGES .
   data MT_RESULTS type WDY_KEY_VALUE_LIST .
   data MT_ATTACH type TT_ATTACH .
-  data MS_PAYMENT type TY_PAYMENT .
+  data MS_PAYMENT type Z2UI5_CL_EXT_RAKPAY=>TY_PAYMENT .
   data MS_HAPPY type TY_HAPPY .
+  data FUNCTIONS type STRING .
+  data STYLES type STRING .
 
   methods VIEW_DISPLAY .
   methods POPOVER_DISPLAY
@@ -117,15 +105,6 @@ private section.
     importing
       !IO_PARENT type ref to Z2UI5_CL_XML_FRAGMENT
       value(FILTER_BY) type STRING optional .
-  methods RAKPAY
-    importing
-      !IO_PARENT type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods RAKPAY_POPUP
-    importing
-      !IV_URL type STRING optional .
-  methods RAKPAY_URL
-    returning
-      value(EV_URL) type STRING .
   methods CREATE_CASE
     importing
       !IV_CASE_TYPE type SCMGCASE_TYPE
@@ -713,7 +692,7 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     DATA(buttonback) = footer->button( id = 'BUTTONBACK' text = get_text_by_id( 'BACK_BUTTON' ) class = 'regularBTN_with_border shapeIT-pay-hide-in-pay' icon = 'sap-icon://icomoon/Left' press = client->_event( 'BACK' ) ).
 *    DATA(next_method2) = footer->button( id = 'NEXT_METHOD2' text = get_text_by_id( 'NEXT_BUTTON' ) class = 'regularBTN' icon = 'sap-icon://icomoon/Right' press = client->_event( 'SAVE' ) visible = '{= !${/XX/MS_PAYMENT/QUICK}}' ).
 *  DATA(next) = footer->button( id = 'NEXT' text = get_text_by_id( 'NEXT_BUTTON' ) class = 'regularBTN' icon = 'sap-icon://icomoon/Right' press = client->_event( 'SAVE' ) ).
-    me->rakpay( footer ).
+    NEW z2ui5_cl_ext_rakpay( me->client )->rakpay( footer ).
 *  DATA(pay) = footer->button( id = 'PAY' press = client->_event( 'SAVE' ) visible = '{/XX/MS_PAYMENT/QUICK}' ).
     " TODO(PAY): RAKPAY is a custom control (EXTENDED=X) that navigates to an external payment screen - no LABEL_CON/icon in source (the custom control likely supplies its own),
     "rendered as a plain button for now
@@ -810,6 +789,14 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
 
     IF client->check_on_init( ).
 
+      me->functions = 'sap.ui.define([], function () {' &&
+'        return {' &&
+'            afterOpen: function (oEvent) {' &&
+'                window.open("https://www.google.com", "_blank");' &&
+'            }' &&
+'        };' &&
+'    });'.
+
       DATA(lv_params) = client->get( )-s_config-search.
       IF lv_params IS NOT INITIAL.
         SPLIT lv_params AT '?' INTO DATA(dummy) lv_params.
@@ -901,8 +888,7 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
         me->mt_stages = NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->step_forward( control = me direction =  '-' ).
       WHEN 'PAY'.
         me->mt_stages = NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->step_forward( control = me direction =  '=' ).
-        me->rakpay_popup( me->get_cpg_details( ) ).
-
+        NEW z2ui5_cl_ext_rakpay( me->client )->rakpay_popup( me->get_cpg_details( ) ).
       WHEN 'RAKHAPPY'.
         rakhappy_save( ).
         client->popover_destroy( ).
@@ -951,6 +937,8 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
 
 
   METHOD create_case.
+
+    CHECK sy-uname eq 'PORTAL1'.
     DATA(ls_req) = case_mapping( gs_data ).
 
 
@@ -1010,117 +998,6 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
 
       ENDIF.
     ENDIF.
-  ENDMETHOD.
-
-
-  METHOD rakpay.
-
-    DATA(root) = io_parent.
-
-    DATA(pay_btn) = root->button(
-                       visible   = '{= !${/XX/MS_PAYMENT/NEXTVISIBLE} }'
-                       text      = 'Pay'
-                       icon      = 'sap-icon://icomoon/Right'
-                       press     = client->_event( 'PAY' )
-                       class     = 'regularBTN'
-                       iconfirst = 'false' ).
-
-    DATA(next_btn) = root->button(
-                       visible   = '{= ${/XX/MS_PAYMENT/NEXTVISIBLE} }'
-                       text      = 'Next'
-                       icon      = 'sap-icon://icomoon/Right'
-                       press     = client->_event( 'SAVE' )
-                       class     = 'regularBTN'
-                       iconfirst = 'false' ).
-
-  ENDMETHOD.
-
-
-  METHOD rakpay_popup.
-
-*    DATA(lv_url) = me->rakpay_url( ).
-**    DATA(lv_url) = 'www.google.com'.
-
-    DATA(popup) = z2ui5_cl_xml_fragment=>factory( ).
-    ms_payment-title = 'Payment Processing' .
-    ms_payment-text  = 'Please don’t close the window until the processing is done'.
-    ms_payment-busyindicatorvisible = abap_true.
-
-    " TODO: ->dialog( ) - not yet confirmed against z2ui5_cl_xml_view's actual API surface,
-    " same caveat as file_uploader/progress_indicator/custom_data earlier.
-    DATA(pay_dialog) = popup->dialog(
-                          id                   = 'payDialog'
-                          showheader           = 'false'
-                          horizontalscrolling  = 'false'
-                          class                = 'confirmDialog payDialogBorderTopGray' ).
-
-    pay_dialog->custom_data( )->core_custom_data( key = 'URL' value = iv_url ).
-
-    DATA(outer_vbox) = pay_dialog->vbox( width = '100%' class = 'confirmDialog-vbox' ).
-    DATA(inner_vbox) = outer_vbox->vbox( width = '100%' class = 'confirmDialog-inner-vbox' ).
-
-    DATA(header_row) = inner_vbox->hbox( width = '100%' justifycontent = 'SpaceBetween' alignitems = 'Center' ).
-    DATA(title_text) = header_row->text( text = '{/XX/MS_PAYMENT/TITLE}' class = 'color-black font1125 weight500' ).
-    DATA(close_icon) = header_row->icon(
-                           visible = '{= !${/XX/MS_PAYMENT/BUSYINDICATORVISIBLE} }'
-                           src     = 'sap-icon://icomoon/close'
-                           color   = '#10233E'
-                           size    = '1.5rem'
-                           press   = '.destroyPopup' ).
-
-    DATA(body_text) = inner_vbox->text( text = '{/XX/MS_PAYMENT/TEXT}' class = 'color-black font1 weight400' ).
-
-    DATA(busy_row) = inner_vbox->hbox( class = 'payDialog-busy-hbox' width = '100%' justifycontent = 'Center' alignitems = 'Center' ).
-    DATA(busy_indicator) = busy_row->busy_indicator( visible = '{/XX/MS_PAYMENT/BUSYINDICATORVISIBLE}' ).
-
-    client->popup_display( popup->stringify( ) ).
-
-  ENDMETHOD.
-
-
-  METHOD rakpay_url.
-
-    DATA: caseid TYPE scmg_ext_key.
-
-    IF gs_data-caseid IS INITIAL.
-      gs_data-caseid = '1955546'.
-      gs_data-partner = '3000022038'.
-    ENDIF.
-
-    caseid = |{ gs_data-caseid ALPHA = IN }|.
-    IF caseid IS INITIAL.
-      RETURN.
-    ENDIF.
-
-    SELECT SINGLE * FROM zega_t_cj_payupd INTO @DATA(paydtl) WHERE caseid EQ @caseid.
-    IF sy-subrc <> 0.
-      paydtl-caseid = caseid.
-      paydtl-bp     = |{ gs_data-partner ALPHA = IN }|.
-    ENDIF.
-
-    paydtl-creditcard = ms_payment-creditcard.
-    paydtl-edirham    = ms_payment-edirham.
-    paydtl-kiosk      = ms_payment-kiosk.
-    paydtl-mrak       = ms_payment-mrak.
-    paydtl-quick      = ms_payment-quick.
-    paydtl-walkin     = ms_payment-walkin.
-    paydtl-donate     = ms_payment-donate.
-
-    MODIFY zega_t_cj_payupd FROM paydtl.
-
-    DATA lt_def TYPE /qnv/sbuild_definition_tt.
-    lt_def = VALUE #( ( technicalname = 'REFERENCEID' )
-                      ( technicalname = 'APPLICATIONURL' ) ).
-
-    NEW zcl_rak_cpg_adapter( )->fill(
-      EXPORTING
-        case_key = CONV #( caseid )
-        etisalat = abap_true
-      CHANGING
-        ct_definition = lt_def ).
-
-    ev_url  = lt_def[ technicalname = 'APPLICATIONURL' ]-value.
-
   ENDMETHOD.
 
 
@@ -1346,6 +1223,11 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
          ext_key             TYPE scmg_ext_key,
          details             TYPE ty_paydtl,
          bp_partner          TYPE bu_partner.
+
+    IF sy-uname NE 'PORTAL1'.
+      ev_url = 'https://www.google.com'.
+      RETURN.
+    ENDIF.
 
     DATA: sessionid TYPE thfb_session_id.
 

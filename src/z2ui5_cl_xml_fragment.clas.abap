@@ -13832,6 +13832,11 @@ public section.
       !T_PROP type Z2UI5_IF_TYPES=>TY_T_NAME_VALUE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods _CC_PLAIN_XML
+    importing
+      !VAL type CLIKE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods ACCOUNTS
     importing
       !NS type CLIKE optional
@@ -19353,6 +19358,8 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
     result->mv_name   = `FragmentDefinition`.
     result->mv_ns     = `core`.
+    result->mv_name   = `View`.
+    result->mv_ns     = `mvc`.
     result->mo_root   = result.
     result->mo_parent = result.
 
@@ -31163,5 +31170,13 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
     mo_root->mo_previous = result2.
     result = result2.
+  ENDMETHOD.
+
+
+  METHOD _cc_plain_xml.
+    result = me.
+    _generic( name   = `ZZPLAIN`
+              ns     = `html`
+              t_prop = VALUE #( ( n = `VALUE` v = val ) ) ).
   ENDMETHOD.
 ENDCLASS.

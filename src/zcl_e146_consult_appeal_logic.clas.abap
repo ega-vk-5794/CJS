@@ -38,11 +38,13 @@ class ZCL_E146_CONSULT_APPEAL_LOGIC definition
 *   the decision away from config permanently.
 public section.
 
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
+    redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
     redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
     redefinition .
 protected section.
   PRIVATE SECTION.
@@ -205,5 +207,39 @@ CLASS ZCL_E146_CONSULT_APPEAL_LOGIC IMPLEMENTATION.
         <t>-ui_table_column29 = 'S'.
       ENDIF.
     ENDLOOP.
+  endmethod.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ.
+
+    DATA(ls_APPEALS) = io_ctx->get_grid_data( 'APPEALS' ).
+    IF ls_APPEALS-rows IS INITIAL.
+
+    ENDIF.
+
+   DATA(ls_g) = io_ctx->get_backend_table( 'APPEALS' ).
+    IF ls_g-rows IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA lt_map TYPE STANDARD TABLE OF i WITH EMPTY KEY.
+    lt_map = VALUE #( ( 1 ) ( 2 ) ( 3 ) ( 5 ) ( 6 ) ( 7 ) ( 9 ) ).
+
+    DATA(ls_out) = VALUE zif_rak_journey=>ty_table(
+      columns = VALUE #( ( `CASE_ID` ) ( `APPLICATION_NUMBER` ) ( `APPLICATION_TYPE` ) ( `PERMIT` )
+                         ( `RECNTXT` ) ( `PERMIT_ISSUE_DATE` ) ( `PERMIT_EXPIRY_DATE` ) ) ).
+
+    LOOP AT ls_g-rows INTO DATA(lt_row).
+      DATA lt_cells TYPE zif_rak_journey=>tt_string.
+      CLEAR lt_cells.
+      LOOP AT lt_map INTO DATA(lv_ix).
+        DATA(lv_cell) = VALUE string( lt_row[ lv_ix ] OPTIONAL ).
+        APPEND lv_cell TO lt_cells.
+      ENDLOOP.
+      APPEND lt_cells TO ls_out-rows.
+    ENDLOOP.
+
+    io_ctx->set_grid_data( iv_field = 'APPEALS' is_data = ls_out ).
+
   endmethod.
 ENDCLASS.
