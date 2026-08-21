@@ -789,13 +789,15 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
 
     IF client->check_on_init( ).
 
-      me->functions = 'sap.ui.define([], function () {' &&
-'        return {' &&
-'            afterOpen: function (oEvent) {' &&
-'                window.open("https://www.google.com", "_blank");' &&
-'            }' &&
-'        };' &&
+      me->functions = 'sap.ui.define([], function () {' && |\n| &&
+'        return {' && |\n| &&
+'            afterOpen: function (oEvent) {' && |\n| &&
+'                var url = oEvent.getSource().getCustomData().find(item => item.getKey() === "URL");' && |\n| &&
+'                window.open(url, "_blank");debugger;' && |\n| &&
+'            }' && |\n| &&
+'        };' && |\n| &&
 '    });'.
+      client->_bind_edit( functions ).
 
       DATA(lv_params) = client->get( )-s_config-search.
       IF lv_params IS NOT INITIAL.

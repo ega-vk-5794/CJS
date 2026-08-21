@@ -19358,8 +19358,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
     result->mv_name   = `FragmentDefinition`.
     result->mv_ns     = `core`.
-    result->mv_name   = `View`.
-    result->mv_ns     = `mvc`.
     result->mo_root   = result.
     result->mo_parent = result.
 

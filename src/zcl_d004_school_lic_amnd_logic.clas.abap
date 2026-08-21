@@ -353,19 +353,6 @@ CLASS ZCL_D004_SCHOOL_LIC_AMND_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
-*   The base method IS the PAID gate - it refuses a submit while PAYFEE is not
-*   'PAID'. A redefinition REPLACES it, so without this call the gate is simply
-*   not there for this journey. It must come before any CHECK below: a CHECK that
-*   fails exits the method, and anything after it would never run.
-*
-*   Removed by the abapGit round trip in 3f50a18 - the older SAP copy was staged
-*   over the newer git one - which is how an unpaid application could be submitted.
-*
-*   Self-guarding - PAY_FIELD_STEP returns -1 when the journey has no PAYFEE
-*   field, so this is a no-op on a journey with no payment step.
-    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
-                                                         iv_step = iv_step ).
-
 **    CHECK iv_step = 1.   " zero-based: step 2 "Owner" in the wizard
 
 **    DATA(lv_changes) = io_ctx->get_val( 'OWNERCHANGES' ).
