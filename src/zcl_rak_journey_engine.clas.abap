@@ -189,6 +189,20 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
       merge_dynamic_steps( ).
 
+*     Rebuild the model after the merge, not only at launch.
+*
+*     MERGE_DYNAMIC_STEPS( ) can add fields on any round trip - the Notary
+*     business-object step is described only once the citizen has chosen a
+*     declaration, long after INIT( ) ran - and the model built at launch has
+*     no component for them. VAL_GET( ) then falls through to MT_SCRATCH, which
+*     no binding reads, so a value picked in a dynamic field had nowhere to live
+*     and vanished on the next render. On a mandatory field that also made the
+*     step impossible to leave.
+*
+*     BUILD_MODEL( ) carries existing values across, so calling it again is safe
+*     and idempotent; when the merge added nothing it rebuilds the same shape.
+      build_model( ).
+
       LOOP AT mt_dyn_required INTO DATA(lv_dreq2).
         zif_rak_journey~set_required( iv_field = lv_dreq2 iv_on = abap_true ).
       ENDLOOP.
@@ -861,7 +875,39 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     DATA(lo_struct) = cl_abap_structdescr=>create( lt_comp ).
+
+*   Carry the existing values across instead of throwing them away.
+*
+*   This used to CREATE DATA a fresh structure and drop the old one, which was
+*   harmless while BUILD_MODEL( ) only ran once at launch. It is not harmless
+*   now: dynamic fields arrive AFTER launch - the Notary declaration is picked
+*   on step 1 and only then does MS_CONFIG gain the business-object fields - so
+*   the model must be rebuilt to grow components for them, and rebuilding must
+*   not cost the citizen everything already entered.
+*
+*   MOVE-CORRESPONDING copies component by name, so fields that survive the
+*   rebuild keep their values and genuinely new ones start empty.
+    DATA(lr_old) = mr_model.
+
     CREATE DATA mr_model TYPE HANDLE lo_struct.
+
+    IF lr_old IS BOUND.
+      FIELD-SYMBOLS <old_model> TYPE any.
+      FIELD-SYMBOLS <new_model> TYPE any.
+      ASSIGN lr_old->*   TO <old_model>.
+      ASSIGN mr_model->* TO <new_model>.
+      IF <old_model> IS ASSIGNED AND <new_model> IS ASSIGNED.
+*       Guarded: a grid whose columns changed between rebuilds has a different
+*       row type under the same component name, and copying one to the other
+*       raises rather than simply skipping. Losing the carried-over values is
+*       bad; taking the whole journey down with a dump is worse.
+        TRY.
+            MOVE-CORRESPONDING <old_model> TO <new_model>.
+          CATCH cx_root INTO DATA(lx_carry).
+            trace( |model rebuild could not carry values across: { lx_carry->get_text( ) }| ).
+        ENDTRY.
+      ENDIF.
+    ENDIF.
   ENDMETHOD.
 
 
