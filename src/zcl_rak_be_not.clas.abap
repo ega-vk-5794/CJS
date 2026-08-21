@@ -151,6 +151,26 @@ CLASS zcl_rak_be_not DEFINITION
       IMPORTING iv_request_id  TYPE string
       RETURNING VALUE(rv_text) TYPE string.
 
+*   The parties already on the request (GET /request/{id}/party).
+*
+*   The endpoint was documented at the top of this class from the start and
+*   never implemented, so the First Party and Second Party tables had nothing
+*   behind them and drew "No data" over a request that demonstrably had a
+*   party - the draft response names it.
+    TYPES: BEGIN OF ty_party_row,
+             party_id     TYPE string,
+             party_name   TYPE string,
+             mobile       TYPE string,
+             nationality  TYPE string,
+             first_party  TYPE abap_bool,
+             second_party TYPE abap_bool,
+           END OF ty_party_row,
+           tt_party_row TYPE STANDARD TABLE OF ty_party_row WITH EMPTY KEY.
+
+    METHODS parties
+      IMPORTING iv_request_id TYPE string
+      RETURNING VALUE(rt)     TYPE tt_party_row.
+
 *   Who may own the billing document.
     METHODS billing_owners
       IMPORTING iv_request_id TYPE string
@@ -739,6 +759,86 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
       rv = iv_json+lv_st(lv_len).
       CONDENSE rv.
     ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD parties.
+
+    IF iv_request_id IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA ls_h TYPE zif_rak_journey_backend=>ty_handle.
+    authenticate( CHANGING cs_handle = ls_h ).
+    IF ls_h-token IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA lv_status TYPE i.
+    zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = '/request/{reqId}/party' ).
+    DATA(lv_resp) = zcl_rak_http=>call(
+      EXPORTING
+        iv_api         = mc_api
+        iv_path        = '/request/{reqId}/party'
+        iv_method      = 'GET'
+        it_headers     = auth_hdr( ls_h )
+        it_url_replace = VALUE #( ( name = '{reqId}' value = iv_request_id ) )
+      IMPORTING
+        ev_status      = lv_status ).
+    zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = '/request/{reqId}/party' iv_status = lv_status iv_resp = lv_resp ).
+
+    IF ok_of( iv_resp = lv_resp iv_status = lv_status ) = abap_false.
+      RETURN.
+    ENDIF.
+
+*   Tolerant about the wrapper, the same way every other read in this class is.
+*   The draft response calls the party block firstPartyDetails; the list read
+*   answers with result / parties / partyDetails depending on the endpoint, and
+*   guessing one of them and being wrong is a silent empty table.
+    TYPES: BEGIN OF ty_p,
+             party_id       TYPE string,
+             party_name     TYPE string,
+             mobile_number  TYPE string,
+             nationality_en TYPE string,
+             nationality_an TYPE string,
+             first_party    TYPE abap_bool,
+             second_party   TYPE abap_bool,
+           END OF ty_p,
+           tt_p TYPE STANDARD TABLE OF ty_p WITH EMPTY KEY,
+           BEGIN OF ty_w,
+             result         TYPE tt_p,
+             parties        TYPE tt_p,
+             party_details  TYPE tt_p,
+             party          TYPE tt_p,
+           END OF ty_w.
+
+    DATA ls_w TYPE ty_w.
+    TRY.
+        /ui2/cl_json=>deserialize( EXPORTING json        = lv_resp
+                                             pretty_name = /ui2/cl_json=>pretty_mode-camel_case
+                                   CHANGING  data        = ls_w ).
+      CATCH cx_root.
+        RETURN.
+    ENDTRY.
+
+    DATA(lt_p) = COND tt_p( WHEN ls_w-result        IS NOT INITIAL THEN ls_w-result
+                            WHEN ls_w-parties       IS NOT INITIAL THEN ls_w-parties
+                            WHEN ls_w-party_details IS NOT INITIAL THEN ls_w-party_details
+                            ELSE ls_w-party ).
+
+    LOOP AT lt_p INTO DATA(ls_p).
+      APPEND VALUE #( party_id     = ls_p-party_id
+                      party_name   = ls_p-party_name
+                      mobile       = ls_p-mobile_number
+                      nationality  = COND string( WHEN ls_p-nationality_en IS NOT INITIAL
+                                                  THEN ls_p-nationality_en
+                                                  ELSE ls_p-nationality_an )
+                      first_party  = ls_p-first_party
+                      second_party = ls_p-second_party ) TO rt.
+    ENDLOOP.
+
+    zcl_rak_not_trace=>add( |PARTIES { lines( rt ) } on request { iv_request_id }| ).
 
   ENDMETHOD.
 

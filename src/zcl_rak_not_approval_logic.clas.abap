@@ -128,6 +128,43 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
           ENDIF.
         ENDLOOP.
 
+      WHEN 'PARTY1' OR 'PARTY2'.
+
+*       Nothing answered these before, so both tables drew "No data" over a
+*       request that plainly had a party - the draft reply names it in
+*       firstPartyDetails. GET /request/{id}/party was documented at the top
+*       of ZCL_RAK_BE_NOT from the start and never implemented; PARTIES( ) is
+*       that call.
+        DATA(lo_pbe) = NEW zcl_rak_be_not( iv_subservice = mc_sub ).
+
+        DATA(lv_preq) = io_ctx->get_val( 'REQUEST_ID' ).
+        IF lv_preq IS INITIAL.
+          lv_preq = io_ctx->get_param( 'draftid' ).
+        ENDIF.
+        IF lv_preq IS INITIAL.
+          lv_preq = io_ctx->get_param( 'caseid' ).
+        ENDIF.
+        IF lv_preq IS INITIAL.
+          RETURN.
+        ENDIF.
+
+*       Column KEYS, not labels. ZCL_RAK_JOURNEY_RENDER matches these against
+*       the NAME:Label:TYPE spec on the field and only falls back to taking
+*       cells by position - with a gate warning - when nothing matches.
+        rs_data-columns = VALUE #( ( `NAME` ) ( `MOBILE` ) ( `NAT` ) ).
+
+        DATA(lv_first) = xsdbool( to_upper( iv_name ) = 'PARTY1' ).
+
+        LOOP AT lo_pbe->parties( lv_preq ) INTO DATA(ls_pt).
+          IF ( lv_first = abap_true  AND ls_pt-first_party  = abap_false )
+          OR ( lv_first = abap_false AND ls_pt-second_party = abap_false ).
+            CONTINUE.
+          ENDIF.
+          APPEND VALUE #( ( ls_pt-party_name )
+                          ( ls_pt-mobile )
+                          ( ls_pt-nationality ) ) TO rs_data-rows.
+        ENDLOOP.
+
     ENDCASE.
 
   ENDMETHOD.

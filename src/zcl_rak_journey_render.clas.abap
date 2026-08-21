@@ -555,9 +555,16 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             IF lv_cstrim IS INITIAL.
               CONTINUE.
             ENDIF.
-            SPLIT lv_csraw AT ':' INTO DATA(lv_csn) DATA(lv_csh).
+*           The spec is KEY:Label:TYPE. Split into THREE targets, not two:
+*           with two, the type stayed glued to the label and the Notary party
+*           table drew its headers as "Party Name:TEXT". A two-part spec is
+*           still fine - the third target simply comes back empty.
+            SPLIT lv_csraw AT ':' INTO DATA(lv_csn) DATA(lv_csh) DATA(lv_cstyp).
             lv_csn = to_upper( condense( lv_csn ) ).
             lv_csh = condense( lv_csh ).
+            IF lv_csh IS INITIAL.
+              lv_csh = lv_csn.
+            ENDIF.
             APPEND lv_csn TO lt_csn.
             APPEND lv_csh TO lt_csh.
           ENDLOOP.
