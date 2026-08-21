@@ -39,7 +39,7 @@ REPORT zrak_e015_load.
 *& journey_id 'E015'.
 *&---------------------------------------------------------------------*
 
-CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'E015'.
+CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'EPDA_E015_ENV_STUDY'.
 
 START-OF-SELECTION.
 

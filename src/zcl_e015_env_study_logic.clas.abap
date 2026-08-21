@@ -1,8 +1,8 @@
-CLASS zcl_e015_env_study_logic DEFINITION
-  PUBLIC
-  INHERITING FROM zcl_rak_journey_logic
-  FINAL
-  CREATE PUBLIC.
+class ZCL_E015_ENV_STUDY_LOGIC definition
+  public
+  inheriting from ZCL_RAK_JOURNEY_LOGIC
+  final
+  create public .
 
 *   Handler for E015 - Environmental Study
 *   (legacy NE015_1_*, seeded by ZRAK_E015_LOAD).
@@ -52,10 +52,15 @@ CLASS zcl_e015_env_study_logic DEFINITION
 *   Others, legacy DATA4 = PROJECT_TYPE with DATA5 = 1 / 2 / 9) is
 *   fourteen SHOW rules in the feeder, not ABAP here. What is left is the
 *   applicant-role fan-out and the payment wiring.
-  PUBLIC SECTION.
-    METHODS zif_rak_journey_logic~on_init   REDEFINITION.
-    METHODS zif_rak_journey_logic~on_change REDEFINITION.
+public section.
 
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
+    redefinition .
+protected section.
   PRIVATE SECTION.
     CONSTANTS c_applicant_type TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
 
@@ -136,6 +141,59 @@ CLASS ZCL_E015_ENV_STUDY_LOGIC IMPLEMENTATION.
 *   inert. Same open item as E014's OWNER_FINDER_BP and E027's three
 *   lookups: one search API to confirm, then one on_search here that
 *   branches on iv_field.
+
+    CONSTANTS c_login_bp TYPE string VALUE 'LOGIN_BP' ##NO_TEXT.
+    CONSTANTS c_owner_bp TYPE string VALUE 'OWNER_BP' ##NO_TEXT.
+
+    CONSTANTS c_partner_name TYPE string VALUE 'APP_NAME' ##NO_TEXT.
+    CONSTANTS c_partner_id TYPE string VALUE 'PARTNER_ID' ##NO_TEXT.
+    CONSTANTS c_applicanttype TYPE string VALUE 'APPLICANTTYPE' ##NO_TEXT.
+    CONSTANTS c_lang_en TYPE string VALUE 'E' ##NO_TEXT.
+
+
+
+
+    CALL METHOD super->zif_rak_journey_logic~on_init
+      EXPORTING
+        io_ctx = io_ctx.
+
+    DATA: lv_loginbp TYPE bu_partner.
+
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
+
+
+    IF lv_loginbp IS INITIAL AND sy-sysid <> 'E30'.
+      lv_loginbp = '3000000049'.
+    ENDIF.
+
+    IF lv_loginbp IS NOT INITIAL.
+      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+        EXPORTING
+          iv_bp_id      = lv_loginbp
+        IMPORTING
+          es_bp_details = DATA(ls_bp) ).
+
+      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+
+      IF sy-langu = c_lang_en.
+        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name ) ).
+      ELSE.
+        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+      ENDIF.
+
+      io_ctx->set_val( iv_name = c_partner_id iv_value = CONV #( ls_bp-emirates_id ) ).
+
+      io_ctx->set_val( iv_name = c_applicanttype iv_value = |{ lv_role }| ).
+
+      io_ctx->set_val( iv_name = c_owner_bp iv_value = |{ ls_bp-owner_id }| ).
+
+    ENDIF.
+
+
+    io_ctx->set_val( iv_name = 'APP_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
+    io_ctx->set_val( iv_name = 'APP_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
   ENDMETHOD.
 
 
@@ -166,4 +224,96 @@ CLASS ZCL_E015_ENV_STUDY_LOGIC IMPLEMENTATION.
                        iv_value = COND string( WHEN ls_role-key = iv_pick THEN 'X' ELSE '' ) ).
     ENDLOOP.
   ENDMETHOD.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH.
+CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
+  EXPORTING
+    IO_CTX   = IO_CTX
+    IV_FIELD = IV_FIELD
+    .
+
+     IF iv_field = 'OWNER_1'.
+
+      CHECK to_upper( iv_field ) = 'OWNER_1'.
+
+      DATA(lv_eid) = condense( io_ctx->get_val( 'OWNER_1' ) ).
+      IF lv_eid IS INITIAL.
+        io_ctx->add_msg( iv_type = 'Warning'
+                         iv_text = |Enter Emirates ID to search| ).
+        RETURN.
+      ENDIF.
+
+      DATA(lv_idtype) = io_ctx->get_val( 'OWNER_SEARCH_IDTYPE' ).
+      IF lv_idtype IS INITIAL.
+        lv_idtype = 'YFS002'.
+      ENDIF.
+
+      DATA: lv_eid_no   TYPE bu_id_number,
+            lv_eid_type TYPE bu_id_type.
+
+      lv_eid_no = lv_eid.
+      lv_eid_type = lv_idtype.
+
+      DATA ev_partner         TYPE partner.
+      DATA ev_id_number       TYPE bu_id_number.
+      DATA ev_passport        TYPE bu_id_number.
+      DATA ev_name            TYPE bu_name1tx.
+      DATA ev_phone           TYPE farp_mobile.
+      DATA ev_email           TYPE ad_smtpadr.
+      DATA ev_nationality     TYPE natio50.
+      DATA ev_nationality_key TYPE bu_natio.
+      DATA ev_date_of_birth   TYPE bu_birthdt.
+      DATA ev_message         TYPE bapiret2-message.
+
+      CALL FUNCTION 'ZFE_CJ_SEARCH_BP_BY_ID'
+        EXPORTING
+          iv_type            = lv_eid_type
+          iv_idnumber        = lv_eid_no
+*         IV_APP             = IV_APP
+        IMPORTING
+          ev_partner         = ev_partner
+          ev_id_number       = ev_id_number
+          ev_passport        = ev_passport
+          ev_name            = ev_name
+          ev_phone           = ev_phone
+          ev_email           = ev_email
+          ev_nationality     = ev_nationality
+          ev_nationality_key = ev_nationality_key
+          ev_date_of_birth   = ev_date_of_birth
+          ev_message         = ev_message.
+
+      io_ctx->set_val( iv_name = 'OWNER_NAME'        iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_PHONE'      iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_EMAIL'       iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_DOB'         iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_NATIONALITY' iv_value = ' ' ).
+
+*
+
+      io_ctx->set_val( iv_name = 'OWNER_1'  iv_value = |{ lv_eid }| ).
+      io_ctx->set_val( iv_name = 'OWNER_NAME'        iv_value = |{ ev_name }| ).
+      io_ctx->set_val( iv_name = 'OWNER_PHONE'      iv_value = |{ ev_phone }| ).
+      io_ctx->set_val( iv_name = 'OWNER_EMAIL'       iv_value = |{ ev_email }| ).
+      io_ctx->set_val( iv_name = 'OWNER_DOB'         iv_value = |{ ev_date_of_birth DATE = USER }| ).
+      io_ctx->set_val( iv_name = 'OWNER_NATIONALITY' iv_value = |{ ev_nationality }| ).
+
+    ELSEIF iv_field = 'PERMIT_NUMBER'.
+      DATA(lv_permit) = condense( io_ctx->get_val( 'PERMIT_NUMBER' ) ).
+
+      IF lv_permit IS NOT INITIAL.
+        SELECT SINGLE contractname FROM zv_epdapmmast INTO @DATA(lv_contrat) WHERE permitid = @lv_permit.
+
+        IF lv_contrat IS NOT INITIAL.
+          io_ctx->set_val( iv_name = 'PERMIT_NUMBER'  iv_value = |{ lv_permit }| ).
+          io_ctx->set_val( iv_name = 'PERMIT_DETAIL'  iv_value = |{ lv_contrat }| ).
+        ELSE.
+          io_ctx->set_val( iv_name = 'PERMIT_DETAIL' iv_value = ' ' ).
+          io_ctx->add_msg( iv_type = 'Warning'
+                           iv_text = |Enter Valid Permit No to search| ).
+        ENDIF.
+
+      ENDIF.
+    ENDIF.
+  endmethod.
 ENDCLASS.

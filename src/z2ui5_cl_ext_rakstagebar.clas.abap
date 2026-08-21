@@ -5,24 +5,49 @@ class Z2UI5_CL_EXT_RAKSTAGEBAR definition
 
 public section.
 
-  interfaces Z2UI5_IF_EXT_RAKSTAGEBAR .
+  types:
+    BEGIN OF ty_stages,
+        status          TYPE string,
+        stagenumber     TYPE string,
+        stagelabel      TYPE string,
+        grayleftline    TYPE flag,
+        greenleftline   TYPE flag,
+        redcircle       TYPE flag,
+        greencircle     TYPE flag,
+        graycircle      TYPE flag,
+        grayrightline   TYPE flag,
+        greenrightline  TYPE flag,
+        redstagelabel   TYPE flag,
+        graystagelabel  TYPE flag,
+        greenstagelabel TYPE flag,
+        graygap         TYPE flag,
+        greengap        TYPE flag,
+        islast          TYPE flag,
+        screen          TYPE string,
+        current         TYPE flag,
+      END OF ty_stages .
+  types:
+    tt_stages TYPE STANDARD TABLE OF ty_stages WITH DEFAULT KEY .
 
-  methods CONSTRUCTOR
-    importing
-      !CLIENT type ref to Z2UI5_IF_CLIENT optional .
   methods STEP_FORWARD
     importing
       !DIRECTION type CHAR1 optional
+      !CONTROL type ref to OBJECT
     returning
-      value(SCREEN) type STRING .
+      value(ET_STAGES) type TT_STAGES .
   methods GET_CURRENT_SCREEN
     returning
       value(SCREEN) type STRING .
   methods RAKSTAGEBAR
     importing
       !IO_PARENT type ref to Z2UI5_CL_XML_FRAGMENT .
-protected section.
+  methods CONSTRUCTOR
+    importing
+      !MT_STAGES type TT_STAGES optional .
+  PROTECTED SECTION.
 private section.
+
+  data MT_STAGES type TT_STAGES .
 ENDCLASS.
 
 
@@ -31,13 +56,13 @@ CLASS Z2UI5_CL_EXT_RAKSTAGEBAR IMPLEMENTATION.
 
 
   METHOD constructor.
-*    me->z2ui5_if_ext_rakstagebar~client = client.
+    me->mt_stages[] = mt_stages[].
 
   ENDMETHOD.
 
 
   METHOD get_current_screen.
-    READ TABLE z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING FIELD-SYMBOL(<stage>) WITH KEY current = abap_true.
+    READ TABLE mt_stages ASSIGNING FIELD-SYMBOL(<stage>) WITH KEY current = abap_true.
     IF sy-subrc EQ 0.
       screen = <stage>-screen.
     ENDIF.
@@ -53,7 +78,7 @@ CLASS Z2UI5_CL_EXT_RAKSTAGEBAR IMPLEMENTATION.
     DATA(desktop) = id_rak_stagebar->hbox( width = '100%' visible = 'true' rendertype = 'Bare' ).
 
     " repeating aggregation - one HBox per stage, bound to oStageBarData>/stages
-    DATA(stages) = desktop->hbox( items = '{/XX/Z2UI5_IF_EXT_RAKSTAGEBAR~MT_STAGES}' justifycontent = 'Start' alignitems = 'Start' rendertype = 'Bare' ).
+    DATA(stages) = desktop->hbox( items = '{/XX/MT_STAGES}' justifycontent = 'Start' alignitems = 'Start' rendertype = 'Bare' ).
 *    LOOP AT mt_stages INTO DATA(ls_stage).
     DATA(stage_item) = stages->hbox( rendertype = 'Bare' ).
 
@@ -123,7 +148,7 @@ CLASS Z2UI5_CL_EXT_RAKSTAGEBAR IMPLEMENTATION.
 
 
   METHOD step_forward.
-    READ TABLE z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING FIELD-SYMBOL(<stage>) WITH KEY current = abap_true.
+    READ TABLE mt_stages ASSIGNING FIELD-SYMBOL(<stage>) WITH KEY current = abap_true.
     IF sy-subrc EQ 0.
       DATA(lv_tabix) = sy-tabix.
       <stage>-current = abap_false.
@@ -136,17 +161,17 @@ CLASS Z2UI5_CL_EXT_RAKSTAGEBAR IMPLEMENTATION.
         WHEN OTHERS.
       ENDCASE.
       IF lv_tabix GT 0.
-        READ TABLE z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage> INDEX lv_tabix.
+        READ TABLE mt_stages ASSIGNING <stage> INDEX lv_tabix.
       ELSE.
-        READ TABLE z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage> INDEX 1.
+        READ TABLE mt_stages ASSIGNING <stage> INDEX 1.
       ENDIF.
     ELSE.
-      READ TABLE z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage> INDEX 1.
+      READ TABLE mt_stages ASSIGNING <stage> INDEX 1.
     ENDIF.
     IF sy-subrc EQ 0.
       lv_tabix = sy-tabix.
 
-      LOOP AT z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING FIELD-SYMBOL(<next_stage>).
+      LOOP AT mt_stages ASSIGNING FIELD-SYMBOL(<next_stage>).
         DATA(lv_line) = sy-tabix.
         <next_stage>-stagenumber = lv_line.
         SHIFT <next_stage>-stagenumber LEFT DELETING LEADING space.
@@ -164,7 +189,7 @@ CLASS Z2UI5_CL_EXT_RAKSTAGEBAR IMPLEMENTATION.
         <next_stage>-graygap           = ''.
         <next_stage>-greengap          = ''.
         <next_stage>-islast            = 'X'.
-        IF lv_line EQ lines( z2ui5_if_ext_rakstagebar~mt_stages ).
+        IF lv_line EQ lines( mt_stages ).
           <next_stage>-islast          = ''.
         ENDIF.
 
@@ -199,9 +224,9 @@ CLASS Z2UI5_CL_EXT_RAKSTAGEBAR IMPLEMENTATION.
       IF lv_tabix GT 1.
         <stage>-greenleftline          = 'X'.
       ENDIF.
-      CALL METHOD (<stage>-screen).
+      CALL METHOD control->(<stage>-screen).
 
-      screen = <stage>-screen.
+      et_stages[] = me->mt_stages[].
 
 
     ENDIF.

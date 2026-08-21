@@ -46,7 +46,7 @@ REPORT zrak_e027_load.
 *& journey_id 'E027'.
 *&---------------------------------------------------------------------*
 
-CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'E027'.
+CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'EPDA_E027_VICE_CAPTAIN'.
 
 START-OF-SELECTION.
 

@@ -22,6 +22,8 @@ public section.
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_POPUP
     redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
+    redefinition .
 protected section.
 private section.
 
@@ -30,7 +32,7 @@ private section.
   constants C_GRID type STRING value 'CHEMICALS_DETAILS' ##NO_TEXT.
   constants C_EVT_DETAILS type STRING value 'ADD Details' ##NO_TEXT.
   constants C_HS_CODE_POP type STRING value 'HS_CODE_POP' ##NO_TEXT.
-  constants C_MATERIAL_NAME_POP type STRING value 'MATERIAL_NAME_POP' ##NO_TEXT.
+  constants C_MATERIAL_NAME_POP type STRING value 'MAT_NAME_POP' ##NO_TEXT.
   constants C_CHEMICAL_NAME_POP type STRING value 'CHEMICAL_NAME_POP' ##NO_TEXT.
   constants C_CAS_POP type STRING value 'CAS_POP' ##NO_TEXT.
   constants C_CHEMICAL_FORMULA_POP type STRING value 'CHEMICAL_FORMULA_POP' ##NO_TEXT.
@@ -92,14 +94,14 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
     io_ctx->set_val( iv_name = C_BOL_POP              iv_value = '' ).
 
 
-****    IF iv_id IS INITIAL.
+    IF iv_id IS INITIAL.
 *****     New owner. The id is minted NOW and not on save, because the uploaders in
 *****     the dialog key their files on it - a file attached before the row exists
 *****     still has to belong to the right person.
 ****      io_ctx->set_val( iv_name  = c_own_id
 ****                       iv_value = 'YFS002' ).
-****      RETURN.
-****    ENDIF.
+      RETURN.
+    ENDIF.
 
 **    io_ctx->set_val( iv_name = c_own_id iv_value = iv_id ).
     LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
@@ -146,8 +148,8 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
     DATA(lo_t)  = io_view->table( alternaterowcolors = abap_true ).
     DATA(lo_cl) = lo_t->columns( ).
     lo_cl->column( )->text( 'HS Code' ).
-    lo_cl->column( )->text( 'Chemical Name' ).
     lo_cl->column( )->text( 'Material name' ).
+    lo_cl->column( )->text( 'Chemical Name' ).
     lo_cl->column( )->text( 'CAS Number' ).
     lo_cl->column( )->text( 'Gross Weight' ).
     lo_cl->column( halign = 'End' )->text( '' ).
@@ -155,8 +157,8 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
     DATA(lo_it) = lo_t->items( ).
     LOOP AT ls_g-rows INTO DATA(lt_r).
       DATA(lv_hs_code)  = VALUE string( lt_r[ 1 ] OPTIONAL ).
-      DATA(lv_chem_name) = VALUE string( lt_r[ 3 ] OPTIONAL ).
       DATA(lv_material_name) = VALUE string( lt_r[ 2 ] OPTIONAL ).
+      DATA(lv_chem_name) = VALUE string( lt_r[ 3 ] OPTIONAL ).
       DATA(lv_cas_number) = VALUE string( lt_r[ 4 ] OPTIONAL ).
       DATA(lv_gross_weight) = VALUE string( lt_r[ 7 ] OPTIONAL ).
 
@@ -208,7 +210,7 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
   METHOD render_own_popup.
 **    DATA(lv_id) = io_ctx->get_val( c_own_id ).
 
-    DATA(lo_dlg) = io_popup->dialog( title = 'Chemical Details' contentwidth = '40rem' ).
+    DATA(lo_dlg) = io_popup->dialog( title = 'Chemical Details' contentwidth = '55rem' ).
     DATA(lo_c)   = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
 
 *   Search sits ON the section title, not under the Emirates ID field, because
@@ -225,31 +227,23 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
     DATA(lo_c1) = lo_r1->vbox( class = 'rakCell' ).
     lo_c1->label( text = 'HS Code' class = 'rakReq' ).
     lo_c1->input( value = io_ctx->bind( C_HS_CODE_POP ) width = '17rem' ).
-*    DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
-**    lo_c2->label( text = 'HS Code' class = 'rakReq' ).
-*   Enter in the ID box does the same as pressing Search. Somebody who has just
-*   typed fifteen digits should not have to reach for the mouse.
-**    lo_c2->input( value       = io_ctx->bind( c_own_eid )
-**                  width       = '17rem'
-**                  placeholder = '784-xxxx-xxxxxxx-x'
-**                  submit      = io_ctx->event( c_evt_ownsr ) ).
+     DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
+    lo_c2->label( text = 'Material Name' ).
+    lo_c2->input( value = io_ctx->bind( C_MATERIAL_NAME_POP ) width = '17rem' ).
+    DATA(lo_c3) = lo_r1->vbox( class = 'rakCell' ).
+    lo_c3->label( text = 'Chemical Name' ).
+    lo_c3->input( value = io_ctx->bind( C_CHEMICAL_NAME_POP ) width = '17rem' ).
 
     DATA(lo_r2) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
-    DATA(lo_c2) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c2->label( text = 'Material Name' ).
-    lo_c2->input( value = io_ctx->bind( 'C_MATERIAL_NAME_POP' ) width = '17rem' ).
-    DATA(lo_c3) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c3->label( text = 'Chemical Name' ).
-    lo_c3->input( value = io_ctx->bind( 'C_CHEMICAL_NAME_POP' ) width = '17rem' ).
     DATA(lo_c4) = lo_r2->vbox( class = 'rakCell' ).
     lo_c4->label( text = 'CAS Number' ).
-    lo_c4->input( value = io_ctx->bind( 'C_CAS_POP' ) width = '17rem' ).
+    lo_c4->input( value = io_ctx->bind( C_CAS_POP ) width = '17rem' ).
     DATA(lo_c5) = lo_r2->vbox( class = 'rakCell' ).
     lo_c5->label( text = 'Chemical formula' ).
     lo_c5->input( value = io_ctx->bind( C_CHEMICAL_FORMULA_POP ) width = '17rem' ).
     DATA(lo_c6) = lo_r2->vbox( class = 'rakCell' ).
     lo_c6->label( text = 'Packing' class = 'rakReq' ).
-    lo_c6->input( value = io_ctx->bind( C_PACKAGING_POP ) type = 'Number' width = '17rem' ).
+    lo_c6->input( value = io_ctx->bind( C_PACKAGING_POP ) width = '17rem' ).
     DATA(lo_c7) = lo_r2->vbox( class = 'rakCell' ).
     lo_c7->label( text = 'Quantity' class = 'rakReq' ).
     lo_c7->input( value = io_ctx->bind( C_QUANTITY_POP ) type = 'Number' width = '17rem' ).
@@ -258,7 +252,7 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
     lo_c8->input( value = io_ctx->bind( C_GROSS_WEIGHT_POP ) type = 'Number' width = '17rem' ).
     DATA(lo_c9) = lo_r2->vbox( class = 'rakCell' ).
     lo_c9->label( text = 'UOM' class = 'rakReq' ).
-    lo_c9->input( value = io_ctx->bind( C_UOM_POP ) width = '17rem' ).
+    lo_c9->input( value = io_ctx->bind( C_UOM_POP ) type = 'SELECT' width = '17rem' ).
     DATA(lo_c10) = lo_r2->vbox( class = 'rakCell' ).
     lo_c10->label( text = 'Invoice Number' class = 'rakReq' ).
     lo_c10->input( value = io_ctx->bind( C_INVOICE_POP ) width = '17rem' ).
@@ -377,16 +371,6 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
-*   The base method IS the PAID gate - it refuses a submit while PAYFEE is not
-*   'PAID'. A redefinition REPLACES it, so without this call the gate is simply
-*   not there for this journey. It must come before any CHECK below: a CHECK that
-*   fails exits the method, and anything after it would never run.
-*
-*   Self-guarding - PAY_FIELD_STEP returns -1 when the journey has no PAYFEE
-*   field, so this is a no-op on a journey with no payment step.
-    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
-                                                         iv_step = iv_step ).
-
 
     CASE iv_step.
 
@@ -490,12 +474,35 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
         chem_form_load( io_ctx ).          " no id = a new owner
         io_ctx->open_popup( c_chem ).
 
-      WHEN C_EVT_OWNCX.
+      WHEN c_evt_owncx.
         io_ctx->close_popup( ).
 
       WHEN c_evt_ownok.
-       form_save( io_ctx ).
+        form_save( io_ctx ).
         io_ctx->close_popup( ).
+
+    ENDCASE.
+
+    CASE iv_event(8).
+      WHEN 'OWN_EDIT'.
+        DATA(lv_id) = iv_event+9.
+        CALL METHOD chem_form_load
+          EXPORTING
+            io_ctx = io_ctx
+            iv_id  = lv_id.
+        io_ctx->open_popup( c_chem ).
+       WHEN 'OWN_DEL_'.
+         lv_id = iv_event+8.
+         DATA(ls_g)  = io_ctx->get_grid_data( c_grid ).
+         LOOP AT ls_g-rows INTO DATA(lt_r).
+           IF VALUE string( lt_r[ 1 ] OPTIONAL ) = lv_id.
+             data(lv_index) = sy-tabix.
+             ENDIF.
+           ENDLOOP.
+           IF lv_index is NOT INITIAL.
+           delete ls_g-rows INDEX lv_index.
+            io_ctx->set_grid_data( iv_field = c_grid is_data = ls_g ).
+            endif.
     ENDCASE.
   ENDMETHOD.
 
@@ -545,7 +552,7 @@ super->zif_rak_journey_logic~on_render_popup(
                                 ( name = 'C_INVOICE_POP'        label = 'Invoice Number'  )
                                 ( name = 'C_ORIGIN_POP'        label = 'Country of Origin'  )
                                 ( name = 'C_END_USER_POP'        label = 'Point of Entrance/End User'  )
-                                ( name = 'Point of Entrance/End User'        label = 'Bill of Lading'  )
+                                ( name = 'C_BOL_POP'        label = 'Bill of Lading'  )
 *                                ( name = 'DATE_OF_BIRTH_POP' label = 'Date of Birth' )
 *                                ( name = 'DATE_OF_BIRTH_POP' label = 'Date of Birth' )
                                  )
@@ -559,14 +566,14 @@ super->zif_rak_journey_logic~on_render_popup(
 
   METHOD form_save.
     DATA(ls_g)  = io_ctx->get_grid_data( c_grid ).
-*    DATA(lv_id) = io_ctx->get_val( c_own_id ).
+    DATA(lv_id) = io_ctx->get_val( c_hs_code_pop ).
 
     DATA(ls_new) = VALUE zif_rak_journey=>ty_table( columns = ls_g-columns ).
     DATA lv_found TYPE abap_bool.
     DATA lt_row   TYPE zif_rak_journey=>tt_string.
 
     LOOP AT ls_g-rows INTO DATA(lt_r).
-*      IF VALUE string( lt_r[ 1 ] OPTIONAL ) = lv_id.
+      IF VALUE string( lt_r[ 1 ] OPTIONAL ) = lv_id.
       lv_found = abap_true.
       CLEAR lt_row.
 *        APPEND lv_id                                      TO lt_row.
@@ -576,17 +583,17 @@ super->zif_rak_journey_logic~on_render_popup(
       APPEND io_ctx->get_val( c_cas_pop )               TO lt_row.
       APPEND io_ctx->get_val( c_chemical_formula_pop )  TO lt_row.
       APPEND io_ctx->get_val( c_packaging_pop )         TO lt_row.
-      APPEND io_ctx->get_val( c_quantity_pop )          TO lt_row.
       APPEND io_ctx->get_val( c_gross_weight_pop )      TO lt_row.
       APPEND io_ctx->get_val( c_uom_pop )               TO lt_row.
+      APPEND io_ctx->get_val( c_quantity_pop )          TO lt_row.
       APPEND io_ctx->get_val( c_invoice_pop )           TO lt_row.
       APPEND io_ctx->get_val( c_origin_pop )            TO lt_row.
       APPEND io_ctx->get_val( c_end_user_pop )          TO lt_row.
       APPEND io_ctx->get_val( c_bol_pop )               TO lt_row.
       APPEND lt_row TO ls_new-rows.
-*      ELSE.
-*        APPEND lt_r TO ls_new-rows.
-*      ENDIF.
+      ELSE.
+        APPEND lt_r TO ls_new-rows.
+      ENDIF.
     ENDLOOP.
 
     IF lv_found = abap_false.
@@ -597,9 +604,9 @@ super->zif_rak_journey_logic~on_render_popup(
       APPEND io_ctx->get_val( c_cas_pop )               TO lt_row.
       APPEND io_ctx->get_val( c_chemical_formula_pop )  TO lt_row.
       APPEND io_ctx->get_val( c_packaging_pop )         TO lt_row.
-      APPEND io_ctx->get_val( c_quantity_pop )          TO lt_row.
       APPEND io_ctx->get_val( c_gross_weight_pop )      TO lt_row.
       APPEND io_ctx->get_val( c_uom_pop )               TO lt_row.
+      APPEND io_ctx->get_val( c_quantity_pop )          TO lt_row.
       APPEND io_ctx->get_val( c_invoice_pop )           TO lt_row.
       APPEND io_ctx->get_val( c_origin_pop )            TO lt_row.
       APPEND io_ctx->get_val( c_end_user_pop )          TO lt_row.
@@ -609,4 +616,96 @@ super->zif_rak_journey_logic~on_render_popup(
 
     io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
   ENDMETHOD.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH.
+CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
+  EXPORTING
+    IO_CTX   = IO_CTX
+    IV_FIELD = IV_FIELD
+    .
+
+     IF iv_field = 'OWNER_SEARCH'.
+
+      CHECK to_upper( iv_field ) = 'OWNER_SEARCH'.
+
+      DATA(lv_eid) = condense( io_ctx->get_val( 'OWNER_SEARCH' ) ).
+      IF lv_eid IS INITIAL.
+        io_ctx->add_msg( iv_type = 'Warning'
+                         iv_text = |Enter Emirates ID to search| ).
+        RETURN.
+      ENDIF.
+
+      DATA(lv_idtype) = io_ctx->get_val( 'OWNER_SEARCH_IDTYPE' ).
+      IF lv_idtype IS INITIAL.
+        lv_idtype = 'YFS002'.
+      ENDIF.
+
+      DATA: lv_eid_no   TYPE bu_id_number,
+            lv_eid_type TYPE bu_id_type.
+
+      lv_eid_no = lv_eid.
+      lv_eid_type = lv_idtype.
+
+      DATA ev_partner         TYPE partner.
+      DATA ev_id_number       TYPE bu_id_number.
+      DATA ev_passport        TYPE bu_id_number.
+      DATA ev_name            TYPE bu_name1tx.
+      DATA ev_phone           TYPE farp_mobile.
+      DATA ev_email           TYPE ad_smtpadr.
+      DATA ev_nationality     TYPE natio50.
+      DATA ev_nationality_key TYPE bu_natio.
+      DATA ev_date_of_birth   TYPE bu_birthdt.
+      DATA ev_message         TYPE bapiret2-message.
+
+      CALL FUNCTION 'ZFE_CJ_SEARCH_BP_BY_ID'
+        EXPORTING
+          iv_type            = lv_eid_type
+          iv_idnumber        = lv_eid_no
+*         IV_APP             = IV_APP
+        IMPORTING
+          ev_partner         = ev_partner
+          ev_id_number       = ev_id_number
+          ev_passport        = ev_passport
+          ev_name            = ev_name
+          ev_phone           = ev_phone
+          ev_email           = ev_email
+          ev_nationality     = ev_nationality
+          ev_nationality_key = ev_nationality_key
+          ev_date_of_birth   = ev_date_of_birth
+          ev_message         = ev_message.
+
+      io_ctx->set_val( iv_name = 'OWNER_NAME'        iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_PHONE'      iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_EMAIL'       iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_DOB'         iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_NATIONALITY' iv_value = ' ' ).
+
+*
+
+      io_ctx->set_val( iv_name = 'OWNER_SEARCH'  iv_value = |{ lv_eid }| ).
+      io_ctx->set_val( iv_name = 'OWNER_NAME'        iv_value = |{ ev_name }| ).
+      io_ctx->set_val( iv_name = 'OWNER_PHONE'      iv_value = |{ ev_phone }| ).
+      io_ctx->set_val( iv_name = 'OWNER_EMAIL'       iv_value = |{ ev_email }| ).
+      io_ctx->set_val( iv_name = 'OWNER_DOB'         iv_value = |{ ev_date_of_birth DATE = USER }| ).
+      io_ctx->set_val( iv_name = 'OWNER_NATIONALITY' iv_value = |{ ev_nationality }| ).
+
+    ELSEIF iv_field = 'PERMIT_NUMBER'.
+      DATA(lv_permit) = condense( io_ctx->get_val( 'PERMIT_NUMBER' ) ).
+
+      IF lv_permit IS NOT INITIAL.
+        SELECT SINGLE contractname FROM zv_epdapmmast INTO @DATA(lv_contrat) WHERE permitid = @lv_permit.
+
+        IF lv_contrat IS NOT INITIAL.
+          io_ctx->set_val( iv_name = 'PERMIT_NUMBER'  iv_value = |{ lv_permit }| ).
+          io_ctx->set_val( iv_name = 'PERMIT_DETAIL'  iv_value = |{ lv_contrat }| ).
+        ELSE.
+          io_ctx->set_val( iv_name = 'PERMIT_DETAIL' iv_value = ' ' ).
+          io_ctx->add_msg( iv_type = 'Warning'
+                           iv_text = |Enter Valid Permit No to search| ).
+        ENDIF.
+
+      ENDIF.
+    ENDIF.
+  endmethod.
 ENDCLASS.

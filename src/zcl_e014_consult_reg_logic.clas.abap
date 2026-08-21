@@ -25,9 +25,15 @@ class ZCL_E014_CONSULT_REG_LOGIC definition
 *   silently take the decision away from them.
 public section.
 
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_POST
+    redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_POPUP_EVENT
     redefinition .
 protected section.
   PRIVATE SECTION.
@@ -133,5 +139,104 @@ CLASS ZCL_E014_CONSULT_REG_LOGIC IMPLEMENTATION.
       io_ctx->set_val( iv_name  = ls_role-value
                        iv_value = COND string( WHEN ls_role-key = iv_pick THEN 'X' ELSE '' ) ).
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_before_post.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_POST
+*  EXPORTING
+*    IO_CTX =
+*  CHANGING
+*    CT_KV  =
+*    .
+
+*    DATA: iv_pick TYPE string.
+*    write_role_flags( io_ctx  = io_ctx iv_pick = iv_pick ).
+
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_search.
+    IF iv_field = 'OWNER_FINDER_BP'.
+
+      CHECK to_upper( iv_field ) = 'OWNER_FINDER_BP'.
+
+      DATA(lv_eid) = condense( io_ctx->get_val( 'OWNER_FINDER_BP' ) ).
+      IF lv_eid IS INITIAL.
+        io_ctx->add_msg( iv_type = 'Warning'
+                         iv_text = |Enter Emirates ID to search| ).
+        RETURN.
+      ENDIF.
+
+      DATA(lv_idtype) = io_ctx->get_val( 'OWNER_FINDER_BP_IDTYPE' ).
+      IF lv_idtype IS INITIAL.
+        lv_idtype = 'YFS002'.
+      ENDIF.
+
+      DATA: lv_eid_no   TYPE bu_id_number,
+            lv_eid_type TYPE bu_id_type.
+
+      lv_eid_no = lv_eid.
+      lv_eid_type = lv_idtype.
+
+
+      DATA ev_partner         TYPE partner.
+      DATA ev_id_number       TYPE bu_id_number.
+      DATA ev_passport        TYPE bu_id_number.
+      DATA ev_name            TYPE bu_name1tx.
+      DATA ev_phone           TYPE farp_mobile.
+      DATA ev_email           TYPE ad_smtpadr.
+      DATA ev_nationality     TYPE natio50.
+      DATA ev_nationality_key TYPE bu_natio.
+      DATA ev_date_of_birth   TYPE bu_birthdt.
+      DATA ev_message         TYPE bapiret2-message.
+
+      CALL FUNCTION 'ZFE_CJ_SEARCH_BP_BY_ID'
+        EXPORTING
+          iv_type            = lv_eid_type
+          iv_idnumber        = lv_eid_no
+*         IV_APP             = IV_APP
+        IMPORTING
+          ev_partner         = ev_partner
+          ev_id_number       = ev_id_number
+          ev_passport        = ev_passport
+          ev_name            = ev_name
+          ev_phone           = ev_phone
+          ev_email           = ev_email
+          ev_nationality     = ev_nationality
+          ev_nationality_key = ev_nationality_key
+          ev_date_of_birth   = ev_date_of_birth
+          ev_message         = ev_message.
+
+      io_ctx->set_val( iv_name = 'OWNER_NAME'        iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_PHONE'      iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_EMAIL'       iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_DOB'         iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_NATIONALITY' iv_value = ' ' ).
+
+*
+
+      io_ctx->set_val( iv_name = 'OWNER_SEARCH'  iv_value = |{ lv_eid }| ).
+      io_ctx->set_val( iv_name = 'OWNER_NAME'        iv_value = |{ ev_name }| ).
+      io_ctx->set_val( iv_name = 'OWNER_PHONE'      iv_value = |{ ev_phone }| ).
+      io_ctx->set_val( iv_name = 'OWNER_EMAIL'       iv_value = |{ ev_email }| ).
+      io_ctx->set_val( iv_name = 'OWNER_DOB'         iv_value = |{ ev_date_of_birth DATE = USER }| ).
+      io_ctx->set_val( iv_name = 'OWNER_NATIONALITY' iv_value = |{ ev_nationality }| ).
+
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_popup_event.
+
+    IF iv_event = c_pay_now.
+      io_ctx->set_val( iv_name = 'STATUS' iv_value = 'STP4' ).
+    ENDIF.
+
+    CALL METHOD super->zif_rak_journey_logic~on_popup_event
+      EXPORTING
+        io_ctx   = io_ctx
+        iv_id    = iv_id
+        iv_event = iv_event.
   ENDMETHOD.
 ENDCLASS.

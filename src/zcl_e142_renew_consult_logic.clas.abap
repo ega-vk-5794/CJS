@@ -1,8 +1,8 @@
-CLASS zcl_e142_renew_consult_logic DEFINITION
-  PUBLIC
-  INHERITING FROM zcl_rak_journey_logic
-  FINAL
-  CREATE PUBLIC.
+class ZCL_E142_RENEW_CONSULT_LOGIC definition
+  public
+  inheriting from ZCL_RAK_JOURNEY_LOGIC
+  final
+  create public .
 
 *   Handler for E142 - Renew Consultancy Registration
 *   (legacy NE014_2_*, seeded by ZRAK_E142_LOAD).
@@ -30,11 +30,22 @@ CLASS zcl_e142_renew_consult_logic DEFINITION
 *   Everything else this journey needs IS still configuration: the licence
 *   picker, the four sections, the six uploads, the read-only owner panel.
 *   This class does the one thing config cannot.
-  PUBLIC SECTION.
-    METHODS zif_rak_journey_logic~on_change REDEFINITION.
+public section.
 
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
+    redefinition .
+protected section.
   PRIVATE SECTION.
     CONSTANTS c_applicant_type TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
+    CONSTANTS c_login_bp TYPE string VALUE 'LOGIN_BP' ##NO_TEXT.
+    CONSTANTS c_partner_name TYPE string VALUE 'PARTNER_NAME' ##NO_TEXT.
+    CONSTANTS c_PARTNER_ID TYPE string VALUE 'PARTNER_ID' ##NO_TEXT.
+    CONSTANTS c_APPLICANTTYPE1 TYPE string VALUE 'APPLICANTTYPE' ##NO_TEXT.
+    CONSTANTS c_lang_en TYPE string VALUE 'E' ##NO_TEXT.
 
 *   Deliberately identical to ZCL_E014_CONSULT_REG_LOGIC's method of the
 *   same name, rather than factored into a shared superclass. The two
@@ -75,11 +86,62 @@ CLASS ZCL_E142_RENEW_CONSULT_LOGIC IMPLEMENTATION.
     ENDLOOP.
   ENDMETHOD.
 
-*   NO on_init REDEFINITION, and that is the point of the journey rather
-*   than an omission: there is no RAKPAY, no RAKREMAININGFEES and no fee
-*   CLIST anywhere in NE014_2_*, and the last screen's NEXT button carries
-*   D3 = SUBMIT rather than a pay event. So there is no PAY_SCREEN to name
-*   and no payment terms to supply. If a renewal fee is introduced later,
-*   this is where PAY_SCREEN / PAY_METHOD / PAY_CHANNEL / PAY_CHARGES go -
-*   and STP4 needs NEXT_REQUIRES = 'PAYFEE' in the feeder at the same time.
+
+  METHOD zif_rak_journey_logic~on_init.
+
+    CALL METHOD super->zif_rak_journey_logic~on_init
+      EXPORTING
+        io_ctx = io_ctx.
+
+    DATA: lv_loginbp TYPE bu_partner.
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
+
+    IF lv_loginbp IS NOT INITIAL.
+      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+        EXPORTING
+          iv_bp_id      = lv_loginbp
+        IMPORTING
+          es_bp_details = DATA(ls_bp) ).
+
+      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+
+      IF sy-langu = c_lang_en.
+        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name ) ).
+      ELSE.
+        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+      ENDIF.
+
+      io_ctx->set_val( iv_name = c_partner_id iv_value = CONV #( ls_bp-emirates_id ) ).
+
+      io_ctx->set_val( iv_name = c_applicanttype1 iv_value = |{ lv_role }| ).
+
+    ELSE.
+
+
+      io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '1000116563' ).
+*
+**    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
+*      io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
+**    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
+*      io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
+*
+**    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+*      io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
+
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_before_tables.
+    DATA(lv_sel) = io_ctx->get_val( 'LIC_SEL' ).
+    CHECK lv_sel IS NOT INITIAL.
+    LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<t>) WHERE ui_table_name = 'LICENSE' AND ui_table_column1 = lv_sel..
+      IF <t>-ui_table_column1 = lv_sel.
+        <t>-ui_table_column29 = 'S'.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
 ENDCLASS.

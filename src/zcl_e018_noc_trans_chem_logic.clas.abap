@@ -27,6 +27,7 @@ public section.
 protected section.
 private section.
 
+  data CLIENT type ref to Z2UI5_IF_CLIENT .
   constants C_ROLE type STRING value 'APPLICANT_ROLE' ##NO_TEXT.
   constants C_PERMIT type STRING value 'PERMIT_HELD' ##NO_TEXT.
   constants C_GRID type STRING value 'CHEMICALS_DETAILS' ##NO_TEXT.
@@ -46,10 +47,29 @@ private section.
   constants C_BOL_POP type STRING value 'BOL_POP' ##NO_TEXT.
   constants C_TRANS_COMP type STRING value 'TRANS_COMP' ##NO_TEXT.
   constants C_CHEM type STRING value 'CHEM' ##NO_TEXT.
+  constants C_OPEN_POPUP type STRING value 'CHEMICAL_POP' ##NO_TEXT.
   constants C_EVT_OWNOK type STRING value 'OWN_OK' ##NO_TEXT.
   constants C_EVT_OWNCX type STRING value 'OWN_CANCEL' ##NO_TEXT.
   constants C_OWN_ADD type STRING value 'OWNER_ADD' ##NO_TEXT.
+  constants C_EDIT_POP type STRING value 'OWN_EDIT_*' ##NO_TEXT.
+  constants C_DELETE_POP type STRING value 'OWN_DEL_*' ##NO_TEXT.
+  constants C_EVT_OWNSR type STRING value 'OWN_SEARCH' ##NO_TEXT.
 
+*  CONSTANTS c_hs_pop TYPE string VALUE 'HS_CODE' ##NO_TEXT.
+**  c_edit_pop
+*  c_DELETE_POP
+*  methods RENDER_CHEM_DETAILS
+*    importing
+*      !IO_CTX type ref to ZIF_RAK_JOURNEY
+*      !IO_VIEW type ref to Z2UI5_CL_XML_VIEW .
+*  methods CHEM_FORM_LOAD
+*    importing
+*      !IO_CTX type ref to ZIF_RAK_JOURNEY
+*      !IV_ID type STRING optional .
+*  methods RENDER_OWN_POPUP
+*    importing
+*      !IO_CTX type ref to ZIF_RAK_JOURNEY
+*      !IO_POPUP type ref to Z2UI5_CL_XML_VIEW .
   methods WRITE_FLAGS
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY .
@@ -71,18 +91,17 @@ private section.
   methods OWN_FORM_SAVE
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY .
-*  methods RENDER_CHEM_DETAILS
-*    importing
-*      !IO_CTX type ref to ZIF_RAK_JOURNEY
-*      !IO_VIEW type ref to Z2UI5_CL_XML_VIEW .
-*  methods CHEM_FORM_LOAD
-*    importing
-*      !IO_CTX type ref to ZIF_RAK_JOURNEY
-*      !IV_ID type STRING optional .
-*  methods RENDER_OWN_POPUP
-*    importing
-*      !IO_CTX type ref to ZIF_RAK_JOURNEY
-*      !IO_POPUP type ref to Z2UI5_CL_XML_VIEW .
+  methods OWN_EDIT
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IV_ID type STRING optional .
+  methods OWN_DELETE
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IV_ID type STRING .
+  methods OWN_SEARCH
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY .
 ENDCLASS.
 
 
@@ -91,68 +110,21 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 
 
   METHOD chem_form_load.
-
-**    io_ctx->set_val( iv_name = c_HS_CODE_POP         iv_value = '' ).
-**    io_ctx->set_val( iv_name = c_material_name_pop    iv_value = '' ).
-**    io_ctx->set_val( iv_name = c_chemical_name_pop    iv_value = '' ).
-**    io_ctx->set_val( iv_name = c_cas_pop              iv_value = '' ).
-**    io_ctx->set_val( iv_name = c_chemical_formula_pop iv_value = '' ).
-**    io_ctx->set_val( iv_name = c_packaging_pop        iv_value = '' ).
-**    io_ctx->set_val( iv_name = c_quantity_pop         iv_value = '' ).
-**    io_ctx->set_val( iv_name = c_gross_weight_pop     iv_value = '' ).
-**    io_ctx->set_val( iv_name = c_uom_pop              iv_value = '' ).
-**    io_ctx->set_val( iv_name = c_invoice_pop          iv_value = '' ).
-**    io_ctx->set_val( iv_name = c_origin_pop           iv_value = '' ).
-**    io_ctx->set_val( iv_name = c_end_user_pop         iv_value = '' ).
-**    io_ctx->set_val( iv_name = c_bol_pop              iv_value = '' ).
-**    io_ctx->set_val( iv_name = c_trans_comp           iv_value = '' ).
-
-    io_ctx->set_val( iv_name = 'HS_CODE_POP'          iv_value = 'HS1' ).
-    io_ctx->set_val( iv_name = 'MATERIAL_NAME_HF'     iv_value = 'MAT1' ).
-    io_ctx->set_val( iv_name = 'CHEMICAL_NAME_HF'     iv_value = 'CHEM1' ).
-    io_ctx->set_val( iv_name = 'CAS_POP'              iv_value = 'CAS1' ).
-    io_ctx->set_val( iv_name = 'CHEMICAL_FORMULA_POP' iv_value = 'CHEMF1' ).
-    io_ctx->set_val( iv_name = 'PACKAGING_POP'        iv_value = 'PACKING1' ).
-    io_ctx->set_val( iv_name = 'QUANTITY_POP'         iv_value = '1' ).
-    io_ctx->set_val( iv_name = 'GROSS_WEIGHT_POP'     iv_value = '2' ).
-    io_ctx->set_val( iv_name = 'UOM_POP'              iv_value = 'KG' ).
-    io_ctx->set_val( iv_name = 'INVOICE_POP'          iv_value = 'INV1' ).
-    io_ctx->set_val( iv_name = 'ORIGIN_POP'           iv_value = 'CTR1' ).
-    io_ctx->set_val( iv_name = 'END_USER_POP'         iv_value = 'ENDUSER' ).
-    io_ctx->set_val( iv_name = 'BOL_POP'              iv_value = 'BOL1' ).
-    io_ctx->set_val( iv_name = 'TRANS_COMP'           iv_value = 'POP1' ).
-
-
-****    IF iv_id IS INITIAL.
-*****     New owner. The id is minted NOW and not on save, because the uploaders in
-*****     the dialog key their files on it - a file attached before the row exists
-*****     still has to belong to the right person.
-****      io_ctx->set_val( iv_name  = c_own_id
-****                       iv_value = 'YFS002' ).
-****      RETURN.
-****    ENDIF.
-
-**    io_ctx->set_val( iv_name = c_own_id iv_value = iv_id ).
-*    LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
-*
-*    io_ctx->set_val( iv_name = c_HS_CODE_POP          iv_value = VALUE #( lt_r[ 1 ] OPTIONAL ) ).
-*    io_ctx->set_val( iv_name = c_material_name_pop    iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
-*    io_ctx->set_val( iv_name = c_chemical_name_pop    iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
-*    io_ctx->set_val( iv_name = c_cas_pop              iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
-*    io_ctx->set_val( iv_name = c_chemical_formula_pop iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
-*    io_ctx->set_val( iv_name = c_packaging_pop        iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
-*    io_ctx->set_val( iv_name = c_quantity_pop         iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
-*    io_ctx->set_val( iv_name = c_gross_weight_pop     iv_value = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
-*    io_ctx->set_val( iv_name = c_uom_pop              iv_value = VALUE #( lt_r[ 9 ] OPTIONAL ) ).
-*    io_ctx->set_val( iv_name = c_invoice_pop          iv_value = VALUE #( lt_r[ 10 ] OPTIONAL ) ).
-*    io_ctx->set_val( iv_name = c_origin_pop           iv_value = VALUE #( lt_r[ 11 ] OPTIONAL ) ).
-*    io_ctx->set_val( iv_name = c_end_user_pop         iv_value = VALUE #( lt_r[ 12 ] OPTIONAL ) ).
-*    io_ctx->set_val( iv_name = c_bol_pop              iv_value = VALUE #( lt_r[ 13 ] OPTIONAL ) ).
-*    io_ctx->set_val( iv_name = c_trans_comp           iv_value = VALUE #( lt_r[ 14 ] OPTIONAL ) ).
-*    EXIT.
-*  ENDLOOP.
-
-ENDMETHOD.
+    io_ctx->set_val( iv_name = c_hs_code_pop          iv_value = '' ).
+    io_ctx->set_val( iv_name = c_material_name_pop    iv_value = '' ).
+    io_ctx->set_val( iv_name = c_chemical_name_pop    iv_value = '' ).
+    io_ctx->set_val( iv_name = c_cas_pop              iv_value = '' ).
+    io_ctx->set_val( iv_name = c_chemical_formula_pop iv_value = '' ).
+    io_ctx->set_val( iv_name = c_packaging_pop        iv_value = '' ).
+    io_ctx->set_val( iv_name = c_quantity_pop         iv_value = '' ).
+    io_ctx->set_val( iv_name = c_gross_weight_pop     iv_value = '' ).
+    io_ctx->set_val( iv_name = c_uom_pop              iv_value = '' ).
+    io_ctx->set_val( iv_name = c_invoice_pop          iv_value = '' ).
+    io_ctx->set_val( iv_name = c_origin_pop           iv_value = '' ).
+    io_ctx->set_val( iv_name = c_end_user_pop         iv_value = '' ).
+    io_ctx->set_val( iv_name = c_bol_pop              iv_value = '' ).
+    io_ctx->set_val( iv_name = c_trans_comp           iv_value = '' ).
+  ENDMETHOD.
 
 
   METHOD company_fields.
@@ -205,7 +177,7 @@ ENDMETHOD.
       DATA(lv_mat)   = VALUE string( lt_r[ 2 ] OPTIONAL ).
       DATA(Lv_chem)  = VALUE string( lt_r[ 3 ] OPTIONAL ).
       DATA(lv_cas)   = VALUE string( lt_r[ 4 ] OPTIONAL ).
-      DATA(lv_w8t)   = VALUE string( lt_r[ 5 ] OPTIONAL ).
+      DATA(lv_w8t)   = VALUE string( lt_r[ 8 ] OPTIONAL ).
 
 *     How many files this owner has. Counting them here is the only way the
 *     citizen can see, from the list, whose documents are still missing.
@@ -244,23 +216,20 @@ ENDMETHOD.
 
   METHOD render_own_popup.
 
-**    DATA(lv_id) = io_ctx->get_val( c_own_id ).
-
     DATA(lo_dlg) = io_popup->dialog( title = 'Chemical/Material Details' contentwidth = '55rem' ).
     DATA(lo_c)   = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
 
 *   Search sits ON the section title, not under the Emirates ID field, because
 *   it acts on the whole form: type the ID, press Search, and the rest fills in.
-**    DATA(lo_hdr) = lo_c->hbox( justifycontent = 'SpaceBetween' alignitems = 'Center' ).
-**    lo_hdr->title( text = 'Owner Details' class = 'rakBlkTitle' ).
-**    lo_hdr->button( text  = 'Search'
-**                    type  = 'Emphasized'
-**                    icon  = 'sap-icon://search'
-**                    press = io_ctx->event( c_evt_ownsr ) ).
+    DATA(lo_hdr) = lo_c->hbox( justifycontent = 'SpaceBetween' alignitems = 'Center' ).
+    lo_hdr->title( text = 'Owner Details' class = 'rakBlkTitle' ).
+    lo_hdr->button( text  = 'Search'
+                    type  = 'Emphasized'
+                    icon  = 'sap-icon://search'
+                    press = io_ctx->event( c_evt_ownsr ) ).
 
 *   Two per row, the way the legacy dialog laid it out.
     DATA(lo_r1) = lo_c->hbox( class = 'rakRow' alignitems = 'End' )."ROw 1
-
     DATA(lo_c1) = lo_r1->vbox( class = 'rakCell' ).
     lo_c1->label( text = 'HS Code' class = 'rakReq' ).
     lo_c1->input( value = io_ctx->bind( c_hs_code_pop ) width = '17rem' ).
@@ -307,8 +276,10 @@ ENDMETHOD.
 
     DATA(lo_c11) = lo_r2->vbox( class = 'rakCell' ).
     lo_c11->label( text = 'Country of Origin' class = 'rakReq' ).
-    lo_c11->input( value = io_ctx->bind( c_origin_pop ) width = '17rem' ).
-
+    lo_c11->input( value = io_ctx->bind( c_origin_pop )
+                   width = '17rem'
+                   placeholder = 'IN'
+                   submit      = io_ctx->event( c_evt_ownsr ) ).
 
     DATA(lo_c12) = lo_r2->vbox( class = 'rakCell' ).
     lo_c12->label( text = 'Point of Entrance/End User' class = 'rakReq' ).
@@ -491,16 +462,6 @@ ENDMETHOD.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
-*   The base method IS the PAID gate - it refuses a submit while PAYFEE is not
-*   'PAID'. A redefinition REPLACES it, so without this call the gate is simply
-*   not there for this journey. It must come before any CHECK below: a CHECK that
-*   fails exits the method, and anything after it would never run.
-*
-*   Self-guarding - PAY_FIELD_STEP returns -1 when the journey has no PAYFEE
-*   field, so this is a no-op on a journey with no payment step.
-    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
-                                                         iv_step = iv_step ).
-
 
     CASE iv_step.
 
@@ -610,13 +571,28 @@ ENDMETHOD.
         chem_form_load( io_ctx ).          " no id = a new owner
         io_ctx->open_popup( c_chem ).
 
-      WHEN 'OWN_OK'.
+      WHEN c_evt_ownok. "'OWNER_ADD'. "
         own_form_save( io_ctx ).
         io_ctx->close_popup( ). "Close pop-up screen after adding data
 
 
-      WHEN c_evt_owncx.
+      WHEN c_evt_owncx. "'CANCEL'. "
         io_ctx->close_popup( ).
+
+      WHEN c_evt_ownsr.
+        own_search( io_ctx ).
+
+      WHEN OTHERS.
+*    "Edit Chemicals Details GRID
+        IF iv_event CP c_edit_pop.
+          own_edit( io_ctx = io_ctx iv_id = substring( val = iv_event off = 9 ) ).
+          io_ctx->open_popup( c_chem ).
+          RETURN.
+*     "Delete data from Chemicals Details GRID
+        ELSEIF iv_event CP c_DELETE_POP.
+          own_delete( io_ctx = io_ctx iv_id = substring( val = iv_event off = 8 ) ).
+          RETURN.
+        ENDIF.
 
     ENDCASE.
   ENDMETHOD.
@@ -645,36 +621,57 @@ ENDMETHOD.
 
 **    CHECK iv_id = c_pop_mat.
     CASE iv_id.
-      WHEN c_chem.
+      WHEN c_chem."'c_chem1'.
         render_own_popup( io_ctx = io_ctx io_popup = io_popup ).
         RETURN.
-      WHEN c_evt_details.
-
+      WHEN c_evt_details. "c_chem. "c_evt_details. " FOr F4 use this
 
         dialog_form(
           io_ctx     = io_ctx
           io_popup   = io_popup
           iv_title   = 'Add Chemical'
           it_fields  = VALUE #(
-                                ( name = 'C_HS_CODE_POP'          label = 'HS Code'  )
-                                ( name = 'C_MATERIAL_NAME_POP'    label = 'Material Name' )
-                                ( name = 'C_CHEMICAL_NAME_POP'    label = 'Chemical Name' )
-                                ( name = 'C_CAS_POP'              label = 'CAS Number' )
-                                ( name = 'C_CHEMICAL_FORMULA_POP' label = 'Chemical Formula' )
-                                ( name = 'C_PACKAGING_POP'        label = 'Packing' )
-                                ( name = 'C_QUANTITY_POP'         label = 'Quantity'  )
-                                ( name = 'C_GROSS_WEIGHT_POP'     label = 'Gross Weight'  )
-                                ( name = 'C_UOM_POP'              label = 'UOM'  )
-                                ( name = 'C_INVOICE_POP'          label = 'Invoice Number'  )
-                                ( name = 'C_ORIGIN_POP'           label = 'Country of Origin'  )
-                                ( name = 'C_END_USER_POP'         label = 'Point of Entrance'  )
-                                ( name = 'BOL_POP'                label = 'Bill of Lading'  )
-                                ( name = 'TRANS_COMP'             label = 'Transport Company'  )
-*                                ( name = 'DATE_OF_BIRTH_POP' label = 'Date of Birth' )
-*                                ( name = 'DATE_OF_BIRTH_POP' label = 'Date of Birth' )
-                                 )
+                                ( name = c_hs_code_pop          label = 'HS Code'  )
+                                ( name = c_material_name_pop    label = 'Material Name' )
+                                ( name = c_chemical_name_pop    label = 'Chemical Name' )
+                                ( name = c_cas_pop              label = 'CAS Number' maxlen = 20 )
+                                ( name = c_chemical_formula_pop label = 'Chemical Formula' )
+                                ( name = c_packaging_pop        label = 'Packing' )
+                                ( name = c_quantity_pop         label = 'Quantity'  )
+                                ( name = c_gross_weight_pop     label = 'Gross Weight'  )
+                                ( name = c_uom_pop              label = 'UOM' rollname = 'H_T006' ) "'UOM' rollname = 'MEINS' )
+                                ( name = c_invoice_pop          label = 'Invoice Number'  )
+                                ( name = c_origin_pop           label = 'Country of Origin' shlp = 'H_T005'  )
+                                ( name = c_end_user_pop         label = 'Point of Entrance'  )
+                                ( name = c_bol_pop              label = 'Bill of Lading'  )
+                                ( name = c_trans_comp           label = 'Transport Company'  )
+                              )
           iv_ok_text = 'Add'
           iv_ok_evt  = c_own_add ).
+        RETURN.
+
+*        dialog_form(
+*          io_ctx     = io_ctx
+*          io_popup   = io_popup
+*          iv_title   = 'Add Chemical'
+*          it_fields  = VALUE #(
+*                                ( name = c_hs_code_pop          label = 'HS Code'  )
+*                                ( name = c_material_name_pop    label = 'Material Name' )
+*                                ( name = c_chemical_name_pop    label = 'Chemical Name' )
+*                                ( name = c_cas_pop              label = 'CAS Number' )
+*                                ( name = c_chemical_formula_pop label = 'Chemical Formula' )
+*                                ( name = c_packaging_pop        label = 'Packing' )
+*                                ( name = c_quantity_pop         label = 'Quantity'  )
+*                                ( name = c_gross_weight_pop     label = 'Gross Weight'  )
+*                                ( name = c_uom_pop              label = 'UOM'  )
+*                                ( name = c_invoice_pop          label = 'Invoice Number'  )
+*                                ( name = c_origin_pop           label = 'Country of Origin'  )
+*                                ( name = c_end_user_pop         label = 'Point of Entrance'  )
+*                                ( name = c_bol_pop              label = 'Bill of Lading'  )
+*                                ( name = c_trans_comp           label = 'Transport Company'  )
+*                              )
+*          iv_ok_text = 'Add'
+*          iv_ok_evt  = c_own_add ).
 
       WHEN OTHERS.
     ENDCASE.
@@ -785,55 +782,55 @@ ENDMETHOD.
     LOOP AT ls_g-rows INTO DATA(lt_r).
       CLEAR lt_row.
       APPEND VALUE string( lt_r[ 1 ] OPTIONAL )   TO lt_row. " HS Code
-      APPEND VALUE string( lt_r[ 2 ] OPTIONAL )   TO lt_row. " Chemical Name
-      APPEND VALUE string( lt_r[ 3 ] OPTIONAL )   TO lt_row. " Material name
-      APPEND VALUE string( lt_r[ 4 ] OPTIONAL )   TO lt_row. " Chemical Formulae
-      APPEND VALUE string( lt_r[ 5 ] OPTIONAL )   TO lt_row. " CAS No
-      APPEND VALUE string( lt_r[ 6 ] OPTIONAL )   TO lt_row. " Gross weight
-      APPEND VALUE string( lt_r[ 7 ] OPTIONAL )   TO lt_row. " Unit
-      APPEND VALUE string( lt_r[ 8 ] OPTIONAL )   TO lt_row. " Packaging
+      APPEND VALUE string( lt_r[ 2 ] OPTIONAL )   TO lt_row. " Material Name
+      APPEND VALUE string( lt_r[ 3 ] OPTIONAL )   TO lt_row. " Chemical Name
+      APPEND VALUE string( lt_r[ 4 ] OPTIONAL )   TO lt_row. " Cas No
+      APPEND VALUE string( lt_r[ 5 ] OPTIONAL )   TO lt_row. " Chemical Formulae
+      APPEND VALUE string( lt_r[ 6 ] OPTIONAL )   TO lt_row. " Packaging
+      APPEND VALUE string( lt_r[ 7 ] OPTIONAL )   TO lt_row. " Gross weight
+      APPEND VALUE string( lt_r[ 8 ] OPTIONAL )   TO lt_row. " Unit
       APPEND VALUE string( lt_r[ 9 ] OPTIONAL )   TO lt_row. " Quantity
       APPEND VALUE string( lt_r[ 10 ] OPTIONAL )  TO lt_row. " Invoice No
-      APPEND VALUE string( lt_r[ 11 ] OPTIONAL )  TO lt_row. " Bill of lading
-      APPEND VALUE string( lt_r[ 12 ] OPTIONAL )  TO lt_row. " Ctry of origin
-      APPEND VALUE string( lt_r[ 13 ] OPTIONAL )  TO lt_row. " Point of entrance
+      APPEND VALUE string( lt_r[ 11 ] OPTIONAL )  TO lt_row. " Country of origin
+      APPEND VALUE string( lt_r[ 12 ] OPTIONAL )  TO lt_row. " Point of entrance
+      APPEND VALUE string( lt_r[ 13 ] OPTIONAL )  TO lt_row. " Bill of Landing
       APPEND VALUE string( lt_r[ 14 ] OPTIONAL )  TO lt_row. " Transport Company
 
       APPEND lt_row TO ls_new-rows.
     ENDLOOP.
 
-    DATA(lv_hs_code)    = condense( io_ctx->get_val( 'HS_CODE_POP' ) ).
-    DATA(lv_mat_name)   = condense( io_ctx->get_val( c_material_name_pop ) ).
+    DATA(lv_hs_code)    = condense( io_ctx->get_val( C_HS_CODE_POP ) ).
+    DATA(lv_mat_name)   = condense( io_ctx->get_val( C_MATERIAL_NAME_POP ) ).
 *    DATA(lv_mat_name)   = condense( io_ctx->get_val( C_MATERIAL_NAME_POP ) ).
 
-    DATA(lv_chem_name)  = condense( io_ctx->get_val( c_chemical_name_pop ) ).
-    DATA(lv_cas)        = condense( io_ctx->get_val( 'CAS_POP' ) ).
-    DATA(lv_chem_form)  = condense( io_ctx->get_val( 'CHEMICAL_FORMULA_POP' ) ).
-    DATA(lv_packaging)  = condense( io_ctx->get_val( 'PACKAGING_POP' ) ).
-    DATA(lv_qty)        = condense( io_ctx->get_val( 'QUANTITY_POP' ) ).
-    DATA(lv_gr_wt)      = condense( io_ctx->get_val( 'GROSS_WEIGHT_POP' ) ).
-    DATA(lv_uom)        = condense( io_ctx->get_val( 'UOM_POP' ) ).
-    DATA(lv_inv_no)     = condense( io_ctx->get_val( 'INVOICE_POP' ) ).
-    DATA(lv_orig_ctry)  = condense( io_ctx->get_val( 'ORIGIN_POP' ) ).
-    DATA(lv_entrance)   = condense( io_ctx->get_val( 'END_USER_POP' ) ).
-    DATA(lv_bol)        = condense( io_ctx->get_val( 'BOL_POP' ) ).
-    DATA(lv_trans_comp) = condense( io_ctx->get_val( 'TRANS_COMP' ) ).
+    DATA(lv_chem_name)  = condense( io_ctx->get_val( C_CHEMICAL_NAME_POP ) ).
+    DATA(lv_cas)        = condense( io_ctx->get_val( C_CAS_POP ) ).
+    DATA(lv_chem_form)  = condense( io_ctx->get_val( C_CHEMICAL_FORMULA_POP ) ).
+    DATA(lv_packaging)  = condense( io_ctx->get_val( C_PACKAGING_POP ) ).
+    DATA(lv_qty)        = condense( io_ctx->get_val( C_QUANTITY_POP ) ).
+    DATA(lv_gr_wt)      = condense( io_ctx->get_val( C_GROSS_WEIGHT_POP ) ).
+    DATA(lv_uom)        = condense( io_ctx->get_val( C_UOM_POP ) ).
+    DATA(lv_inv_no)     = condense( io_ctx->get_val( C_INVOICE_POP ) ).
+    DATA(lv_orig_ctry)  = condense( io_ctx->get_val( C_ORIGIN_POP ) ).
+    DATA(lv_entrance)   = condense( io_ctx->get_val( C_END_USER_POP ) ).
+    DATA(lv_bol)        = condense( io_ctx->get_val( C_BOL_POP ) ).
+    DATA(lv_trans_comp) = condense( io_ctx->get_val( C_TRANS_COMP ) ).
 
 
     CLEAR lt_row.
     APPEND lv_hs_code     TO lt_row. " HS Code
-    APPEND lv_chem_name   TO lt_row. " Chemical Name
     APPEND lv_mat_name    TO lt_row. " Material name
-    APPEND lv_chem_form   TO lt_row. " Chemical Formulae
+    APPEND lv_chem_name   TO lt_row. " Chemical Name
     APPEND lv_cas         TO lt_row. " CAS No
-    APPEND lv_gr_wt       TO lt_row. " Gross weight
-    APPEND lv_uom         TO lt_row. " Unit
+    APPEND lv_chem_form   TO lt_row. " Chemical Formulae
     APPEND lv_packaging   TO lt_row. " Packaging
     APPEND lv_qty         TO lt_row. " Quantity
+    APPEND lv_gr_wt       TO lt_row. " Gross weight
+    APPEND lv_uom         TO lt_row. " Unit
     APPEND lv_inv_no      TO lt_row. " Invoice No
-    APPEND lv_bol         TO lt_row. " Bill of lading
     APPEND lv_orig_ctry   TO lt_row. " Ctry of origin
     APPEND lv_entrance    TO lt_row. " Point of entrance
+    APPEND lv_bol         TO lt_row. " Bill of lading
     APPEND lv_trans_comp  TO lt_row. " Transport Company
 
     APPEND lt_row TO ls_new-rows.
@@ -842,6 +839,55 @@ ENDMETHOD.
 
 
 
+
+  ENDMETHOD.
+
+
+  METHOD own_delete.
+    DATA(ls_g)   = io_ctx->get_grid_data( c_grid ).
+    DATA(ls_new) = VALUE zif_rak_journey=>ty_table( columns = ls_g-columns ).
+
+    LOOP AT ls_g-rows INTO DATA(lt_r).
+      CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) <> iv_id.
+      APPEND lt_r TO ls_new-rows.
+    ENDLOOP.
+
+    io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
+
+*    c_hs_code_pop
+
+  ENDMETHOD.
+
+
+  METHOD own_edit.
+
+    LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
+
+      CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) = iv_id.
+      io_ctx->set_val( iv_name = c_hs_code_pop         iv_value  = VALUE #( lt_r[ 1 ] OPTIONAL ) ).
+*      io_ctx->set_val( iv_name = c_material_name_pop   iv_value  = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
+*      io_ctx->set_val( iv_name = c_chemical_name_pop   iv_value  = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
+*      io_ctx->set_val( iv_name = c_cas_pop             iv_value  = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
+*      io_ctx->set_val( iv_name = c_gross_weight_pop    iv_value  = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD own_search.
+
+    DATA(lv_eid) = condense( io_ctx->get_val( c_origin_pop ) ). " Ctry of origin if added
+    IF strlen( lv_eid ) < 2.
+      io_ctx->add_msg( iv_type = 'Warning'
+                       iv_text = 'Type at least 2 characters of country.' ).
+      RETURN.
+    ENDIF.
+    DATA: lv_ctr TYPE t005-land1 .
+    lv_ctr = lv_eid.
+    SELECT SINGLE land1 FROM t005 INTO @DATA(lv_country) WHERE land1 = @lv_ctr .
+
+    io_ctx->set_val( iv_name = c_origin_pop iv_value = CONV string( lv_country ) ).
 
   ENDMETHOD.
 ENDCLASS.

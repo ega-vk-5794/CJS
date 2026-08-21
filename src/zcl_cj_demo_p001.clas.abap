@@ -6,7 +6,6 @@ public section.
 
   interfaces IF_SERIALIZABLE_OBJECT .
   interfaces Z2UI5_IF_APP .
-  interfaces Z2UI5_IF_EXT_RAKSTAGEBAR .
 
   types:
     BEGIN OF ty_s_tab,
@@ -32,29 +31,6 @@ public section.
       END OF ty_lic_no_list .
   types:
     tt_lic_no_list TYPE STANDARD TABLE OF ty_lic_no_list WITH DEFAULT KEY .
-  types:
-    BEGIN OF ty_stages,
-        status          TYPE string,
-        stagenumber     TYPE string,
-        stagelabel      TYPE string,
-        grayleftline    TYPE flag,
-        greenleftline   TYPE flag,
-        redcircle       TYPE flag,
-        greencircle     TYPE flag,
-        graycircle      TYPE flag,
-        grayrightline   TYPE flag,
-        greenrightline  TYPE flag,
-        redstagelabel   TYPE flag,
-        graystagelabel  TYPE flag,
-        greenstagelabel TYPE flag,
-        graygap         TYPE flag,
-        greengap        TYPE flag,
-        islast          TYPE flag,
-        screen          TYPE string,
-        current         TYPE flag,
-      END OF ty_stages .
-  types:
-    tt_stages TYPE STANDARD TABLE OF ty_stages WITH DEFAULT KEY .
   types:
     BEGIN OF ty_attach,
         file_name     TYPE string,
@@ -99,7 +75,7 @@ public section.
   data MV_CHECK_POPOVER type ABAP_BOOL .
   data MV_PRODUCT type STRING .
   data GS_DATA type ZCL_EGA_CJ_PPD_ABS=>TY_DATA .
-  data MT_STAGES type TT_STAGES .
+  data MT_STAGES type Z2UI5_CL_EXT_RAKSTAGEBAR=>TT_STAGES .
   data MT_RESULTS type WDY_KEY_VALUE_LIST .
   data MT_ATTACH type TT_ATTACH .
   data MS_PAYMENT type TY_PAYMENT .
@@ -120,14 +96,6 @@ public section.
 private section.
 
   methods RAKHAPPY_SAVE .
-  methods GET_CURRENT_SCREEN
-    returning
-      value(SCREEN) type STRING .
-  methods STEP_FORWARD
-    importing
-      !DIRECTION type CHAR1 optional
-    returning
-      value(SCREEN) type STRING .
   methods GET_VALUE_LIST
     importing
       !PARENT type ref to Z2UI5_CL_XML_FRAGMENT
@@ -144,9 +112,6 @@ private section.
       !ID type ANY
     returning
       value(TEXT) type STRING .
-  methods RAKSTAGEBAR
-    importing
-      !IO_PARENT type ref to Z2UI5_CL_XML_FRAGMENT .
   methods READ_CASE_DATA .
   methods RAKUPLOADER
     importing
@@ -341,24 +306,24 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
       ENDIF.
     ENDIF.
     "
-    CLEAR: z2ui5_if_ext_rakstagebar~mt_stages[].
-    APPEND INITIAL LINE TO z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING FIELD-SYMBOL(<stage>).
+    CLEAR: mt_stages[].
+    APPEND INITIAL LINE TO mt_stages ASSIGNING FIELD-SYMBOL(<stage>).
     <stage>-stagelabel      = 'Case details'.
     <stage>-screen          = 'SCREEN_NP001_1_1'.
-    APPEND INITIAL LINE TO z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage>.
+    APPEND INITIAL LINE TO mt_stages ASSIGNING <stage>.
     <stage>-stagelabel      = 'Case details'.
     <stage>-screen          = 'SCREEN_NP001_1_2'.
-    APPEND INITIAL LINE TO z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage>.
+    APPEND INITIAL LINE TO mt_stages ASSIGNING <stage>.
     <stage>-stagelabel      = 'Documents'.
     <stage>-screen          = 'SCREEN_NP001_1_3'.
-    APPEND INITIAL LINE TO z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage>.
+    APPEND INITIAL LINE TO mt_stages ASSIGNING <stage>.
     <stage>-stagelabel      = 'Payment'.
     <stage>-screen          = 'SCREEN_NP001_1_4'.
-    APPEND INITIAL LINE TO z2ui5_if_ext_rakstagebar~mt_stages ASSIGNING <stage>.
+    APPEND INITIAL LINE TO mt_stages ASSIGNING <stage>.
     <stage>-stagelabel      = 'Confirmation'.
     <stage>-screen          = 'SCREEN_NP001_1_5'.
 
-    client->_bind_edit( z2ui5_if_ext_rakstagebar~mt_stages ).
+    client->_bind_edit( mt_stages ).
 *    DATA(rakstagebar) = NEW z2ui5_cl_ext_rakstagebar( me->client ).
   ENDMETHOD.
 
@@ -393,84 +358,6 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD rakstagebar.
-
-
-    DATA(id_rak_stagebar) = io_parent->vbox( id = 'id-rak-stagebar' width = '100%' class = 'rak-stagebar-margin' rendertype = 'Bare' ).
-
-    " ===================== DESKTOP =====================
-    DATA(desktop) = id_rak_stagebar->hbox( width = '100%' visible = 'true' rendertype = 'Bare' ).
-
-    " repeating aggregation - one HBox per stage, bound to oStageBarData>/stages
-    DATA(stages) = desktop->hbox( items = '{/XX/MT_STAGES}' justifycontent = 'Start' alignitems = 'Start' rendertype = 'Bare' ).
-*    LOOP AT mt_stages INTO DATA(ls_stage).
-    DATA(stage_item) = stages->hbox( rendertype = 'Bare' ).
-
-    " ---- STEP VBOX ----
-    DATA(step_cont) = stage_item->vbox( width = '120px' justifycontent = 'Start' alignitems = 'Center' class = 'rak-stagebar-step-cont' rendertype = 'Bare' ).
-
-    " -- lines & circle row --
-    DATA(lines_circle) = step_cont->hbox( justifycontent = 'Start' alignitems = 'Start' rendertype = 'Bare' ).
-
-    " left line
-    DATA(left_line) = lines_circle->hbox( width = '2.8125rem' height = '0.9375rem' rendertype = 'Bare' ).
-    DATA(left_line_gray) = left_line->hbox( width = '100%' height = '100%' class = 'rak-stagebar-line-gray3' visible = '{GRAYLEFTLINE}' rendertype = 'Bare' ).
-    DATA(left_line_green) = left_line->hbox( width = '100%' height = '100%' class = 'rak-stagebar-line-green' visible = '{GREENLEFTLINE}' rendertype = 'Bare' ).
-
-    " circle
-    DATA(circle) = lines_circle->hbox( width = '1.875rem' height = '1.875rem' rendertype = 'Bare' ).
-
-    DATA(circle_red) = circle->hbox( class = 'rak-stagebar-circle-cont rak-stagebar-circle-red' visible = '{REDCIRCLE}' rendertype = 'Bare' ).
-    DATA(circle_red_text) = circle_red->text( text = '{STAGENUMBER}' class = 'Body_2_2 color-white' ).
-
-    DATA(circle_green) = circle->hbox( class = 'rak-stagebar-circle-cont rak-stagebar-circle-green' visible = '{GREENCIRCLE}' rendertype = 'Bare' ).
-    DATA(circle_green_icon) = circle_green->icon( src = 'sap-icon://icomoon/fi_check' color = '#53A56E' class = 'rak-stagebar-step-done-icon' ).
-
-    DATA(circle_gray) = circle->hbox( class = 'rak-stagebar-circle-cont rak-stagebar-circle-gray' visible = '{GRAYCIRCLE}' rendertype = 'Bare' ).
-    DATA(circle_gray_text) = circle_gray->text( text = '{STAGENUMBER}' class = 'Body_2_3 color-gray4' ).
-
-    " right line
-    DATA(right_line) = lines_circle->hbox( width = '2.8125rem' height = '0.9375rem' rendertype = 'Bare' ).
-    DATA(right_line_gray) = right_line->hbox( width = '100%' height = '100%' class = 'rak-stagebar-line-gray3' visible = '{GRAYRIGHTLINE}' rendertype = 'Bare' ).
-    DATA(right_line_green) = right_line->hbox( width = '100%' height = '100%' class = 'rak-stagebar-line-green' visible = '{GREENRIGHTLINE}' rendertype = 'Bare' ).
-
-    " -- text row --
-    DATA(text_row) = step_cont->hbox( width = '100%' justifycontent = 'Center' alignitems = 'Start' rendertype = 'Bare' ).
-    DATA(text_red) = text_row->text( text = '{STAGELABEL}' class = 'Body_2_3 color-red rak-stagebar-text-align-desktop' visible = '{REDSTAGELABEL}' ).
-    DATA(text_gray) = text_row->text( text = '{STAGELABEL}' class = 'Body_2_3 color-gray4 rak-stagebar-text-align-desktop' visible = '{GRAYSTAGELABEL}' ).
-    DATA(text_green) = text_row->text( text = '{STAGELABEL}' class = 'Body_2_3 color-green rak-stagebar-text-align-desktop' visible = '{GREENSTAGELABEL}' ).
-
-    " ---- GAP VBOX ----
-    " NOTE: width is set programmatically client-side (StepBarInit()), same as source fragment's own comment.
-    DATA(gap) = stage_item->vbox( width = '72px' height = '0.9375rem' justifycontent = 'Start'
-                                   visible = '{ISLAST}' rendertype = 'Bare' ).
-    DATA(gap_gray) = gap->hbox( width = '100%' height = '100%' class = 'rak-stagebar-line-gray3' visible = '{GRAYGAP}' rendertype = 'Bare' ).
-    DATA(gap_green) = gap->hbox( width = '100%' height = '100%' class = 'rak-stagebar-line-green' visible = '{GREENGAP}' rendertype = 'Bare' ).
-
-*    ENDLOOP.
-
-    " ===================== MOBILE =====================
-    DATA(mobile) = id_rak_stagebar->vbox( alignitems = 'Start' visible = 'false' width = '20.5rem' rendertype = 'Bare' ).
-
-    DATA(mobile_label_row) = mobile->hbox( justifycontent = 'Start' rendertype = 'Bare' ).
-    DATA(mobile_label) = mobile_label_row->text( text = '{oStageBarData>/settings/CurrentStageLabel}' class = 'Body_1_1 color-Gray7' ).
-
-    DATA(mobile_progress_row) = mobile->hbox( justifycontent = 'SpaceBetween' alignitems = 'Center' width = '100%' rendertype = 'Bare' ).
-    DATA(mobile_progress_bar) = mobile_progress_row->hbox( width = '70%' height = '0.375rem' rendertype = 'Bare' ).
-    DATA(mobile_progress_indicator) = mobile_progress_bar->progress_indicator(
-                                          displayonly  = 'true'
-                                          percentvalue = '{oStageBarData>/settings/ProgressPercent}'
-                                          height       = '100%'
-                                          width        = '100%'
-                                          class        = 'rak-stagebar-progress-indicator' ).
-
-    " {i18n>step} X {i18n>of} Y - two i18n text-pool fragments interpolated around bound numbers.
-    DATA(mobile_step_text) = mobile_progress_row->text(
-                                text  = '{i18n>step} {oStageBarData>/settings/CurrentStage} {i18n>of} {oStageBarData>/settings/TotalStages}'
-                                class = 'Body_2_3 color-gray7' ).
-  ENDMETHOD.
-
-
   method READ_CASE_DATA.
 
 
@@ -492,7 +379,7 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     " TODO(STAGES): RAKSTAGEBAR is a custom extension control (EXTENDED=X) - exact z2ui5 API not yet confirmed.
     "   source data: steps=4 current=1
     DATA(stages) = card->hbox( class = 'sapUiLargeMarginBegin' ).  " placeholder - see TODO above
-    NEW z2ui5_cl_ext_rakstagebar( )->rakstagebar( stages ).
+    NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->rakstagebar( stages ).
 
     DATA(body) = card->vbox( class = 'shapeIT-part2' ).
     DATA(hbox_4) = body->hbox( justifycontent = 'Center' ).
@@ -570,7 +457,8 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     type = 'Error' showicon = 'true' showclosebutton = 'true' ).  " TODO(ERROR_1): EXTENDED=X, param names assumed - confirm
     " TODO(STAGES): RAKSTAGEBAR - source data: steps=4 current=1 texts=First,Second,Third,Fourth
     DATA(stages) = card->hbox( class = 'sapUiLargeMarginBegin' ).  " placeholder
-    rakstagebar( stages ).
+    NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->rakstagebar( stages ).
+
     DATA(body) = card->vbox( class = 'shapeIT-part2' ).
     DATA(hbox_10) = body->hbox( justifycontent = 'SpaceBetween' ).
     DATA(vbox_11) = hbox_10->vbox( class = 'width49' ).
@@ -658,7 +546,8 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     DATA(delete_icononly) = card_header_end->button( id = 'DELETE_ICONONLY' class = 'shapeIT-cardheader-topbtn shapeIT-hide-in-desktop' icon = 'sap-icon://icomoon/Delete' press = client->_event( 'DELETE' ) ).
     " TODO(STAGES): RAKSTAGEBAR - source data: steps=4 current=2 texts=First,Second,Third,Fourth
     DATA(stages) = card_top->hbox( class = 'sapUiLargeMarginBegin' ).  " placeholder
-    rakstagebar( stages ).
+    NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->rakstagebar( stages ).
+
     DATA(body) = card_top->vbox( ).
     DATA(size_warning) = body->vbox( ).
     DATA(hbox_7) = size_warning->hbox( ).
@@ -726,7 +615,7 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     DATA(description_title_in_panel) = description_panel->label( text = get_text_by_id( 'TITLEPART_PAYINITIAL_FEE' ) class = 'font1 weight400 color-gray5' ).
 
     DATA(stages) = card_top->hbox( class = 'shapeIT-pay-hide-in-pay' ).  " placeholder - see TODO above
-    rakstagebar( stages ).
+    NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->rakstagebar( stages ).
 
     DATA(description_details_cont) = card_top->vbox( class = 'shapeIT-card-descriptioncont shapeIT-hide-in-mobile sapUiSmallMarginTop shapeIT-pay-hide-in-pay' alignitems = 'Center' ).
     DATA(description) = description_details_cont->label( text = get_text_by_id( 'DESCRIPTION_RA_SELECTPARCELORGRANTED_1_1' ) class = 'font1 weight400 color-gray6' ).
@@ -845,7 +734,8 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     DATA(ppd_logo) = label_cont->image( src = '../css/img/services/SVG/PP.svg' height = '2rem' ).
     DATA(title_text) = label_cont->label( text = '{/XX/GS_DATA/DESCRIPTION}' class = 'font1 weight600 color-dark-blue sapUiSmallMarginEnd' ).
     DATA(stages) = header_text_cont->hbox( class = 'sapUiLargeMarginBegin' ).  " placeholder - see TODO above
-    rakstagebar( stages ).
+    NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->rakstagebar( stages ).
+
     DATA(general) = header_text_cont->hbox( justifycontent = 'SpaceBetween' ).
     DATA(results_box) = general->vbox( ).
     DATA(request_1_txt) = results_box->label( text = get_text_by_id( 'E003_REQUEST_SUBMITTED' ) class = 'font1 weight600 color-dark-blue sapUiMediumMarginTop' ).
@@ -943,14 +833,14 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
       client->_bind_edit( mt_attach ).
       client->_bind_edit( ms_payment ).
       init_journey( ).
-      step_forward( ).
+      me->mt_stages = NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->step_forward( control = me ).
       RETURN.
     ENDIF.
 
 
     CASE client->get( )-event.
       WHEN 'SAVE'.
-        CASE get_current_screen( ).
+        CASE NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->get_current_screen( ).
           WHEN 'SCREEN_NP001_1_1'.
             DATA: lt_public_court TYPE ztt_case_head_details.
             CALL FUNCTION 'ZWDA_CASE_HEAD_DEATLS'
@@ -1006,17 +896,17 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
                           type = 'Error' ).
             ENDLOOP.
         ENDCASE.
-        step_forward( '+' ).
+        me->mt_stages = NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->step_forward( control = me direction = '+' ).
       WHEN 'BACK'.
-        step_forward( '-' ).
+        me->mt_stages = NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->step_forward( control = me direction =  '-' ).
       WHEN 'PAY'.
-        step_forward( '=' ).
+        me->mt_stages = NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->step_forward( control = me direction =  '=' ).
         me->rakpay_popup( me->get_cpg_details( ) ).
 
       WHEN 'RAKHAPPY'.
         rakhappy_save( ).
         client->popover_destroy( ).
-        step_forward( '=' ).
+        me->mt_stages = NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->step_forward( control = me direction =  '=' ).
       WHEN `BUTTON_DETAILS`.
         client->popover_destroy( ).
 
@@ -1119,14 +1009,6 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
         gs_data-appl_no = gs_data-billing_doc.
 
       ENDIF.
-    ENDIF.
-  ENDMETHOD.
-
-
-  METHOD get_current_screen.
-    READ TABLE mt_stages ASSIGNING FIELD-SYMBOL(<stage>) WITH KEY current = abap_true.
-    IF sy-subrc EQ 0.
-      screen = <stage>-screen.
     ENDIF.
   ENDMETHOD.
 
@@ -1329,93 +1211,6 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     DATA(done_special_char) = state_done->text( text = '{i18n>fileSpecialChar}' class = 'sapMValueStateMessageError'
                                                  visible = '{= ${FileModel>/fileSpecialChar} ? true : false }' ).
 
-  ENDMETHOD.
-
-
-  METHOD step_forward.
-
-    READ TABLE mt_stages ASSIGNING FIELD-SYMBOL(<stage>) WITH KEY current = abap_true.
-    IF sy-subrc EQ 0.
-      DATA(lv_tabix) = sy-tabix.
-      <stage>-current = abap_false.
-      CASE direction.
-        WHEN '-'.
-          SUBTRACT 1 FROM lv_tabix.
-        WHEN '+'.
-          ADD 1 TO lv_tabix.
-        WHEN '='.
-        WHEN OTHERS.
-      ENDCASE.
-      IF lv_tabix GT 0.
-        READ TABLE mt_stages ASSIGNING <stage> INDEX lv_tabix.
-      ELSE.
-        READ TABLE mt_stages ASSIGNING <stage> INDEX 1.
-      ENDIF.
-    ELSE.
-      READ TABLE mt_stages ASSIGNING <stage> INDEX 1.
-    ENDIF.
-    IF sy-subrc EQ 0.
-      lv_tabix = sy-tabix.
-
-      LOOP AT mt_stages ASSIGNING FIELD-SYMBOL(<next_stage>).
-        DATA(lv_line) = sy-tabix.
-        <next_stage>-stagenumber = lv_line.
-        SHIFT <next_stage>-stagenumber LEFT DELETING LEADING space.
-
-        <next_stage>-grayleftline      = ''.
-        <next_stage>-greenleftline     = ''.
-        <next_stage>-redcircle         = ''.
-        <next_stage>-greencircle       = ''.
-        <next_stage>-graycircle        = ''.
-        <next_stage>-grayrightline     = ''.
-        <next_stage>-greenrightline    = ''.
-        <next_stage>-redstagelabel     = ''.
-        <next_stage>-graystagelabel    = ''.
-        <next_stage>-greenstagelabel   = ''.
-        <next_stage>-graygap           = ''.
-        <next_stage>-greengap          = ''.
-        <next_stage>-islast            = 'X'.
-        IF lv_line EQ lines( mt_stages ).
-          <next_stage>-islast          = ''.
-        ENDIF.
-
-        IF lv_line LT lv_tabix.
-          <next_stage>-status          = 'Completed'.
-          IF lv_line GT 1.
-            <next_stage>-greenleftline   = 'X'.
-          ENDIF.
-          <next_stage>-greenrightline  = 'X'.
-          <next_stage>-greengap        = 'X'.
-          <next_stage>-greencircle     = 'X'.
-          <next_stage>-greenstagelabel = 'X'.
-        ENDIF.
-        IF lv_line GT lv_tabix.
-          <next_stage>-status          = 'Disabled'.
-          <next_stage>-graycircle      = 'X'.
-          <next_stage>-graystagelabel  = 'X'.
-          <next_stage>-grayleftline   = 'X'.
-          IF <next_stage>-islast EQ 'X'.
-            <next_stage>-grayrightline = 'X'.
-            <next_stage>-graygap       = 'X'.
-          ENDIF.
-        ENDIF.
-      ENDLOOP.
-
-      <stage>-current                  = abap_true.
-      <stage>-status                   = 'Current'.
-      <stage>-redcircle                = 'X'.
-      <stage>-redstagelabel            = 'X'.
-      <stage>-grayrightline            = 'X'.
-      <stage>-graygap                  = 'X'.
-      IF lv_tabix GT 1.
-        <stage>-greenleftline          = 'X'.
-      ENDIF.
-      CALL METHOD (<stage>-screen).
-
-      screen = <stage>-screen.
-
-
-    ENDIF.
   ENDMETHOD.
 
 

@@ -367,7 +367,7 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
- . 
+ .
 *   ---- effective switches ---------------------------------------------
 *   FLAG and the explicit booleans are ORed, never one instead of the other. An
 *   existing caller passes FLAG and gets exactly what it always got; a new one

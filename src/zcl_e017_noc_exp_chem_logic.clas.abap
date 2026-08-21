@@ -178,16 +178,6 @@ CLASS ZCL_E017_NOC_EXP_CHEM_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
-*   The base method IS the PAID gate - it refuses a submit while PAYFEE is not
-*   'PAID'. A redefinition REPLACES it, so without this call the gate is simply
-*   not there for this journey. It must come before any CHECK below: a CHECK that
-*   fails exits the method, and anything after it would never run.
-*
-*   Self-guarding - PAY_FIELD_STEP returns -1 when the journey has no PAYFEE
-*   field, so this is a no-op on a journey with no payment step.
-    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
-                                                         iv_step = iv_step ).
-
 
     CASE iv_step.
 
@@ -393,29 +383,6 @@ CLASS ZCL_E017_NOC_EXP_CHEM_LOGIC IMPLEMENTATION.
       WHEN c_open_popup.
         render_own_popup( io_ctx = io_ctx io_popup = io_popup ).
         RETURN.
-*      WHEN c_evt_details.
-*
-*        dialog_form(
-*          io_ctx     = io_ctx
-*          io_popup   = io_popup
-*          iv_title   = 'Add Chemical'
-*          it_fields  = VALUE #(
-*                                ( name = 'C_HS_POP'          label = 'HS Code'  )
-*                                ( name = 'C_MAT_POP'    label = 'Material Name' )
-*                                ( name = 'C_CHEM_POP'    label = 'Chemical Name' )
-*                                ( name = 'C_CAS_NO_POP'              label = 'CAS Number' )
-*                                ( name = 'C_CHEM_FORM_POP' label = 'Chemical Formula' )
-*                                ( name = 'C_PACKAGING_POP'        label = 'Packing' )
-*                                ( name = 'C_QUANTITY_POP'         label = 'Quantity'  )
-*                                ( name = 'C_GROSS_WEIGHT_POP'     label = 'Gross Weight'  )
-*                                ( name = 'C_UNIT_POP'              label = 'UOM'  )
-*                                ( name = 'C_INVOICE_POP'          label = 'Invoice Number'  )
-*                                ( name = 'C_IMPORT_POP'           label = 'Importing Country' )
-*                                ( name = 'C_EXIT_PORT_POP'         label = 'Exit Port' )
-*                                ( name = 'C_BOL_POP'      label = 'Bill of Lading'  )
-*                                 )
-*          iv_ok_text = 'Add'
-*          iv_ok_evt  = c_evt_ownok ).
     ENDCASE.
   ENDMETHOD.
 
@@ -463,17 +430,24 @@ CLASS ZCL_E017_NOC_EXP_CHEM_LOGIC IMPLEMENTATION.
 *"Quantity
     DATA(lo_c8) = lo_r2->vbox( class = 'rakCell' ).
     lo_c8->label( text = 'Quantity' ).
-    lo_c8->input( value = io_ctx->bind( c_quantity_pop ) ).
+    lo_c8->input( value = io_ctx->bind( c_quantity_pop ) type = 'Number' ).
 
 *"GROSS Weight
     DATA(lo_c9) = lo_r2->vbox( class = 'rakCell' ).
     lo_c9->label( text = 'Gross Weight' ).
-    lo_c9->input( value = io_ctx->bind( c_gross_weight_pop ) ).
+    lo_c9->input( value = io_ctx->bind( c_gross_weight_pop ) type = 'Number' ).
 
 *"Unit
     DATA(lo_c10) = lo_r2->vbox( class = 'rakCell' ).
     lo_c10->label( text = 'Unit' ).
-    lo_c10->input( value = io_ctx->bind( c_unit_pop )  width = '5rem' ).
+    lo_c10->combobox( selectedkey = io_ctx->bind( c_unit_pop )
+    placeholder = 'select'
+    )->item( key = '1'     text = 'Gallon'
+    )->item( key = '2'     text = 'Kilogram'
+    )->item( key = '3'     text = 'Liter'
+    )->item( key = '4'     text = 'Metric Ton' ).
+
+*    lo_c10->input( value = io_ctx->bind( c_unit_pop )  width = '5rem' ).
 
 *"Invoice Number
     DATA(lo_c11) =  lo_r2->vbox( class = 'rakCell' ).
@@ -483,7 +457,117 @@ CLASS ZCL_E017_NOC_EXP_CHEM_LOGIC IMPLEMENTATION.
 *"Importing Country
     DATA(lo_c12) = lo_r2->vbox( class = 'rakCell' ).
     lo_c12->label( text = 'Importing Country' ).
-    lo_c12->input( value = io_ctx->bind( c_import_pop ) ).
+*    lo_c12->input( value = io_ctx->bind( c_import_pop ) ).
+lo_c12->combobox( selectedkey = io_ctx->bind( c_import_pop )
+    placeholder = 'select'
+    )->item( key = '1'     text = 'Afghanistan'
+    )->item( key = '2'     text = 'Antigua/Barbuda'
+    )->item( key = '3'     text = 'Anguilla'
+    )->item( key = '4'     text = 'Armenia'
+    )->item( key = '5'     text = 'Dutch Antilles'
+    )->item( key = '6'     text = 'Angola'
+    )->item( key = '7'     text = 'Antarctica'
+    )->item( key = '8'     text = 'Argentina'
+    )->item( key = '9'     text = 'Samoa, America'
+    )->item( key = '10'   text = 'Austria'
+    )->item( key = '11'    text = 'Australia'
+    )->item( key = '12'   text = 'Aruba'
+    )->item( key = '13'    text = 'Azerbaijan'
+    )->item( key = '14'    text = 'Bosnia-Herz'
+    )->item( key = '15'    text = 'Barbados'
+    )->item( key = '16'    text = 'Bangladesh'
+    )->item( key = '17'    text = 'Belgium'
+    )->item( key = '18'    text = 'Burkina Faso'
+    )->item( key = '19'    text = 'Bahrain'
+    )->item( key = '20'   text = 'Burundi'
+    )->item( key = '21'    text = 'Benin'
+    )->item( key = '22'   text = 'Blue'
+    )->item( key = '23'    text = 'Bermuda'
+    )->item( key = '24'    text = 'Bulgaria'
+    )->item( key = '25'    text = 'Brunei Daruss'
+    )->item( key = '26'    text = 'Bolivia'
+    )->item( key = '27'    text = 'Brazil'
+    )->item( key = '28'    text = 'Bahamas'
+    )->item( key = '29'    text = 'Bhutan'
+    )->item( key = '30'    text = 'Bouvet Islands'
+    )->item( key = '31'    text = 'Botswana'
+    )->item( key = '32'    text = 'Belize'
+    )->item( key = '33'    text = 'Canada'
+    )->item( key = '34'    text = 'Coconut Islands'
+    )->item( key = '35'    text = 'Dem. Rep. Congo'
+    )->item( key = '36'    text = 'CAR'
+    )->item( key = '37'    text = 'Rep.of Congo'
+    )->item( key = '38'    text = 'Switzerland'
+    )->item( key = '39'    text = 'Cote dlvoire'
+    )->item( key = '40'    text = 'Cook Islands'
+    )->item( key = '41'    text = 'Chile'
+    )->item( key = '42'    text = 'Cameroon'
+    )->item( key = '43'    text = 'China'
+    )->item( key = '44'    text = 'Colombia'
+    )->item( key = '45'    text = 'Costa Rica'
+    )->item( key = '46'    text = 'Serbia/Monten'
+    )->item( key = '47'    text = 'Cuba'
+    )->item( key = '48'    text = 'Cape Verde'
+    )->item( key = '49'    text = 'Christmas island'
+    )->item( key = '50'    text = 'Cyprus'
+    )->item( key = '51'    text = 'Czech Replublic'
+    )->item( key = '52'    text = 'Germany'
+    )->item( key = '53'    text = 'Djibouti'
+    )->item( key = '54'    text = 'Denmark'
+    )->item( key = '55'    text = 'Dominican Rep.'
+    )->item( key = '56'    text = 'Algeria'
+    )->item( key = '57'    text = 'Ecuador'
+    )->item( key = '58'    text = 'Estonia'
+    )->item( key = '59'    text = 'Egypt'
+    )->item( key = '60'    text = 'West Sahara'
+    )->item( key = '61'    text = 'Eritrea'
+    )->item( key = '62'    text = 'Spain'
+    )->item( key = '63'    text = 'Ethiopia'
+    )->item( key = '64'    text = 'European union'
+    )->item( key = '65'    text = 'Finland'
+    )->item( key = '66'    text = 'Fiji'
+    )->item( key = '67'    text = 'Falkland Islnds'
+    )->item( key = '68'    text = 'Micronesia'
+    )->item( key = '69'    text = 'Faroe islands'
+    )->item( key = '70'    text = 'France'
+    )->item( key = '71'    text = 'Gabon'
+    )->item( key = '72'    text = 'United Kingdom'
+    )->item( key = '73'    text = 'Grenada'
+    )->item( key = '74'    text = 'Georgia'
+    )->item( key = '75'    text = 'French Guayana'
+    )->item( key = '76'    text = 'Ghana'
+    )->item( key = '77'    text = 'Gibraltar'
+    )->item( key = '78'    text = 'Greenland'
+    )->item( key = '79'    text = 'Gambia'
+    )->item( key = '80'    text = 'Guinea'
+    )->item( key = '81'    text = 'Guadeloupe'
+    )->item( key = '82'    text = 'Equatorial Guin'
+    )->item( key = '83'    text = 'Greece'
+    )->item( key = '84'    text = 'S. Sandwich Ins'
+    )->item( key = '85'    text = 'Guantemala'
+    )->item( key = '86'    text = 'Guam'
+    )->item( key = '87'    text = 'Guinea-Bissau'
+    )->item( key = '88'    text = 'Guyana'
+    )->item( key = '89'    text = 'Hong Kong'
+    )->item( key = '90'    text = 'Heard/McDon.Isl'
+    )->item( key = '91'    text = 'Honduras'
+    )->item( key = '92'    text = 'Croatia'
+    )->item( key = '93'    text = 'Hailti'
+    )->item( key = '94'    text = 'Hungary'
+    )->item( key = '95'    text = 'Indonesia'
+    )->item( key = '96'    text = 'Ireland'
+    )->item( key = '97'    text = 'India'
+    )->item( key = '98'    text = 'Brit.Ind.Oc.Ter'
+    )->item( key = '99'    text = 'Iraq'
+    )->item( key = '100'   text = 'Iran'
+    )->item( key = '101'   text = 'Iceland'
+    )->item( key = '102'   text = 'Italy'
+    )->item( key = '103'   text = 'Jamaica'
+    )->item( key = '104'   text = 'Jordan'
+    )->item( key = '105'   text = 'Japan'
+    )->item( key = '106'   text = 'Kenya'
+    ).
+
 
 *"Exit Port
     DATA(lo_c13)  = lo_r2->vbox( class = 'rakCell' ).
@@ -588,12 +672,6 @@ CLASS ZCL_E017_NOC_EXP_CHEM_LOGIC IMPLEMENTATION.
 
     ENDLOOP.
 
-*       IF ls_g-rows IS INITIAL.
-*      io_view->message_strip( text     = 'No owners yet. Press Add Owner to enter the first one.'
-*                              type     = 'Information'
-*                              showicon = abap_true
-*                              class    = 'sapUiSmallMarginTop' ).
-*    ENDIF.
   ENDMETHOD.
 
 
@@ -623,11 +701,6 @@ CLASS ZCL_E017_NOC_EXP_CHEM_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_render_end.
-*    CALL METHOD super->zif_rak_journey_logic~on_render_end
-*      EXPORTING
-*        io_ctx  = io_ctx
-*        io_view = io_view.
-
     IF io_ctx->get_step( ) = 2.
       render_own_list( io_ctx = io_ctx io_view = io_view ).
       RETURN.
@@ -643,6 +716,21 @@ CLASS ZCL_E017_NOC_EXP_CHEM_LOGIC IMPLEMENTATION.
     DATA lv_found TYPE abap_bool.
     DATA lt_row   TYPE zif_rak_journey=>tt_string.
 
+*    "Check if grid has data
+    IF ls_g-rows IS NOT INITIAL.
+*      "If yes then pass it to output grid table
+      LOOP AT ls_g-rows INTO DATA(lt_r).
+        CLEAR lt_row.
+        APPEND VALUE string( lt_r[ 1 ] OPTIONAL )   TO lt_row. " HS Code
+        APPEND VALUE string( lt_r[ 2 ] OPTIONAL )   TO lt_row. " Material Name
+        APPEND VALUE string( lt_r[ 3 ] OPTIONAL )   TO lt_row. " Chemical Name
+        APPEND VALUE string( lt_r[ 4 ] OPTIONAL )   TO lt_row. " Cas No
+        APPEND VALUE string( lt_r[ 7 ] OPTIONAL )   TO lt_row. " Gross weight
+        APPEND lt_row TO ls_new-rows.
+      ENDLOOP.
+    ENDIF.
+
+*"get currently filled data in pop-up screen
     DATA(lv_hs_code) = condense( io_ctx->get_val( 'HS_CODE' ) ).
     DATA(lv_m_name) = condense( io_ctx->get_val( 'MATERIAL_NAME' ) ).
     DATA(lv_c_name) = condense( io_ctx->get_val( 'CHEMINAL_NAME' ) ).
@@ -658,31 +746,17 @@ CLASS ZCL_E017_NOC_EXP_CHEM_LOGIC IMPLEMENTATION.
     DATA(lv_bol) = condense( io_ctx->get_val( 'C_BOL_POP' ) ).
     DATA(lv_tport) = condense( io_ctx->get_val( 'TPORT_POP' ) ).
 
+    CLEAR lt_row.
 
-    LOOP AT ls_g-rows INTO DATA(lt_r).
-      IF lt_r IS NOT INITIAL.
-        lv_found = abap_true.
-        CLEAR lt_row.
-        APPEND lv_hs_code TO lt_row.
-        APPEND lv_m_name TO lt_row.
-        APPEND lv_c_name TO lt_row.
-        APPEND lv_cas  TO lt_row.
-        APPEND lv_gw8t TO lt_row.
-        APPEND lt_row TO ls_new-rows.
-      ELSE.
-        APPEND lt_row TO ls_new-rows.
-      ENDIF.
-    ENDLOOP.
+    APPEND lv_hs_code TO lt_row.
+    APPEND lv_m_name TO lt_row.
+    APPEND lv_c_name TO lt_row.
+    APPEND lv_cas  TO lt_row.
+*    concatenate lv_gw8t lv_unit into data(lv_weight).
+*    APPEND lv_weight TO lt_row.
+    APPEND lv_gw8t TO lt_row.
 
-    IF lv_found = abap_false.
-      CLEAR lt_row.
-      APPEND lv_hs_code TO lt_row.
-      APPEND lv_m_name TO lt_row.
-      APPEND lv_c_name TO lt_row.
-      APPEND lv_cas  TO lt_row.
-      APPEND lv_gw8t TO lt_row.
-      APPEND lt_row TO ls_new-rows.
-    ENDIF.
+    APPEND lt_row TO ls_new-rows.
 
     io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
 

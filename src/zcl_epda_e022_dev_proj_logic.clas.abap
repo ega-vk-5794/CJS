@@ -401,11 +401,13 @@ CLASS ZCL_EPDA_E022_DEV_PROJ_LOGIC IMPLEMENTATION.
 
 
   method ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE.
-*   The base method IS the PAID gate - it refuses a submit while PAYFEE is not
-*   PAID. The CASE below only APPENDs, so the gate's messages survive.
-    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
-                                                          iv_step = iv_step ).
-
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
+*  EXPORTING
+*    IO_CTX  =
+*    IV_STEP =
+*  RECEIVING
+*    RT      =
+*    .
     CASE iv_step.
 
       WHEN 0.

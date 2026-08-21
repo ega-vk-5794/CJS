@@ -34,7 +34,7 @@ REPORT zrak_e146_load.
 *& journey_id 'E146'.
 *&---------------------------------------------------------------------*
 
-CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'E146'.
+CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'EPDA_E146_CONSULT_APPEAL'.
 
 START-OF-SELECTION.
 

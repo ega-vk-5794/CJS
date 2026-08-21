@@ -1,8 +1,8 @@
-CLASS zcl_e027_vice_captain_logic DEFINITION
-  PUBLIC
-  INHERITING FROM zcl_rak_journey_logic
-  FINAL
-  CREATE PUBLIC.
+class ZCL_E027_VICE_CAPTAIN_LOGIC definition
+  public
+  inheriting from ZCL_RAK_JOURNEY_LOGIC
+  final
+  create public .
 
 *   Handler for E027 - Sailing of a Vice Captain
 *   (legacy NE027_1_*, seeded by ZRAK_E027_LOAD).
@@ -72,11 +72,27 @@ CLASS zcl_e027_vice_captain_logic DEFINITION
 *   redefinition here; both need the real option keys first, which is also
 *   what unblocks the LICENSE_TABLE / LICENSE_SEARCH visibility rule the
 *   feeder could not author.
-  PUBLIC SECTION.
-    METHODS zif_rak_journey_logic~on_change REDEFINITION.
+public section.
 
-  PRIVATE SECTION.
-    CONSTANTS c_applicant_type TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_POST
+    redefinition .
+protected section.
+private section.
+
+  constants C_APPLICANT_TYPE type STRING value 'PARTNER_OWNER_1' ##NO_TEXT.
+  constants C_LOGIN_BP type STRING value 'OWNER_BP' ##NO_TEXT.
+  constants C_PARTNER_NAME type STRING value 'APP_NAME' ##NO_TEXT.
+  constants C_PARTNER_ID type STRING value 'APP_ID' ##NO_TEXT.
+  constants C_APPLICANTTYPE type STRING value 'APP_TYPE' ##NO_TEXT.
+  constants C_LANG_EN type STRING value 'E' ##NO_TEXT.
+  constants C_PARTNER_MOBILE type STRING value 'PARTNER_MOBILE' ##NO_TEXT.
+  constants C_PARTNER_EMAIL type STRING value 'PARTNER_EMAIL' ##NO_TEXT.
 
 *   One segmented field on screen, TWO booleans in the backend - the same
 *   two-way group E015 has, not E014's three-way. The legacy screen had two
@@ -84,9 +100,10 @@ CLASS zcl_e027_vice_captain_logic DEFINITION
 *   segmented field carries ONE value, so the chosen option has to be
 *   fanned back out or the backend receives nothing for the applicant's
 *   role.
-    METHODS write_role_flags
-      IMPORTING io_ctx  TYPE REF TO zif_rak_journey
-                iv_pick TYPE string.
+  methods WRITE_ROLE_FLAGS
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IV_PICK type STRING .
 ENDCLASS.
 
 
@@ -114,5 +131,78 @@ CLASS ZCL_E027_VICE_CAPTAIN_LOGIC IMPLEMENTATION.
       io_ctx->set_val( iv_name  = ls_role-value
                        iv_value = COND string( WHEN ls_role-key = iv_pick THEN 'X' ELSE '' ) ).
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_before_post.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_POST
+*  EXPORTING
+*    IO_CTX =
+*  CHANGING
+*    CT_KV  =
+*    .
+*    DELETE ct_kv WHERE key CP 'PAY_*'.
+*    DELETE ct_kv WHERE key = 'PAYFEE'.
+
+    " UI-only scratch key with no backend meaning.
+    DELETE ct_kv WHERE key = 'LICENSE_SEL'.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_before_tables.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
+*  EXPORTING
+*    IO_CTX    =
+*  CHANGING
+*    CT_TABLES =
+*    .
+    DATA(lv_sel) = io_ctx->get_val( 'LIC_SELECT' ).
+    CHECK lv_sel IS NOT INITIAL.
+    LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<t>) WHERE ui_table_name = 'LICENSES' AND ui_table_column1 = lv_sel..
+      IF <t>-ui_table_column1 = lv_sel.
+        <t>-ui_table_column29 = 'S'.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_init.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+*  EXPORTING
+*    IO_CTX =
+*    .
+    CALL METHOD super->zif_rak_journey_logic~on_init
+      EXPORTING
+        io_ctx = io_ctx.
+
+    DATA: lv_loginbp TYPE bu_partner.
+
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
+
+    IF lv_loginbp IS NOT INITIAL.
+      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+        EXPORTING
+          iv_bp_id      = lv_loginbp
+        IMPORTING
+          es_bp_details = DATA(ls_bp) ).
+
+      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+
+      IF sy-langu = c_lang_en.
+        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name ) ).
+      ELSE.
+        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+      ENDIF.
+
+      io_ctx->set_val( iv_name = c_partner_id iv_value = CONV #( ls_bp-emirates_id ) ).
+
+      io_ctx->set_val( iv_name = c_partner_mobile iv_value = CONV #( ls_bp-mobile_number ) ).
+      io_ctx->set_val( iv_name = c_partner_email iv_value = CONV #( ls_bp-email_address ) ).
+
+
+      io_ctx->set_val( iv_name = c_applicanttype iv_value = |{ lv_role }| ).
+    ENDIF.
   ENDMETHOD.
 ENDCLASS.
