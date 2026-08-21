@@ -475,6 +475,18 @@ START-OF-SELECTION.
 * re-created as fields - the handler feeds their real captions into
 * PAY_METHOD / PAY_CHANNEL / PAY_CHARGES instead.
 *
+* STATUS is the carrier the Pay commit rides on. COMMIT_STEP( ) passes no
+* status of its own, so ZCL_RAK_JOURNEY_LOGIC writes PAYMENT into this MODEL
+* field before committing and the bridge posts it as an ordinary item. Without
+* the row the SET_VAL is legal and does nothing: the commit reaches the BAdI
+* with a full payload and no instruction, GV_SAVE_DRAFT stays blank,
+* CREATE_CASE is never reached and no case - and so no fee, and so no DFKKOP
+* open item - is ever raised. The payment step then polls forever on a draft
+* key. ZCL_RAK_CJS_XCHECK rule X08 is exactly this check.
+*
+* HIDDEN because it carries an instruction, not an answer: it must be in the
+* model and on the post, and must never render.
+*
 * ACCEPT_TERMS is kept because it is a real gate: on the legacy screen its
 * UI_FIELD_LOGICS is 'PAY-E' - it ENABLES the Pay button.
 * REVIEW-FE: required-validation makes it a condition of leaving the step;
@@ -482,6 +494,9 @@ START-OF-SELECTION.
 * screen did. If that exact behaviour is wanted, it needs a render_field
 * redefinition in the handler, not config.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 5
+      field_name = 'STATUS' ftype = 'DISPLAY' hidden = 'X'
+      tech_name = 'STATUS' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 10
       field_name = 'PAYFEE' ftype = 'PAYFEE'
       zlabel = 'Payment' zlabel_ar = 'الدفع' )
@@ -571,7 +586,7 @@ START-OF-SELECTION.
   WRITE: / '  STP1 Select Case           1 field  (appeals grid, 5 columns, read-only)'.
   WRITE: / '  STP2 Applicant & Appeal   20 fields, 5 sections'.
   WRITE: / '  STP3 Eligibility          22 fields, 6 sections, 7 uploads'.
-  WRITE: / '  STP4 Payment               3 fields (PAYFEE card + terms + donation)'.
+  WRITE: / '  STP4 Payment               4 fields (STATUS carrier + PAYFEE card + terms + donation)'.
   WRITE: / '  0 rules, 3 segmented options, 5 grid columns'.
   WRITE: /.
   WRITE: / 'Open REVIEW items (also flagged in the source):'.
