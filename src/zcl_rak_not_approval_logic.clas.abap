@@ -482,10 +482,22 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 *   never once ran - see PARTY_STEP( ) - so the engine drew the table itself and
 *   the Action column with its View and Contact icons has never appeared on any
 *   build of this journey.
-    DATA(lv_pfx) = party_step( io_ctx ).
-    IF lv_pfx IS NOT INITIAL.
-      render_party_list( io_ctx = io_ctx io_view = io_view iv_prefix = lv_pfx ).
-    ENDIF.
+*
+*   WRAPPED, and not for tidiness. RENDER_STEP( ) calls ON_RENDER_START( )
+*   inside CATCH cx_root with an EMPTY handler, so anything that raises in here
+*   loses the whole hook - this list AND the Service Definition seeding below -
+*   and leaves a step that simply lacks things. Every other failure on this step
+*   has looked exactly like that. Catching it here is the difference between a
+*   screen that is missing a list and a screen that says why.
+    TRY.
+        DATA(lv_pfx) = party_step( io_ctx ).
+        IF lv_pfx IS NOT INITIAL.
+          render_party_list( io_ctx = io_ctx io_view = io_view iv_prefix = lv_pfx ).
+        ENDIF.
+      CATCH cx_root INTO DATA(lx_list).
+        io_ctx->add_msg( iv_type = 'Warning'
+                         iv_text = |The party list could not be drawn: { lx_list->get_text( ) }| ).
+    ENDTRY.
 
 *   ---- Service Definition (step 2) --------------------------------------
 *
@@ -682,6 +694,20 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
            WHEN 'PARTY1' THEN 'P1_'
            WHEN 'PARTY2' THEN 'P2_'
            ELSE `` ).
+
+*   Belt and braces, and the reason is that BKND_SCREEN is the one input here
+*   this class does not own. It is a column on ZRAK_T_JNY_STEP that a Studio
+*   edit can blank, and a blank one fails the way everything else on this step
+*   has failed - by drawing nothing and saying nothing. The party form is the
+*   surer signal: a step carrying P1_PARTNER IS the first party step, whatever
+*   the backend screen says.
+    IF rv IS INITIAL.
+      IF line_exists( ls_step-fields[ name = 'P1_PARTNER' ] ).
+        rv = 'P1_'.
+      ELSEIF line_exists( ls_step-fields[ name = 'P2_PARTNER' ] ).
+        rv = 'P2_'.
+      ENDIF.
+    ENDIF.
 
   ENDMETHOD.
 
