@@ -269,58 +269,70 @@ START-OF-SELECTION.
 * Party button underneath. So the top control on each step is a TABLE fed
 * by the handler, and the identity fields sit below it as the add form.
 *
-* PARTY1 / PARTY2 are READONLY tables for the same reason E027's licence
-* grid is: a row is added through the search, not typed. Letting a citizen
-* edit a name in the grid would send the officer a party MOI never
-* confirmed.
+* PARTY1 / PARTY2 stay READONLY tables. A row is added through the search
+* and not typed - letting a citizen edit a name in the grid would send the
+* officer a party MOI never confirmed. The Action column is drawn by the
+* handler, which owns the view and contact dialogs; those are a read-only
+* restatement of a row the API already holds.
 *
-* The identity fields ARE configured, and that is a reversal of what this
-* comment used to say. The earlier plan put the whole add-party form in a
-* handler-drawn dialog, and the cost of that only became clear once it was
-* the last thing missing: a dialog has to draw its own partner search.
+* THE SEARCH IS ZCL_RAK_BP_POPUP, and that reverses what this comment said
+* one commit ago. ftype SEARCH was the earlier choice and it was right about
+* the thing that matters - the judgement lives in ZCL_RAK_BP_SEARCH and must
+* not be reimplemented. It was wrong about which front end reaches it whole.
 *
-* CJS already has one. ftype SEARCH renders the ID-type combobox, the
-* Search button and the Browse button; the engine answers BPOPEN_<FIELD>
-* with the BP dialog, BPGO with ZCL_RAK_BP_SEARCH, and BPPICK_<partner>
-* by writing <FIELD> and <FIELD>_NAME and calling the handler's
-* ON_CHANGE( ). All of the judgement that matters - the MOI cross-check,
-* trade-licence expiry, Emirates ID expiry and their skip conditions -
-* lives behind that one call and is not reachable any other way.
+* An ftype SEARCH field is ONE input and an ID-type combobox. It has nowhere
+* to ask for a date of birth or a nationality, and on the Emirates ID path
+* those two are not search narrowing - they ARE the verification. CALL_MOI
+* sends them to MOI and rejects the partner when either disagrees. Searching
+* from one box therefore called MOI with a blank date of birth and with the
+* nationality read off a form field the citizen had not reached yet, so the
+* one check a notary party exists to pass was asked with no answer in it.
+* Nothing said so. The search simply came back clean.
 *
-* Hand-drawing a search in a dialog reimplements the input and inherits
-* none of the judgement, which is how Notary ends up accepting an
-* Emirates ID that every other journey rejects, with nothing in either
-* place to say the two ever disagreed. So the form is seeded, the engine
-* searches, and the handler is left with the part that is genuinely its
-* own: posting the party and refreshing the list.
+* ZCL_RAK_BP_POPUP is the dialog LESSOR and LESSEE already use in
+* ZCL_RAK_TEST_ALL_LOGIC. It asks Search By first and then exactly what that
+* type needs - Emirates ID takes a date of birth and a nationality, a trade
+* licence takes neither, a passport adds a passport type - and hands
+* ZCL_RAK_BP_SEARCH a request with all of them filled in.
 *
-* P1_NAME is a separate field and not P1_BP_NAME on purpose. The engine
-* already appends <FIELD>_NAME as a model component for every SEARCH
-* field, and seeding a field of that name would ask BUILD_MODEL( ) for
-* the same component twice. The handler copies one to the other in
-* ON_CHANGE( ).
+* SUBJECT = P1 / P2. The popup prefixes everything it reads and writes with
+* the subject, which is what stops the second party overwriting the first,
+* and it needs all nine of those names to be REAL fields on the journey:
+* BIND( ) resolves model components ONLY and does not fall through to
+* scratch the way SET_VAL and GET_VAL do. A missing one binds to nothing -
+* the citizen picks an ID type, it never reaches the server, and the dialog
+* silently asks the same question again.
 *
-* PARTY1 / PARTY2 stay READONLY tables for the same reason E027's licence
-* grid is: a row is added through the search, not typed. Letting a citizen
-* edit a name in the grid would send the officer a party MOI never
-* confirmed. The Action column is drawn by the handler, which owns the
-* view and contact dialogs - those are genuinely handler work, being a
-* read-only restatement of a row the API already holds.
+* So the four search criteria are seeded HIDDEN, because the popup is the
+* only way in, and the five results are seeded visible, because they ARE the
+* add-party form. The four are ftype INPUT rather than SELECT and DATE on
+* purpose: the popup draws their controls itself - a combobox off T005T, one
+* off domain Z_MOI_DOC_TYPE, a date picker formatted yyyyMMdd - and a
+* configured SELECT here would only add a value-help call for a list that
+* does not exist.
+*
+* P1_PHONE and not P1_MOBILE: the popup writes <S>_PHONE, and renaming the
+* field is cheaper than a copy that has to be remembered in three places.
+* ON_BEFORE_FIELDS( ) maps it onto party_mobileNumber, which is where the
+* API's name belongs.
+*
+* The PARTY1 / PARTY2 column spec still says MOBILE. That is a column KEY on
+* the table the handler returns from GET_TABLE( ), not a field name, and the
+* two are unrelated - renaming the form field must not rename the column.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 10
       field_name = 'PARTY1' ftype = 'TABLE' readonly = 'X'
       zlabel = 'First Party' zlabel_ar = 'الطرف الأول'
       default_val = 'NAME:Party Name:TEXT|MOBILE:Mobile Number:TEXT|NAT:Nationality:TEXT' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 20
-      field_name = 'P1_BP' ftype = 'SEARCH'
+      field_name = 'P1_PARTNER' ftype = 'INPUT' readonly = 'X'
       zsection = 'Add Party'
-      zlabel = 'Search Partner' zlabel_ar = 'البحث عن شريك'
-      placeholder = 'Partner no. / Emirates ID / name' )
+      zlabel = 'Partner' zlabel_ar = 'الشريك' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
       field_name = 'P1_NAME' ftype = 'INPUT' readonly = 'X'
       zlabel = 'Party Name' zlabel_ar = 'اسم الطرف' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 40
-      field_name = 'P1_MOBILE' ftype = 'INPUT'
+      field_name = 'P1_PHONE' ftype = 'INPUT'
       zlabel = 'Mobile Number' zlabel_ar = 'رقم الهاتف المتحرك' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 50
       field_name = 'P1_NAT' ftype = 'INPUT'
@@ -328,28 +340,70 @@ START-OF-SELECTION.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 60
       field_name = 'P1_EMAIL' ftype = 'INPUT'
       zlabel = 'Email' zlabel_ar = 'البريد الإلكتروني' )
+*   The dialog's four search criteria. Hidden - the dialog is the only way in,
+*   and ON_BEFORE_FIELDS( ) drops all four before the payload is built so a
+*   passport type never reaches Notary.
+*
+*   >>> TEST DEFAULTS - REMOVE BEFORE PRODUCTION <<<
+*   SEARCHBY and IDNUM are seeded with a known partner so the search can be
+*   pressed without typing anything:
+*
+*     YFS002               Emirates ID
+*     784-1988-2718131-8   Abdal-Qader Helal Malek Bahra, BP 1000015752
+*
+*   the same row that answers
+*   /sap/opu/odata/sap/ZEGA_BP_SRV/BusinessPartnerSet?$filter=(EId eq '784-1988-2718131-8')
+*   Deleting the two DEFAULT_VAL lines below is the whole of the removal - the
+*   dialog then opens on an empty Search By, which is what a citizen sees.
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 70
+      field_name = 'P1_SEARCHBY' ftype = 'INPUT' hidden = 'X'
+      zlabel = 'Search By' zlabel_ar = 'البحث حسب'
+      default_val = 'YFS002' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 80
+      field_name = 'P1_IDNUM' ftype = 'INPUT' hidden = 'X'
+      zlabel = 'ID Number' zlabel_ar = 'رقم الهوية'
+      default_val = '784-1988-2718131-8' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 90
+      field_name = 'P1_DOB' ftype = 'INPUT' hidden = 'X'
+      zlabel = 'Date of Birth' zlabel_ar = 'تاريخ الميلاد' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 100
+      field_name = 'P1_PPTYPE' ftype = 'INPUT' hidden = 'X'
+      zlabel = 'Passport Type' zlabel_ar = 'نوع جواز السفر' )
 
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 10
       field_name = 'PARTY2' ftype = 'TABLE' readonly = 'X'
       zlabel = 'Second Party' zlabel_ar = 'الطرف الثاني'
       default_val = 'NAME:Party Name:TEXT|MOBILE:Mobile Number:TEXT|NAT:Nationality:TEXT' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 20
-      field_name = 'P2_BP' ftype = 'SEARCH'
+      field_name = 'P2_PARTNER' ftype = 'INPUT' readonly = 'X'
       zsection = 'Add Party'
-      zlabel = 'Search Partner' zlabel_ar = 'البحث عن شريك'
-      placeholder = 'Partner no. / Emirates ID / name' )
+      zlabel = 'Partner' zlabel_ar = 'الشريك' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 30
       field_name = 'P2_NAME' ftype = 'INPUT' readonly = 'X'
       zlabel = 'Party Name' zlabel_ar = 'اسم الطرف' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 40
-      field_name = 'P2_MOBILE' ftype = 'INPUT'
+      field_name = 'P2_PHONE' ftype = 'INPUT'
       zlabel = 'Mobile Number' zlabel_ar = 'رقم الهاتف المتحرك' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 50
       field_name = 'P2_NAT' ftype = 'INPUT'
       zlabel = 'Nationality' zlabel_ar = 'الجنسية' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 60
       field_name = 'P2_EMAIL' ftype = 'INPUT'
-      zlabel = 'Email' zlabel_ar = 'البريد الإلكتروني' ) ) ).
+      zlabel = 'Email' zlabel_ar = 'البريد الإلكتروني' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 70
+      field_name = 'P2_SEARCHBY' ftype = 'INPUT' hidden = 'X'
+      zlabel = 'Search By' zlabel_ar = 'البحث حسب'
+      default_val = 'YFS002' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 80
+      field_name = 'P2_IDNUM' ftype = 'INPUT' hidden = 'X'
+      zlabel = 'ID Number' zlabel_ar = 'رقم الهوية'
+      default_val = '784-1988-2718131-8' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 90
+      field_name = 'P2_DOB' ftype = 'INPUT' hidden = 'X'
+      zlabel = 'Date of Birth' zlabel_ar = 'تاريخ الميلاد' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 100
+      field_name = 'P2_PPTYPE' ftype = 'INPUT' hidden = 'X'
+      zlabel = 'Passport Type' zlabel_ar = 'نوع جواز السفر' ) ) ).
 
 * --------------------------------------------------------- STP5 fields
 * General Info first, read-only, exactly the four the live screen shows.

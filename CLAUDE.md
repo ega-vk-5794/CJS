@@ -52,8 +52,12 @@ These raise nothing and render nothing. They account for most of the bugs found 
 - **`type = 'Number'` on a non-numeric value** renders an empty `sap.m.Input`.
 - **A step whose `BKND_SCREEN` has no `/QNV/` rows** renders, validates and posts, and creates
   nothing. `ZCL_RAK_CJS_XCHECK` exists for this; it runs in the Studio on load and save.
-- **`ZLABEL` is `CHAR(150)`, `ZLABEL_AR` is `CHAR(80)`** — long consent text truncates on insert.
-  Carry long paragraphs in `DEFAULT_VAL` (`CHAR(1000)`) as a `DISPLAY` field.
+- **The Arabic column used to be shorter than its English twin** — `ZLABEL_AR` was `CHAR(80)`
+  against `ZLABEL`'s `CHAR(150)`, so Arabic truncated on insert while English did not. Every
+  EN/AR pair in `ZRAK_T_JNY*` is now the same length, but **only in git**: it is a DDIC widening
+  that needs activation and a table adjust before it is true in SAP.
+  Long consent paragraphs still belong in `DEFAULT_VAL` (`CHAR(1000)`) as a `DISPLAY` field —
+  150 characters is not a paragraph in either language.
 
 ## Conventions
 
@@ -96,3 +100,8 @@ This has already reverted fixes across five classes. In the pull dialog the Stat
 - E018 `own_form_save` and `render_chem_details` disagree on grid row layout; Edit/Delete raise
   events nothing handles; `chem_form_load` still carries test values.
 - `D014` is claimed by two handler classes.
+- Notary `ZRAK_NOT_LOAD` seeds `P1_IDNUM` / `P2_IDNUM` with a live test Emirates ID
+  (`784-1988-2718131-8`) and `P1_SEARCHBY` / `P2_SEARCHBY` with `YFS002`, so the partner search
+  can be pressed without typing. **Remove the two `DEFAULT_VAL` lines before production.**
+- Notary parties run the LIGHT partner search — `NO_MOI_CALL`, findings as warnings.
+  `ZCL_RAK_NOT_APPROVAL_LOGIC->BP_OPTS( )` is the one place to restore full verification.
