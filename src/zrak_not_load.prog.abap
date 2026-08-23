@@ -266,14 +266,25 @@ START-OF-SELECTION.
 * --------------------------------------------------- STP3 / STP4 fields
 * The party STEPS are lists, not forms: Party Name / Mobile Number /
 * Nationality / Action, with view and contact icons per row and an Add
-* Party button underneath. So the top control on each step is a TABLE fed
-* by the handler, and the identity fields sit below it as the add form.
+* Party button underneath. The identity fields below the list are the add
+* form, and they are the only part of the step that is configured here.
 *
-* PARTY1 / PARTY2 stay READONLY tables. A row is added through the search
-* and not typed - letting a citizen edit a name in the grid would send the
-* officer a party MOI never confirmed. The Action column is drawn by the
-* handler, which owns the view and contact dialogs; those are a read-only
-* restatement of a row the API already holds.
+* THERE IS NO PARTY1 / PARTY2 FIELD ANY MORE, and their removal is the point.
+* They were ftype TABLE rows claimed by the handler's RENDER_FIELD( ) so it
+* could add the Action column - and that claim never once ran. The engine's
+* RENDER_BLOCK( ) answers ftype TABLE itself: it calls GET_TABLE( ) and draws
+* the grid there, so a TABLE field never reaches RENDER_ONE( ) and never
+* reaches RENDER_FIELD( ). The engine drew a three-column list, the view and
+* contact icons never appeared on any build of this journey, and the instance
+* field RENDER_FIELD( ) was supposed to set stayed empty - which is what left
+* ON_RENDER_END( ) returning on its first line and the step with no Search
+* Partner button and no Add Party button at all.
+*
+* So the list is hand-drawn in ON_RENDER_START( ), at the top of the step,
+* the same way ZCL_RAK_TEST_ALL_LOGIC hand-draws its owner grid and for the
+* same reason: each row needs two actions and a configured TABLE offers none.
+* A row is still never typed - it is added through the search, because letting
+* a citizen edit a name would send the officer a party MOI never confirmed.
 *
 * THE SEARCH IS ZCL_RAK_BP_POPUP, and that reverses what this comment said
 * one commit ago. ftype SEARCH was the earlier choice and it was right about
@@ -315,15 +326,7 @@ START-OF-SELECTION.
 * field is cheaper than a copy that has to be remembered in three places.
 * ON_BEFORE_FIELDS( ) maps it onto party_mobileNumber, which is where the
 * API's name belongs.
-*
-* The PARTY1 / PARTY2 column spec still says MOBILE. That is a column KEY on
-* the table the handler returns from GET_TABLE( ), not a field name, and the
-* two are unrelated - renaming the form field must not rename the column.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
-    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 10
-      field_name = 'PARTY1' ftype = 'TABLE' readonly = 'X'
-      zlabel = 'First Party' zlabel_ar = 'الطرف الأول'
-      default_val = 'NAME:Party Name:TEXT|MOBILE:Mobile Number:TEXT|NAT:Nationality:TEXT' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 20
       field_name = 'P1_PARTNER' ftype = 'INPUT' readonly = 'X'
       zsection = 'Add Party'
@@ -370,10 +373,6 @@ START-OF-SELECTION.
       field_name = 'P1_PPTYPE' ftype = 'INPUT' hidden = 'X'
       zlabel = 'Passport Type' zlabel_ar = 'نوع جواز السفر' )
 
-    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 10
-      field_name = 'PARTY2' ftype = 'TABLE' readonly = 'X'
-      zlabel = 'Second Party' zlabel_ar = 'الطرف الثاني'
-      default_val = 'NAME:Party Name:TEXT|MOBILE:Mobile Number:TEXT|NAT:Nationality:TEXT' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 20
       field_name = 'P2_PARTNER' ftype = 'INPUT' readonly = 'X'
       zsection = 'Add Party'

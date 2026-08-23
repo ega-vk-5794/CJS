@@ -8,9 +8,8 @@
 *&   get_table          - RO_PANEL body for the legal text, from the API
 *&   on_custom_validate - Notary field checks; CALLS SUPER so the base
 *&                        payment PAID-gate is preserved
-*&   render_field       - claims PARTY1/PARTY2 to draw the list with its
-*&                        per-row View and Contact actions; CALLS SUPER for
-*&                        every other field so the base keeps PAYFEE
+*&   on_render_start    - the party list at the TOP of a party step, with its
+*&                        per-row View and Contact actions; CALLS SUPER
 *&   on_render_end      - the Search Partner and Add Party buttons under the
 *&                        party form
 *&   on_render_popup    - the partner search, and the View and Contact
@@ -53,7 +52,6 @@
     METHODS zif_rak_journey_logic~on_value_help      REDEFINITION.
     METHODS zif_rak_journey_logic~get_table          REDEFINITION.
     METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
-    METHODS zif_rak_journey_logic~render_field       REDEFINITION.
     METHODS zif_rak_journey_logic~on_render_end      REDEFINITION.
     METHODS zif_rak_journey_logic~on_render_popup    REDEFINITION.
     METHODS zif_rak_journey_logic~on_popup_event     REDEFINITION.
@@ -152,15 +150,6 @@
                 iv_names     TYPE string
       RETURNING VALUE(rv)    TYPE string.
 
-*   'P1_' for anything on the First Party step, 'P2_' for the Second Party
-*   step, empty for a field on neither. The two steps are the same form twice,
-*   so every method that touches a party field derives its prefix here rather
-*   than branching on the step - which is what stops the second party quietly
-*   writing over the first.
-    METHODS party_prefix
-      IMPORTING iv_name   TYPE string
-      RETURNING VALUE(rv) TYPE string.
-
 *   The request the parties hang off. REQUEST_ID once the draft exists, and
 *   the launch parameter before that - a resumed application arrives with
 *   draftid or caseid set and REQUEST_ID still blank.
@@ -179,12 +168,22 @@
       IMPORTING io_ctx    TYPE REF TO zif_rak_journey
                 iv_prefix TYPE string.
 
-*   Which party step is being drawn, set by RENDER_FIELD( ) and read by
-*   ON_RENDER_END( ). GET_STEP( ) answers an index, not a step id, so the
-*   Add Party button has no other way to know which form it belongs under.
-*   Safe as instance state because both run in the same round trip - unlike
-*   ZCL_RAK_BE_NOT's GV_SUB_CUR, which is CLASS-DATA and does not survive one.
-    DATA mv_party_pfx TYPE string.
+*   Which party step is being drawn - 'P1_', 'P2_' or blank - answered from the
+*   journey config. It replaces an instance field that RENDER_FIELD( ) was
+*   supposed to set and never did, because the engine does not route a TABLE
+*   field through RENDER_FIELD( ) at all. See the method for the whole story.
+    METHODS party_step
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+      RETURNING VALUE(rv) TYPE string.
+
+*   The party list with its per-row View and Contact actions, drawn at the top
+*   of the step. Hand-built because each row needs two actions and a configured
+*   TABLE offers none - the same reason ZCL_RAK_TEST_ALL_LOGIC hand-builds its
+*   owner grid.
+    METHODS render_party_list
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+                io_view   TYPE REF TO z2ui5_cl_xml_view
+                iv_prefix TYPE string.
 
 ENDCLASS.
 
@@ -262,28 +261,6 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
             APPEND VALUE #( ( lv_p ) ) TO rs_data-rows.
           ENDIF.
         ENDLOOP.
-
-      WHEN 'PARTY1' OR 'PARTY2'.
-
-*       Nothing answered these before, so both tables drew "No data" over a
-*       request that plainly had a party - the draft reply names it in
-*       firstPartyDetails. GET /request/{id}/party was documented at the top
-*       of ZCL_RAK_BE_NOT from the start and never implemented; PARTIES( ) is
-*       that call.
-*       Column KEYS, not labels. ZCL_RAK_JOURNEY_RENDER matches these against
-*       the NAME:Label:TYPE spec on the field and only falls back to taking
-*       cells by position - with a gate warning - when nothing matches.
-        rs_data-columns = VALUE #( ( `NAME` ) ( `MOBILE` ) ( `NAT` ) ).
-
-        DATA(lt_pt) = party_rows( io_ctx   = io_ctx
-                                  iv_first = xsdbool( to_upper( iv_name ) = 'PARTY1' ) ).
-
-        LOOP AT lt_pt INTO DATA(ls_pt).
-          APPEND VALUE #( ( ls_pt-party_name )
-                          ( ls_pt-mobile )
-                          ( ls_pt-nationality ) ) TO rs_data-rows.
-        ENDLOOP.
-
     ENDCASE.
 
   ENDMETHOD.
@@ -413,18 +390,6 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 
 
 
-
-  METHOD party_prefix.
-    DATA(lv_n) = to_upper( iv_name ).
-    IF strlen( lv_n ) >= 3.
-      DATA(lv_head) = substring( val = lv_n len = 3 ).
-      IF lv_head = 'P1_' OR lv_head = 'P2_'.
-        rv = lv_head.
-      ENDIF.
-    ENDIF.
-  ENDMETHOD.
-
-
   METHOD request_id.
     rv = io_ctx->get_val( 'REQUEST_ID' ).
     IF rv IS INITIAL.
@@ -506,6 +471,20 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
     DATA(lv_sub) = io_ctx->get_val( 'SUBSERVICE' ).
     IF lv_sub IS NOT INITIAL.
       zcl_rak_be_not=>set_subservice( lv_sub ).
+    ENDIF.
+
+*   ---- the party list, at the TOP of the party step ---------------------
+*   ON_RENDER_START( ) and not ON_RENDER_END( ), because the live screen puts
+*   the list above the Add Party form and the buttons below it. This hook is
+*   the only one that draws before the step's own fields.
+*
+*   It used to be a configured ftype TABLE claimed by RENDER_FIELD( ). That
+*   never once ran - see PARTY_STEP( ) - so the engine drew the table itself and
+*   the Action column with its View and Contact icons has never appeared on any
+*   build of this journey.
+    DATA(lv_pfx) = party_step( io_ctx ).
+    IF lv_pfx IS NOT INITIAL.
+      render_party_list( io_ctx = io_ctx io_view = io_view iv_prefix = lv_pfx ).
     ENDIF.
 
 *   ---- Service Definition (step 2) --------------------------------------
@@ -670,44 +649,74 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD zif_rak_journey_logic~render_field.
+  METHOD party_step.
 
-*   Everything except the two party lists goes back to the base, which is what
-*   keeps the payment card working - the base claims PAYFEE here, and a
-*   redefinition that forgets to call it takes the pay button off the journey.
-    DATA(lv_n) = to_upper( is_field-name ).
-    IF lv_n <> 'PARTY1' AND lv_n <> 'PARTY2'.
-      rv_done = super->zif_rak_journey_logic~render_field( io_ctx   = io_ctx
-                                                           io_form  = io_form
-                                                           is_field = is_field ).
+*   'P1_' on the First Party step, 'P2_' on the Second, blank anywhere else.
+*
+*   Resolved from the CONFIG, and not remembered from RENDER_FIELD( ) the way it
+*   was. That is the defect this method exists to close: the engine's
+*   RENDER_BLOCK( ) answers ftype TABLE ITSELF - it calls GET_TABLE( ) and draws
+*   the grid there and then - so a TABLE field never reaches RENDER_ONE( ), and
+*   RENDER_FIELD( ) is never called for one. The instance field it was supposed
+*   to set stayed empty, ON_RENDER_END( ) returned on its first line, and the
+*   party step drew no Search button and no Add Party button at all.
+*
+*   Nothing reported it. RENDER_ONE( ) wraps RENDER_FIELD( ) in CATCH cx_root
+*   with an empty handler and falls back to the engine's own renderer, so a
+*   handler that never runs and a handler that dumps look identical on screen -
+*   and here it was neither: it simply was not asked.
+*
+*   Matched on BKND_SCREEN rather than the step id or the index. GET_STEP( )
+*   answers a zero-based index and the numbers move whenever a declaration adds
+*   or drops a step; the id is a position in the seed. The backend screen is what
+*   the step IS, and nothing renumbers PARTY1.
+    DATA(lv_ix) = io_ctx->get_step( ) + 1.
+
+    DATA(ls_cfg) = io_ctx->get_config( ).
+    READ TABLE ls_cfg-steps INTO DATA(ls_step) INDEX lv_ix.
+    IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
-*   The list is claimed rather than left to the engine's TABLE renderer for one
-*   reason: the Action column. The live screen puts a view icon and a contact
-*   icon on every row, and a generic table has no way to express a per-row
-*   button - the column spec carries names, labels and types, not events.
-*
-*   Everything else about it stays the engine's shape, including the column
-*   labels, which still come from the field's own DEFAULT_VAL spec.
-    DATA(lv_first) = xsdbool( lv_n = 'PARTY1' ).
-    mv_party_pfx = COND string( WHEN lv_first = abap_true THEN 'P1_' ELSE 'P2_' ).
+    rv = SWITCH string( to_upper( ls_step-bknd_screen )
+           WHEN 'PARTY1' THEN 'P1_'
+           WHEN 'PARTY2' THEN 'P2_'
+           ELSE `` ).
 
-    DATA(lo_box) = io_form->vbox( class = 'sapUiSmallMarginBottom' ).
-    lo_box->label( text = is_field-label ).
+  ENDMETHOD.
+
+
+  METHOD render_party_list.
+
+*   The parties on this side of the request, with the per-row View and Contact
+*   actions the live screen shows.
+*
+*   Hand-drawn rather than configured as an ftype TABLE, and that is the whole
+*   reason PARTY1 and PARTY2 are no longer rows in ZRAK_T_JNY_FLD. A configured
+*   table is drawn by the engine from GET_TABLE( ), which returns cells - the
+*   column spec carries names, labels and types and has no way to express a
+*   per-row BUTTON. Claiming the field in RENDER_FIELD( ) cannot get the actions
+*   back either, because the engine never routes a TABLE through there. So the
+*   list is drawn here, the same way ZCL_RAK_TEST_ALL_LOGIC draws its owner grid
+*   for exactly the same reason: each row needs two actions and a configured
+*   table offers none.
+    DATA(lv_first) = xsdbool( iv_prefix = 'P1_' ).
+
+    DATA(lo_box) = io_view->vbox( class = 'sapUiSmallMarginBottom' ).
+    lo_box->title( text  = COND string( WHEN lv_first = abap_true THEN 'First Party' ELSE 'Second Party' )
+                   class = 'rakBlkTitle' ).
 
     DATA(lt_rows) = party_rows( io_ctx = io_ctx iv_first = lv_first ).
 
     IF lt_rows IS INITIAL.
 *     Say which of the two is empty. "No data" on two identical tables one step
-*     apart tells the citizen nothing about what they are supposed to do next.
+*     apart tells the citizen nothing about what to do next.
       lo_box->message_strip(
         text     = COND string( WHEN lv_first = abap_true
-                                THEN 'No first party yet. Search for a partner below and press Add Party.'
-                                ELSE 'No second party yet. Search for a partner below and press Add Party.' )
+                                THEN 'No first party yet. Press Search Partner below, then Add Party.'
+                                ELSE 'No second party yet. Press Search Partner below, then Add Party.' )
         type     = 'Information'
         showicon = abap_true ).
-      rv_done = abap_true.
       RETURN.
     ENDIF.
 
@@ -721,9 +730,9 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
     DATA(lo_items) = lo_tab->items( ).
     LOOP AT lt_rows INTO DATA(ls_row).
       DATA(lo_cells) = lo_items->column_list_item( )->cells( ).
-      lo_cells->text( ls_row-party_name ).
-      lo_cells->text( ls_row-mobile ).
-      lo_cells->text( ls_row-nationality ).
+      lo_cells->text( zcl_rak_journey_util=>esc( ls_row-party_name ) ).
+      lo_cells->text( zcl_rak_journey_util=>esc( ls_row-mobile ) ).
+      lo_cells->text( zcl_rak_journey_util=>esc( ls_row-nationality ) ).
       DATA(lo_act) = lo_cells->hbox( justifycontent = 'End' ).
       lo_act->button( icon    = 'sap-icon://display'
                       tooltip = 'View party'
@@ -735,8 +744,6 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
                       press   = io_ctx->event( |PCONT_{ ls_row-party_id }| ) ).
     ENDLOOP.
 
-    rv_done = abap_true.
-
   ENDMETHOD.
 
 
@@ -744,18 +751,17 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 
     super->zif_rak_journey_logic~on_render_end( io_ctx = io_ctx io_view = io_view ).
 
-*   MV_PARTY_PFX is set by RENDER_FIELD( ) when it draws PARTY1 or PARTY2, so
-*   these buttons appear under the party form and nowhere else. The step index
-*   would not do: GET_STEP( ) answers a number, and the numbers move whenever a
-*   declaration adds or drops a step.
-    IF mv_party_pfx IS INITIAL.
+*   Only on a party step, and asked of the config rather than of an instance
+*   field a hook that never runs was supposed to have set.
+    DATA(lv_pfx) = party_step( io_ctx ).
+    IF lv_pfx IS INITIAL.
       RETURN.
     ENDIF.
 
 *   'P1_' -> 'P1'. The SUBJECT is the prefix without the underscore, because
 *   ZCL_RAK_BP_POPUP builds <SUBJECT>_<SUFFIX> and would otherwise go looking
 *   for P1__IDNUM.
-    DATA(lv_subj) = substring( val = mv_party_pfx len = 2 ).
+    DATA(lv_subj) = substring( val = lv_pfx len = 2 ).
 
     DATA(lo_bar) = io_view->hbox( justifycontent = 'End' class = 'sapUiSmallMarginTop' ).
 
@@ -764,18 +770,17 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 *   correcting a choice rather than starting over; the dialog itself shows the
 *   partner it already found and offers Resume Search.
     lo_bar->button(
-      text  = COND string( WHEN io_ctx->get_val( |{ mv_party_pfx }PARTNER| ) IS INITIAL
+      text  = COND string( WHEN io_ctx->get_val( |{ lv_pfx }PARTNER| ) IS INITIAL
                            THEN 'Search Partner' ELSE 'Change Partner' )
       icon  = 'sap-icon://search'
+      type  = 'Emphasized'
       press = io_ctx->event( COND string( WHEN lv_subj = 'P1' THEN c_evt_bp1 ELSE c_evt_bp2 ) ) ).
 
     lo_bar->button( text  = 'Add Party'
                     icon  = 'sap-icon://add'
                     type  = 'Emphasized'
                     class = 'sapUiSmallMarginBegin'
-                    press = io_ctx->event( |PADD_{ mv_party_pfx }| ) ).
-
-    CLEAR mv_party_pfx.
+                    press = io_ctx->event( |PADD_{ lv_pfx }| ) ).
 
   ENDMETHOD.
 
