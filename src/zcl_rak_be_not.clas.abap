@@ -1167,15 +1167,28 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
       lv_out = |F{ lv_out }|.
     ENDIF.
 
-    IF strlen( lv_out ) <= 30.
+*   23, NOT 30, and the difference is the whole of the second failure here.
+*   BUILD_MODEL( ) does not create ONE component per field - it creates the field
+*   and then its companions, each a suffix on the same name:
+*
+*     <NAME>_VS      value state          <NAME>_NAME    resolved partner name
+*     <NAME>_VST     value state text     <NAME>_IX      row index
+*     <NAME>_IDTYPE  ID type on a SEARCH  <NAME>_EXP     expanded flag
+*
+*   So a base name of exactly 30 is not safe, it is guaranteed to fail on the
+*   NEXT line: MINISTRYOFECONOMYREGISTRA_6666 fitted, and _VS took it to 33.
+*   _IDTYPE is the longest suffix at seven characters, so the base has to stop
+*   at 23 for every companion to fit inside 30 as well.
+    IF strlen( lv_out ) <= 23.
       rv = lv_out.
       RETURN.
     ENDIF.
 
-*   Too long, so 25 characters of the name and a four-digit fingerprint of the
-*   WHOLE key. The fingerprint is what stops two keys that share their first 25
-*   characters collapsing onto one component - which would be worse than the
-*   dump, because the two fields would silently share a value.
+*   Too long, so 18 characters of the name and a four-digit fingerprint of the
+*   WHOLE key - 23 in total, leaving room for _IDTYPE. The fingerprint is what
+*   stops two keys that share their first 18 characters collapsing onto one
+*   component, which would be worse than the dump: the two fields would then
+*   silently share a value.
 *
 *   Computed from the key ALONE and never from its position in the blueprint.
 *   PARSE_BLUEPRINT( ) and DESCRIBE_STEP( ) walk the field list separately and
@@ -1193,7 +1206,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
       lv_i = lv_i + 1.
     ENDWHILE.
 
-    rv = |{ lv_out(25) }_{ lv_h MOD 10000 WIDTH = 4 PAD = '0' ALIGN = RIGHT }|.
+    rv = |{ lv_out(18) }_{ lv_h MOD 10000 WIDTH = 4 PAD = '0' ALIGN = RIGHT }|.
 
   ENDMETHOD.
 
