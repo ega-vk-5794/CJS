@@ -491,6 +491,30 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 *   screen that is missing a list and a screen that says why.
     TRY.
         DATA(lv_pfx) = party_step( io_ctx ).
+
+*       >>> TEMPORARY DIAGNOSTIC - REMOVE WITH THE ONE IN ON_RENDER_END <<<
+*
+*       The same probe, in the hook that is PROVEN to run on this step: step 2
+*       shows the declaration title and the fee, and only this method writes
+*       those. So DIAG-START appearing tells us the handler reached this step;
+*       DIAG-END appearing tells us ON_RENDER_END( ) was called as well.
+*
+*       START without END means the step never reaches ON_RENDER_END( ), which
+*       is a different fault from the one being chased and lives in the engine
+*       RENDER_STEP( ) layout branch. Neither appearing means the handler is not
+*       being asked at all on this step. Both appearing with pfx=[] means
+*       PARTY_STEP( ) is what is wrong, and the rest of the line says why.
+        DATA(ls_dc) = io_ctx->get_config( ).
+        DATA(lv_di) = io_ctx->get_step( ) + 1.
+        READ TABLE ls_dc-steps INTO DATA(ls_ds) INDEX lv_di.
+        DATA(lv_dr) = sy-subrc.
+        io_view->message_strip(
+          text     = |DIAG-START  step={ io_ctx->get_step( ) }  steps={ lines( ls_dc-steps ) }  | &&
+                     |subrc={ lv_dr }  id=[{ ls_ds-id }]  screen=[{ ls_ds-bknd_screen }]  | &&
+                     |fields={ lines( ls_ds-fields ) }  pfx=[{ lv_pfx }]|
+          type     = 'Warning'
+          showicon = abap_true ).
+
         IF lv_pfx IS NOT INITIAL.
           render_party_list( io_ctx = io_ctx io_view = io_view iv_prefix = lv_pfx ).
         ENDIF.
@@ -798,7 +822,7 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
     DATA(lv_drc)  = sy-subrc.
 
     io_view->message_strip(
-      text     = |DIAG  step={ io_ctx->get_step( ) }  steps={ lines( ls_dcfg-steps ) }  | &&
+      text     = |DIAG-END  step={ io_ctx->get_step( ) }  steps={ lines( ls_dcfg-steps ) }  | &&
                  |subrc={ lv_drc }  id=[{ ls_dstep-id }]  screen=[{ ls_dstep-bknd_screen }]  | &&
                  |fields={ lines( ls_dstep-fields ) }  pfx=[{ lv_pfx }]|
       type     = 'Warning'
