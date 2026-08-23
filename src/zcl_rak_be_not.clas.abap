@@ -294,6 +294,14 @@ protected section.
       RETURNING VALUE(rv_json) TYPE string.
     METHODS parse_blueprint.
 
+*   A blueprint key made safe to be an ABAP structure component: upper case,
+*   only letters digits and underscore, never longer than 30 characters. See the
+*   method - a 35-character jsonKey took the whole app down with
+*   CX_SY_STRUCT_COMP_NAME. The API key itself is never changed.
+    METHODS model_name
+      IMPORTING iv_key    TYPE string
+      RETURNING VALUE(rv) TYPE string.
+
     METHODS to_options
       IMPORTING iv_json       TYPE string
       RETURNING VALUE(rt_opt) TYPE zif_rak_journey_backend=>tt_dyn_opt.
@@ -1115,6 +1123,81 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD model_name.
+
+*   A blueprint key, turned into something that can be an ABAP structure
+*   component. It is not cosmetic: BUILD_MODEL( ) calls
+*   CL_ABAP_STRUCTDESCR=>CREATE( ) with one component per field name, and a
+*   component name is capped at 30 characters. A blueprint carrying
+*
+*     "jsonKey":"ministryOfEconomyRegistrationNumber"      (35)
+*
+*   raised CX_SY_STRUCT_COMP_NAME - uncaught, so the whole app died with
+*   "UNCAUGHT EXCEPTION - Please Restart App" on choosing that declaration.
+*   Nothing in the journey could have prevented it: the name comes from the
+*   API, at runtime, and no configuration is involved.
+*
+*   THE API KEY IS NOT TOUCHED. Only GT_MAP-UPPER - the name the MODEL uses -
+*   is shortened; GT_MAP-JSON keeps the blueprint's own key and that is what
+*   BO_JSON( ) posts. The two were already separate fields for exactly this
+*   kind of reason.
+    DATA(lv) = to_upper( condense( iv_key ) ).
+
+*   Anything that is not a letter, a digit or an underscore cannot be in a
+*   component name either. A jsonKey is free text on the wire, so this is not
+*   hypothetical - a dot or a dash would raise the same exception with a
+*   different message.
+    DATA lv_out TYPE string.
+    DATA lv_i   TYPE i.
+    CONSTANTS lc_ok TYPE string
+      VALUE 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'.
+
+    WHILE lv_i < strlen( lv ).
+      DATA(lv_c) = lv+lv_i(1).
+      IF lc_ok CS lv_c.
+        lv_out = lv_out && lv_c.
+      ELSE.
+        lv_out = lv_out && '_'.
+      ENDIF.
+      lv_i = lv_i + 1.
+    ENDWHILE.
+
+*   A component name cannot start with a digit.
+    IF lv_out IS NOT INITIAL AND lv_out(1) CO '0123456789'.
+      lv_out = |F{ lv_out }|.
+    ENDIF.
+
+    IF strlen( lv_out ) <= 30.
+      rv = lv_out.
+      RETURN.
+    ENDIF.
+
+*   Too long, so 25 characters of the name and a four-digit fingerprint of the
+*   WHOLE key. The fingerprint is what stops two keys that share their first 25
+*   characters collapsing onto one component - which would be worse than the
+*   dump, because the two fields would silently share a value.
+*
+*   Computed from the key ALONE and never from its position in the blueprint.
+*   PARSE_BLUEPRINT( ) and DESCRIBE_STEP( ) walk the field list separately and
+*   must arrive at the same name independently; anything positional would agree
+*   only for as long as both lists stayed in the same order, and would put
+*   values on the wrong field the day they did not.
+    DATA lv_h TYPE i.
+    CLEAR lv_i.
+    WHILE lv_i < strlen( lv_out ).
+      DATA(lv_p) = find( val = lc_ok sub = lv_out+lv_i(1) ).
+      IF lv_p < 0.
+        lv_p = 0.
+      ENDIF.
+      lv_h = ( lv_h * 31 + lv_p + 1 ) MOD 100000.
+      lv_i = lv_i + 1.
+    ENDWHILE.
+
+    rv = |{ lv_out(25) }_{ lv_h MOD 10000 WIDTH = 4 PAD = '0' ALIGN = RIGHT }|.
+
+  ENDMETHOD.
+
+
   METHOD parse_blueprint.
 
 *   CLEARED, not appended to. GT_MAP and GT_DOC are CLASS-DATA and this method
@@ -1314,7 +1397,10 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         ENDIF.
       ENDIF.
 
-      APPEND VALUE #( upper = to_upper( lv_name ) json = lv_name num = lv_num ) TO gt_map.
+*     UPPER is what the MODEL calls the field and JSON is what the API calls
+*     it. They were always two fields; until now they always held the same text,
+*     which is why a key too long to be a component had nowhere to be shortened.
+      APPEND VALUE #( upper = model_name( lv_name ) json = lv_name num = lv_num ) TO gt_map.
 
     ENDLOOP.
 
@@ -2194,7 +2280,13 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
                                     ELSE lv_name ).
 
       APPEND VALUE #(
-        name     = to_upper( lv_name )
+*       MODEL_NAME( ) and not TO_UPPER( ). This name becomes a component on the
+*       model structure, and a component name is capped at 30 characters - so a
+*       jsonKey longer than that took the app down here rather than merely
+*       rendering oddly. It has to be the SAME transformation PARSE_BLUEPRINT( )
+*       applies to GT_MAP-UPPER, or the field would render under one name and be
+*       read for the payload under another, and the value would post as blank.
+        name     = model_name( lv_name )
         label    = lv_label
         label_ar = COND string( WHEN ls_f-label_ar          IS NOT INITIAL THEN ls_f-label_ar
                                 WHEN ls_f-arabic_field_name IS NOT INITIAL THEN ls_f-arabic_field_name
