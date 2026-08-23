@@ -780,6 +780,31 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 *   Only on a party step, and asked of the config rather than of an instance
 *   field a hook that never runs was supposed to have set.
     DATA(lv_pfx) = party_step( io_ctx ).
+
+*   >>> TEMPORARY DIAGNOSTIC - REMOVE ONCE THE PARTY STEP DRAWS <<<
+*
+*   Three attempts have now failed by drawing nothing and saying nothing, and
+*   every explanation for it so far has been inference from source that cannot
+*   be run from where it was written. This prints what PARTY_STEP( ) is actually
+*   looking at: the step index the engine is on, how many steps the config holds,
+*   and the id, backend screen and field count of the row that index lands on.
+*
+*   It renders on EVERY step on purpose. A diagnostic that appears only where the
+*   bug is cannot show what a WORKING step looks like to compare against, and the
+*   comparison is the whole value: step 2 is known to run this handler correctly.
+    DATA(ls_dcfg) = io_ctx->get_config( ).
+    DATA(lv_dix)  = io_ctx->get_step( ) + 1.
+    READ TABLE ls_dcfg-steps INTO DATA(ls_dstep) INDEX lv_dix.
+    DATA(lv_drc)  = sy-subrc.
+
+    io_view->message_strip(
+      text     = |DIAG  step={ io_ctx->get_step( ) }  steps={ lines( ls_dcfg-steps ) }  | &&
+                 |subrc={ lv_drc }  id=[{ ls_dstep-id }]  screen=[{ ls_dstep-bknd_screen }]  | &&
+                 |fields={ lines( ls_dstep-fields ) }  pfx=[{ lv_pfx }]|
+      type     = 'Warning'
+      showicon = abap_true
+      class    = 'sapUiSmallMarginTop' ).
+
     IF lv_pfx IS INITIAL.
       RETURN.
     ENDIF.
