@@ -42,6 +42,7 @@
 *& NOT redefined on purpose: on_before_post (the base strips PAY_* there),
 *& wants_feedback (feedback stays automatic).
 *&---------------------------------------------------------------------*
+CLASS zcl_rak_not_approval_logic DEFINITION
   PUBLIC
   INHERITING FROM zcl_rak_journey_logic
   CREATE PUBLIC.
