@@ -70,6 +70,25 @@ These raise nothing and render nothing. They account for most of the bugs found 
 - **New engine capability?** Cover it in `ZCL_RAK_TEST_ALL_LOGIC`, which exercises every hook
   and runs with no database dependency.
 
+## Hooks
+
+The traps above are also enforced mechanically in `.claude/hooks/`, so they block before a
+mistake lands rather than relying on this file being read closely:
+
+| Hook | Event | Enforces |
+| --- | --- | --- |
+| `session_start.py` | SessionStart | Pulls `main`, reprints the short list of rules below |
+| `block_qnv_writes.py` | PreToolUse (Write/Edit/MultiEdit) | The namespace boundary — denies creating/editing a `/QNV/` object |
+| `check_payment_gate.py` | PreToolUse (Write/Edit/MultiEdit) | `ON_CUSTOM_VALIDATE` redefinitions call `super->` before any `CHECK` |
+| `abap_lint.py` | PreToolUse (Write/Edit/MultiEdit) | `INTERFACES zif_rak_journey_logic`, `bind()`/`set_val()`/`get_val()` on a `'C_...'` literal, hand-authored `INSERT`s into `ZRAK_T_JNY*` outside `ZCL_RAK_MIGRATOR` |
+| `protect_abapgit_config.py` | PreToolUse (Write/Edit/MultiEdit) | Asks for confirmation before touching `.abapgit.xml` / `*.devc.xml` |
+| `check_crlf.py` | PostToolUse (Write/Edit/MultiEdit) | Flags a file under `src/` that lost its CRLF line endings |
+
+These are static, regex-based checks on the text being written — they catch the shape of a
+known mistake, not everything semantically wrong. They deny/ask before the tool call, except
+`check_crlf.py` which nudges after (the file is already on disk by then). None of it replaces
+`ZCL_RAK_TEST_ALL_LOGIC` or `ZCL_RAK_CJS_XCHECK`; both still need to run in SAP.
+
 ## Verification
 
 There is no ADT/SAP connection from this environment. Nothing here can be compiled, activated or
