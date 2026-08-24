@@ -83,6 +83,20 @@ These raise nothing and render nothing. They account for most of the bugs found 
 - **`type = 'Number'` on a non-numeric value** renders an empty `sap.m.Input`.
 - **A step whose `BKND_SCREEN` has no legacy configuration rows** renders, validates and posts, and
   creates nothing. `ZCL_RAK_CJS_XCHECK` exists for this; it runs in the Studio on load and save.
+- **`ftype = 'TABLE'` never reaches `RENDER_FIELD( )`.** `RENDER_BLOCK( )` answers TABLE itself -
+  it calls `GET_TABLE( )` and draws the grid there - so a TABLE field never passes through
+  `RENDER_ONE( )`, the only caller of the handler hook. Claiming one in `RENDER_FIELD( )` is dead
+  code that looks live. A per-row action (view, edit, delete) must be hand-drawn from
+  `ON_RENDER_START( )` or `ON_RENDER_END( )`; see `ZCL_RAK_TEST_ALL_LOGIC->RENDER_OWN_LIST( )`.
+- **`RENDER_ONE( )` wraps `RENDER_FIELD( )` in `CATCH cx_root` with an empty handler** and falls
+  back to the engine renderer. A hook that dumps and a hook that is never called look identical on
+  screen. `ON_RENDER_END( )` at least reports `on_render_end failed: ...`.
+- **A field name over 30 characters cannot be a model component.** `BUILD_MODEL( )` calls
+  `CL_ABAP_STRUCTDESCR=>CREATE( )` per field, and `CX_SY_STRUCT_COMP_NAME` is uncaught - the whole
+  app dies with UNCAUGHT EXCEPTION. The real cap is **23**, not 30: the model also builds `_VS`,
+  `_VST`, `_IDTYPE`, `_NAME`, `_IX` and `_EXP` companions on the same name. Any runtime field name
+  (a Notary blueprint `jsonKey`) must go through `ZCL_RAK_JOURNEY_UTIL=>COMP_NAME( )`, never plain
+  `to_upper( )`.
 - **The Arabic column used to be shorter than its English twin** — `ZLABEL_AR` was `CHAR(80)`
   against `ZLABEL`'s `CHAR(150)`, so Arabic truncated on insert while English did not. Every
   EN/AR pair in `ZRAK_T_JNY*` is now the same length, but **only in git**: it is a DDIC widening
@@ -128,6 +142,19 @@ diffs) and that activation is outstanding.
 Getting a change into SAP is manual: `git push` → abapGit **Pull** → activate. `ZCL_RAK_CJS` and
 `ZCL_RAK_JOURNEY_LOGIC` are the two that break widest; activate them first.
 
+**Active does not mean current.** A pull writes the source and leaves the object inactive; until it
+activates, the runtime keeps running the OLD active version and the Class Builder still displays
+it. A syntax error therefore looks exactly like a pull that never happened - nothing on screen
+changes. This cost a whole session once: one missing `CLASS ... DEFINITION` line meant five
+consecutive commits reached SAP and silently failed to activate, while every symptom pointed at
+code that was never running.
+
+So verify by **content, not status**: open SE24 and look for a method or a string you just added.
+`Implemented / Active` proves nothing. Check this before re-diagnosing code that appears to have no
+effect - and if two rounds produce no visible change, stop theorising and instrument: a
+`message_strip` that renders unconditionally settles in one round trip what inference will not
+settle in five.
+
 ## abapGit — pull before you stage
 
 One branch: `main`. Never create others.
@@ -141,6 +168,11 @@ This has already reverted fixes across five classes. In the pull dialog the Stat
 | `_M` `_A` | git is ahead | tick — safe |
 | `M_` | **SAP has changes git does not** | ticking discards them |
 | `MM` | both changed | conflict — diff before choosing |
+
+**The pull dialog pre-ticks only Add local object rows.** Every `Overwrite local object` row arrives
+**unticked**, and the ticks reset every time the dialog opens - so an existing object is skipped
+unless you tick it by hand, on every pull. abapGit still reports success, which is why this reads as
+"the pull is broken" rather than "that row was not selected".
 
 ## Open items
 

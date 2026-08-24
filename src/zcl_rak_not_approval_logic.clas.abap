@@ -349,6 +349,24 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 *   step that is halfway through a draft does not want that.
     rs-no_moi_call = abap_true.
 
+*   AND NO VALIDATION STOPS THE HIT. Asked for in as many words: soft search, no MOI, no
+*   validation. NO_MOI_CALL alone does not deliver that - it only suppresses the MOI call.
+*   The expiry rules are separate decisions and each still refuses a partner on its own:
+*
+*     SKIP_TL_EXPIRY    an expired trade licence no longer refuses
+*     SKIP_EID_EXPIRY   an expired Emirates ID no longer refuses
+*     SKIP_MOI_MISMATCH a DOB or nationality disagreement no longer refuses - harmless while
+*                       NO_MOI_CALL is set, since there is no comparison to make, and correct
+*                       the moment someone turns MOI back on here
+*
+*   The seeded test Emirates ID is exactly the case this matters for: 784-1988-2718131-8
+*   answers with ValidTo 2017-03-21, nine years expired. Under the default rules that is an
+*   error and the row is discarded before the form ever sees it - which looks, on screen,
+*   precisely like a search that found nobody.
+    rs-skip_tl_expiry    = abap_true.
+    rs-skip_eid_expiry   = abap_true.
+    rs-skip_moi_mismatch = abap_true.
+
 *   Findings still REACH the citizen - every message the search returns is shown
 *   - but an expired trade licence reports as a warning and lets the partner
 *   through rather than ending the search. 'W' is that decision, and this method
