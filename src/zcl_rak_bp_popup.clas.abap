@@ -447,6 +447,45 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 
     READ TABLE ls_res-rows INTO DATA(ls_bp) INDEX 1.
     IF sy-subrc <> 0.
+
+*     "No data found" and nothing else, which cannot distinguish the handful of
+*     things that actually produce it: the partner not existing in THIS client,
+*     BUT0ID holding a different identification type, a normalisation that did
+*     not fire, or a CallMoi that came back with nothing. Under trace, say what
+*     was searched for so the answer is one glance instead of four guesses.
+*
+*     The normalised number is the important half. 784-1988-2718131-8 and
+*     784198827181318 are the same Emirates ID and only one of them is what
+*     BUT0ID holds, so seeing which form went to the query settles the question
+*     that NORM_EID exists to answer.
+      IF mo_ctx->get_param( 'trace' ) IS NOT INITIAL.
+*       Built up in steps rather than as one nested template. The alternative
+*       needs a string template inside an embedded expression inside another
+*       template, which ABAP allows and no reader should have to unpick.
+        DATA(lv_dg) = |TRACE  BP  no rows · client { sy-mandt }|.
+
+        lv_dg = lv_dg && ` · idtype `
+             && COND string( WHEN ls_req-idtype IS NOT INITIAL
+                             THEN ls_req-idtype ELSE '(blank)' ).
+
+        IF ls_req-eid IS NOT INITIAL.
+          lv_dg = lv_dg && | · searched [{ ls_req-eid }]|.
+        ENDIF.
+        IF ls_req-trade_licence IS NOT INITIAL.
+          lv_dg = lv_dg && | · licence [{ ls_req-trade_licence }]|.
+        ENDIF.
+
+        lv_dg = lv_dg
+             && COND string( WHEN ls_req-dob IS NOT INITIAL
+                             THEN | · dob { ls_req-dob }| ELSE ` · dob not given` )
+             && COND string( WHEN ls_req-nationality IS NOT INITIAL
+                             THEN | · nat { ls_req-nationality }| ELSE ` · nat not given` )
+             && COND string( WHEN ls_req-call_moi = abap_true
+                             THEN ` · MOI called` ELSE ` · MOI not called` ).
+
+        mo_ctx->add_msg( iv_type = 'Information' iv_text = lv_dg ).
+      ENDIF.
+
       RETURN.
     ENDIF.
 

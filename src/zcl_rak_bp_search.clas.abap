@@ -431,7 +431,7 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
                      et_msg  = rs_res-msg ).
 
     IF rs_res-rows IS INITIAL.
-      add( EXPORTING iv_text = COND #( WHEN sy-langu = 'E' THEN 'No data found'
+      add( EXPORTING iv_text = COND string( WHEN sy-langu = 'E' THEN 'No data found'
                                        ELSE 'لم يتم العثور على بيانات' )
            CHANGING  ct_msg  = rs_res-msg ).
     ENDIF.
@@ -497,7 +497,7 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
 *   but guarded above now rather than relied upon.
     IF ls_bp-category = '2' AND ls_bp-valid_date_to < sy-datum
        AND lv_skip_tl = abap_false.
-      add( EXPORTING iv_text = COND #( WHEN sy-langu = 'E' THEN 'Trade License is expired'
+      add( EXPORTING iv_text = COND string( WHEN sy-langu = 'E' THEN 'Trade License is expired'
                                        ELSE 'الرخصة التجارية منتهية الصلاحية' )
            iv_type = lv_sev
            CHANGING  ct_msg  = ct_msg ).
@@ -534,7 +534,7 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
     IF lv_ask = lv_eid
        AND ls_bp-category = '1' AND ls_bp-valid_date_to < sy-datum
        AND lv_skip_eid = abap_false.
-      add( EXPORTING iv_text = COND #( WHEN sy-langu = 'E' THEN 'Emirates ID is expired'
+      add( EXPORTING iv_text = COND string( WHEN sy-langu = 'E' THEN 'Emirates ID is expired'
                                        ELSE 'هوية الإمارات منتهية الصلاحية' )
            iv_type = lv_sev
            CHANGING  ct_msg  = ct_msg ).
