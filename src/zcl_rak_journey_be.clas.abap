@@ -793,7 +793,7 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
           CONTINUE.
         ENDIF.
 
-        ASSIGN COMPONENT to_upper( ls_f-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+        ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_f-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
         IF sy-subrc <> 0.
           CONTINUE.
         ENDIF.

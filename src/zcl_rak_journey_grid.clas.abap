@@ -87,7 +87,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     ENDIF.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -150,7 +150,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       CLEAR et_cols.
       RETURN.
     ENDIF.
-    ASSIGN COMPONENT to_upper( ls_fld-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_fld-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
         text = |Grid { iv_field }: no model member. The journey was loaded before the field became an EDITABLE_TABLE - reload it.| ) ).
@@ -476,7 +476,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     ENDIF.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -518,7 +518,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   METHOD grid_from_json.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -557,7 +557,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -643,7 +643,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( ls_f-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_f-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -693,7 +693,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     IF lv_mode = 'SINGLE'.
       FIELD-SYMBOLS <model> TYPE any.
       ASSIGN mo_e->mr_model->* TO <model>.
-      ASSIGN COMPONENT to_upper( ls_f-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+      ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_f-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
       IF sy-subrc = 0.
         FIELD-SYMBOLS <t> TYPE STANDARD TABLE.
         ASSIGN <tab> TO <t>.
@@ -732,7 +732,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -776,7 +776,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -857,7 +857,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.

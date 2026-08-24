@@ -264,7 +264,7 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
           FIELD-SYMBOLS <model_r> TYPE any.
           ASSIGN mo_e->mr_model->* TO <model_r>.
           IF sy-subrc = 0.
-            ASSIGN COMPONENT to_upper( ls_mf-name ) OF STRUCTURE <model_r> TO FIELD-SYMBOL(<tab_r>).
+            ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_mf-name ) OF STRUCTURE <model_r> TO FIELD-SYMBOL(<tab_r>).
             IF sy-subrc = 0.
               LOOP AT lt_gcr INTO DATA(gcr) WHERE required = abap_true.
                 LOOP AT <tab_r> ASSIGNING FIELD-SYMBOL(<row_r>).
