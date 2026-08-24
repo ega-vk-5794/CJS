@@ -94,15 +94,25 @@ CLASS zcl_rak_bp_search DEFINITION
 *            MOI is still CALLED and the BP still updated from it; this only stops
 *            a date-of-birth or nationality mismatch being an error. Equivalent to
 *            FLAG = 'X'.
-*            Do not call MOI AT ALL, even on an EId search. Different from
-*            SKIP_MOI_MISMATCH above, which still makes the call and still updates
-*            the BP from it - this suppresses the call itself.
+*            Sends CallMoi as null rather than X, and skips the DOB/nationality
+*            mismatch check ZCL_RAK_BP_SEARCH~VALIDATE( ) would otherwise run for
+*            CALL_MOI = X. It does NOT stop the underlying MOI call itself -
+*            confirmed against BUSINESSPARTNERS_GET_ENTITYSET (the DPC this class
+*            replaces): CallMoi is read there only AFTER ZCL_EGA_BP_BO_API->BP_QUERY( )
+*            has already run, purely to decide whether a mismatch is an error, never
+*            to decide whether BP_QUERY calls MOI. BP_QUERY's own trigger is
+*            "IF lv_eid IS NOT INITIAL" - see the note at the top of this class -
+*            so any Emirates ID search calls MOI regardless of CallMoi, and that is
+*            ZCL_EGA_BP_BO_API's behaviour to change, not something reachable from
+*            here.
 *
-*            It exists because that call is not free and not read-only: see the
-*            note at the top of this class. ZCRM_MOI_CR_UPD_MASS writes, costs at
-*            least five seconds by construction, and its WAIT UP TO ends the LUW
-*            and forces an implicit COMMIT of whatever the caller had open. A
-*            popup that only needs to look a partner up should be able to say so.
+*            Worth setting anyway: CJS should not ASK for a verification it does
+*            not want, whatever BP_QUERY goes on to do with the EId on its own
+*            account. ZCRM_MOI_CR_UPD_MASS writes, costs at least five seconds by
+*            construction, and its WAIT UP TO ends the LUW and forces an implicit
+*            COMMIT of whatever the caller had open - none of that is something
+*            this flag can prevent, but the mismatch rejection is, and that is
+*            what NO_MOI_CALL actually buys.
              no_moi_call       TYPE abap_bool,
              skip_moi_mismatch TYPE abap_bool,
 *            Trade licence expiry, category 2. Half of FLAG = 'T'.

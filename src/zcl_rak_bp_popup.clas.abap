@@ -406,9 +406,17 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *       updated from it, and a date of birth or nationality that disagrees is
 *       rejected. That is the point of asking for those two on this branch - they
 *       are not search narrowing, they are the verification.
-*       Still the default, and still overridable: NO_MOI_CALL on the template
-*       suppresses the call, which ZCL_RAK_BP_SEARCH honours over this.
-        ls_req-call_moi = abap_true.
+*
+*       Only when the template has not already said NO_MOI_CALL. Setting
+*       CALL_MOI = X and then relying on ZCL_RAK_BP_SEARCH's "NO_MOI_CALL wins"
+*       precedence to cancel it back out sends a CallMoi parameter that does not
+*       match the caller's actual intent - a light-search template like Notary's
+*       (see ZCL_RAK_NOT_APPROVAL_LOGIC=>BP_OPTS) asked for CALL_MOI to stay
+*       blank, and it should leave this method blank rather than arrive true and
+*       be cancelled downstream.
+        IF ls_req-no_moi_call = abap_false.
+          ls_req-call_moi = abap_true.
+        ENDIF.
       WHEN c_tlic.
         ls_req-trade_licence = lv_num.
       WHEN OTHERS.
