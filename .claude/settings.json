@@ -5,9 +5,47 @@
         "hooks": [
           {
             "type": "command",
-            "command": "git -C \"${CLAUDE_PROJECT_DIR:-.}\" pull --ff-only 2>&1 || true",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session_start.py\"",
             "timeout": 60,
-            "statusMessage": "Pulling from origin/main..."
+            "statusMessage": "Pulling from origin/main and loading CJS rules..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/block_legacy_writes.py\"",
+            "timeout": 10,
+            "statusMessage": "Checking against the legacy namespace boundary..."
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check_journey_rules.py\"",
+            "timeout": 10,
+            "statusMessage": "Checking the journey's case/draft identity and PAID gate..."
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/protect_abapgit_config.py\"",
+            "timeout": 10,
+            "statusMessage": "Checking abapGit structural config..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check_crlf.py\"",
+            "timeout": 10,
+            "statusMessage": "Checking line endings stayed CRLF..."
           }
         ]
       }
