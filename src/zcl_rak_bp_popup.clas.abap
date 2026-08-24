@@ -142,8 +142,13 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *   not hold their name the same way anywhere in SAP BP, so a single candidate list
 *   cannot cover both: category 2 keeps it in an org field, category 1 usually in
 *   parts.
+*   ENGLISH_FULL_NAME first, and ARABIC_FULL_NAME right after it: confirmed
+*   against the live OData entity (EnglishFullName / ArabicFullName), which is
+*   what actually holds the name on a person - the whole reason a search found
+*   the partner but the card showed a blank title.
     rv = pick( is_bp    = is_bp
-               iv_names = 'FULLNAME,NAME,NAME_TEXT,BP_NAME,NAME1,NAME_ORG1,NAME_LAST' ).
+               iv_names = 'ENGLISH_FULL_NAME,ARABIC_FULL_NAME,' &&
+                          'FULLNAME,NAME,NAME_TEXT,BP_NAME,NAME1,NAME_ORG1,NAME_LAST' ).
     IF rv IS NOT INITIAL.
 *     A single field that already holds the whole name - which is what the live
 *     screen showed, four name parts in one line.
@@ -491,11 +496,22 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 
 *   PARTNER and TELEPHONE_NUMBER are the real names - the first proven by the DPC,
 *   the second by the compiler. Name and email go through the candidate list.
+*
+*   TELEPHONE_NUMBER first, MOBILE_NUMBER as a fallback: confirmed against the
+*   live OData entity, TelephoneNumber is blank on plenty of real partners while
+*   MobileNumber carries the number - a landline field left empty is not "this
+*   partner has no phone", and a card that only ever reads the landline showed
+*   blank next to a partner the citizen had just typed a mobile search on.
+    DATA(lv_phone) = CONV string( ls_bp-telephone_number ).
+    IF lv_phone IS INITIAL.
+      lv_phone = pick( is_bp = ls_bp iv_names = 'MOBILE_NUMBER,MOBILE,CELLPHONE' ).
+    ENDIF.
+
     mo_ctx->set_val( iv_name = fld( 'PARTNER' ) iv_value = CONV string( ls_bp-partner ) ).
-    mo_ctx->set_val( iv_name = fld( 'PHONE' )   iv_value = CONV string( ls_bp-telephone_number ) ).
+    mo_ctx->set_val( iv_name = fld( 'PHONE' )   iv_value = lv_phone ).
     mo_ctx->set_val( iv_name = fld( 'NAME' )    iv_value = bp_name( ls_bp ) ).
     mo_ctx->set_val( iv_name = fld( 'EMAIL' )
                      iv_value = pick( is_bp    = ls_bp
-                                      iv_names = 'SMTP_ADDR,EMAIL,E_MAIL,EMAILADDRESS,EMAIL_ADDRESS' ) ).
+                                      iv_names = 'EMAIL_ID,SMTP_ADDR,EMAIL,E_MAIL,EMAILADDRESS,EMAIL_ADDRESS' ) ).
   ENDMETHOD.
 ENDCLASS.
