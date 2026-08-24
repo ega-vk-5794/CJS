@@ -764,7 +764,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
           CONTINUE.
         ENDIF.
 
-        DATA(lv_name) = to_upper( ls_field-name ).
+*       COMP_NAME( ), not a bare TO_UPPER( ). A field name is free text on
+*       ZRAK_T_JNY_FLD - nothing stops a hyphen, a space or anything else CREATE( )
+*       below cannot use as a component name, and TO_UPPER( ) does not remove one.
+*       CX_SY_STRUCT_COMP_NAME from CL_ABAP_STRUCTDESCR=>CREATE( ) is uncaught here,
+*       so one badly named field anywhere in the config took the whole app down
+*       with "UNCAUGHT EXCEPTION - Please Restart App" for every journey, not only
+*       the one the field belonged to.
+        DATA(lv_name) = zcl_rak_journey_util=>comp_name( ls_field-name ).
 
         IF ls_field-type = 'EDITABLE_TABLE'.
           READ TABLE lt_comp WITH KEY name = lv_name TRANSPORTING NO FIELDS.

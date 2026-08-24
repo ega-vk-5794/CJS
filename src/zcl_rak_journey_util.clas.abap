@@ -24,6 +24,20 @@ CLASS zcl_rak_journey_util DEFINITION
     CLASS-METHODS ctrl_width IMPORTING is_field  TYPE zif_rak_journey=>ty_field
                        RETURNING VALUE(rv) TYPE string.
 
+*   A field name, made safe to be an ABAP structure component: upper case, only
+*   letters digits and underscore, never longer than 23 (so BUILD_MODEL( )'s
+*   companions - _VS, _VST, _IDTYPE, _NAME, _IX, _EXP - all still fit inside the
+*   30-character cap). Same algorithm as ZCL_RAK_BE_NOT~MODEL_NAME( ), which
+*   exists for the same reason on Notary's own dynamic business-object fields -
+*   copied rather than shared, so a change here cannot regress that already-
+*   proven path. BUILD_MODEL( ) builds one ABAP component per configured field
+*   name; a field named with a character outside [A-Z0-9_], or one over 30
+*   characters once its companions are appended, raises CX_SY_STRUCT_COMP_NAME
+*   uncaught - the whole Studio preview or app dies with "UNCAUGHT EXCEPTION -
+*   Please Restart App" for every journey, not only the one field at fault.
+    CLASS-METHODS comp_name IMPORTING iv_key    TYPE string
+                             RETURNING VALUE(rv) TYPE string.
+
 ENDCLASS.
 
 
@@ -217,5 +231,63 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
         rv = |{ lv_y }{ lv_m }{ lv_d }|.
       ENDIF.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD comp_name.
+    DATA(lv) = to_upper( condense( iv_key ) ).
+
+*   Anything that is not a letter, a digit or an underscore cannot be in a
+*   component name either - a hyphen, a dot, a space, all raise the same
+*   exception with a different offending character.
+    DATA lv_out TYPE string.
+    DATA lv_i   TYPE i.
+    CONSTANTS lc_ok TYPE string
+      VALUE 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'.
+
+    WHILE lv_i < strlen( lv ).
+      DATA(lv_c) = lv+lv_i(1).
+      IF lc_ok CS lv_c.
+        lv_out = lv_out && lv_c.
+      ELSE.
+        lv_out = lv_out && '_'.
+      ENDIF.
+      lv_i = lv_i + 1.
+    ENDWHILE.
+
+*   A component name cannot start with a digit.
+    IF lv_out IS NOT INITIAL AND lv_out(1) CO '0123456789'.
+      lv_out = |F{ lv_out }|.
+    ENDIF.
+
+*   23, not 30: BUILD_MODEL( ) does not create one component per field, it
+*   creates the field and then its companions on the same base name - _VS,
+*   _VST, _IDTYPE, _NAME, _IX, _EXP. _IDTYPE is the longest at seven
+*   characters, so the base has to stop at 23 for every companion to still
+*   fit inside the 30-character cap.
+    IF strlen( lv_out ) <= 23.
+      rv = lv_out.
+      RETURN.
+    ENDIF.
+
+*   Too long: 18 characters of the name and a four-digit fingerprint of the
+*   WHOLE key - 23 in total, leaving room for _IDTYPE. The fingerprint stops
+*   two keys that share their first 18 characters from collapsing onto one
+*   component, which would be worse than the dump this fixes - two fields
+*   would then silently share a value. Computed from the key alone, never
+*   from its position in the field list, so two independent callers walking
+*   the same fields arrive at the same name.
+    DATA lv_h TYPE i.
+    CLEAR lv_i.
+    WHILE lv_i < strlen( lv_out ).
+      DATA(lv_p) = find( val = lc_ok sub = lv_out+lv_i(1) ).
+      IF lv_p < 0.
+        lv_p = 0.
+      ENDIF.
+      lv_h = ( lv_h * 31 + lv_p + 1 ) MOD 100000.
+      lv_i = lv_i + 1.
+    ENDWHILE.
+
+    rv = |{ lv_out(18) }_{ lv_h MOD 10000 WIDTH = 4 PAD = '0' ALIGN = RIGHT }|.
   ENDMETHOD.
 ENDCLASS.
