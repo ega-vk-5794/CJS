@@ -300,7 +300,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *     outer one was already sanitised, so this - the inner one, fed by this
 *     method - was the one still open.
       APPEND VALUE #(
-        name     = zcl_rak_journey_util=>comp_name( ls_col-col_name )
+        name     = zcl_rak_journey_util=>comp_name( CONV #( ls_col-col_name ) )
         label    = COND #( WHEN ls_col-zlabel IS NOT INITIAL THEN ls_col-zlabel ELSE ls_col-col_name )
         label_ar = ls_col-zlabel_ar
         ctype    = COND #( WHEN ls_col-ctrl IS NOT INITIAL THEN to_upper( ls_col-ctrl ) ELSE 'INPUT' )
