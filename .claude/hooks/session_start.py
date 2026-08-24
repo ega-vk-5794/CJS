@@ -10,7 +10,7 @@ print(subprocess.run(
 
 print("""
 CJS reminders (full detail in CLAUDE.md):
-- Never modify anything under /QNV/. Fix on the CJS side (handler class, config, engine).
+- Never modify anything in the legacy namespace. Fix on the CJS side (handler class, config, engine).
 - Handler classes INHERIT FROM zcl_rak_journey_logic; never INTERFACES zif_rak_journey_logic.
 - Redefining ON_CUSTOM_VALIDATE must call super-> first, before any CHECK.
 - bind()/set_val()/get_val() take the constant, not its name as a string literal.

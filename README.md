@@ -54,7 +54,7 @@ decided and which backend it used), `caseid=` / `draftid=` to resume.
 
 Reports worth knowing:
 
-- **`ZRAK_CJS_XCHECK`** — compares a journey against the ShapeIt `/QNV/` configuration it posts to.
+- **`ZRAK_CJS_XCHECK`** — compares a journey against the legacy configuration it posts to.
   Also runs inside the Studio now, on load and save.
 - **`ZRAK_<code>_LOAD`** — re-runnable seed programs for the journeys held in this repo.
 
@@ -64,7 +64,7 @@ Reports worth knowing:
 
 Each of these exists because breaking it has already cost time.
 
-**Never change the legacy `/QNV/` BAdI.** It must keep behaving exactly as legacy. If something
+**Never change the legacy BAdI.** It must keep behaving exactly as it does today. If something
 needs to change, change it on the CJS side — handler class, config, or engine. A BAdI edit to suit
 CJS regresses the legacy services CJS is migrating away from, and the damage shows up far from
 the change.
@@ -100,8 +100,8 @@ discarding it.
 belong in `ZRAK_T_JNY_OPT`, not in `on_value_help`. Write ABAP for things config cannot do:
 payment routing, live BP search, cross-container side effects.
 
-**Migrating a legacy screen? Drive `ZCL_RAK_MIGRATOR`.** It already maps `/QNV/SB_UI_DEFIN`
-control types to CJS field types, builds grid specs and extracts show/hide rules. Hand-written
+**Migrating a legacy screen? Drive `ZCL_RAK_MIGRATOR`.** It already maps the legacy control types
+to CJS field types, builds grid specs and extracts show/hide rules. Hand-written
 `INSERT`s drift from its mapping and duplicate work that is already correct.
 
 **Pass constants, not their names.**
@@ -139,13 +139,13 @@ Binding to an unknown component is legal and raises nothing. The field just rend
 | `ZCL_RAK_JOURNEY_GRID` | Editable tables |
 | `ZCL_RAK_JOURNEY_LOGIC` | Base class for every handler |
 | `ZCL_RAK_CJS` | The Studio |
-| `ZCL_RAK_MIGRATOR` | Legacy `/QNV/` → CJS |
+| `ZCL_RAK_MIGRATOR` | Legacy → CJS |
 
 **Two extension points**
 
 - `ZIF_RAK_JOURNEY_LOGIC` — per-journey business logic (~25 hooks)
 - `ZIF_RAK_JOURNEY_BACKEND` — where the data goes. `ZCL_RAK_BE_FACTORY` picks by
-  `BKND_CATEGORY`; anything it doesn't recognise falls through to the legacy QNV bridge, which is
+  `BKND_CATEGORY`; anything it doesn't recognise falls through to the legacy bridge, which is
   what keeps existing journeys untouched.
 
 ---

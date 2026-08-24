@@ -18,9 +18,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/block_qnv_writes.py\"",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/block_legacy_writes.py\"",
             "timeout": 10,
-            "statusMessage": "Checking against the /QNV/ namespace boundary..."
+            "statusMessage": "Checking against the legacy namespace boundary..."
           },
           {
             "type": "command",

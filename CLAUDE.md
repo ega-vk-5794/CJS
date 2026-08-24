@@ -9,10 +9,11 @@ have already cost time when broken.
 
 ## Namespace boundary
 
-**Never modify anything under `/QNV/`.** It is the legacy backend and must keep behaving exactly
-as it does today — other consumers still depend on it, and a regression there surfaces far from
-the change. Fix on the CJS side instead: handler class, config, or engine. If a defect genuinely
-cannot be fixed CJS-side, say so and stop rather than proposing a `/QNV/` edit.
+**Never modify anything in the legacy namespace.** It is the legacy backend CJS is replacing, and
+it must keep behaving exactly as it does today — other consumers still depend on it, and a
+regression there surfaces far from the change. Fix on the CJS side instead: handler class, config,
+or engine. If a defect genuinely cannot be fixed CJS-side, say so and stop rather than proposing a
+legacy-side edit.
 
 In scope for changes: `ZRAK_*`, `Z2UI5_*`, and the BAdI chain despite it serving the legacy path —
 `ZIF_EGA_FW_CJI`, `ZCL_EGA_CJ_*_ABS`, `ZCL_EGA_CJ_ENH_IMPL_*`, `ZFM_EGA_CJ_FW_*`, `ZEGA_T_CJ_*`.
@@ -50,8 +51,8 @@ These raise nothing and render nothing. They account for most of the bugs found 
 - **A field name not on the journey** — `set_val`/`get_val`/`bind` against it are all legal and
   all do nothing. Check `ZRAK_T_JNY_FLD` before trusting a name.
 - **`type = 'Number'` on a non-numeric value** renders an empty `sap.m.Input`.
-- **A step whose `BKND_SCREEN` has no `/QNV/` rows** renders, validates and posts, and creates
-  nothing. `ZCL_RAK_CJS_XCHECK` exists for this; it runs in the Studio on load and save.
+- **A step whose `BKND_SCREEN` has no legacy configuration rows** renders, validates and posts, and
+  creates nothing. `ZCL_RAK_CJS_XCHECK` exists for this; it runs in the Studio on load and save.
 - **The Arabic column used to be shorter than its English twin** — `ZLABEL_AR` was `CHAR(80)`
   against `ZLABEL`'s `CHAR(150)`, so Arabic truncated on insert while English did not. Every
   EN/AR pair in `ZRAK_T_JNY*` is now the same length, but **only in git**: it is a DDIC widening
@@ -78,7 +79,7 @@ mistake lands rather than relying on this file being read closely:
 | Hook | Event | Enforces |
 | --- | --- | --- |
 | `session_start.py` | SessionStart | Pulls `main`, reprints the short list of rules below |
-| `block_qnv_writes.py` | PreToolUse (Write/Edit/MultiEdit) | The namespace boundary — denies creating/editing a `/QNV/` object |
+| `block_legacy_writes.py` | PreToolUse (Write/Edit/MultiEdit) | The namespace boundary — denies creating/editing a legacy-namespace object |
 | `check_payment_gate.py` | PreToolUse (Write/Edit/MultiEdit) | `ON_CUSTOM_VALIDATE` redefinitions call `super->` before any `CHECK` |
 | `abap_lint.py` | PreToolUse (Write/Edit/MultiEdit) | `INTERFACES zif_rak_journey_logic`, `bind()`/`set_val()`/`get_val()` on a `'C_...'` literal, hand-authored `INSERT`s into `ZRAK_T_JNY*` outside `ZCL_RAK_MIGRATOR` |
 | `protect_abapgit_config.py` | PreToolUse (Write/Edit/MultiEdit) | Asks for confirmation before touching `.abapgit.xml` / `*.devc.xml` |
