@@ -778,11 +778,21 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 *   table offers none.
     DATA(lv_first) = xsdbool( iv_prefix = 'P1_' ).
 
-    DATA(lo_box) = io_view->vbox( class = 'sapUiSmallMarginBottom' ).
-    lo_box->title( text  = COND string( WHEN lv_first = abap_true THEN 'First Party' ELSE 'Second Party' )
-                   class = 'rakBlkTitle' ).
-
     DATA(lt_rows) = party_rows( io_ctx = io_ctx iv_first = lv_first ).
+
+    DATA(lo_box) = io_view->vbox( class = 'sapUiSmallMarginBottom' ).
+    DATA(lo_head) = lo_box->hbox( alignitems = 'Center' class = 'sapUiTinyMarginBottom' ).
+    lo_head->title( text  = COND string( WHEN lv_first = abap_true THEN 'First Party' ELSE 'Second Party' )
+                    class = 'rakBlkTitle' ).
+*   A count badge earns its place here specifically: PARTY1 is capped at one by
+*   ON_CUSTOM_VALIDATE( ), but nothing stops a second add attempt from a citizen
+*   who does not trust the first one took - seeing "1" is the confirmation "No
+*   data" already gives the empty case.
+    IF lt_rows IS NOT INITIAL.
+      lo_head->object_status( text  = |{ lines( lt_rows ) }|
+                              state = 'Success'
+                              class = 'sapUiTinyMarginBegin' ).
+    ENDIF.
 
     IF lt_rows IS INITIAL.
 *     Say which of the two is empty. "No data" on two identical tables one step
@@ -796,19 +806,34 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA(lo_tab) = lo_box->table( ).
+    DATA(lo_tab) = lo_box->table( class = 'rakPartyTable' ).
     DATA(lo_col) = lo_tab->columns( ).
-    lo_col->column( )->text( 'Party Name' ).
+    lo_col->column( width = '40%' )->text( 'Party' ).
     lo_col->column( )->text( 'Mobile Number' ).
     lo_col->column( )->text( 'Nationality' ).
     lo_col->column( halign = 'End' )->text( 'Action' ).
 
     DATA(lo_items) = lo_tab->items( ).
     LOOP AT lt_rows INTO DATA(ls_row).
-      DATA(lo_cells) = lo_items->column_list_item( )->cells( ).
-      lo_cells->text( zcl_rak_journey_util=>esc( ls_row-party_name ) ).
+*     HIGHLIGHT = Success rather than a plain row: this list is read-only proof
+*     that the party is already on the request, not a form still being filled
+*     in, and the accent bar is what says so at a glance across two tables that
+*     otherwise look identical.
+      DATA(lo_li)    = lo_items->column_list_item( highlight = 'Success' ).
+      DATA(lo_cells) = lo_li->cells( ).
+
+*     Name and Emirates ID together, the way a person is actually identified -
+*     not two facts split across a row the eye has to reassemble.
+      DATA(lo_id) = lo_cells->hbox( alignitems = 'Center' ).
+      lo_id->avatar( src         = 'sap-icon://person-placeholder'
+                     displaysize = 'XS'
+                     class       = 'sapUiTinyMarginEnd' ).
+      lo_id->object_identifier( title = zcl_rak_journey_util=>esc( ls_row-party_name )
+                                text  = zcl_rak_journey_util=>esc( ls_row-id_number ) ).
+
       lo_cells->text( zcl_rak_journey_util=>esc( ls_row-mobile ) ).
       lo_cells->text( zcl_rak_journey_util=>esc( ls_row-nationality ) ).
+
       DATA(lo_act) = lo_cells->hbox( justifycontent = 'End' ).
       lo_act->button( icon    = 'sap-icon://display'
                       tooltip = 'View party'
