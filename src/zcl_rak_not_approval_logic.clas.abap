@@ -298,8 +298,22 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   COMMIT_STEP( ) runs this SAME validation for every commit on this step,
+*   Add Party included - it has no way to tell "leaving the step with nothing
+*   on it" from "this exact commit is the one about to post the first party".
+*   Without the second half below, pressing Add Party for the very first time
+*   asked PARTY_ROWS( ) - the live API read - whether the party existed
+*   BEFORE the POST that would have created it ever ran, and refused every
+*   time: the check meant to stop leaving the step empty was also the thing
+*   stopping it from ever not being empty.
+*
+*   P1_PARTNER populated means ADD_PARTY( ) already confirmed a partner is
+*   staged and is about to COMMIT_STEP( ) it - see its own guard, which
+*   refuses to call in without one. So a staged partner is as good as a
+*   posted one for this check: either the party already exists, or this
+*   very commit is what creates it.
     DATA(lt_p1) = party_rows( io_ctx = io_ctx iv_first = abap_true ).
-    IF lt_p1 IS INITIAL.
+    IF lt_p1 IS INITIAL AND io_ctx->get_val( 'P1_PARTNER' ) IS INITIAL.
       rt = VALUE #( BASE rt
         ( type = 'Error' text = 'Add the first party before continuing.' ) ).
     ENDIF.
