@@ -24,9 +24,9 @@
           },
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check_payment_gate.py\"",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check_journey_rules.py\"",
             "timeout": 10,
-            "statusMessage": "Checking the PAID gate on ON_CUSTOM_VALIDATE..."
+            "statusMessage": "Checking the journey's case/draft identity and PAID gate..."
           },
           {
             "type": "command",

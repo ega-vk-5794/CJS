@@ -42,6 +42,36 @@ rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx = io_ctx iv_step = 
 It must come **before** any `CHECK` (a failing `CHECK` exits the method), and if you then assign
 `rt`, use `rt = VALUE #( BASE rt ( … ) )` so you extend rather than discard.
 
+## Journey identity — case, draft, payment
+
+The engine's live case/draft guid (`io_ctx->get_case( )`) is the **one identity that threads a
+journey through draft saves, payment, and every backend post across round trips.** It is not a
+model field, and it may not exist yet — it can be created mid-journey by a draft save. Handler
+code must always read it through `get_case( )`, never invent or cache an id of its own, or a
+resumed draft and its payment can silently diverge into two records.
+
+This shows up in several places that all trace back to the same rule:
+
+- **`commit_step( )` carries the guid the engine already holds**, so the backend treats a repeat
+  call as an update, not a duplicate create — that's what makes it safe to call more than once.
+  It exists so a payment handler can create the case lazily, from the citizen's own PAYNOW event,
+  instead of the engine creating one for every abandoned form. **Never call it from
+  `ON_BEFORE_POST` or `ON_BEFORE_TABLES`** — both already run *inside* the post `commit_step( )`
+  triggers, so calling it there re-enters the post it's already inside of.
+- **`advance_step( )` is the move only** — no validation, no post. It exists for the moment right
+  after a payment confirms, not as a general "go to next" for a background poll. It deliberately
+  no-ops on the last step: submitting is the citizen's press, never something a timer decides.
+- **The external-backend handle's `token` rides the serialized engine instance** between round
+  trips; the engine clears it before every serialize so the backend re-acquires it on demand
+  (`zif_rak_journey~get_handle`). Never persist it — writing `-token` to a table or cache breaks
+  the assumption that clearing it before serialize is enough.
+- **`set_reference( )` must be called from `ON_SUBMIT( )`**, after the engine has decided the
+  screen was submitted — call it earlier and it does nothing yet; call it elsewhere and it
+  competes with the engine's own guid/backend-request-id/timestamp fallback chain.
+- **The PAID gate (above) and the case guid are two ends of the same rule.** A case's payment
+  status and its identity must always refer to the same underlying application — never re-derive
+  either independently in handler code.
+
 ## Silent-failure traps
 
 These raise nothing and render nothing. They account for most of the bugs found so far.
@@ -80,8 +110,8 @@ mistake lands rather than relying on this file being read closely:
 | --- | --- | --- |
 | `session_start.py` | SessionStart | Pulls `main`, reprints the short list of rules below |
 | `block_legacy_writes.py` | PreToolUse (Write/Edit/MultiEdit) | The namespace boundary — denies creating/editing a legacy-namespace object |
-| `check_payment_gate.py` | PreToolUse (Write/Edit/MultiEdit) | `ON_CUSTOM_VALIDATE` redefinitions call `super->` before any `CHECK` |
-| `abap_lint.py` | PreToolUse (Write/Edit/MultiEdit) | `INTERFACES zif_rak_journey_logic`, `bind()`/`set_val()`/`get_val()` on a `'C_...'` literal, hand-authored `INSERT`s into `ZRAK_T_JNY*` outside `ZCL_RAK_MIGRATOR` |
+| `check_journey_rules.py` | PreToolUse (Write/Edit/MultiEdit) | `ON_CUSTOM_VALIDATE` redefinitions call `super->` before any `CHECK`; `commit_step( )` is never called from `ON_BEFORE_POST`/`ON_BEFORE_TABLES` |
+| `abap_lint.py` | PreToolUse (Write/Edit/MultiEdit) | `INTERFACES zif_rak_journey_logic`, `bind()`/`set_val()`/`get_val()` on a `'C_...'` literal, hand-authored `INSERT`s into `ZRAK_T_JNY*` outside `ZCL_RAK_MIGRATOR`, persisting a handle's `-token` |
 | `protect_abapgit_config.py` | PreToolUse (Write/Edit/MultiEdit) | Asks for confirmation before touching `.abapgit.xml` / `*.devc.xml` |
 | `check_crlf.py` | PostToolUse (Write/Edit/MultiEdit) | Flags a file under `src/` that lost its CRLF line endings |
 
