@@ -392,7 +392,18 @@ CLASS ZCL_RAK_NOT_APPROVAL_LOGIC IMPLEMENTATION.
 
 
   METHOD request_id.
-    rv = io_ctx->get_val( 'REQUEST_ID' ).
+*   GET_HANDLE( ) first. It is the live backend handle ZCL_RAK_JOURNEY_BE keeps
+*   in sync on every commit - the actual source of truth for a case created just
+*   now, in this session. Nothing ever writes a 'REQUEST_ID' MODEL field: it was
+*   read here on the assumption something did, and on a fresh draft (as opposed
+*   to a resumed one arriving with draftid/caseid) nothing ever has. That gap is
+*   exactly "Add the first party before continuing" on a step whose draft was
+*   created one screen earlier - the request existed, GET_VAL( ) simply never
+*   had anywhere to read it from.
+    rv = io_ctx->get_handle( )-request_id.
+    IF rv IS INITIAL.
+      rv = io_ctx->get_val( 'REQUEST_ID' ).
+    ENDIF.
     IF rv IS INITIAL.
       rv = io_ctx->get_param( 'draftid' ).
     ENDIF.
