@@ -919,7 +919,11 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD val_get.
-    DATA(lv_key) = to_upper( condense( iv_name ) ).
+*   COMP_NAME( ), not a bare TO_UPPER( ). See the note on BUILD_MODEL( ): a field
+*   name is free text on ZRAK_T_JNY_FLD, and the model component it built for
+*   this same name went through COMP_NAME( ) - VAL_SET( ) has to arrive at the
+*   identical key or a field with a sanitised name would read back empty.
+    DATA(lv_key) = zcl_rak_journey_util=>comp_name( iv_name ).
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mr_model->* TO <model>.
     ASSIGN COMPONENT lv_key OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
@@ -962,7 +966,8 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD val_set.
-    DATA(lv_key) = to_upper( condense( iv_name ) ).
+*   Same key VAL_GET( ) computes - see the note there.
+    DATA(lv_key) = zcl_rak_journey_util=>comp_name( iv_name ).
     IF lv_key IS INITIAL.
       RETURN.
     ENDIF.
@@ -2118,7 +2123,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
-    ASSIGN COMPONENT to_upper( ls_fld-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_fld-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.

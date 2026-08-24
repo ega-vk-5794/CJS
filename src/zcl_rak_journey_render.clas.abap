@@ -118,9 +118,13 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
 
   METHOD bind_of.
+*   COMP_NAME( ), matching VAL_GET( )/VAL_SET( )/BUILD_MODEL( ) - see the note on
+*   BUILD_MODEL( ). A bare TO_UPPER( ) here would try to bind a control straight
+*   to a component name the model never has, on any field whose name needed
+*   sanitising - CX_SY_STRUCT_COMP_NAME, uncaught, on the first render.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
     IF sy-subrc = 0.
       rv_bind = mo_e->mo_client->_bind_edit( <f> ).
     ENDIF.
@@ -128,9 +132,10 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
 
   METHOD bind_state.
+*   Same key BIND_OF( ) computes - see the note there.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
     IF sy-subrc = 0.
       rv = mo_e->mo_client->_bind( <f> ).
     ENDIF.
