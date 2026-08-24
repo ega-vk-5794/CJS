@@ -328,28 +328,41 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
 *   so an initial one is safe and this is callable from outside Gateway at all.
     DATA lo_ctx TYPE REF TO /iwbep/if_mgw_req_entityset.
 
+*   NO_MOI_CALL wins over CALL_MOI. Computed here, ahead of the EId filter below,
+*   because it decides the EId's format too - not only the CallMoi filter's value.
+*   One says "call it", the other "never call it", and a caller that sets both
+*   meant the second - suppressing a write is not a thing to get wrong by
+*   precedence.
+    DATA(lv_moi) = COND string( WHEN is_req-call_moi = abap_true
+                                 AND is_req-no_moi_call = abap_false THEN 'X' ELSE '' ).
+
 *   The property names have to be the OData ones EXACTLY - 'EId' and not 'EID'.
 *   BP_QUERY MOVE-CORRESPONDINGs each SELECT_OPTIONS row onto a BOPF selection
 *   parameter and takes ATTRIBUTE_NAME straight from PROPERTY, then looks its own
 *   EId back up under that spelling.
-*   HYPHENS COME OFF HERE, and this is the fix for the dump.
+*   HYPHENS COME OFF ONLY WHEN MOI IS ACTUALLY GOING TO BE CALLED.
 *
 *   A citizen types the Emirates ID the way it is printed on the card,
 *   784-1987-8624392-7, because the form asked for an Emirates ID and that is what
-*   one looks like. Everything below this line wants the fifteen digits: the value
-*   goes into the BOPF selection parameter as typed, and the MOI call behind
-*   BP_QUERY takes it into a numeric field. A hyphen there is not a search that
-*   finds nothing - it is a short dump, in front of the citizen, on a screen that
-*   had accepted the input without complaint.
+*   one looks like. The MOI call behind BP_QUERY takes the EId into a numeric
+*   field, and a hyphen there is not a search that finds nothing - it is a short
+*   dump, in front of the citizen, on a screen that had accepted the input without
+*   complaint. That is the one place a hyphen is dangerous, and it only happens
+*   when MOI actually runs.
 *
-*   Normalising here rather than in the popup covers every caller at once,
-*   including the two that build a TY_REQ by hand. Both formats now work and
-*   neither is preferred, which is the whole request: nobody should have to know
-*   which one this expects.
+*   BUT0ID holds the Emirates ID dashed, as typed - confirmed directly against
+*   /sap/opu/odata/sap/ZEGA_BP_SRV/BusinessPartnerSet?$filter=(EId eq
+*   '784-1988-2718131-8'), which finds the row, against the same search stripped
+*   to digits, which does not. Stripping unconditionally traded a real crash for a
+*   silent "No data found" on every no-MOI search - Notary's, since the CallMoi
+*   fix above - because the value sent no longer matched what BOPF actually holds.
+*   So it comes off only when MOI is going to see it; every other search sends the
+*   EId exactly as the citizen typed it, dashes included.
 *
 *   Guarded by IS_EID_TYPE. TY_REQ-EID also carries passport and unified numbers,
 *   whose hyphens may be part of the number - see the note on that method.
     DATA(lv_eid_flt) = COND string( WHEN is_eid_type( is_req-idtype ) = abap_true
+                                    AND lv_moi = 'X'
                                     THEN norm_eid( is_req-eid )
                                     ELSE is_req-eid ).
     add_flt( EXPORTING iv_prop   = 'EId'
@@ -375,11 +388,7 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
                        iv_val    = is_req-flag
              CHANGING  ct_filter = lt_filter ).
 
-*   NO_MOI_CALL wins over CALL_MOI. One says "call it", the other "never call it",
-*   and a caller that sets both meant the second - suppressing a write is not a
-*   thing to get wrong by precedence.
-    DATA(lv_moi) = COND string( WHEN is_req-call_moi = abap_true
-                                 AND is_req-no_moi_call = abap_false THEN 'X' ELSE '' ).
+*   LV_MOI was computed above, ahead of the EId filter - see the note there.
     add_flt( EXPORTING iv_prop   = 'CallMoi'
                        iv_val    = lv_moi
              CHANGING  ct_filter = lt_filter ).
