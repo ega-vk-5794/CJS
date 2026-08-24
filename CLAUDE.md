@@ -111,7 +111,6 @@ mistake lands rather than relying on this file being read closely:
 | `session_start.py` | SessionStart | Pulls `main`, reprints the short list of rules below |
 | `block_legacy_writes.py` | PreToolUse (Write/Edit/MultiEdit) | The namespace boundary — denies creating/editing a legacy-namespace object |
 | `check_journey_rules.py` | PreToolUse (Write/Edit/MultiEdit) | `ON_CUSTOM_VALIDATE` redefinitions call `super->` before any `CHECK`; `commit_step( )` is never called from `ON_BEFORE_POST`/`ON_BEFORE_TABLES` |
-| `abap_lint.py` | PreToolUse (Write/Edit/MultiEdit) | `INTERFACES zif_rak_journey_logic`, `bind()`/`set_val()`/`get_val()` on a `'C_...'` literal, hand-authored `INSERT`s into `ZRAK_T_JNY*` outside `ZCL_RAK_MIGRATOR`, persisting a handle's `-token` |
 | `protect_abapgit_config.py` | PreToolUse (Write/Edit/MultiEdit) | Asks for confirmation before touching `.abapgit.xml` / `*.devc.xml` |
 | `check_crlf.py` | PostToolUse (Write/Edit/MultiEdit) | Flags a file under `src/` that lost its CRLF line endings |
 
