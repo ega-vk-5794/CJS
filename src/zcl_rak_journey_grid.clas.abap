@@ -248,8 +248,12 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *     and turning the column back on is a one-word edit.
       DATA(lv_up) = to_upper( lv_tt ).
       DATA(lv_hid) = xsdbool( lv_up = 'HIDE' OR lv_up = 'HIDDEN' ).
+*     COMP_NAME( ), matching COL_ROWS_OF( ) - see the note there. This is the
+*     older, packed DEFAULT_VAL path for a grid not yet migrated to
+*     ZRAK_T_JNY_COL, but it feeds the identical CL_ABAP_STRUCTDESCR=>CREATE( )
+*     in BUILD_MODEL( ), so a hyphen here dumps exactly the same way.
       APPEND VALUE #(
-        name  = to_upper( lv_nn )
+        name  = zcl_rak_journey_util=>comp_name( lv_nn )
         label = COND #( WHEN lv_ll IS NOT INITIAL THEN lv_ll ELSE lv_nn )
         ctype = COND #( WHEN lv_hid = abap_true    THEN 'INPUT'
                         WHEN lv_up  IS NOT INITIAL THEN lv_up
@@ -284,8 +288,19 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       ORDER BY seqnr.
 
     LOOP AT lt_col INTO DATA(ls_col).
+*     COMP_NAME( ), not a bare TO_UPPER( ). COL_NAME is free text on
+*     ZRAK_T_JNY_COL's own column editor - nothing stops a hyphen there either,
+*     and this is the actual site: BUILD_MODEL( )'s inner row/column structure
+*     (CL_ABAP_STRUCTDESCR=>CREATE( LT_ROWCOMP )) is built from exactly this
+*     NAME, so a column called REVIEW-GRID raised CX_SY_STRUCT_COMP_NAME here,
+*     not from the field name COMP_NAME( ) already protects in BUILD_MODEL( ).
+*     Confirmed live: the exception object's own COMPONENT_NAME was 'REVIEW-GRID',
+*     under CX_SY_STRUCT_CREATION - a structure TYPE creation, which only the
+*     two CL_ABAP_STRUCTDESCR=>CREATE( ) calls in BUILD_MODEL( ) can raise; the
+*     outer one was already sanitised, so this - the inner one, fed by this
+*     method - was the one still open.
       APPEND VALUE #(
-        name     = to_upper( ls_col-col_name )
+        name     = zcl_rak_journey_util=>comp_name( ls_col-col_name )
         label    = COND #( WHEN ls_col-zlabel IS NOT INITIAL THEN ls_col-zlabel ELSE ls_col-col_name )
         label_ar = ls_col-zlabel_ar
         ctype    = COND #( WHEN ls_col-ctrl IS NOT INITIAL THEN to_upper( ls_col-ctrl ) ELSE 'INPUT' )
