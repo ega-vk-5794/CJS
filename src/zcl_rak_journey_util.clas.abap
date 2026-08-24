@@ -35,8 +35,14 @@ CLASS zcl_rak_journey_util DEFINITION
 *   characters once its companions are appended, raises CX_SY_STRUCT_COMP_NAME
 *   uncaught - the whole Studio preview or app dies with "UNCAUGHT EXCEPTION -
 *   Please Restart App" for every journey, not only the one field at fault.
-    CLASS-METHODS comp_name IMPORTING iv_key    TYPE string
-                             RETURNING VALUE(rv) TYPE string.
+*   VALUE( ), not plain IMPORTING. A method's IMPORTING parameter is passed BY
+*   REFERENCE by default, and by reference demands type COMPATIBILITY - so a
+*   DDIC character field (ZRAK_T_JNY_COL-COL_NAME, ZRAK_T_JNY_FLD-NAME, and
+*   every other config column this is called with) cannot be handed to a TYPE
+*   string parameter at all: "is not type-compatible with formal parameter".
+*   VALUE( ) passes by value, which converts.
+    CLASS-METHODS comp_name IMPORTING VALUE(iv_key) TYPE string
+                             RETURNING VALUE(rv)     TYPE string.
 
 ENDCLASS.
 
