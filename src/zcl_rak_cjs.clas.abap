@@ -2274,8 +2274,14 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(of) = f->combobox( selectedkey = mo_client->_bind_edit( ov_field )
                             change      = mo_client->_event( 'OPTFLD' ) ).
     of->item( key = '' text = '' ).
-    LOOP AT mt_fields INTO DATA(ls_of)
-         WHERE step_id = ov_step OR ( ov_step IS INITIAL ).
+*   The step test is an IF and not part of the WHERE, deliberately: in a
+*   LOOP AT ... WHERE the left operand of every comparison is resolved as a
+*   COLUMN of the table line, so 'ov_step IS INITIAL' there sends ABAP looking
+*   for a component called OV_STEP and the class will not activate.
+    LOOP AT mt_fields INTO DATA(ls_of).
+      IF ov_step IS NOT INITIAL AND ls_of-step_id <> ov_step.
+        CONTINUE.
+      ENDIF.
       of->item( key = ls_of-field_name text = |{ ls_of-field_name } ({ ls_of-ftype })| ).
     ENDLOOP.
     f->label( 'Seq' ).        f->input( value = mo_client->_bind_edit( ov_seq ) placeholder = 'blank = auto' ).
@@ -2352,9 +2358,13 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(cf) = f->combobox( selectedkey = mo_client->_bind_edit( cv_field )
                             change      = mo_client->_event( 'COLFLD' ) ).
     cf->item( key = '' text = '' ).
+*   Same reason as the Options list above - the step test cannot live in the
+*   WHERE. The ftype test can, and does.
     LOOP AT mt_fields INTO DATA(ls_cf)
-         WHERE ( step_id = cv_step OR ( cv_step IS INITIAL ) )
-           AND ( ftype = 'EDITABLE_TABLE' OR ftype = 'TABLE' ).
+         WHERE ftype = 'EDITABLE_TABLE' OR ftype = 'TABLE'.
+      IF cv_step IS NOT INITIAL AND ls_cf-step_id <> cv_step.
+        CONTINUE.
+      ENDIF.
       cf->item( key = ls_cf-field_name text = |{ ls_cf-field_name } ({ ls_cf-ftype })| ).
     ENDLOOP.
     f->label( 'Seq' ).           f->input( value = mo_client->_bind_edit( cv_seq ) placeholder = 'blank = auto' ).
