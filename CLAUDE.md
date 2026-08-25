@@ -97,6 +97,12 @@ These raise nothing and render nothing. They account for most of the bugs found 
   `_VST`, `_IDTYPE`, `_NAME`, `_IX` and `_EXP` companions on the same name. Any runtime field name
   (a Notary blueprint `jsonKey`) must go through `ZCL_RAK_JOURNEY_UTIL=>COMP_NAME( )`, never plain
   `to_upper( )`.
+- **A DDIC-typed field will not bind to a `TYPE string` formal parameter.** Methods here take
+  their parameters *by reference*, and by-reference binding demands type compatibility. A
+  character **literal** is fine — `iv_rule = 'X13'` — which is what makes this easy to miss,
+  but `iv_step = ls_f-step_id` where `STEP_ID` is `ZRAK_JOURNEY_STEP` is a syntax error, and a
+  syntax error in one method takes the **whole class** down at load. Wrap it: `CONV #( … )` or
+  `|{ … }|`. This dumped `ZCL_RAK_CJS_XCHECK` once already.
 - **The Arabic column used to be shorter than its English twin** — `ZLABEL_AR` was `CHAR(80)`
   against `ZLABEL`'s `CHAR(150)`, so Arabic truncated on insert while English did not. Every
   EN/AR pair in `ZRAK_T_JNY*` is now the same length, but **only in git**: it is a DDIC widening
@@ -121,6 +127,13 @@ These raise nothing and render nothing. They account for most of the bugs found 
   hidden in the renderer: a hidden button is not an unreachable event. There is **no native
   draft store yet**, so `NATIVE` on a journey with no backend reports an error rather than a
   false success.
+- **Layout is per element in `ZRAK_CJ_LAY`, edited in the Studio's Design tab.** Row, column
+  and span come from the twelve-column grid; `FLOW` makes one cell lay its contents left to
+  right, which is how a handler's search or ADD button ends up *beside* its field instead of
+  under it — a cell is a `vbox`, so `AFTER_FIELD( )` content always stacks otherwise. `FLOW`
+  is not `INLINE`: `INLINE` decides which **row** a cell lands on, `FLOW` the direction
+  **inside** one cell. `PERSIST( )` does a full `MODIFY`, so anything writing an attribute must
+  `RESOLVE( )` first and overwrite only its own fields, or it blanks the rest.
 - **Config before code.** Show/hide belongs in `ZRAK_T_JNY_RULE`, options in `ZRAK_T_JNY_OPT`.
   Write ABAP for payment routing, live BP search, cross-container side effects.
 - **Migrating a legacy screen?** Drive `ZCL_RAK_MIGRATOR`. Do not hand-author `ZRAK_T_JNY*`
@@ -142,6 +155,12 @@ mistake lands rather than relying on this file being read closely:
 | `check_journey_rules.py` | PreToolUse (Write/Edit/MultiEdit) | `ON_CUSTOM_VALIDATE` redefinitions call `super->` before any `CHECK`; `commit_step( )` is never called from `ON_BEFORE_POST`/`ON_BEFORE_TABLES` |
 | `protect_abapgit_config.py` | PreToolUse (Write/Edit/MultiEdit) | Asks for confirmation before touching `.abapgit.xml` / `*.devc.xml` |
 | `check_crlf.py` | PostToolUse (Write/Edit/MultiEdit) | Flags a file under `src/` that lost its CRLF line endings |
+
+> **They are not running on this machine.** Every hook shells out to `python3`, which here
+> resolves to the Windows Store alias stub: it prints an install message and **exits 0**, so
+> every check silently passes. Verify with `echo '{}' | python3 .claude/hooks/check_crlf.py`
+> before trusting anything below. Until a real Python is on PATH, the CRLF rule and the
+> namespace boundary are conventions you enforce by hand, not guardrails.
 
 These are static, regex-based checks on the text being written — they catch the shape of a
 known mistake, not everything semantically wrong. They deny/ask before the tool call, except
@@ -191,6 +210,19 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
 
 ## Open items
 
+- **Two DDIC changes are in git but not necessarily in SAP**: `ZRAK_T_JNY` gained
+  `DRAFT_MODE` / `ATTACH_MODE`, `ZRAK_CJ_LAY` gained `FLOW`. Both need activation **and a table
+  adjust** before the code reading them behaves.
+- `ZRAK_CJ_ATT_PURGE` **has never been run.** Nothing has ever purged `ZRAK_CJ_ATTX`, so every
+  file staged against an abandoned journey is still there with its content and its uploader.
+  Test run is the default; schedule it once the retention days are agreed.
+- **EC01's declaration is half reconstructed.** Everything after "…held responsible for" was
+  written in `ZCL_RAK_TEXT=>LONG_TEXTS( )` because `ZLABEL` truncated the original at 150
+  characters and it exists nowhere else. It is the most conservative ending available and is
+  flagged in capitals at the method. **Needs sign-off from whoever owns the wording.**
+- Four draft hooks are declared but not called: `GET_DRAFTS`, `ON_DRAFT_LOAD`,
+  `ON_DRAFT_DISCARD`, `ON_ARCHIVE`. There is no CJS-side draft store behind them, which is why
+  a derived `DRAFT_MODE` is `OFF` rather than `NATIVE` when no backend will hold the draft.
 - Studio auth check is bypassed (`ZCL_RAK_CJS->AUTH_OK` returns early) — accepted in dev,
   **must be restored before production**.
 - E018 `own_form_save` and `render_chem_details` disagree on grid row layout; Edit/Delete raise

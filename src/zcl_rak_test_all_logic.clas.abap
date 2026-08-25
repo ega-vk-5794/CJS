@@ -1349,7 +1349,7 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~draft_mode.
-*   RESERVED - the engine does not call this yet.
+*   LIVE - the engine calls this from RESOLVE_DRAFT_MODE( ).
 *
 *   NATIVE: this journey has no backend that drafts, so CJS stages the model
 *   itself. A journey on the /QNV/ bridge would answer DELEGATE and let
@@ -1360,7 +1360,7 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~attach_mode.
-*   RESERVED - the engine does not call this yet.
+*   LIVE - the engine calls this from RESOLVE_ATTACH_MODE( ).
 *
 *   Answered separately from DRAFT_MODE( ) on purpose: the common shape while
 *   a backend has no file endpoint is a delegated draft whose files still sit
@@ -1411,7 +1411,7 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_draft_save.
-*   RESERVED - the engine does not call this yet.
+*   LIVE - HANDLE_SAVE( ) calls this, and an Error refuses the save.
 *
 *   Unlike ON_SAVE( ), this one can refuse: a message of type 'Error' keeps
 *   the citizen on the page and nothing is written. Used here to make the
@@ -1455,7 +1455,7 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~retention.
-*   RESERVED - the engine does not call this yet.
+*   LIVE - the ZRAK_CJ_ATT_PURGE report calls this.
 *
 *   Runs from housekeeping. IO_CTX arrives UNBOUND: no model, no user, no
 *   journey. Nothing in this method may read it.

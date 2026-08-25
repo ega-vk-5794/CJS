@@ -133,10 +133,26 @@ INTERFACE zif_rak_journey_logic
   " ==========================================================================
   " DRAFT FEATURES
   "
-  " RESERVED - none of these is called by the engine yet, in the same sense
-  " as GET_ATTACHMENTS( ) above. They are the seam, declared first so that
-  " handlers and the engine can be moved onto it one journey at a time
-  " instead of in one activation.
+  " WHAT IS LIVE, AND WHAT IS STILL A SEAM. Keep this list honest - a hook
+  " documented as wired that is not is worse than silence, because a handler
+  " will redefine it and then wait for a call that never comes.
+  "
+  "   DRAFT_MODE       LIVE - ENGINE->RESOLVE_DRAFT_MODE( )
+  "   ATTACH_MODE      LIVE - ENGINE->RESOLVE_ATTACH_MODE( )
+  "   ON_DRAFT_SAVE    LIVE - HANDLE_SAVE( ), and it can refuse the save
+  "   RETENTION        LIVE - the ZRAK_CJ_ATT_PURGE report, io_ctx UNBOUND
+  "
+  "   GET_DRAFTS       seam - nothing calls it. There is no UI that lists
+  "                    drafts and no native store behind it.
+  "   ON_DRAFT_LOAD    seam - resume does not run it yet.
+  "   ON_DRAFT_DISCARD seam - HANDLE_DELETE( ) does not run it yet.
+  "   ON_ARCHIVE       seam - the purge report reads RETENTION( ) and reports
+  "                    an ARCHIVE policy, but cannot act on one: there is no
+  "                    draft store to archive from.
+  "
+  " The seams are declared in the same sense as GET_ATTACHMENTS( ) above, so
+  " handlers and the engine can move onto them one journey at a time rather
+  " than in one activation.
   "
   " The rule they encode: an unfinished application, and the files hanging
   " off it, are persisted by EITHER the backend OR CJS, per journey, and the
