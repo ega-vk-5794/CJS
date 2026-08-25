@@ -53,6 +53,29 @@ CLASS zcl_rak_journey_render DEFINITION
 
     METHODS render_result IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view
                                     is_field  TYPE zif_rak_journey=>ty_field.
+*   THE 150-CHARACTER CEILING, AND THE WAY ROUND IT.
+*
+*   ZLABEL is CHAR(150). A consent declaration is not 150 characters, so it
+*   arrives cut mid-sentence - and cut on INSERT, in the database, which is
+*   why no amount of wrapping or CSS in the renderer brings the rest back.
+*   EC01's certification lands at exactly 150, ending "...responsible for".
+*
+*   DEFAULT_VAL is CHAR(1000) and already carries prefixed instructions
+*   rather than plain values - see the CHK: convention in the engine's
+*   ROWCHK_ handler. TEXT: is the same idea for long field text:
+*
+*     TEXT:I hereby certify that ...        the paragraph, literally
+*     TEXT:@042                             message 042 from ZRAK_T_CJ_TXT
+*
+*   The @ form is the one to reach for when the text must be bilingual.
+*   DEFAULT_VAL has no _AR twin, so a literal paragraph is language-neutral
+*   and will show its English to an Arabic reader; ZRAK_T_CJ_TXT holds
+*   TEXT_EN and TEXT_AR and is resolved by sy-langu, at CHAR(255) each.
+*
+*   Returns the ordinary label when no TEXT: is present, so every journey
+*   configured before this existed renders exactly as it did.
+    METHODS long_text IMPORTING is_field       TYPE zif_rak_journey=>ty_field
+                     RETURNING VALUE(rv_text) TYPE string.
     METHODS req_label   IMPORTING io_form  TYPE REF TO z2ui5_cl_xml_view
                                   is_field TYPE zif_rak_journey=>ty_field.
     METHODS before_field IMPORTING io_view  TYPE REF TO z2ui5_cl_xml_view
@@ -1112,11 +1135,19 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
     IF mo_e->ms_config-theme-show_actions = abap_true AND mo_e->mv_submitted = abap_false.
       DATA(lo_r) = lo_top->hbox( ).
-      lo_r->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-save_draft iv_default = 'Save as Draft' )
-                    icon  = 'sap-icon://save'
-                    type  = 'Transparent'
-                    class = 'sapUiSmallMarginBegin'
-                    press = mo_e->btn_evt( 'SAVE' ) ).
+*     Save-as-Draft is gated separately from SHOW_ACTIONS, which is
+*     all-or-nothing and also carries Delete. A journey that keeps no drafts
+*     still wants a Delete button, so the two cannot share a switch.
+*
+*     This only hides the control. HANDLE_SAVE( ) refuses the event as well,
+*     because a hidden button is not an unreachable one.
+      IF mo_e->resolve_draft_mode( ) <> zif_rak_journey=>c_mode-off.
+        lo_r->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-save_draft iv_default = 'Save as Draft' )
+                      icon  = 'sap-icon://save'
+                      type  = 'Transparent'
+                      class = 'sapUiSmallMarginBegin'
+                      press = mo_e->btn_evt( 'SAVE' ) ).
+      ENDIF.
       lo_r->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-delete iv_default = 'Delete' )
                     icon  = 'sap-icon://delete'
                     type  = 'Transparent'
@@ -1485,7 +1516,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           lo_cbx->text( text = `*` class = 'rakReqStar' ).
         ENDIF.
         lo_cbx->checkbox( class    = mo_e->mo_css->cls( 'CHECKBOX' )
-                          text     = zcl_rak_journey_util=>esc( is_field-label )
+                          text     = zcl_rak_journey_util=>esc( long_text( is_field ) )
                           selected = lv_bind
                           editable = lv_edit
                           wrapping = abap_true
@@ -1591,7 +1622,16 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
       WHEN 'DISPLAY'.
         req_label( io_form = io_form is_field = is_field ).
-        io_form->text( text = lv_bind ).
+*       A DISPLAY field has always taken its paragraph from DEFAULT_VAL by
+*       way of the model, which is why it never hit the 150-character
+*       ceiling. TEXT: is accepted here too, so one convention covers both
+*       and a bilingual paragraph can use the @ form; without it, nothing
+*       about the old route changes.
+        IF is_field-default CP 'TEXT:*'.
+          io_form->text( text = long_text( is_field ) ).
+        ELSE.
+          io_form->text( text = lv_bind ).
+        ENDIF.
 
       WHEN 'RESULT'.
         render_result( io_parent = io_form is_field = is_field ).
@@ -2273,6 +2313,43 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     READ TABLE mo_e->ms_config-steps INTO DATA(ls_wl) INDEX mo_e->mv_step + 1.
     render_step( io_parent = lo_main is_step = ls_wl iv_index = mo_e->mv_step ).
     render_footer( io_parent = lo_main iv_linear = abap_true ).
+  ENDMETHOD.
+
+
+  METHOD long_text.
+*   No TEXT: instruction - the field keeps the label it always had.
+    rv_text = is_field-label.
+    IF is_field-default NP 'TEXT:*'.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_body) = substring( val = is_field-default off = 5 ).
+    CONDENSE lv_body.
+    IF lv_body IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    IF lv_body(1) <> '@'.
+*     A literal paragraph. Language-neutral: DEFAULT_VAL has no _AR twin,
+*     so an Arabic reader sees whatever was configured here. Use the @ form
+*     when that matters.
+      rv_text = lv_body.
+      RETURN.
+    ENDIF.
+
+*   TEXT:@nnn - a message number in ZRAK_T_CJ_TXT, which does have TEXT_EN
+*   and TEXT_AR and is picked by sy-langu. The label stays as the fallback,
+*   so a number that resolves to nothing shows the truncated text rather
+*   than an empty consent statement with a tick box beside it.
+    DATA(lv_no) = substring( val = lv_body off = 1 ).
+    CONDENSE lv_no.
+    TRY.
+        rv_text = zcl_rak_text=>get( iv_no      = CONV symsgno( lv_no )
+                                     iv_default = is_field-label
+                                     iv_journey = mo_e->ms_config-journey_id ).
+      CATCH cx_root.
+        rv_text = is_field-label.
+    ENDTRY.
   ENDMETHOD.
 
 

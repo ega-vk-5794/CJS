@@ -130,6 +130,18 @@ CLASS zcl_rak_journey_engine DEFINITION
 
     METHODS handle_next.
     METHODS handle_submit.
+*   WHO OWNS THE DRAFT, AND WHO OWNS THE FILES.
+*
+*   Both resolve the same way: what the handler says, else what the journey
+*   is configured to say, else what the backend makes true. Handler first
+*   because only code can decide a mode that changes mid-journey; config
+*   next because a switch a consultant can throw beats one that needs a
+*   transport; derivation last, so a journey that says nothing still gets a
+*   sane answer rather than the accident of which backend it sits on.
+*
+*   See ZIF_RAK_JOURNEY=>C_MODE.
+    METHODS resolve_draft_mode  RETURNING VALUE(rv_mode) TYPE string.
+    METHODS resolve_attach_mode RETURNING VALUE(rv_mode) TYPE string.
     METHODS handle_save.
     METHODS handle_delete.
     METHODS bp_search.
@@ -648,7 +660,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     LOOP AT ms_config-steps INTO DATA(ls_step).
       LOOP AT ls_step-fields INTO DATA(ls_field).
+*       A TEXT: default is the field's wording, never its value.
+*
+*       This guard is the whole reason TEXT: is safe on a CHECKBOX. Seed a
+*       consent paragraph as the checkbox's value and the box renders ticked
+*       and satisfies its own required check - the citizen consents to the
+*       declaration by loading the page, and nothing anywhere says so.
         IF ls_field-default IS NOT INITIAL
+           AND ls_field-default NP 'TEXT:*'
            AND ls_field-type <> 'LINK'
            AND ls_field-type <> 'EDITABLE_TABLE'
            AND ls_field-type <> 'RO_PANEL'
@@ -1194,12 +1213,139 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD resolve_draft_mode.
+*   1. The handler, if it has an opinion.
+    IF mo_logic IS BOUND.
+      TRY.
+          rv_mode = to_upper( mo_logic->draft_mode( me ) ).
+        CATCH cx_root.
+          CLEAR rv_mode.
+      ENDTRY.
+      IF rv_mode IS NOT INITIAL.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+*   2. The journey configuration.
+    rv_mode = ms_config-draft_mode.
+    IF rv_mode IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+
+*   3. Derived - and this is the rule worth reading.
+*
+*   A backend that creates and re-opens the case IS the draft. Keeping a
+*   second copy on the CJS side would mean two records of the same
+*   unfinished application, diverging from the moment the citizen resumes
+*   one of them, with nothing to say which is authoritative. So whenever
+*   something downstream will hold it, CJS delegates and holds nothing.
+    IF mo_backend IS BOUND AND mo_backend->capabilities( )-resumable = abap_true.
+      rv_mode = zif_rak_journey=>c_mode-delegate.
+      RETURN.
+    ENDIF.
+    IF mo_bridge IS BOUND.
+*     The /QNV/ route: SAVE_DRAFT goes out as its own post and comes back
+*     through the draftid launch parameter. Delegation, and it predates all
+*     of this.
+      rv_mode = zif_rak_journey=>c_mode-delegate.
+      RETURN.
+    ENDIF.
+
+*   And the honest answer when nothing downstream will hold it: OFF, not
+*   NATIVE. There is no CJS-side draft store - ZRAK_T_BE_LOC belongs to the
+*   LOCAL backend, not to the engine - so NATIVE has nowhere to write.
+*   HANDLE_SAVE( ) has been answering this case with "No backend is
+*   configured for this journey - nothing was saved" for as long as it has
+*   existed; OFF is the same fact, told before the citizen presses the
+*   button rather than after.
+    rv_mode = zif_rak_journey=>c_mode-off.
+  ENDMETHOD.
+
+
+  METHOD resolve_attach_mode.
+    IF mo_logic IS BOUND.
+      TRY.
+          rv_mode = to_upper( mo_logic->attach_mode( me ) ).
+        CATCH cx_root.
+          CLEAR rv_mode.
+      ENDTRY.
+      IF rv_mode IS NOT INITIAL.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+    rv_mode = ms_config-attach_mode.
+    IF rv_mode IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+
+*   Derived, and deliberately NOT the same test as the draft.
+*
+*   A backend that owns the case does not necessarily accept files - which
+*   is exactly why TY_CAP carries ATTACHMENTS separately from RESUMABLE.
+*   Asking "has a case been created?" would delegate uploads to a backend
+*   with nowhere to put them, and the file would vanish between the chip
+*   disappearing and the case having no document.
+    IF mo_backend IS BOUND AND mo_backend->capabilities( )-attachments = abap_true.
+      rv_mode = zif_rak_journey=>c_mode-delegate.
+      RETURN.
+    ENDIF.
+
+*   Everything else stages in ZRAK_CJ_ATTX and is handed over at submit,
+*   which is what every journey does today. Unlike the draft, this native
+*   store is real, so NATIVE is a working answer rather than an aspiration.
+    rv_mode = zif_rak_journey=>c_mode-native.
+  ENDMETHOD.
+
+
   METHOD handle_save.
+*   OFF is refused here rather than only in the renderer. Hiding the button
+*   does not make BTN_EVT( 'SAVE' ) unreachable - the event still arrives
+*   from a stale page, a resubmitted round trip, or anything that posts the
+*   id - and a journey configured not to keep drafts must not keep one
+*   because of where the check was put.
+    DATA(lv_mode) = resolve_draft_mode( ).
+    IF lv_mode = zif_rak_journey=>c_mode-off.
+      APPEND VALUE #( type = 'Warning'
+        text = 'This service does not keep drafts. Complete the application to submit it.' )
+        TO mt_msg.
+      RETURN.
+    ENDIF.
+
     IF mo_logic IS BOUND.
       TRY.
           mo_logic->on_save( me ).
         CATCH cx_root.
       ENDTRY.
+
+*     ON_DRAFT_SAVE( ) can refuse, which ON_SAVE( ) cannot: its exceptions
+*     are swallowed above, deliberately, and it has no return value. An
+*     Error here stops the write and leaves the citizen on the page.
+      TRY.
+          DATA(lt_dmsg) = mo_logic->on_draft_save( io_ctx      = me
+                                                   iv_draft_id = mv_case_guid ).
+        CATCH cx_root INTO DATA(lx_ds).
+          lt_dmsg = VALUE #( ( type = 'Error'
+            text = |Draft refused: { lx_ds->get_text( ) }| ) ).
+      ENDTRY.
+      IF lt_dmsg IS NOT INITIAL.
+        mt_msg = VALUE #( BASE mt_msg ( LINES OF lt_dmsg ) ).
+        READ TABLE lt_dmsg WITH KEY type = 'Error' TRANSPORTING NO FIELDS.
+        IF sy-subrc = 0.
+          RETURN.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+
+*   NATIVE has no store to write to. Say so, rather than reporting a
+*   success for a draft that exists nowhere - the engine has no CJS-side
+*   draft table, and ZRAK_T_BE_LOC belongs to the LOCAL backend.
+    IF lv_mode = zif_rak_journey=>c_mode-native
+       AND mo_backend IS NOT BOUND AND mo_bridge IS NOT BOUND.
+      APPEND VALUE #( type = 'Error'
+        text = 'DRAFT_MODE is NATIVE but CJS has no draft store yet - nothing was saved.' )
+        TO mt_msg.
+      RETURN.
     ENDIF.
 
     IF mo_backend IS BOUND.

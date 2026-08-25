@@ -49,6 +49,7 @@ CLASS zcl_rak_cjs_xcheck DEFINITION
     CLASS-METHODS x08_status_carrier.
     CLASS-METHODS x09_grid_contract.
     CLASS-METHODS x10_next_requires.
+    CLASS-METHODS x13_label_truncated.
 ENDCLASS.
 
 
@@ -99,6 +100,7 @@ CLASS ZCL_RAK_CJS_XCHECK IMPLEMENTATION.
     x06_pay_screen( ).
     x08_status_carrier( ).
     x10_next_requires( ).
+    x13_label_truncated( ).
 
     IF gt_msg IS INITIAL.
       add( iv_sev  = 'I'
@@ -519,6 +521,50 @@ CLASS ZCL_RAK_CJS_XCHECK IMPLEMENTATION.
              iv_text = |NEXT_REQUIRES names { ls_step-next_requires }, which is not a field on | &&
                        |this step. The gate fails open - the button behaves as if it were | &&
                        |blank - so the step has no gate at all.| ).
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD x13_label_truncated.
+*   A label that is EXACTLY at its column width was almost certainly cut on
+*   insert rather than written that length. ZLABEL is CHAR(150), ZLABEL_AR
+*   the same since the widening, and the giveaway is that the text stops
+*   mid-sentence: EC01's certification ends "...held responsible for".
+*
+*   Nothing raises for this. The row inserts, the field renders, and the
+*   citizen ticks a consent statement whose second half nobody has read -
+*   which is worse than an error, because it looks like it worked.
+*
+*   The fix is the TEXT: convention on DEFAULT_VAL (CHAR 1000), read by
+*   ZCL_RAK_JOURNEY_RENDER->LONG_TEXT( ). This only reports; a label that is
+*   genuinely 150 characters long and complete is a false positive, and
+*   saying so costs a glance where missing a cut declaration costs more.
+    CONSTANTS lc_label_len TYPE i VALUE 150.
+
+    LOOP AT gt_fld INTO DATA(ls_f).
+      IF ls_f-default_val CP 'TEXT:*'.
+*       Already on the long-text route - the label is a fallback, not the
+*       text anyone reads.
+        CONTINUE.
+      ENDIF.
+
+      IF strlen( ls_f-zlabel ) >= lc_label_len.
+        add( iv_sev  = COND #( WHEN to_upper( ls_f-ftype ) = 'CHECKBOX' THEN 'E' ELSE 'W' )
+             iv_rule = 'X13'
+             iv_step = ls_f-step_id
+             iv_text = |{ ls_f-field_name }: ZLABEL is at the { lc_label_len }-character limit | &&
+                       |and is probably truncated. Move the text to DEFAULT_VAL as | &&
+                       |TEXT:... or TEXT:@nnn.| ).
+      ENDIF.
+
+      IF strlen( ls_f-zlabel_ar ) >= lc_label_len.
+        add( iv_sev  = COND #( WHEN to_upper( ls_f-ftype ) = 'CHECKBOX' THEN 'E' ELSE 'W' )
+             iv_rule = 'X13'
+             iv_step = ls_f-step_id
+             iv_text = |{ ls_f-field_name }: ZLABEL_AR is at the { lc_label_len }-character limit | &&
+                       |and is probably truncated. Use TEXT:@nnn, which resolves | &&
+                       |ZRAK_T_CJ_TXT by sy-langu.| ).
       ENDIF.
     ENDLOOP.
   ENDMETHOD.

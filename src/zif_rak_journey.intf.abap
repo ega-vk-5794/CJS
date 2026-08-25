@@ -116,6 +116,12 @@ INTERFACE zif_rak_journey
       title         TYPE string,
       cj_type       TYPE string,
       handler_class TYPE string,
+*     Who persists an unfinished application, and who persists its files.
+*     ZIF_RAK_JOURNEY=>C_MODE holds the four answers; blank means the engine
+*     derives one from the backend, which is what RESOLVE_DRAFT_MODE( ) and
+*     RESOLVE_ATTACH_MODE( ) do.
+      draft_mode    TYPE string,
+      attach_mode   TYPE string,
       theme         TYPE ty_theme,
       backend       TYPE ty_backend,
       steps         TYPE tt_step,

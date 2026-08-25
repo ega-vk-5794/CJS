@@ -79,6 +79,8 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
     rs_config-title         = pick( iv_en = ls_h-title iv_ar = ls_h-title_ar iv_lang = iv_lang ).
     rs_config-cj_type       = ls_h-cj_type.
     rs_config-handler_class = ls_h-handler_class.
+    rs_config-draft_mode    = to_upper( ls_h-draft_mode ).
+    rs_config-attach_mode   = to_upper( ls_h-attach_mode ).
 
     rs_config-theme = VALUE #(
       variant      = ls_h-theme_variant

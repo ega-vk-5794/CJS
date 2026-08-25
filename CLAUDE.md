@@ -101,11 +101,26 @@ These raise nothing and render nothing. They account for most of the bugs found 
   against `ZLABEL`'s `CHAR(150)`, so Arabic truncated on insert while English did not. Every
   EN/AR pair in `ZRAK_T_JNY*` is now the same length, but **only in git**: it is a DDIC widening
   that needs activation and a table adjust before it is true in SAP.
-  Long consent paragraphs still belong in `DEFAULT_VAL` (`CHAR(1000)`) as a `DISPLAY` field —
-  150 characters is not a paragraph in either language.
+  Long text of any kind — a consent paragraph, a declaration on a checkbox — goes in
+  `DEFAULT_VAL` (`CHAR(1000)`) behind a `TEXT:` prefix, read by
+  `ZCL_RAK_JOURNEY_RENDER->LONG_TEXT( )`. `TEXT:@nnn` resolves `ZRAK_T_CJ_TXT` by `sy-langu`
+  and is the form to use when the text must be bilingual: `DEFAULT_VAL` has no `_AR` twin, so a
+  literal paragraph shows its English to an Arabic reader. A `TEXT:` default is never seeded
+  as the field's value — without that guard a consent checkbox renders pre-ticked and passes
+  its own required check. `ZCL_RAK_CJS_XCHECK` rule **X13** reports any label sitting exactly
+  at 150 characters, which is what a truncated one looks like.
 
 ## Conventions
 
+- **Drafts and attachments have an owner, and it is not always CJS.** `DRAFT_MODE` and
+  `ATTACH_MODE` on `ZRAK_T_JNY` answer `DELEGATE` / `NATIVE` / `OFF`; blank lets the engine
+  derive one. The derivation is the rule: **a backend that creates and re-opens the case IS
+  the draft**, so CJS delegates and keeps no second copy. Attachments are derived from
+  `capabilities( )-attachments` instead, *not* from whether a case exists — a backend can own
+  the case and still have nowhere to put a file. `OFF` is refused in `HANDLE_SAVE( )`, not only
+  hidden in the renderer: a hidden button is not an unreachable event. There is **no native
+  draft store yet**, so `NATIVE` on a journey with no backend reports an error rather than a
+  false success.
 - **Config before code.** Show/hide belongs in `ZRAK_T_JNY_RULE`, options in `ZRAK_T_JNY_OPT`.
   Write ABAP for payment routing, live BP search, cross-container side effects.
 - **Migrating a legacy screen?** Drive `ZCL_RAK_MIGRATOR`. Do not hand-author `ZRAK_T_JNY*`
