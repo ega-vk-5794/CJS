@@ -116,6 +116,30 @@ CLASS zcl_rak_bp_popup DEFINITION
 *
 *   Replace with the real component names once SE11 has settled them. The candidate
 *   lists then become one entry each and this stays honest.
+*   A section heading on the detail view, and the two-column form that
+*   follows it. Split because sap.m.SimpleForm cannot hold a heading of its
+*   own that looks like the legacy one.
+    METHODS section
+      IMPORTING io_box   TYPE REF TO z2ui5_cl_xml_view
+                iv_title TYPE string.
+
+    METHODS form_of
+      IMPORTING io_box        TYPE REF TO z2ui5_cl_xml_view
+      RETURNING VALUE(ro_frm) TYPE REF TO z2ui5_cl_xml_view.
+
+*   One label / value pair. A blank value renders an em dash rather than
+*   nothing: an empty row beside a label reads as a field that failed to
+*   load, where "-" reads as a partner who has no passport on file.
+    METHODS pair
+      IMPORTING io_form   TYPE REF TO z2ui5_cl_xml_view
+                iv_label  TYPE string
+                iv_suffix TYPE string.
+
+    METHODS set_detail
+      IMPORTING is_bp     TYPE zst_cs_ega_bo_bp_root
+                iv_suffix TYPE string
+                iv_names  TYPE string.
+
     METHODS pick
       IMPORTING is_bp        TYPE zst_cs_ega_bo_bp_root
                 iv_names     TYPE string
@@ -285,29 +309,70 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 
 
   METHOD render.
-    DATA(lo_dlg) = io_popup->dialog( title = mv_title contentwidth = '46rem' ).
+*   The width is a constructor argument on sap.m.Dialog - there is no setter -
+*   so which of the two views we are about to draw has to be decided first. The
+*   search form is four fields and sits comfortably in 46rem; the party detail
+*   is three sections of paired columns and is cramped in anything under 62rem.
+    DATA(lv_found) = xsdbool( partner( ) IS NOT INITIAL ).
+
+    DATA(lo_dlg) = io_popup->dialog(
+      title        = mv_title
+      contentwidth = COND string( WHEN lv_found = abap_true THEN '62rem' ELSE '46rem' ) ).
 
 *   ---- already found: show, do not ask again -------------------------
 *   Resume Search rather than a fresh form every time. A citizen who has found
 *   the right partner and reopened the dialog to check a phone number should not
 *   have to find them again, and a form pre-filled with the last search reads as
 *   though nothing was found.
-    IF partner( ) IS NOT INITIAL.
-      DATA(lo_res) = lo_dlg->content(
-        )->simple_form( editable  = abap_false
-                        layout    = 'ResponsiveGridLayout'
-                        columnsxl = '2' columnsl = '2' columnsm = '1'
-        )->content( ns = 'form' ).
+    IF lv_found = abap_true.
+*     PARTY INFORMATION - the legacy page, in the order it reads there:
+*     General Info, then Contact Info, then Address Info.
+*
+*     Read-only throughout, as on the legacy screen. Every value came from
+*     the BP and none of it is the citizen's to correct here; a form that
+*     looks editable and silently discards an edit is worse than one that
+*     plainly does not take any.
+*
+      DATA(lo_body) = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
+      lo_body->title( text  = zcl_rak_journey_util=>esc( mo_ctx->get_val( fld( 'NAME' ) ) )
+                      level = 'H4' ).
+      lo_body->object_status( text  = |Partner { partner( ) }|
+                              state = 'Success'
+                              class = 'sapUiTinyMarginBottom' ).
 
-      lo_res->title( zcl_rak_journey_util=>esc( mo_ctx->get_val( fld( 'NAME' ) ) ) ).
-      lo_res->label( 'Partner' ).
-      lo_res->text( zcl_rak_journey_util=>esc( partner( ) ) ).
-      lo_res->label( 'Nationality' ).
-      lo_res->text( zcl_rak_journey_util=>esc( mo_ctx->get_val( fld( 'NAT' ) ) ) ).
-      lo_res->label( 'Phone Number' ).
-      lo_res->text( zcl_rak_journey_util=>esc( mo_ctx->get_val( fld( 'PHONE' ) ) ) ).
-      lo_res->label( 'Email' ).
-      lo_res->text( zcl_rak_journey_util=>esc( mo_ctx->get_val( fld( 'EMAIL' ) ) ) ).
+      section( io_box = lo_body iv_title = 'General Info' ).
+      DATA(lo_res) = form_of( lo_body ).
+      pair( io_form = lo_res iv_label = 'First Name'               iv_suffix = 'FIRSTNAME' ).
+      pair( io_form = lo_res iv_label = 'Father Name'              iv_suffix = 'FATHERNAME' ).
+      pair( io_form = lo_res iv_label = 'Grandfather Name'         iv_suffix = 'GRANDNAME' ).
+      pair( io_form = lo_res iv_label = 'Fourth Name'              iv_suffix = 'FOURTHNAME' ).
+      pair( io_form = lo_res iv_label = 'Last Name'                iv_suffix = 'LASTNAME' ).
+      pair( io_form = lo_res iv_label = 'Gender'                   iv_suffix = 'GENDER' ).
+      pair( io_form = lo_res iv_label = 'ID Number'                iv_suffix = 'IDNO' ).
+      pair( io_form = lo_res iv_label = 'ID Expiry date'           iv_suffix = 'IDEXP' ).
+      pair( io_form = lo_res iv_label = 'Unified Number'           iv_suffix = 'UNIFIED' ).
+      pair( io_form = lo_res iv_label = 'Passport Number'          iv_suffix = 'PPNO' ).
+      pair( io_form = lo_res iv_label = 'Date of passport Issue'   iv_suffix = 'PPFROM' ).
+      pair( io_form = lo_res iv_label = 'Country of passport Issue' iv_suffix = 'PPPLACE' ).
+      pair( io_form = lo_res iv_label = 'Passport Expiry Date'     iv_suffix = 'PPTO' ).
+      pair( io_form = lo_res iv_label = 'Nationality'              iv_suffix = 'NAT' ).
+      pair( io_form = lo_res iv_label = 'Occupation'               iv_suffix = 'OCC' ).
+      pair( io_form = lo_res iv_label = 'Date of Birth'            iv_suffix = 'DOBV' ).
+
+      section( io_box = lo_body iv_title = 'Contact Info' ).
+      DATA(lo_con) = form_of( lo_body ).
+      pair( io_form = lo_con iv_label = 'Mobile Number' iv_suffix = 'PHONE' ).
+      pair( io_form = lo_con iv_label = 'Email'         iv_suffix = 'EMAIL' ).
+      pair( io_form = lo_con iv_label = 'Telephone'     iv_suffix = 'TEL' ).
+
+      section( io_box = lo_body iv_title = 'Address Info' ).
+      DATA(lo_adr) = form_of( lo_body ).
+      pair( io_form = lo_adr iv_label = 'Country Of Living' iv_suffix = 'COUNTRY' ).
+      pair( io_form = lo_adr iv_label = 'Region'            iv_suffix = 'REGION' ).
+      pair( io_form = lo_adr iv_label = 'City'              iv_suffix = 'CITY' ).
+      pair( io_form = lo_adr iv_label = 'Street Name'       iv_suffix = 'STREET' ).
+      pair( io_form = lo_adr iv_label = 'Home Number'       iv_suffix = 'HOUSE' ).
+      pair( io_form = lo_adr iv_label = 'PO Box'            iv_suffix = 'POBOX' ).
 
       DATA(lo_rb) = lo_dlg->buttons( ).
       lo_rb->button( text  = 'Resume Search'
@@ -513,5 +578,79 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
     mo_ctx->set_val( iv_name = fld( 'EMAIL' )
                      iv_value = pick( is_bp    = ls_bp
                                       iv_names = 'EMAIL_ID,SMTP_ADDR,EMAIL,E_MAIL,EMAILADDRESS,EMAIL_ADDRESS' ) ).
+
+*   ---- the rest of the party, for the detail view ---------------------
+*
+*   The legacy Party Information page shows about twenty-five fields across
+*   General, Contact and Address. Five of them were being kept and the rest
+*   thrown away, so the CJS step could only ever show a quarter of what the
+*   officer sees - and there was no way to check a passport expiry or a
+*   home address before adding the party.
+*
+*   These names are NOT configured fields, and that is deliberate: VAL_SET( )
+*   falls back to the engine's scratch table for a name the model does not
+*   carry, and VAL_GET( ) reads it straight back. So the whole party survives
+*   the round trip without twenty rows per party in ZRAK_T_JNY_FLD - which
+*   would also have had to be seeded twice, once for each side.
+*
+*   PICK( ) rather than a static component read throughout. It takes the
+*   first name that both exists and is filled, so a component missing on an
+*   older BP structure yields blank instead of refusing to activate.
+    set_detail( is_bp = ls_bp iv_suffix = 'FIRSTNAME'  iv_names = 'FIRST_NAME' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'FATHERNAME' iv_names = 'SECOND_NAME' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'GRANDNAME'  iv_names = 'THIRD_NAME' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'FOURTHNAME' iv_names = 'FOURTH_NAME' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'LASTNAME'   iv_names = 'FIFTH_NAME' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'GENDER'     iv_names = 'GENDER_DESCRIPTION,SEX' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'IDNO'       iv_names = 'EID,IDNUMBER' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'IDEXP'      iv_names = 'VALID_DATE_TO' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'UNIFIED'    iv_names = 'UID' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'PPNO'       iv_names = 'PASSPORT' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'PPFROM'     iv_names = 'P_VALID_DATE_FROM' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'PPTO'       iv_names = 'P_VALID_DATE_TO' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'PPPLACE'    iv_names = 'ISSUEPLACEEN,ISSUEPLACEAR' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'OCC'        iv_names = 'OCCUPATION' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'DOBV'       iv_names = 'DOB,DATE_OF_BIRTH' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'TEL'        iv_names = 'TELEPHONE_NUMBER' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'COUNTRY'    iv_names = 'COUNTRY' ).
+*   REGION before EMIRATE: on this structure both are REGIO and the legacy
+*   screen labels the value Region, so the field that shares its name wins.
+    set_detail( is_bp = ls_bp iv_suffix = 'REGION'     iv_names = 'REGIONAR,REGION,EMIRATE_DESC,EMIRATE' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'CITY'       iv_names = 'CITY,DISTRICT' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'STREET'     iv_names = 'STREET_INTL,STREET' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'HOUSE'      iv_names = 'HOUSE_NUMBER,BUILDING' ).
+    set_detail( is_bp = ls_bp iv_suffix = 'POBOX'      iv_names = 'POBOX' ).
+  ENDMETHOD.
+
+
+  METHOD section.
+    io_box->title( text  = iv_title
+                   level = 'H5'
+                   class = 'sapUiSmallMarginTop sapUiTinyMarginBottom' ).
+  ENDMETHOD.
+
+
+  METHOD form_of.
+    ro_frm = io_box->simple_form( editable  = abap_false
+                                  layout    = 'ResponsiveGridLayout'
+                                  columnsxl = '2' columnsl = '2' columnsm = '1'
+                    )->content( ns = 'form' ).
+  ENDMETHOD.
+
+
+  METHOD pair.
+    DATA(lv_val) = mo_ctx->get_val( fld( iv_suffix ) ).
+    io_form->label( iv_label ).
+    io_form->text( zcl_rak_journey_util=>esc(
+      COND string( WHEN lv_val IS NOT INITIAL THEN lv_val ELSE `-` ) ) ).
+  ENDMETHOD.
+
+
+  METHOD set_detail.
+*   One party attribute onto the scratch model. Blank is written as blank
+*   rather than skipped, so a second search that finds a partner without a
+*   passport does not leave the previous partner's passport on the screen.
+    mo_ctx->set_val( iv_name  = fld( iv_suffix )
+                     iv_value = pick( is_bp = is_bp iv_names = iv_names ) ).
   ENDMETHOD.
 ENDCLASS.
