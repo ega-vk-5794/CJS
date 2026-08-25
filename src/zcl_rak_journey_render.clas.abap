@@ -102,6 +102,12 @@ CLASS zcl_rak_journey_render DEFINITION
     CLASS-DATA gt_f4c TYPE zif_rak_cjs_types=>tt_f4c.
     DATA mo_e TYPE REF TO zcl_rak_journey_engine.
     DATA mv_in_cell TYPE abap_bool.
+*   Set while rendering a FLOW cell. MV_FLOW_CELL stops RENDER_ONE forcing the
+*   control to 100%, which in a flex row would squeeze the button to nothing.
+*   MO_LBL_TGT is where REQ_LABEL puts the label - the cell itself, so the
+*   label stays ABOVE while the control and the button pair up beside it.
+    DATA mv_flow_cell TYPE abap_bool.
+    DATA mo_lbl_tgt   TYPE REF TO z2ui5_cl_xml_view.
     METHODS pay_field IMPORTING iv_index       TYPE i
                       RETURNING VALUE(rv_name) TYPE string.
     METHODS status_state IMPORTING iv_value     TYPE string
@@ -819,16 +825,9 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *
 *   Off by default and read from a column that is blank everywhere until
 *   somebody ticks it in the Design tab, so no existing journey moves.
-    DATA lo_cell TYPE REF TO z2ui5_cl_xml_view.
-    IF is_cell-attr-flow = abap_true.
-      lo_cell = io_parent->hbox( class      = 'rakCell rakCellFlow'
-                                 width      = lv_width
-                                 alignitems = 'End' ).
-    ELSE.
-      lo_cell = io_parent->vbox( class      = 'rakCell'
-                                 width      = lv_width
-                                 alignitems = lv_align ).
-    ENDIF.
+    DATA(lo_cell) = io_parent->vbox( class      = 'rakCell'
+                                     width      = lv_width
+                                     alignitems = lv_align ).
 
     lo_cell->layout_data( )->grid_data(
       span      = zcl_rak_cj_lay=>span_str( is_cell-attr-col_span )
@@ -837,14 +836,43 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     mv_in_cell = abap_true.
     before_field( io_view = lo_cell is_field = is_field ).
 
-    IF zcl_rak_journey_util=>is_block( is_field-type ) = abap_true.
-      render_block( io_parent = lo_cell is_field = is_field ).
-    ELSE.
-      render_one( io_form = lo_cell is_field = is_field ).
+    DATA(lv_block) = zcl_rak_journey_util=>is_block( is_field-type ).
+
+*   FLOW - the field and its buttons, side by side.
+*
+*   A cell is a vbox, so everything put into it stacks: the label, the
+*   control, then whatever AFTER_FIELD( ) adds. That is why a handler's
+*   search or ADD button always lands UNDER its input - the container
+*   decides, not the button.
+*
+*   The cell STAYS a vbox and gains an inner row. Only the control and the
+*   trailing buttons go into that row; the label is redirected back to the
+*   cell through MO_LBL_TGT so it keeps sitting above, and the field goes on
+*   matching every other field on the step. Making the whole cell an hbox
+*   would have dragged the label alongside the input as a side effect.
+*
+*   Not offered for blocks - a table or a panel is already a layout of its
+*   own and has nothing to sit beside.
+    DATA lo_body TYPE REF TO z2ui5_cl_xml_view.
+    lo_body = lo_cell.
+    IF is_cell-attr-flow = abap_true AND lv_block = abap_false.
+      mv_flow_cell = abap_true.
+      mo_lbl_tgt   = lo_cell.
+*     ALIGNITEMS 'End' puts the button level with the bottom of the input
+*     rather than floating at the top of the row.
+      lo_body = lo_cell->hbox( class      = 'rakCellFlow'
+                               width      = '100%'
+                               alignitems = 'End' ).
     ENDIF.
 
-    after_field( io_view = lo_cell is_field = is_field ).
-    CLEAR mv_in_cell.
+    IF lv_block = abap_true.
+      render_block( io_parent = lo_cell is_field = is_field ).
+    ELSE.
+      render_one( io_form = lo_body is_field = is_field ).
+    ENDIF.
+
+    after_field( io_view = lo_body is_field = is_field ).
+    CLEAR: mv_in_cell, mv_flow_cell, mo_lbl_tgt.
 
   ENDMETHOD.
 
@@ -1209,7 +1237,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     DATA(lv_min)  = COND string( WHEN is_field-validation-min_val IS NOT INITIAL THEN is_field-validation-min_val ELSE '0' ).
     DATA(lv_max)  = COND string( WHEN is_field-validation-max_val IS NOT INITIAL THEN is_field-validation-max_val ELSE '100' ).
     DATA(lv_w)    = zcl_rak_journey_util=>ctrl_width( is_field ).
-    IF mv_in_cell = abap_true.
+    IF mv_in_cell = abap_true AND mv_flow_cell = abap_false.
       lv_w = '100%'.
     ENDIF.
 
@@ -2392,7 +2420,15 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
   METHOD req_label.
     DATA(lv_req) = mo_e->mo_rules->is_required( is_field ).
-    io_form->label( text  = zcl_rak_journey_util=>esc( is_field-label )
+*   In a FLOW cell the label belongs to the cell, not to the row holding the
+*   control and its buttons - otherwise it lines up beside the input and that
+*   one field stops matching every other field on the step.
+    DATA lo_lbl TYPE REF TO z2ui5_cl_xml_view.
+    lo_lbl = io_form.
+    IF mo_lbl_tgt IS BOUND.
+      lo_lbl = mo_lbl_tgt.
+    ENDIF.
+    lo_lbl->label( text  = zcl_rak_journey_util=>esc( is_field-label )
                     class = COND string( WHEN lv_req = abap_true
                                          THEN 'rakReq sapUiFormLabelNoColon'
                                          ELSE 'sapUiFormLabelNoColon' ) ).
