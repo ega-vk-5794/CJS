@@ -92,7 +92,7 @@ CLASS lcl_purge IMPLEMENTATION.
 
     SELECT journey_id, handler_class FROM zrak_t_jny
       INTO TABLE @DATA(lt_jny)
-      WHERE active = 'X' AND handler_class <> @space
+      WHERE active = 'X' AND handler_class <> ''
       ORDER BY journey_id.
 
     LOOP AT lt_jny INTO DATA(ls_jny).

@@ -552,7 +552,7 @@ CLASS ZCL_RAK_CJS_XCHECK IMPLEMENTATION.
       IF strlen( ls_f-zlabel ) >= lc_label_len.
         add( iv_sev  = COND #( WHEN to_upper( ls_f-ftype ) = 'CHECKBOX' THEN 'E' ELSE 'W' )
              iv_rule = 'X13'
-             iv_step = ls_f-step_id
+             iv_step = |{ ls_f-step_id }|
              iv_text = |{ ls_f-field_name }: ZLABEL is at the { lc_label_len }-character limit | &&
                        |and is probably truncated. Move the text to DEFAULT_VAL as | &&
                        |TEXT:... or TEXT:@nnn.| ).
@@ -561,7 +561,7 @@ CLASS ZCL_RAK_CJS_XCHECK IMPLEMENTATION.
       IF strlen( ls_f-zlabel_ar ) >= lc_label_len.
         add( iv_sev  = COND #( WHEN to_upper( ls_f-ftype ) = 'CHECKBOX' THEN 'E' ELSE 'W' )
              iv_rule = 'X13'
-             iv_step = ls_f-step_id
+             iv_step = |{ ls_f-step_id }|
              iv_text = |{ ls_f-field_name }: ZLABEL_AR is at the { lc_label_len }-character limit | &&
                        |and is probably truncated. Use TEXT:@nnn, which resolves | &&
                        |ZRAK_T_CJ_TXT by sy-langu.| ).
