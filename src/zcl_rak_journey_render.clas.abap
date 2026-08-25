@@ -2317,9 +2317,24 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
 
   METHOD long_text.
-*   No TEXT: instruction - the field keeps the label it always had.
+*   Two routes, in this order:
+*
+*     TEXT: on DEFAULT_VAL          explicit config, wins outright
+*     ZCL_RAK_TEXT=>LONG_TEXTS( )   journey + field, bilingual, in git
+*     ZLABEL                        whatever fits in 150 characters
+*
+*   The second is what a truncated legal declaration needs. The first is
+*   for text a consultant should be able to change without a transport.
     rv_text = is_field-label.
+
     IF is_field-default NP 'TEXT:*'.
+*     No TEXT: instruction - ask the text service whether it holds a
+*     paragraph for this journey and field. Returns the label unchanged
+*     when it does not, so nothing configured before this behaves
+*     differently.
+      rv_text = zcl_rak_text=>long( iv_journey = mo_e->ms_config-journey_id
+                                    iv_field   = is_field-name
+                                    iv_default = is_field-label ).
       RETURN.
     ENDIF.
 

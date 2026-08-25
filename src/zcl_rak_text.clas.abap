@@ -159,6 +159,40 @@ CLASS zcl_rak_text DEFINITION
       END OF ty_miss,
       tt_miss TYPE STANDARD TABLE OF ty_miss WITH EMPTY KEY.
 
+*   FIELD LONG TEXT - a paragraph that will not fit in ZLABEL.
+*
+*   ZLABEL is CHAR(150) and cuts on INSERT, so a consent declaration in
+*   ZRAK_T_JNY_FLD is not merely displayed short, it IS short: the rest of
+*   the sentence is gone from the database and cannot be recovered from it.
+*   It has to come from somewhere that has no such ceiling, and this is that
+*   somewhere - keyed by journey and field, bilingual, and in git rather
+*   than in a table nobody can review.
+*
+*   Preferred over TEXT: on DEFAULT_VAL when the text is legal wording, for
+*   two reasons: string literals here have no length limit and no _AR
+*   problem, and a declaration that someone must be able to audit belongs
+*   where a diff will show it changing.
+    TYPES:
+      BEGIN OF ty_long,
+        journey_id TYPE string,
+        field_name TYPE string,
+        en         TYPE string,
+        ar         TYPE string,
+      END OF ty_long,
+      tt_long TYPE STANDARD TABLE OF ty_long WITH EMPTY KEY.
+
+    CLASS-METHODS long_texts
+      RETURNING VALUE(rt_long) TYPE tt_long.
+
+*   The paragraph for one field, or IV_DEFAULT when nothing is registered -
+*   which means an unregistered field keeps whatever ZLABEL holds, and every
+*   journey that predates this renders exactly as it did.
+    CLASS-METHODS long
+      IMPORTING iv_journey     TYPE string
+                iv_field       TYPE string
+                iv_default     TYPE string
+      RETURNING VALUE(rv_text) TYPE string.
+
     CLASS-METHODS catalogue
       RETURNING VALUE(rt_txt) TYPE tt_txt.
 
@@ -414,6 +448,66 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
 
   METHOD lang.
     rv_lang = COND #( WHEN gv_lang IS NOT INITIAL THEN gv_lang ELSE sy-langu ).
+  ENDMETHOD.
+
+
+  METHOD long_texts.
+*   EMPTY, AND NOT BY OVERSIGHT.
+*
+*   EC01's certification is the reason this exists, and it cannot be filled
+*   in from here. The label in ZRAK_T_JNY_FLD stops at exactly 150
+*   characters - "...I understand that I will be held responsible for" -
+*   and the remainder is not truncated in the display, it is ABSENT FROM
+*   THE DATABASE. It was cut by the INSERT that put it there. Nothing in
+*   this repo, and nothing in that table, still holds the rest of the
+*   sentence.
+*
+*   So the wording has to be re-supplied by whoever owns it. Guessing the
+*   back half of a legal declaration on a government complaint form is not
+*   a thing this file should do: the citizen is agreeing to it, and an
+*   invented clause is worse than a visibly incomplete one, because it
+*   looks finished.
+*
+*   TO FILL IT IN
+*
+*     1. Run ZRAK_CJS_XCHECK for EC01. Rule X13 reports every label sitting
+*        at the 150-character limit and names the field.
+*     2. Add a row below with that FIELD_NAME and the full text, English
+*        and Arabic. String literals here have no length ceiling.
+*
+*   The shape, using the delete warning already in OVERRIDES( ) as the
+*   pattern:
+*
+*     rt_long = VALUE tt_long(
+*       ( journey_id = 'EC01'
+*         field_name = 'DECLARE'
+*         en         = `I hereby certify that the information provided ...`
+*         ar         = `أقر بأن المعلومات المقدمة ...` ) ).
+*
+*   Until a row exists the field keeps its ZLABEL, which is the truncated
+*   text now on screen - unchanged rather than wrong.
+    CLEAR rt_long.
+  ENDMETHOD.
+
+
+  METHOD long.
+    rv_text = iv_default.
+    IF iv_journey IS INITIAL OR iv_field IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    READ TABLE long_texts( ) INTO DATA(ls_long)
+         WITH KEY journey_id = to_upper( iv_journey )
+                  field_name = to_upper( iv_field ).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    IF is_arabic( ) = abap_true AND ls_long-ar IS NOT INITIAL.
+      rv_text = ls_long-ar.
+    ELSEIF ls_long-en IS NOT INITIAL.
+      rv_text = ls_long-en.
+    ENDIF.
   ENDMETHOD.
 
 
