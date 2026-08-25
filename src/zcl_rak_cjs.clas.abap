@@ -4364,7 +4364,24 @@ TO rt.
       REPLACE ALL OCCURRENCES OF `}` IN lv_bar WITH `\}`.
       row->html( content = lv_bar sanitizecontent = abap_false ).
 
-      row->text( text = ls_d-field class = 'sapUiSmallMarginBegin sapUiSmallMarginEnd' ).
+*     WIDTH AND WRAPPING, BOTH REQUIRED.
+*
+*     This is an hbox, so the field name is a flex item with no width of its
+*     own. Flex gives such an item min-content width, and a wrapping text
+*     whose min-content is one character wide renders one character per
+*     line - DIVORCEE_PARTNER comes out as a vertical stripe sixteen rows
+*     tall, dragging the whole row down with it.
+*
+*     Turning wrapping off alone would stop the stripe but leave the name
+*     column ragged, since each row would size to its own text. The fixed
+*     width also lines the type and span badges up down the list, which is
+*     what makes a long row of fields readable at a glance. A name longer
+*     than the width gets an ellipsis, and the field is identified again in
+*     the label editor behind the Tt button.
+      row->text( text     = ls_d-field
+                 width    = '15rem'
+                 wrapping = 'false'
+                 class    = 'sapUiSmallMarginBegin sapUiSmallMarginEnd' ).
       row->object_status( text = ls_d-ftype state = 'None' class = 'sapUiSmallMarginEnd' ).
       row->object_status( text  = |{ ls_d-span }/12|
                           state = COND string( WHEN ls_d-span = 12 THEN 'None' ELSE 'Information' )
