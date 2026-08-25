@@ -147,6 +147,89 @@ INTERFACE zif_rak_journey
     END OF ty_msg,
     tt_msg TYPE STANDARD TABLE OF ty_msg WITH EMPTY KEY.
 
+* ---------------------------------------------------------------------
+* DRAFT / ATTACHMENT OWNERSHIP
+*
+* Who persists an unfinished application, and who persists its files.
+* The two are the same question asked twice, and CJS has always answered
+* both implicitly - by whichever backend the journey happened to be on.
+* These make the answer explicit and independent of that choice.
+*
+*   DELEGATE  the backend owns it. CJS holds nothing: SAVE goes out as the
+*             backend's own draft call, resume comes back through
+*             ZIF_RAK_JOURNEY_BACKEND~RESUME( ), and the list of drafts is
+*             the backend's list. This is what a journey on the /QNV/
+*             bridge or the D0xx BAdI does today.
+*   NATIVE    CJS owns it. The engine stages the model itself and can
+*             answer GET_DRAFTS( ) without asking anyone.
+*   OFF       no draft at all. Save-as-Draft is not offered, and the SAVE
+*             event is refused if it arrives anyway - hiding the button in
+*             the renderer does not make BTN_EVT( 'SAVE' ) unreachable.
+*   ''        unset. The journey configuration decides, and failing that
+*             the engine keeps its present behaviour.
+*
+* A journey may mix them: DELEGATE the draft while attachments stay
+* NATIVE is the normal shape whenever a backend has no file endpoint yet.
+* ---------------------------------------------------------------------
+  CONSTANTS:
+    BEGIN OF c_mode,
+      config   TYPE string VALUE '',
+      delegate TYPE string VALUE 'DELEGATE',
+      native   TYPE string VALUE 'NATIVE',
+      off      TYPE string VALUE 'OFF',
+    END OF c_mode.
+
+* ---------------------------------------------------------------------
+* One draft, as the framework describes it to a list.
+*
+* PARTNER is the BP the draft belongs to. ON_BEHALF is filled only when a
+* role-BP created it for someone else - an agent acting for a company -
+* and is what separates "my drafts" from "drafts I am allowed to open".
+* A native store that cannot fill these two cannot answer a by-BP query,
+* which is the whole point of GET_DRAFTS( ). ZRAK_T_BE_LOC keys on
+* CREATED_BY (SY-UNAME) today, and so cannot.
+* ---------------------------------------------------------------------
+  TYPES:
+    BEGIN OF ty_draft,
+      draft_id   TYPE string,
+      journey_id TYPE string,
+      title      TYPE string,
+      title_ar   TYPE string,
+      step       TYPE i,
+      partner    TYPE string,
+      on_behalf  TYPE string,
+      status     TYPE string,
+      created_by TYPE xubname,
+      created_at TYPE timestamp,
+      changed_at TYPE timestamp,
+    END OF ty_draft,
+    tt_draft TYPE STANDARD TABLE OF ty_draft WITH EMPTY KEY.
+
+* ---------------------------------------------------------------------
+* RETENTION
+*
+* What becomes of a draft, and of a staged file, that nobody came back
+* for. Both leak today: ZRAK_CJ_ATTX grows until someone runs the purge
+* report by hand, and a NATIVE draft store would grow the same way.
+*
+* *_DAYS of 0 means "framework default", never "delete today". A zero
+* must not be readable as an instruction to purge everything.
+* ---------------------------------------------------------------------
+  CONSTANTS:
+    BEGIN OF c_retain,
+      keep    TYPE string VALUE '',
+      delete  TYPE string VALUE 'DELETE',
+      archive TYPE string VALUE 'ARCHIVE',
+    END OF c_retain.
+
+  TYPES:
+    BEGIN OF ty_retention,
+      draft_days    TYPE i,
+      draft_action  TYPE string,
+      attach_days   TYPE i,
+      attach_action TYPE string,
+    END OF ty_retention.
+
   METHODS get_val
     IMPORTING iv_name         TYPE string
     RETURNING VALUE(rv_value) TYPE string.

@@ -107,6 +107,14 @@ CLASS zcl_rak_test_all_logic DEFINITION
     METHODS zif_rak_journey_logic~render_field       REDEFINITION.
     METHODS zif_rak_journey_logic~wants_feedback     REDEFINITION.
     METHODS zif_rak_journey_logic~on_feedback        REDEFINITION.
+    METHODS zif_rak_journey_logic~draft_mode        REDEFINITION.
+    METHODS zif_rak_journey_logic~attach_mode       REDEFINITION.
+    METHODS zif_rak_journey_logic~get_drafts        REDEFINITION.
+    METHODS zif_rak_journey_logic~on_draft_save     REDEFINITION.
+    METHODS zif_rak_journey_logic~on_draft_load     REDEFINITION.
+    METHODS zif_rak_journey_logic~on_draft_discard  REDEFINITION.
+    METHODS zif_rak_journey_logic~retention         REDEFINITION.
+    METHODS zif_rak_journey_logic~on_archive        REDEFINITION.
 
   PRIVATE SECTION.
 *   Handler-owned popup and event ids. The engine prefixes handler events
@@ -1337,6 +1345,145 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
                       iv3    = `Isuzu NPR`
                       iv4    = `2019`
             CHANGING  cs_tab = rs ).
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~draft_mode.
+*   RESERVED - the engine does not call this yet.
+*
+*   NATIVE: this journey has no backend that drafts, so CJS stages the model
+*   itself. A journey on the /QNV/ bridge would answer DELEGATE and let
+*   SAVE_DRAFT go out as it always has; one that must not be left half-done -
+*   a payment confirmation, an OTP step - answers OFF.
+    rv_mode = zif_rak_journey=>c_mode-native.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~attach_mode.
+*   RESERVED - the engine does not call this yet.
+*
+*   Answered separately from DRAFT_MODE( ) on purpose: the common shape while
+*   a backend has no file endpoint is a delegated draft whose files still sit
+*   in ZRAK_CJ_ATTX. NATIVE is what the engine does today for every journey.
+    rv_mode = zif_rak_journey=>c_mode-native.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~get_drafts.
+*   RESERVED - the engine does not call this yet.
+*
+*   Under NATIVE the framework answers this and a handler need not redefine
+*   it at all. Shown here for the DELEGATE case, where the backend holds the
+*   list and only the handler knows how to ask: read it, map it onto
+*   TY_DRAFT, and let the caller render it.
+*
+*   Note what is NOT done here. IV_PARTNER is not defaulted to "everything"
+*   when blank, and IV_WITH_ROLES is not assumed - a draft belonging to a
+*   partner this user does not act for must not appear in the list, and the
+*   cost of getting that backwards is a disclosure rather than a bug report.
+    IF iv_partner IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    rt = VALUE #(
+      ( draft_id   = 'DEMO-0001'
+        journey_id = 'TEST_ALL'
+        title      = 'Demonstration application'
+        title_ar   = 'طلب توضيحي'
+        step       = 2
+        partner    = iv_partner
+        status     = 'DRAFT'
+        created_by = sy-uname ) ).
+
+    IF iv_with_roles = abap_true.
+*     The role-BP half: drafts this user created for somebody else. Only
+*     reached when the caller explicitly asked, never by default.
+      APPEND VALUE #( draft_id   = 'DEMO-0002'
+                      journey_id = 'TEST_ALL'
+                      title      = 'Application filed on behalf of a company'
+                      step       = 1
+                      partner    = iv_partner
+                      on_behalf  = iv_partner
+                      status     = 'DRAFT'
+                      created_by = sy-uname ) TO rt.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_draft_save.
+*   RESERVED - the engine does not call this yet.
+*
+*   Unlike ON_SAVE( ), this one can refuse: a message of type 'Error' keeps
+*   the citizen on the page and nothing is written. Used here to make the
+*   point that a draft is still allowed to have rules - just far fewer of
+*   them than a submit, since the whole purpose is to keep incomplete work.
+    IF io_ctx->get_val( 'FULL_NAME' ) IS INITIAL.
+      rt = VALUE #( ( type = 'Error'
+                      text = 'Enter the applicant name before saving a draft.' ) ).
+      RETURN.
+    ENDIF.
+
+    rt = VALUE #( ( type = 'Success'
+                    text = |Draft { iv_draft_id } saved by the test handler.| ) ).
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_draft_load.
+*   RESERVED - the engine does not call this yet.
+*
+*   A draft is restored with the values it was saved with, which is right for
+*   what the citizen typed and wrong for everything derived. Anything with a
+*   shelf life is re-read here rather than served weeks stale: a fee, a
+*   partner's address, a validity date.
+    io_ctx->set_val( iv_name = 'PAYFEE' iv_value = '' ).
+    io_ctx->set_val( iv_name = zcl_rak_journey_logic=>c_pay_started iv_value = '' ).
+
+    rt = VALUE #( ( type = 'Information'
+                    text = |Draft { iv_draft_id } re-opened; the fee will be recalculated.| ) ).
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_draft_discard.
+*   RESERVED - the engine does not call this yet.
+*
+*   Reached both ways - the citizen pressed Delete, or retention expired the
+*   draft - so it must not assume there is anyone watching. Anything the
+*   handler parked outside the draft comes back here to be cleaned up.
+    rt = VALUE #( ( type = 'Success'
+                    text = |Draft { iv_draft_id } discarded.| ) ).
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~retention.
+*   RESERVED - the engine does not call this yet.
+*
+*   Runs from housekeeping. IO_CTX arrives UNBOUND: no model, no user, no
+*   journey. Nothing in this method may read it.
+*
+*   Drafts outlive their files here, and that asymmetry is the point. A
+*   90-day draft is a convenience; a 90-day pile of uploaded Emirates ID
+*   scans in ZRAK_CJ_ATTX is a liability. The files go first, the draft
+*   survives, and the citizen is asked to upload again.
+    rs = VALUE #( draft_days    = 90
+                  draft_action  = zif_rak_journey=>c_retain-archive
+                  attach_days   = 30
+                  attach_action = zif_rak_journey=>c_retain-delete ).
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_archive.
+*   RESERVED - the engine does not call this yet.
+*
+*   Called once per expiring draft because RETENTION( ) asked for ARCHIVE.
+*   Returning abap_true tells the framework the draft is safely elsewhere and
+*   its copy may go; abap_false leaves it untouched.
+*
+*   abap_false here, deliberately. This handler has nowhere to archive to,
+*   and a demonstration that returns true would be teaching every journey
+*   copied from it to drop drafts on the floor. A journey with a real
+*   destination - a DMS drop, an outbound feed - returns true only after the
+*   write to that destination has succeeded, never before.
+    rv_handled = abap_false.
   ENDMETHOD.
 
 

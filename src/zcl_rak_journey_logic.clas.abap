@@ -937,6 +937,14 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_rak_journey_logic~attach_mode.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~draft_mode.
+  ENDMETHOD.
+
+
   METHOD zif_rak_journey_logic~get_attachments.
   ENDMETHOD.
 
@@ -945,11 +953,19 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_rak_journey_logic~get_drafts.
+  ENDMETHOD.
+
+
   METHOD zif_rak_journey_logic~get_table.
   ENDMETHOD.
 
 
   METHOD zif_rak_journey_logic~on_after_read.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_archive.
   ENDMETHOD.
 
 
@@ -1004,6 +1020,18 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
                       text = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-pay_first
                                  iv_default = `Payment must be completed before submitting.` ) ) ).
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_draft_discard.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_draft_load.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_draft_save.
   ENDMETHOD.
 
 
@@ -1486,6 +1514,10 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
                           AND io_ctx->get_val( c_pay_field ) <> 'PAID' ) ).
 
     rv_done = abap_true.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~retention.
   ENDMETHOD.
 
 
