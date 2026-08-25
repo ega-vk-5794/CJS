@@ -857,12 +857,25 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     lo_body = lo_cell.
     IF is_cell-attr-flow = abap_true AND lv_block = abap_false.
       mv_flow_cell = abap_true.
-      mo_lbl_tgt   = lo_cell.
-*     ALIGNITEMS 'End' puts the button level with the bottom of the input
-*     rather than floating at the top of the row.
-      lo_body = lo_cell->hbox( class      = 'rakCellFlow'
-                               width      = '100%'
-                               alignitems = 'End' ).
+
+*     ORDER MATTERS. z2ui5 emits children in the order they are created, so
+*     the label's container has to exist BEFORE the row that holds the
+*     control - otherwise REQ_LABEL( ), which runs later from inside
+*     RENDER_ONE( ), appends the label after the row and it renders UNDER
+*     the field instead of above it.
+*
+*     An empty vbox is cheap and stays empty for the field types that never
+*     call REQ_LABEL( ) at all, such as CHECKBOX and SEARCH.
+      mo_lbl_tgt = lo_cell->vbox( ).
+
+*     JUSTIFYCONTENT 'Start' keeps the button against the control. Without
+*     it the row spreads its children across the full cell width and the
+*     button drifts to the far edge, which is no more "next to the field"
+*     than being underneath it was.
+      lo_body = lo_cell->hbox( class          = 'rakCellFlow'
+                               width          = '100%'
+                               justifycontent = 'Start'
+                               alignitems     = 'End' ).
     ENDIF.
 
     IF lv_block = abap_true.

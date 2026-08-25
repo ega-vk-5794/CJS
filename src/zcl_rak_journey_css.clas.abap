@@ -516,6 +516,8 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakRow\{flex-wrap:wrap!important;width:100%;gap:.75rem;\}| &&
         |.rakRow>*\{flex:0 1 auto;min-width:0;max-width:100%;\}| &&
         |.rakCell\{min-width:0;gap:.25rem;\}| &&
+        |.rakCellFlow\{gap:.5rem;flex-wrap:wrap;\}| &&
+        |.rakCellFlow>*\{flex:0 0 auto;margin:0;\}| &&
         |.rakRowEq>*\{flex:1 1 0;\}| &&
         |.rakRowC2>*\{flex:0 0 calc((100% - .75rem)/2);\}| &&
         |.rakRowC3>*\{flex:0 0 calc((100% - 1.5rem)/3);\}| &&
@@ -828,6 +830,8 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
       |.rakRow\{flex-wrap:wrap!important;width:100%;gap:.75rem;\}| &&
       |.rakRow>*\{flex:0 1 auto;min-width:0;max-width:100%;\}| &&
       |.rakCell\{min-width:0;gap:.25rem;\}| &&
+      |.rakCellFlow\{gap:.5rem;flex-wrap:wrap;\}| &&
+      |.rakCellFlow>*\{flex:0 0 auto;margin:0;\}| &&
       |.rakRowEq>*\{flex:1 1 0;\}| &&
       |.rakRowC2>*\{flex:0 0 calc((100% - .75rem)/2);\}| &&
       |.rakRowC3>*\{flex:0 0 calc((100% - 1.5rem)/3);\}| &&
