@@ -452,41 +452,37 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
 
 
   METHOD long_texts.
-*   EMPTY, AND NOT BY OVERSIGHT.
+*   EC01 - the File Complaint certification.
 *
-*   EC01's certification is the reason this exists, and it cannot be filled
-*   in from here. The label in ZRAK_T_JNY_FLD stops at exactly 150
-*   characters - "...I understand that I will be held responsible for" -
-*   and the remainder is not truncated in the display, it is ABSENT FROM
-*   THE DATABASE. It was cut by the INSERT that put it there. Nothing in
-*   this repo, and nothing in that table, still holds the rest of the
-*   sentence.
+*   ZLABEL held this at exactly 150 characters, cut by the INSERT that
+*   wrote it: "...I understand that I will be held responsible for". The
+*   rest of the sentence is not hidden by the renderer, it is absent from
+*   ZRAK_T_JNY_FLD, so it had to be re-supplied rather than recovered.
+*   XCHECK rule X13 named the field: DECLARATION, on step S1.
 *
-*   So the wording has to be re-supplied by whoever owns it. Guessing the
-*   back half of a legal declaration on a government complaint form is not
-*   a thing this file should do: the citizen is agreeing to it, and an
-*   invented clause is worse than a visibly incomplete one, because it
-*   looks finished.
+*   >> THE CLOSING CLAUSE IS A RECONSTRUCTION. CONFIRM IT. <<
 *
-*   TO FILL IT IN
+*   Everything up to "held responsible for" is verbatim from the database.
+*   What follows it - "any incorrect or false information provided" - was
+*   written here to close the sentence, because the original wording no
+*   longer exists anywhere to copy from. It is deliberately the most
+*   conservative ending available: it completes the grammar and adds no
+*   obligation, consequence or penalty that the visible half did not
+*   already imply. If the approved text says more than that - rejection of
+*   the application, legal liability, anything - this is understating it
+*   and must be replaced with the real wording. A citizen is agreeing to
+*   this sentence.
 *
-*     1. Run ZRAK_CJS_XCHECK for EC01. Rule X13 reports every label sitting
-*        at the 150-character limit and names the field.
-*     2. Add a row below with that FIELD_NAME and the full text, English
-*        and Arabic. String literals here have no length ceiling.
-*
-*   The shape, using the delete warning already in OVERRIDES( ) as the
-*   pattern:
-*
-*     rt_long = VALUE tt_long(
-*       ( journey_id = 'EC01'
-*         field_name = 'DECLARE'
-*         en         = `I hereby certify that the information provided ...`
-*         ar         = `أقر بأن المعلومات المقدمة ...` ) ).
-*
-*   Until a row exists the field keeps its ZLABEL, which is the truncated
-*   text now on screen - unchanged rather than wrong.
-    CLEAR rt_long.
+*   The Arabic is a translation of the same reconstruction and carries the
+*   same caveat.
+    rt_long = VALUE tt_long(
+      ( journey_id = 'EC01'
+        field_name = 'DECLARATION'
+        en         = `I hereby certify that the information provided in this form is accurate, ` &&
+                     `complete, correct, and true. I understand that I will be held responsible ` &&
+                     `for any incorrect or false information provided.`
+        ar         = `أقر بأن المعلومات المقدمة في هذا النموذج دقيقة وكاملة وصحيحة وحقيقية. ` &&
+                     `وأتفهم أنني سأكون مسؤولاً عن أي معلومات غير صحيحة أو كاذبة يتم تقديمها.` ) ).
   ENDMETHOD.
 
 
