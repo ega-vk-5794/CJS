@@ -286,6 +286,10 @@ CLASS zcl_rak_cjs DEFINITION
     DATA mv_roll_term TYPE string.
     DATA mv_shlp_term TYPE string.
     DATA mv_fld_filter TYPE string.
+*   Step to narrow the field list to. Separate from MV_FLD_FILTER on purpose:
+*   the text filter is a guess at a substring, this is a choice from a list
+*   that cannot be spelt wrong, and the two combine.
+    DATA mv_fld_step TYPE string.
     DATA mv_only_bad   TYPE abap_bool.
     DATA mv_doc        TYPE string.
 
@@ -977,10 +981,13 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
           IF mv_fld_filter IS INITIAL.
             mv_msg = 'Filter cleared — showing every field'. mv_mtype = 'Information'.
           ENDIF.
+        WHEN 'FLDSTEP'.
+*         Nothing to do but re-render - the combobox has already written
+*         MV_FLD_STEP through its two-way binding.
         WHEN 'FLDBAD'.
           mv_only_bad = xsdbool( mv_only_bad = abap_false ).
         WHEN 'FLDALL'.
-          CLEAR: mv_fld_filter, mv_only_bad.
+          CLEAR: mv_fld_filter, mv_only_bad, mv_fld_step.
 
         WHEN 'DOCEXP'. doc_export( ).
         WHEN 'DOCIMP'.
@@ -1241,7 +1248,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     resort( ).
 
     mv_preview = mv_journey_id.
-    CLEAR: mv_dirty, mt_f4_scan, mv_f4_scanned, mv_fld_filter, mv_only_bad.
+    CLEAR: mv_dirty, mt_f4_scan, mv_f4_scanned, mv_fld_filter, mv_only_bad, mv_fld_step.
 
 *   lint_all( ) reloads fifty journeys in a loop and lints each one itself.
 *   Without this it linted every one of them twice and wrote a message nobody
@@ -1914,6 +1921,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(p) = io->panel(
       headertext = |Fields — { lines( mt_fields ) }| &&
                    COND string( WHEN lv_flagged > 0 THEN |, { lv_flagged } with findings| ) &&
+*                Say WHICH step, not just "filtered". A panel headed "Fields -
+*                62" showing four rows is alarming until you remember you set a
+*                filter three minutes ago; naming the step answers that without
+*                the author having to look for the control.
+                   COND string( WHEN mv_fld_step IS NOT INITIAL THEN | · step { mv_fld_step }| ) &&
                    COND string( WHEN mv_only_bad = abap_true      THEN ` · showing findings only`
                                 WHEN mv_fld_filter IS NOT INITIAL THEN ` · filtered` )
       expandable = abap_true
@@ -2067,7 +2079,23 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   Filtering is not a nicety at that size - it is the difference between fixing
 *   the three flagged fields and scrolling past them.
     DATA(ff) = p->hbox( alignitems = 'Center' class = 'sapUiSmallMarginBegin sapUiTinyMarginBottom' ).
-    ff->label( text = 'Filter:' class = 'sapUiTinyMarginEnd' ).
+
+*   STEP FIRST, because that is how an author actually thinks about a journey:
+*   they are working on one step, not on a list of sixty fields. Typing "S2"
+*   into the text box already worked, but only if you knew the step existed and
+*   spelt it the way the table does - and "S2" also matches a field called
+*   TRANS2. A list you pick from cannot be spelt wrong and cannot over-match.
+    ff->label( text = 'Step:' class = 'sapUiTinyMarginEnd' ).
+    DATA(fs_step) = ff->combobox( selectedkey = mo_client->_bind_edit( mv_fld_step )
+                                  change      = mo_client->_event( 'FLDSTEP' )
+                                  width       = '12rem' ).
+    fs_step->item( key = '' text = 'All steps' ).
+    LOOP AT mt_steps INTO DATA(ls_fstep).
+      fs_step->item( key  = ls_fstep-step_id
+                     text = |{ ls_fstep-step_id } - { ls_fstep-title }| ).
+    ENDLOOP.
+
+    ff->label( text = 'Filter:' class = 'sapUiTinyMarginEnd sapUiSmallMarginBegin' ).
     ff->input( value       = mo_client->_bind_edit( mv_fld_filter )
                placeholder = 'field, label, type, step, tech name or value help'
                width       = '20rem' ).
@@ -2081,23 +2109,54 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                 tooltip = 'Show only the fields carrying a lint finding'
                 press   = mo_client->_event( 'FLDBAD' )
                 class   = 'sapUiTinyMarginBegin' ).
-    IF mv_only_bad = abap_true OR mv_fld_filter IS NOT INITIAL.
+    IF mv_only_bad = abap_true OR mv_fld_filter IS NOT INITIAL OR mv_fld_step IS NOT INITIAL.
       ff->button( text  = 'Show all'
                   icon  = 'sap-icon://clear-filter'
                   press = mo_client->_event( 'FLDALL' )
                   class = 'sapUiTinyMarginBegin' ).
     ENDIF.
 
+*   FOURTEEN COLUMNS, AND THE LAST ONE IS THE ONE YOU NEED.
+*
+*   Every column was fixed-width and always shown, so the table was wider
+*   than the panel and the row ran off the right edge under a horizontal
+*   scrollbar. Edit and Copy survived; Delete did not - the action a user
+*   most needs to find was the one column that could not be reached without
+*   scrolling sideways first.
+*
+*   DEMANDPOPIN with MINSCREENWIDTH is the UI5 answer: below the named
+*   width the column folds INTO the row as a label/value line instead of
+*   being clipped. Nothing is lost, it just moves.
+*
+*   What stays at every width is what identifies a row and what acts on it:
+*   Seq, Step, Field, Type, Label, the finding marker and the buttons. The
+*   descriptive middle - Tech, Roll, the four flags, Row - folds first,
+*   because you read those AFTER finding the row, never to find it.
     DATA(t) = p->table( class = 'sapUiSmallMarginBeginEnd' ).
     DATA(c) = t->columns( ).
-    c->column( )->text( 'Seq' ). c->column( )->text( 'Step' ). c->column( )->text( 'Field' ). c->column( )->text( 'Type' ).
-    c->column( )->text( 'Label' ). c->column( )->text( 'Tech' ). c->column( )->text( 'Roll' ).
-    c->column( )->text( 'Req' ). c->column( )->text( 'Hid' ). c->column( )->text( 'Att' ). c->column( )->text( 'AR' ).
-    c->column( )->text( 'Row' ).
+    c->column( )->text( 'Seq' ).
+    c->column( )->text( 'Step' ).
+    c->column( )->text( 'Field' ).
+    c->column( )->text( 'Type' ).
+    c->column( )->text( 'Label' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Tech' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Roll' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Tablet'  )->text( 'Req' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Hid' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Att' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'AR' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Row' ).
     c->column( )->text( '!' ).
-    c->column( )->text( '' ).
+*   Pinned to the right and given a width of its own, so the three buttons
+*   are never what gets squeezed.
+    c->column( width = '9rem' halign = 'End' )->text( '' ).
     DATA(it) = t->items( ).
     LOOP AT mt_fields INTO DATA(r).
+*     The step narrows before the text does - it is the cheaper test and the
+*     one more likely to exclude.
+      IF mv_fld_step IS NOT INITIAL AND to_upper( r-step_id ) <> to_upper( mv_fld_step ).
+        CONTINUE.
+      ENDIF.
       IF mv_fld_filter IS NOT INITIAL.
         DATA(lv_hay) = to_upper( |{ r-step_id } { r-field_name } { r-ftype } { r-label } | &&
                                  |{ r-tech_name } { r-rollname } { r-shlp } { r-domname }| ).
@@ -2624,7 +2683,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     resort( ).
     SORT mt_rules BY rule_id.
     mv_dirty = abap_true.
-    CLEAR: mt_f4_scan, mv_f4_scanned, mv_fld_filter, mv_only_bad.
+    CLEAR: mt_f4_scan, mv_f4_scanned, mv_fld_filter, mv_only_bad, mv_fld_step.
 
     mv_msg = |Loaded { to_upper( ls_d-journey_id ) } from the document — { lines( mt_steps ) } steps, | &&
              |{ lines( mt_fields ) } fields, { lines( mt_rules ) } rules| &&
