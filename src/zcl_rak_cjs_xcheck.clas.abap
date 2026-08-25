@@ -549,22 +549,40 @@ CLASS ZCL_RAK_CJS_XCHECK IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
+*     The other long-text route: a row in ZCL_RAK_TEXT=>LONG_TEXTS( ),
+*     which is where a legal declaration belongs - literals there have no
+*     length ceiling and no missing _AR twin. LONG( ) hands back the label
+*     unchanged when it holds nothing, so a different answer means this
+*     field is covered and the truncated ZLABEL is never rendered.
+*
+*     Without this test X13 reports a blocker that has already been fixed,
+*     and a checker that cries wolf is one people learn to skip.
+*
+*     CONV on all three: LONG( ) takes strings by reference, and these are
+*     DDIC-typed fields. Passing them raw is what dumped this class once.
+      DATA(lv_lbl) = CONV string( ls_f-zlabel ).
+      IF zcl_rak_text=>long( iv_journey = CONV #( ls_f-journey_id )
+                             iv_field   = CONV #( ls_f-field_name )
+                             iv_default = lv_lbl ) <> lv_lbl.
+        CONTINUE.
+      ENDIF.
+
       IF strlen( ls_f-zlabel ) >= lc_label_len.
         add( iv_sev  = COND #( WHEN to_upper( ls_f-ftype ) = 'CHECKBOX' THEN 'E' ELSE 'W' )
              iv_rule = 'X13'
-             iv_step = |{ ls_f-step_id }|
+             iv_step = CONV #( ls_f-step_id )
              iv_text = |{ ls_f-field_name }: ZLABEL is at the { lc_label_len }-character limit | &&
-                       |and is probably truncated. Move the text to DEFAULT_VAL as | &&
-                       |TEXT:... or TEXT:@nnn.| ).
+                       |and is probably truncated. Put the full text in ZCL_RAK_TEXT=>LONG_TEXTS( ), | &&
+                       |or in DEFAULT_VAL as TEXT:... / TEXT:@nnn.| ).
       ENDIF.
 
       IF strlen( ls_f-zlabel_ar ) >= lc_label_len.
         add( iv_sev  = COND #( WHEN to_upper( ls_f-ftype ) = 'CHECKBOX' THEN 'E' ELSE 'W' )
              iv_rule = 'X13'
-             iv_step = |{ ls_f-step_id }|
+             iv_step = CONV #( ls_f-step_id )
              iv_text = |{ ls_f-field_name }: ZLABEL_AR is at the { lc_label_len }-character limit | &&
-                       |and is probably truncated. Use TEXT:@nnn, which resolves | &&
-                       |ZRAK_T_CJ_TXT by sy-langu.| ).
+                       |and is probably truncated. Use ZCL_RAK_TEXT=>LONG_TEXTS( ), which holds | &&
+                       |EN and AR with no length ceiling.| ).
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
