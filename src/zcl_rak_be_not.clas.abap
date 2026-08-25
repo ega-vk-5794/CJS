@@ -2308,19 +2308,6 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         required = COND abap_bool( WHEN ls_f-mandatory = abap_true OR ls_f-required = abap_true
                                      OR ls_f-is_mandatory = abap_true THEN abap_true ELSE abap_false )
         max_len  = COND i( WHEN ls_f-max_length > 0 THEN ls_f-max_length ELSE ls_f-length )
-*       A pattern is only useful on something the citizen types FREELY, and only
-*       where the value the engine holds is the value the pattern describes.
-*
-*       SELECT: the choice came from the blueprint itself, so a pattern could
-*       only ever reject the blueprint's own option.
-*
-*       DATE / TIME / DATETIME: the control decides the format, not the citizen.
-*       The engine binds a date as 'yyyy-MM-dd' (RENDER_ONE( ), VALUEFORMAT), and
-*       a blueprint pattern describes the NOTARY API's wire format - commonly
-*       dd/MM/yyyy or yyyyMMdd. Matching one against the other fails every date
-*       ever entered, with "has an invalid format" and no way for the citizen to
-*       type something that would pass. The date control cannot produce a
-*       malformed date in the first place, so nothing is lost by not checking.
 *       THE BLUEPRINT'S PATTERN IS NOT CARRIED. Deliberately, and on evidence.
 *
 *       The sub-service 149 response settles it. "Case Issuance place" is
