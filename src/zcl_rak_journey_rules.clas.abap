@@ -464,16 +464,59 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
         ENDIF.
       ENDIF.
       IF lv_v-regex IS NOT INITIAL.
+*       NORMALISE BEFORE MATCHING.
+*
+*       A configured pattern is written for ABAP. A pattern that arrived from a
+*       REST blueprint - the Notary business object is the case this exists for -
+*       was written for JavaScript, and commonly arrives wrapped in delimiters
+*       with trailing flags: /^[0-9]{15}$/i. Handed to CL_ABAP_MATCHER verbatim
+*       that matches nothing, because the leading slash is part of the pattern,
+*       so every value fails with "has an invalid format" and the citizen cannot
+*       get past the step by typing anything at all.
+*
+*       Stripping the delimiters is safe for an ABAP-authored pattern too: one
+*       that neither starts nor ends with '/' is left exactly as it was. Flags
+*       are dropped rather than translated - honouring them is a bigger job, and
+*       ignoring them can only make the pattern MORE permissive, never less.
+        DATA(lv_pat) = condense( lv_v-regex ).
+        IF strlen( lv_pat ) > 2 AND lv_pat(1) = '/'.
+          DATA(lv_end) = strlen( lv_pat ) - 1.
+          WHILE lv_end > 0 AND lv_pat+lv_end(1) <> '/'.
+            lv_end = lv_end - 1.
+          ENDWHILE.
+*         Only when what follows the closing slash is flags - letters, or
+*         nothing. Otherwise this is not a delimited pattern at all but one that
+*         happens to contain slashes, such as /QNV/.* , and stripping it would
+*         quietly turn it into a different pattern.
+          DATA(lv_tail) = COND string( WHEN lv_end < strlen( lv_pat ) - 1
+                                       THEN substring( val = lv_pat off = lv_end + 1 )
+                                       ELSE `` ).
+          IF lv_end > 0
+             AND ( lv_tail IS INITIAL
+                   OR lv_tail CO 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ' ).
+            lv_pat = substring( val = lv_pat off = 1 len = lv_end - 1 ).
+          ENDIF.
+        ENDIF.
+
         TRY.
-            IF cl_abap_matcher=>matches( pattern = lv_v-regex text = lv_val ) = abap_false.
+            IF cl_abap_matcher=>matches( pattern = lv_pat text = lv_val ) = abap_false.
               DATA(lv_rxm) = COND string( WHEN lv_v-msg IS NOT INITIAL THEN lv_v-msg
                 ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-bad_format
                                         iv_default = `&1 has an invalid format`
                                         iv_v1      = ls_f-label ) ).
               APPEND VALUE #( type = 'Error' text = lv_rxm ) TO rt_msg.
               mo_e->set_field_state( iv_name = ls_f-name iv_state = 'Error' iv_text = lv_rxm ).
+*             The citizen must not be shown a regex, but somebody debugging this
+*             has to be able to see WHICH pattern rejected WHICH value - without
+*             it "has an invalid format" is unactionable on a blueprint field
+*             whose pattern is not in any table you can open.
+              mo_e->trace( |regex reject { ls_f-name }: pattern "{ lv_pat }" value "{ lv_val }"| ).
             ENDIF.
-          CATCH cx_root.
+          CATCH cx_root INTO DATA(lx_rx).
+*           A pattern that will not compile is treated as no constraint, which is
+*           the lenient half of a decision already made here. Traced, because
+*           silently accepting everything looks identical to having no pattern.
+            mo_e->trace( |regex unusable on { ls_f-name }: "{ lv_pat }" - { lx_rx->get_text( ) }| ).
         ENDTRY.
       ENDIF.
     ENDLOOP.
