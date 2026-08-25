@@ -2321,14 +2321,28 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 *       ever entered, with "has an invalid format" and no way for the citizen to
 *       type something that would pass. The date control cannot produce a
 *       malformed date in the first place, so nothing is lost by not checking.
-        regex    = COND string(
-          WHEN lv_type = 'SELECT' OR lv_type = 'DATE'
-            OR lv_type = 'TIME'   OR lv_type = 'DATETIME' THEN ``
-          WHEN ls_f-regex              IS NOT INITIAL THEN ls_f-regex
-          WHEN ls_f-reg_ex             IS NOT INITIAL THEN ls_f-reg_ex
-          WHEN ls_f-regular_expression IS NOT INITIAL THEN ls_f-regular_expression
-          WHEN ls_f-validation_regex   IS NOT INITIAL THEN ls_f-validation_regex
-          ELSE ls_f-pattern )
+*       THE BLUEPRINT'S PATTERN IS NOT CARRIED. Deliberately, and on evidence.
+*
+*       The sub-service 149 response settles it. "Case Issuance place" is
+*       dataType LOOKUP with exactly two choices, ids 1 and 2, and it carries
+*       maxLength 5 alongside a pattern demanding exactly ten digits. No
+*       choice can satisfy that, and neither can any value short enough to
+*       respect the field's own length limit. It is not a rule about that
+*       field - it is a default nobody filled in, and the same default sits
+*       on the fields beside it.
+*
+*       Which is why Case Number, Case Year and Amount Value were all
+*       rejected together with "The format is not valid": one unmaintained
+*       pattern applied to every field, blocking a service that had no way
+*       to satisfy it. Exempting SELECT and the date types was not enough,
+*       because the free-text fields carry the same default.
+*
+*       MAXLENGTH and REQUIRED are still taken from the blueprint - those do
+*       describe the fields they sit on. Only the pattern is dropped, and the
+*       plumbing stays: TY_DYN_FIELD-REGEX and the engine's enforcement are
+*       untouched, so restoring it is one line the day the API's patterns
+*       mean something.
+        regex    = ``
         options  = COND #( WHEN lt_live IS NOT INITIAL THEN lt_live
                            ELSE VALUE #( FOR o IN lt_opt (
 *                    ID is the key the business object is posted with. CODE and
