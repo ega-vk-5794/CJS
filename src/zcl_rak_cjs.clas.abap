@@ -2254,10 +2254,17 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     f->label( 'Pinned (not supported)' ).
     f->checkbox( selected = mo_client->_bind_edit( cv_pinned ) enabled = abap_false ).
     f->label( 'Read only' ).     f->checkbox( selected = mo_client->_bind_edit( cv_readonly ) ).
-*   Still editable, unlike PINNED - per-row required validation is missing, not
-*   impossible. It is simply not wired into VALIDATE_STEP / MISSING_REQUIRED yet,
-*   so a grid with an empty mandatory cell passes validation and submits.
-    f->label( 'Required (not enforced yet)' ).
+*   ENFORCED, unlike PINNED and DECIMALS either side of it. The label said
+*   "not enforced yet" long after it was wired up, which is the more damaging
+*   direction for a caveat to be wrong in: an author reads it, believes the
+*   flag is inert, and either leaves it off where it is needed or sets it and
+*   is surprised when a half-filled grid stops the citizen.
+*
+*   ZCL_RAK_JOURNEY_RULES=>MISSING_REQUIRED( ) checks a required column
+*   against every row that ALREADY EXISTS - not against the row count. An
+*   empty grid still passes, exactly as a field-level REQUIRED flag does, so
+*   this makes a started row complete rather than making the grid mandatory.
+    f->label( 'Required' ).
     f->checkbox( selected = mo_client->_bind_edit( cv_required ) ).
     f->label( 'Decimals (not applied yet)' ).
     f->input( value = mo_client->_bind_edit( cv_decimals )
