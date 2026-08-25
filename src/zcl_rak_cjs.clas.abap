@@ -981,6 +981,15 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
           IF mv_fld_filter IS INITIAL.
             mv_msg = 'Filter cleared — showing every field'. mv_mtype = 'Information'.
           ENDIF.
+        WHEN 'OPTSTEP'.
+*         Changing the step invalidates the field beneath it: an option is
+*         keyed to step AND field, and leaving a field from the previous step
+*         selected writes a row that points at neither.
+          CLEAR ov_field.
+        WHEN 'OPTFLD'.
+        WHEN 'COLSTEP'.
+          CLEAR cv_field.
+        WHEN 'COLFLD'.
         WHEN 'FLDSTEP'.
 *         Nothing to do but re-render - the combobox has already written
 *         MV_FLD_STEP through its two-way binding.
@@ -2132,6 +2141,14 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   Seq, Step, Field, Type, Label, the finding marker and the buttons. The
 *   descriptive middle - Tech, Roll, the four flags, Row - folds first,
 *   because you read those AFTER finding the row, never to find it.
+*   The four flag columns are abbreviated to keep the table narrow, and
+*   nothing on screen said what they meant - AR in particular reads as a
+*   language code rather than 'an Arabic label is maintained'. UI5 column
+*   headers in this version take neither a tooltip nor markup, so the legend
+*   goes beside the filter instead, where it is read once and remembered.
+    p->text( text  = 'Req = required · Hid = hidden · Att = has attachment · AR = Arabic label maintained · Row = share a row with the field above'
+             class = 'sapUiSmallMarginBegin sapUiTinyMarginBottom' ).
+
     DATA(t) = p->table( class = 'sapUiSmallMarginBeginEnd' ).
     DATA(c) = t->columns( ).
     c->column( )->text( 'Seq' ).
@@ -2230,14 +2247,37 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
 
   METHOD render_opts.
-    DATA(p) = io->panel( headertext = |Options — { lines( mt_opts ) }|
+    DATA(p) = io->panel( headertext = |Options — { lines( mt_opts ) }| &&
+                           COND string( WHEN ov_step IS NOT INITIAL OR ov_field IS NOT INITIAL
+                                        THEN | · showing { ov_step }{ COND string( WHEN ov_field IS NOT INITIAL THEN | / { ov_field }| ) }| )
                          expandable = abap_true
                          expanded   = mv_pn_opts
                          expand     = mo_client->_event( 'PNL~OPTS' )
                          class      = 'sapUiSmallMarginBeginEnd rakPnlOPTS' ).
     DATA(f) = p->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '3' columnsl = '3' columnsm = '1' )->content( ns = 'form' ).
-    f->label( 'Step ID' ).    f->input( value = mo_client->_bind_edit( ov_step ) ).
-    f->label( 'Field name' ). f->input( value = mo_client->_bind_edit( ov_field ) ).
+*   PICK, DO NOT TYPE. Step and field were free-text, and an option row whose
+*   step or field name does not match an existing field is not an error - it is
+*   simply never read, so the dropdown the author was configuring stays empty
+*   and nothing anywhere says why. A list cannot be mistyped.
+*
+*   The field list narrows to the chosen step, because an option belongs to a
+*   field on a step and offering all sixty is offering fifty-five wrong answers.
+    f->label( 'Step ID' ).
+    DATA(os) = f->combobox( selectedkey = mo_client->_bind_edit( ov_step )
+                            change      = mo_client->_event( 'OPTSTEP' ) ).
+    os->item( key = '' text = '' ).
+    LOOP AT mt_steps INTO DATA(ls_os).
+      os->item( key = ls_os-step_id text = |{ ls_os-step_id } - { ls_os-title }| ).
+    ENDLOOP.
+
+    f->label( 'Field name' ).
+    DATA(of) = f->combobox( selectedkey = mo_client->_bind_edit( ov_field )
+                            change      = mo_client->_event( 'OPTFLD' ) ).
+    of->item( key = '' text = '' ).
+    LOOP AT mt_fields INTO DATA(ls_of)
+         WHERE step_id = ov_step OR ( ov_step IS INITIAL ).
+      of->item( key = ls_of-field_name text = |{ ls_of-field_name } ({ ls_of-ftype })| ).
+    ENDLOOP.
     f->label( 'Seq' ).        f->input( value = mo_client->_bind_edit( ov_seq ) placeholder = 'blank = auto' ).
     f->label( 'Option key' ). f->input( value = mo_client->_bind_edit( ov_key ) ).
     f->label( 'Option text (EN)' ). f->input( value = mo_client->_bind_edit( ov_text ) ).
@@ -2251,6 +2291,15 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     c->column( )->text( 'Key' ). c->column( )->text( 'Text' ). c->column( )->text( '' ).
     DATA(it) = t->items( ).
     LOOP AT mt_opts INTO DATA(r).
+*     The list follows the form. Having chosen a step and a field above, the
+*     rows worth looking at are that field's - the rest belong to another
+*     dropdown and only make this one harder to read.
+      IF ov_step IS NOT INITIAL AND to_upper( r-step_id ) <> to_upper( ov_step ).
+        CONTINUE.
+      ENDIF.
+      IF ov_field IS NOT INITIAL AND to_upper( r-field_name ) <> to_upper( ov_field ).
+        CONTINUE.
+      ENDIF.
       DATA(lv_dev) = |DL_OPT~{ r-step_id }~{ r-field_name }~{ r-opt_key }|.
       DATA(cells) = it->column_list_item( )->cells( ).
       cells->text( r-seqnr )->text( r-step_id )->text( r-field_name )->text( r-opt_key )->text( r-opt_text ).
@@ -2274,14 +2323,40 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   step/field-scoping convention as Options above: Step ID / Field name are
 *   plain inputs the author must match to an existing grid field by hand,
 *   not auto-filled from the Fields panel.
-    DATA(p) = io->panel( headertext = |Columns (grid fields) — { lines( mt_cols ) }|
+    DATA(p) = io->panel( headertext = |Columns (grid fields) — { lines( mt_cols ) }| &&
+                           COND string( WHEN cv_step IS NOT INITIAL OR cv_field IS NOT INITIAL
+                                        THEN | · showing { cv_step }{ COND string( WHEN cv_field IS NOT INITIAL THEN | / { cv_field }| ) }| )
                          expandable = abap_true
                          expanded   = mv_pn_cols
                          expand     = mo_client->_event( 'PNL~COLS' )
                          class      = 'sapUiSmallMarginBeginEnd rakPnlCOLS' ).
     DATA(f) = p->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '3' columnsl = '3' columnsm = '1' )->content( ns = 'form' ).
-    f->label( 'Step ID' ).       f->input( value = mo_client->_bind_edit( cv_step ) ).
-    f->label( 'Grid field name' ). f->input( value = mo_client->_bind_edit( cv_field ) ).
+*   PICK, DO NOT TYPE - and the comment above this method admitted the cost of
+*   the old way: "plain inputs the author must match to an existing grid field
+*   by hand". A column row keyed to a field name that does not exist is read by
+*   nobody and reported by nothing; the grid simply renders its default columns
+*   and the author goes looking in the renderer for a bug that is a typo.
+*
+*   The field list is narrowed twice: to the chosen step, and to the field types
+*   that actually HAVE columns. Offering a DATE field here would be offering a
+*   row that can never do anything.
+    f->label( 'Step ID' ).
+    DATA(cs) = f->combobox( selectedkey = mo_client->_bind_edit( cv_step )
+                            change      = mo_client->_event( 'COLSTEP' ) ).
+    cs->item( key = '' text = '' ).
+    LOOP AT mt_steps INTO DATA(ls_cs).
+      cs->item( key = ls_cs-step_id text = |{ ls_cs-step_id } - { ls_cs-title }| ).
+    ENDLOOP.
+
+    f->label( 'Grid field name' ).
+    DATA(cf) = f->combobox( selectedkey = mo_client->_bind_edit( cv_field )
+                            change      = mo_client->_event( 'COLFLD' ) ).
+    cf->item( key = '' text = '' ).
+    LOOP AT mt_fields INTO DATA(ls_cf)
+         WHERE ( step_id = cv_step OR ( cv_step IS INITIAL ) )
+           AND ( ftype = 'EDITABLE_TABLE' OR ftype = 'TABLE' ).
+      cf->item( key = ls_cf-field_name text = |{ ls_cf-field_name } ({ ls_cf-ftype })| ).
+    ENDLOOP.
     f->label( 'Seq' ).           f->input( value = mo_client->_bind_edit( cv_seq ) placeholder = 'blank = auto' ).
     f->label( 'Column name' ).   f->input( value = mo_client->_bind_edit( cv_col ) ).
     f->label( 'Label (EN)' ).    f->input( value = mo_client->_bind_edit( cv_label ) ).
@@ -2339,6 +2414,15 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     cco->column( )->text( 'Column' ). cco->column( )->text( 'Label' ). cco->column( )->text( 'Ctrl' ). cco->column( )->text( '' ).
     DATA(itc) = tc->items( ).
     LOOP AT mt_cols INTO DATA(rc).
+*     Same as Options: once a grid field is chosen, its columns are what is
+*     being worked on. A journey with three grids otherwise shows all three
+*     sets interleaved with nothing separating them.
+      IF cv_step IS NOT INITIAL AND to_upper( rc-step_id ) <> to_upper( cv_step ).
+        CONTINUE.
+      ENDIF.
+      IF cv_field IS NOT INITIAL AND to_upper( rc-field_name ) <> to_upper( cv_field ).
+        CONTINUE.
+      ENDIF.
       DATA(lv_devc) = |DL_COL~{ rc-step_id }~{ rc-field_name }~{ rc-col_name }|.
       DATA(cellsc) = itc->column_list_item( )->cells( ).
       cellsc->text( rc-seqnr )->text( rc-step_id )->text( rc-field_name )->text( rc-col_name )->text( rc-label )->text( rc-ctrl ).
