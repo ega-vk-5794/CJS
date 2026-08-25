@@ -16,6 +16,11 @@ CLASS zcl_rak_cj_lay DEFINITION
              col_span   TYPE i,
              label_span TYPE i,
              inline     TYPE abap_bool,
+*            Lay this cell's own contents left to right instead of top to bottom,
+*            so a button a handler adds after the field sits BESIDE it rather
+*            than under it. Distinct from INLINE, which is about which ROW a
+*            cell lands on; this is about the direction INSIDE one cell.
+             flow       TYPE abap_bool,
              hidden     TYPE abap_bool,
              fixed      TYPE abap_bool,
              align      TYPE ty_align,
@@ -222,6 +227,12 @@ CLASS ZCL_RAK_CJ_LAY IMPLEMENTATION.
       WHEN c_tri-no.
         cs_attr-inline = abap_false.
     ENDCASE.
+    CASE is_row-flow.
+      WHEN c_tri-yes.
+        cs_attr-flow = abap_true.
+      WHEN c_tri-no.
+        cs_attr-flow = abap_false.
+    ENDCASE.
     CASE is_row-hidden.
       WHEN c_tri-yes.
         cs_attr-hidden = abap_true.
@@ -253,6 +264,7 @@ CLASS ZCL_RAK_CJ_LAY IMPLEMENTATION.
     ls_db-align      = is_attr-align.
     ls_db-width      = is_attr-width.
     ls_db-inline     = COND #( WHEN is_attr-inline = abap_true THEN c_tri-yes ELSE c_tri-no ).
+    ls_db-flow       = COND #( WHEN is_attr-flow   = abap_true THEN c_tri-yes ELSE c_tri-no ).
     ls_db-hidden     = COND #( WHEN is_attr-hidden = abap_true THEN c_tri-yes ELSE c_tri-no ).
     ls_db-fixed      = COND #( WHEN is_attr-fixed  = abap_true THEN c_tri-yes ELSE c_tri-no ).
     ls_db-changed_by = sy-uname.

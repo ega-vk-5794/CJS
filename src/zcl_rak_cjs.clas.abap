@@ -356,6 +356,7 @@ CLASS zcl_rak_cjs DEFINITION
              row   TYPE i,
              col   TYPE i,
              span  TYPE i,
+             flow  TYPE abap_bool,
            END OF ty_dsg,
            tt_dsg TYPE STANDARD TABLE OF ty_dsg WITH EMPTY KEY.
 
@@ -2779,6 +2780,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         ENDIF.
         <s>-col = <d>-col.
         <d>-col = lv_tgt.
+      WHEN 'DSG_FL'.
+*       A toggle, not a move. Nothing about the grid changes - the field
+*       keeps its row, column and span - so this falls through to the same
+*       save as everything else and needs no re-spacing.
+        <d>-flow = xsdbool( <d>-flow = abap_false ).
       WHEN 'DSG_SM'.
         IF <d>-span <= 1.
           RETURN.
@@ -2926,7 +2932,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                           col   = COND i( WHEN ls_c-attr-col_start > 0
                                           THEN ls_c-attr-col_start
                                           ELSE sy-tabix )
-                          span  = ls_c-attr-col_span ) TO rt.
+                          span  = ls_c-attr-col_span
+                          flow  = ls_c-attr-flow ) TO rt.
         ENDLOOP.
       ENDLOOP.
 
@@ -2968,13 +2975,30 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(lv_key) = CONV zcl_rak_cj_lay=>ty_key( to_upper( iv_step ) ).
 
     LOOP AT it INTO DATA(ls).
+
+*     READ BEFORE WRITE. PERSIST( ) does a full MODIFY, so an IS_ATTR built
+*     from scratch here does not just set row, column and span - it blanks
+*     every other attribute on the element. ALIGN, WIDTH, INLINE, HIDDEN and
+*     FIXED were all being wiped by any press of a move or resize arrow,
+*     which is a quiet way to lose work: the field moves as asked and the
+*     alignment someone set ten minutes ago is simply gone.
+*
+*     RESOLVE( ) returns what is stored, and only the four things this
+*     editor actually edits are overwritten.
+      DATA(ls_attr) = lo_lay->resolve( iv_journey = lv_jny
+                                       iv_step    = lv_key
+                                       iv_block   = '*'
+                                       iv_elem    = CONV #( ls-field ) ).
+      ls_attr-row_no    = ls-row.
+      ls_attr-col_start = ls-col.
+      ls_attr-col_span  = ls-span.
+      ls_attr-flow      = ls-flow.
+
       lo_lay->persist( iv_journey = lv_jny
                        iv_step    = lv_key
                        iv_block   = '*'
                        iv_elem    = CONV #( ls-field )
-                       is_attr    = VALUE #( row_no    = ls-row
-                                             col_start = ls-col
-                                             col_span  = ls-span ) ).
+                       is_attr    = ls_attr ).
     ENDLOOP.
 
     zcl_rak_cj_cfg_cache=>invalidate( to_upper( mv_journey_id ) ).
@@ -4391,6 +4415,18 @@ TO rt.
                    type    = COND string( WHEN lv_sel = abap_true THEN 'Emphasized' ELSE 'Transparent' )
                    tooltip = 'Edit English / Arabic label'
                    press   = mo_client->_event( |DSG_TX~{ ls_d-field }| )
+                   class   = 'sapUiTinyMarginEnd' ).
+*     FLOW toggle. Turns the cell into a left-to-right box, which is what
+*     puts a handler's search or ADD button beside the field instead of
+*     under it. Off everywhere until pressed, so no journey moves on its own.
+      row->button( icon    = COND string( WHEN ls_d-flow = abap_true
+                                          THEN 'sap-icon://horizontal-grip'
+                                          ELSE 'sap-icon://vertical-grip' )
+                   type    = COND string( WHEN ls_d-flow = abap_true THEN 'Emphasized' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN ls_d-flow = abap_true
+                                          THEN 'Field and its buttons sit side by side - press to stack them'
+                                          ELSE 'Field and its buttons are stacked - press to put them side by side' )
+                   press   = mo_client->_event( |DSG_FL~{ ls_d-field }| )
                    class   = 'sapUiTinyMarginEnd' ).
       row->button( icon    = 'sap-icon://navigation-left-arrow'
                    type    = 'Transparent'

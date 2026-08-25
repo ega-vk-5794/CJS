@@ -804,9 +804,31 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                   THEN CONV string( is_cell-attr-width )
                                   ELSE '100%' ).
 
-    DATA(lo_cell) = io_parent->vbox( class      = 'rakCell'
-                                     width      = lv_width
-                                     alignitems = lv_align ).
+*   FLOW - the cell's own direction.
+*
+*   A cell is a vbox, so everything put into it stacks: the field, then
+*   whatever AFTER_FIELD( ) adds. That is why a handler's search or ADD
+*   button always lands UNDER its input and never beside it - it is the
+*   container, not the button, that decides.
+*
+*   FLOW turns the cell into an hbox, and the button lands where the reader
+*   expects it. ALIGNITEMS 'End' rather than the cell's own alignment: the
+*   field is label-above-input and the button is a button, so aligning
+*   their bottoms puts the button level with the input rather than floating
+*   next to the label.
+*
+*   Off by default and read from a column that is blank everywhere until
+*   somebody ticks it in the Design tab, so no existing journey moves.
+    DATA lo_cell TYPE REF TO z2ui5_cl_xml_view.
+    IF is_cell-attr-flow = abap_true.
+      lo_cell = io_parent->hbox( class      = 'rakCell rakCellFlow'
+                                 width      = lv_width
+                                 alignitems = 'End' ).
+    ELSE.
+      lo_cell = io_parent->vbox( class      = 'rakCell'
+                                 width      = lv_width
+                                 alignitems = lv_align ).
+    ENDIF.
 
     lo_cell->layout_data( )->grid_data(
       span      = zcl_rak_cj_lay=>span_str( is_cell-attr-col_span )
