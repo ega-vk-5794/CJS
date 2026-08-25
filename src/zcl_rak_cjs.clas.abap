@@ -4365,7 +4365,16 @@ TO rt.
 
       DATA(lv_sel) = xsdbool( to_upper( mv_dsg_fld ) = to_upper( ls_d-field ) ).
 
+*     WRAP, so the action buttons cannot be pushed out of sight.
+*
+*     This pane shares the width with the live preview, and the row carries a
+*     twelve-segment bar, a name, a type, a span and six buttons. On a narrow
+*     window the buttons ran off the right edge and were simply gone - no
+*     scrollbar, no clue they existed, and no way to move a field. Wrapping
+*     drops them onto a second line instead, which is ugly for one row and
+*     far better than an editor whose controls disappear.
       DATA(row) = box->hbox( alignitems = 'Center'
+                             wrap       = 'Wrap'
                              class      = COND string( WHEN lv_sel = abap_true
                                                        THEN 'sapUiTinyMarginBottom rakDsgSel'
                                                        ELSE 'sapUiTinyMarginBottom' ) ).
@@ -4403,7 +4412,7 @@ TO rt.
 *     than the width gets an ellipsis, and the field is identified again in
 *     the label editor behind the Tt button.
       row->text( text     = ls_d-field
-                 width    = '15rem'
+                 width    = '11rem'
                  wrapping = 'false'
                  class    = 'sapUiSmallMarginBegin sapUiSmallMarginEnd' ).
       row->object_status( text = ls_d-ftype state = 'None' class = 'sapUiSmallMarginEnd' ).
