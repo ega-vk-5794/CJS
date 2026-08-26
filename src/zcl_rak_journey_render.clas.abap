@@ -1602,15 +1602,39 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
       WHEN 'NUMBER'.
         req_label( io_form = io_form is_field = is_field ).
-        io_form->input( class = mo_e->mo_css->cls( 'INPUT' ) value = lv_bind type = 'Number' placeholder = is_field-placeholder editable = lv_edit change = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true ) valuestate = lv_vs valuestatetext = lv_vst width = lv_w ).
+        io_form->input( class          = mo_e->mo_css->cls( 'INPUT' )
+                        value          = lv_bind
+                        type           = 'Number'
+                        placeholder    = is_field-placeholder
+                        editable       = lv_edit
+                        change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
+                        valuestate     = lv_vs
+                        valuestatetext = lv_vst
+                        width          = lv_w ).
 
       WHEN 'EMAIL'.
         req_label( io_form = io_form is_field = is_field ).
-        io_form->input( class = mo_e->mo_css->cls( 'INPUT' ) value = lv_bind type = 'Email' placeholder = is_field-placeholder editable = lv_edit change = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true ) valuestate = lv_vs valuestatetext = lv_vst width = lv_w ).
+        io_form->input( class          = mo_e->mo_css->cls( 'INPUT' )
+                        value          = lv_bind
+                        type           = 'Email'
+                        placeholder    = is_field-placeholder
+                        editable       = lv_edit
+                        change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
+                        valuestate     = lv_vs
+                        valuestatetext = lv_vst
+                        width          = lv_w ).
 
       WHEN 'PHONE'.
         req_label( io_form = io_form is_field = is_field ).
-        io_form->input( class = mo_e->mo_css->cls( 'INPUT' ) value = lv_bind type = 'Tel' placeholder = is_field-placeholder editable = lv_edit change = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true ) valuestate = lv_vs valuestatetext = lv_vst width = lv_w ).
+        io_form->input( class          = mo_e->mo_css->cls( 'INPUT' )
+                        value          = lv_bind
+                        type           = 'Tel'
+                        placeholder    = is_field-placeholder
+                        editable       = lv_edit
+                        change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
+                        valuestate     = lv_vs
+                        valuestatetext = lv_vst
+                        width          = lv_w ).
 
       WHEN 'CURRENCY'.
         req_label( io_form = io_form is_field = is_field ).

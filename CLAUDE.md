@@ -138,6 +138,12 @@ These raise nothing and render nothing. They account for most of the bugs found 
   Write ABAP for payment routing, live BP search, cross-container side effects.
 - **Migrating a legacy screen?** Drive `ZCL_RAK_MIGRATOR`. Do not hand-author `ZRAK_T_JNY*`
   `INSERT`s — they drift from its mapping.
+- **An ABAP source line stops at 255 characters.** Past that the Class Builder truncates and
+  reports `Field "LV_V" is unknown` - naming whatever the cut left behind, at the line it cut,
+  never the length. Three unrelated-looking unknown-field errors on three neighbouring lines is
+  the signature. Several single-line `io_form->input( ... )` calls in `ZCL_RAK_JOURNEY_RENDER`
+  already sit in the 250s, so adding one parameter tips them over. After editing, check with
+  `awk 'length($0)>255' src/*.abap` and split the call across lines.
 - **Source files are CRLF.** `sed -i` strips them on this machine; use `perl -i -pe` and check
   `file -b` afterwards.
 - **New engine capability?** Cover it in `ZCL_RAK_TEST_ALL_LOGIC`, which exercises every hook
