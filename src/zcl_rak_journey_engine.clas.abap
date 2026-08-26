@@ -101,7 +101,9 @@ CLASS zcl_rak_journey_engine DEFINITION
     METHODS ensure_config.
     METHODS check_types.
     METHODS change_evt  IMPORTING iv_name TYPE string RETURNING VALUE(rv) TYPE string.
-    METHODS opt_evt     IMPORTING iv_name TYPE string RETURNING VALUE(rv) TYPE string.
+    METHODS opt_evt     IMPORTING iv_name  TYPE string
+                                  iv_typed TYPE abap_bool DEFAULT abap_false
+                        RETURNING VALUE(rv) TYPE string.
     METHODS btn_evt     IMPORTING iv_id   TYPE string RETURNING VALUE(rv) TYPE string.
     METHODS att_max_mb IMPORTING iv_field_mb TYPE i RETURNING VALUE(rv) TYPE i.
     CONSTANTS c_att_fallback_mb TYPE i VALUE 2.
@@ -1648,6 +1650,32 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   The cost is one round trip when a citizen changes a select on a journey that
 *   has a handler. That is the point of having one, and it is the same round trip
 *   Next already makes. Journeys with no handler class are unaffected.
+*   IV_TYPED SPLITS THE TWO CASES, and the split is the point.
+*
+*   On a control the citizen PICKS from - a select, a radio group, a switch - a
+*   round trip per change is invisible: the choice is made with the mouse and
+*   nobody tabs straight out of it. The OR above is what makes ON_CHANGE( ) fire
+*   for a handler at all, and it stays.
+*
+*   On a control the citizen TYPES into it is not invisible, and this is the
+*   regression it caused. Leaving a text field raises CHANGE, which is a round
+*   trip, which re-renders the view and drops focus - so the first Tab appears to
+*   do nothing and the second one works. Every text field, every journey with a
+*   handler class, which is nearly all of them. The commit that added the OR
+*   reasoned about it as one round trip on a select and did not notice that the
+*   same helper feeds the inputs.
+*
+*   So a typed field goes back to the original test: it raises CHANGE only when a
+*   RULE names it as a source. A handler that genuinely needs ON_CHANGE while
+*   someone types opts in through configuration - a ZRAK_T_JNY_RULE row with that
+*   field as SRC_FIELD - which is the CJS answer anyway: config before code.
+    IF iv_typed = abap_true.
+      IF line_exists( ms_config-rules[ src_field = to_upper( iv_name ) ] ).
+        rv = mo_client->_event( |CHANGE_{ iv_name }| ).
+      ENDIF.
+      RETURN.
+    ENDIF.
+
     IF line_exists( ms_config-rules[ src_field = to_upper( iv_name ) ] )
        OR mo_logic IS BOUND.
       rv = mo_client->_event( |CHANGE_{ iv_name }| ).
