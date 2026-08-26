@@ -4931,6 +4931,7 @@ title = 'Showcase — all controls' sub = 'Every field type and capability, for 
     l2->item( key = 'CLEAN' text = 'CLEAN' ).
     l2->item( key = 'PREMIUM' text = 'PREMIUM' ).
     l2->item( key = 'FLAMINGO' text = 'FLAMINGO' ).
+    l2->item( key = 'ATTEST' text = 'ATTEST - floating card header, dashed read-only' ).
     l2->item( key = 'PORTAL' text = 'PORTAL — large title, sticky footer' ).
     f->label( 'Accent' ).        DATA(l3) = f->combobox( selectedkey = mo_client->_bind_edit( mv_accent ) ).
     l3->item( key = 'Emphasized' text = 'Emphasized' ).
@@ -5052,6 +5053,7 @@ title = 'Showcase — all controls' sub = 'Every field type and capability, for 
     gv->item( key = 'CLEAN' text = 'CLEAN' ).
     gv->item( key = 'PREMIUM' text = 'PREMIUM' ).
     gv->item( key = 'FLAMINGO' text = 'FLAMINGO' ).
+    gv->item( key = 'ATTEST' text = 'ATTEST - floating card header, dashed read-only' ).
     gv->item( key = 'PORTAL' text = 'PORTAL - large title, sticky footer' ).
 
     ft->label( 'Accent' ).

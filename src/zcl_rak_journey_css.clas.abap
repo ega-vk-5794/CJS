@@ -248,6 +248,80 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
           |.rakStep.dn .rakDot\{background:#C4232B;border-color:#C4232B;color:#fff;\}| &&
           |.rakBar.done\{background:#C4232B;\}| &&
           |.sapMSegBBtnSel,.sapMSegBBtnSel .sapMSegBBtnInner\{background:#C4232B!important;color:#fff!important;\}|.
+      ELSEIF mo_e->ms_config-theme-variant = 'ATTEST'.
+*       ATTEST - drawn from the AS3 marriage take-off mock.
+*
+*       What makes it its own variant rather than a tweak of PREMIUM: the header
+*       is a FLOATING card with a margin on all four sides, not a full-bleed band,
+*       and the page behind it is a warm grey rather than white. Everything else
+*       follows from that - card, footer and header are three separate rounded
+*       panels on one background, so each needs the same radius and border and the
+*       page needs a colour dark enough to read as a gap between them.
+*
+*       Brand and navy still come from the theme record, so BRAND_COLOR on the
+*       journey header keeps working. Only the greys are literal, because they are
+*       the mock's own scale and there is nowhere in the theme record for them.
+        lv_css = lv_css &&
+*         Pill buttons, near-square fields - the mock's inputs are 6px.
+          |:root \{--sapButton_BorderCornerRadius:18px;--sapField_BorderCornerRadius:6px;\}| &&
+          |.sapUiBody,.sapMPage,.sapMShell\{background:#EEF1F5!important;\}| &&
+
+*         ---- header: a floating gradient card -------------------------------
+          |.rakHdr\{background:linear-gradient({ a120 },{ b },{ d });color:#fff;| &&
+          |border-radius:12px;padding:16px 22px;margin:16px 12px 0;| &&
+          |box-shadow:0 6px 18px rgba(158,27,34,.25);\}| &&
+          |.rakHdrTitle,.rakHdr .sapMTitle\{color:#fff!important;font-weight:700;\}| &&
+          |.rakHdr .sapMBtn,.rakHdr .sapMBtn .sapMBtnContent,| &&
+          |.rakHdr .sapMBtn .sapUiIcon\{color:#fff!important;\}| &&
+          |.rakSub\{color:rgba(255,255,255,.92);font-size:.8rem;\}| &&
+
+*         ---- stepper: 30px outlined dots, brand when reached ----------------
+          |.rakStepper\{margin:16px 16px 8px;\}| &&
+          |.rakDot\{width:30px;height:30px;font-size:13px;font-weight:700;| &&
+          |background:#fff;border:2px solid #CFD6DE;color:#9AA5B1;\}| &&
+          |.rakLbl\{font-size:.72rem;color:#9AA5B1;\}| &&
+          |.rakStep.on .rakDot,.rakStep.dn .rakDot| &&
+          |\{background:{ b };border-color:{ b };color:#fff;\}| &&
+          |.rakStep.on .rakLbl\{color:{ b };font-weight:700;\}| &&
+          |.rakStep.dn .rakLbl\{color:{ n };\}| &&
+          |.rakBar\{background:#CFD6DE;\}| &&
+          |.rakBar.done\{background:{ b };\}| &&
+
+*         ---- the three panels: card, footer, search -------------------------
+          |.rakCard\{background:#fff;border:1px solid { g-line_clr };border-radius:12px;| &&
+          |padding:14px 20px 16px;margin:12px 12px;| &&
+          |box-shadow:0 2px 10px rgba(16,35,62,.05);\}| &&
+          |.rakFooter\{background:#fff;border:1px solid { g-line_clr };border-radius:12px;| &&
+          |margin:12px 12px;padding:8px 16px;\}| &&
+          |.rakSearch\{background:#fff;border:1px solid { g-line_clr };border-radius:10px;| &&
+          |padding:.7rem 1.1rem;margin:.4rem .75rem;\}| &&
+          |.rakBlkTitle\{color:{ n };font-weight:700;\}| &&
+
+*         ---- fields ---------------------------------------------------------
+*         The focus ring is the mock's, and it is why the brand colour is spelled
+*         out twice: a box-shadow cannot take a colour with an alpha applied to it
+*         from a variable, so the ring stays literal while the border follows the
+*         theme.
+          |.sapMInputBaseContentWrapper\{border-color:#C6CCD4;\}| &&
+          |.sapMInputBaseContentWrapper:focus-within| &&
+          |\{border-color:{ b }!important;box-shadow:0 0 0 2px rgba(196,30,38,.15);\}| &&
+
+*         READ-ONLY is the mock's most distinctive field state: grey fill, no box,
+*         one dashed underline. It has to beat UI5's own readonly styling, hence
+*         the !important - without it the wrapper keeps its solid border and the
+*         field reads as an editable one that happens to be grey.
+          |.sapMInputBaseReadonly .sapMInputBaseContentWrapper,| &&
+          |.sapMInputBaseDisabled .sapMInputBaseContentWrapper| &&
+          |\{background:#F4F6F8!important;border:none!important;| &&
+          |border-bottom:1px dashed #C6CCD4!important;border-radius:0!important;\}| &&
+          |.rakRoLbl,.rakVal\{color:#45505F;\}| &&
+
+*         ---- tables and segmented -------------------------------------------
+          |.sapMListTblHeader,.sapMListTblHeaderCell| &&
+          |\{background:#F5F7F9;color:{ n };font-weight:600;\}| &&
+          |.sapMSegB\{border-radius:18px;overflow:hidden;\}| &&
+          |.sapMSegBBtnSel,.sapMSegBBtnSel .sapMSegBBtnInner| &&
+          |\{background:{ b }!important;color:#fff!important;\}|.
       ELSEIF mo_e->ms_config-theme-variant = 'PORTAL'.
         lv_css = lv_css &&
 *       Field radius drops from 10px to 8px: the portal's cards and inputs are
