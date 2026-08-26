@@ -297,6 +297,23 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
           |padding:.7rem 1.1rem;margin:.4rem .75rem;\}| &&
           |.rakBlkTitle\{color:{ n };font-weight:700;\}| &&
 
+*         A SECTION renders as a sap.m.Panel, not the form the card rules above
+*         were written for, and UI5 paints the panel body itself - so the plain
+*         .rakCard rule lost. A sectioned step (Parties, with its Personal
+*         information and Parties involved groups) drew its headings and fields
+*         straight onto the page grey, while an unsectioned step drew a proper
+*         white card. Naming both classes on the one element wins that without
+*         !important, and the header has to be repainted too or it stays a grey
+*         strip across the top of a white box.
+          |.rakCard.sapMPanel,.rakCard .sapMPanelContent,| &&
+          |.rakCard .sapMPanelHdr\{background:#fff;\}| &&
+          |.rakCard.sapMPanel\{border:1px solid { g-line_clr };border-radius:12px;| &&
+          |box-shadow:0 2px 10px rgba(16,35,62,.05);margin:12px 12px;\}| &&
+          |.rakCard .sapMPanelHdr\{border-bottom:none;padding:12px 20px 0;\}| &&
+          |.rakCard .sapMPanelHdr .sapMTitle| &&
+          |\{color:{ n }!important;font-weight:700;\}| &&
+          |.rakCard .sapMPanelContent\{padding:6px 20px 14px;border:none;\}| &&
+
 *         ---- fields ---------------------------------------------------------
 *         The focus ring is the mock's, and it is why the brand colour is spelled
 *         out twice: a box-shadow cannot take a colour with an alpha applied to it
