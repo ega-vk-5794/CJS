@@ -770,9 +770,20 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                                            iv_block   = iv_block
                                                            it_elem    = lt_elem ).
 
-    DATA(lo_grid) = io_parent->grid( default_span = 'XL12 L12 M12 S12'
-                                     hspacing     = '1'
-                                     vspacing     = '1' )->content( ns = 'layout' ).
+*   THE CARD, which a laid-out step never had. The unlaid path wraps its fields
+*   in a SimpleForm - or a Panel for a section - carrying cls( 'CARD' ); this one
+*   dropped a bare Grid onto the step body and nothing else. So a step drawn in
+*   the layout designer rendered its fields directly on the page background while
+*   the step before it sat in a white card, and no theme could close the gap
+*   because there was no element to style.
+*
+*   Invisible for as long as the page behind it was white. The ATTEST variant
+*   gives the page a grey, and the missing card became the first thing you see.
+    DATA(lo_card) = io_parent->vbox( class = mo_e->mo_css->cls( 'CARD' ) ).
+
+    DATA(lo_grid) = lo_card->grid( default_span = 'XL12 L12 M12 S12'
+                                   hspacing     = '1'
+                                   vspacing     = '1' )->content( ns = 'layout' ).
 
     LOOP AT lt_rows ASSIGNING FIELD-SYMBOL(<ls_row>).
 
