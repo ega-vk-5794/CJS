@@ -165,13 +165,71 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
     lo_cl->column( )->text( 'Gross Weight' ).
     lo_cl->column( halign = 'End' )->text( '' ).
 
+
+*-----Added
+*    DATA lt_seen_hs TYPE HASHED TABLE OF string
+*                    WITH UNIQUE KEY table_line.
+*    DATA lt_final_rows LIKE ls_g-rows.
+*
+*    LOOP AT ls_g-rows INTO DATA(lt_r). "STEP -1.
+*
+*      DATA(lv_hs_no) = VALUE string( lt_r[ 1 ] OPTIONAL ).
+*
+*      IF lv_hs_no IS INITIAL.
+*        CONTINUE.
+*      ENDIF.
+*
+*      "Already found this HS code in a newer row
+*      IF line_exists( lt_seen_hs[ table_line = lv_hs_no ] ).
+*        CONTINUE.
+*      ENDIF.
+*
+*      "Remember HS code
+*      INSERT lv_hs_no INTO TABLE lt_seen_hs.
+*
+*      "Keep the latest row
+*      INSERT lt_r INTO lt_final_rows INDEX 1.
+*
+*    ENDLOOP.
+*
+*    LOOP AT lt_final_rows INTO DATA(lt_r1).
+*
+*      DATA(lv_hs_no1) = VALUE string( lt_r1[ 1 ] OPTIONAL ).
+*      DATA(lv_mat)   = VALUE string( lt_r1[ 2 ] OPTIONAL ).
+*      DATA(lv_chem)  = VALUE string( lt_r1[ 3 ] OPTIONAL ).
+*      DATA(lv_cas)   = VALUE string( lt_r1[ 4 ] OPTIONAL ).
+*      DATA(lv_w8t)   = VALUE string( lt_r1[ 8 ] OPTIONAL ).
+*
+*      DATA(lo_cells) = lo_t->column_list_item( )->cells( ).
+*
+*      DATA(lo_nm) = lo_cells->vbox( ).
+*
+*      lo_nm->text( text = lv_hs_no1 ).
+*      lo_cells->text( lv_mat ).
+*      lo_cells->text( lv_chem ).
+*      lo_cells->text( lv_cas ).
+*      lo_cells->text( lv_w8t ).
+*
+*      DATA(lo_act) = lo_cells->hbox( ).
+*      lo_act->button( icon    = 'sap-icon://edit'
+*                      type    = 'Transparent'
+*                      tooltip = 'Edit details'
+*                      press   = io_ctx->event( |OWN_EDIT_{ lv_hs_no }| ) ).
+*      lo_act->button( icon    = 'sap-icon://delete'
+*                      type    = 'Transparent'
+*                      tooltip = 'Delete'
+*                      press   = io_ctx->event( |OWN_DEL_{ lv_hs_no }| ) ).
+*
+*    ENDLOOP.
+
+
+
+
+
+
+
     DATA(lo_it) = lo_t->items( ).
     LOOP AT ls_g-rows INTO DATA(lt_r).
-*      DATA(lv_hs_no)  = VALUE string( lt_r[ 1 ] OPTIONAL ).
-*      DATA(lv_nam) = VALUE string( lt_r[ 2 ] OPTIONAL ).
-*      DATA(lv_eid) = VALUE string( lt_r[ 3 ] OPTIONAL ).
-*      DATA(lv_nat) = VALUE string( lt_r[ 4 ] OPTIONAL ).
-*      DATA(lv_shr) = VALUE string( lt_r[ 5 ] OPTIONAL ).
 
       DATA(lv_hs_no) = VALUE string( lt_r[ 1 ] OPTIONAL ).
       DATA(lv_mat)   = VALUE string( lt_r[ 2 ] OPTIONAL ).
@@ -179,15 +237,12 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
       DATA(lv_cas)   = VALUE string( lt_r[ 4 ] OPTIONAL ).
       DATA(lv_w8t)   = VALUE string( lt_r[ 8 ] OPTIONAL ).
 
-*     How many files this owner has. Counting them here is the only way the
-*     citizen can see, from the list, whose documents are still missing.
+
 
       DATA(lo_cells) = lo_it->column_list_item( )->cells( ).
       DATA(lo_nm) = lo_cells->vbox( ).
       lo_nm->text( text = lv_hs_no ).
-*      lo_nm->text( text = lv_eid class = 'rakRecMeta' ).
-*      lo_cells->text( lv_hs_no ).
-       lo_cells->text( lv_mat ).
+      lo_cells->text( lv_mat ).
       lo_cells->text( lv_chem ).
       lo_cells->text( lv_cas ).
       lo_cells->text( lv_w8t ).
@@ -202,13 +257,6 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
                       tooltip = 'Delete'
                       press   = io_ctx->event( |OWN_DEL_{ lv_hs_no }| ) ).
     ENDLOOP.
-
-*    IF ls_g-rows IS INITIAL.
-*      io_view->message_strip( text     = 'No owners yet. Press Add Owner to enter the first one.'
-*                              type     = 'Information'
-*                              showicon = abap_true
-*                              class    = 'sapUiSmallMarginTop' ).
-*    ENDIF.
 
 
   ENDMETHOD.
@@ -585,8 +633,8 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
       WHEN c_evt_owncx. "'CANCEL'. "
         io_ctx->close_popup( ).
 
-      WHEN c_evt_ownsr.
-        own_search( io_ctx ).
+*      WHEN c_evt_ownsr.
+*        own_search( io_ctx ).
 
       WHEN OTHERS.
 *    "Edit Chemicals Details GRID
@@ -658,7 +706,8 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
                                 ( name = c_trans_comp           label = 'Transport Company'  )
                               )
           iv_ok_text = 'Add'
-          iv_ok_evt  = c_own_add ).
+          iv_ok_evt  = c_evt_ownok
+          iv_cxl_evt = c_evt_owncx ).
         RETURN.
 
 *        dialog_form(

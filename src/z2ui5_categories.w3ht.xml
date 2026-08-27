@@ -7,15 +7,15 @@
    <PARAMS>
     <WWWPARAMS>
      <NAME>fileextension</NAME>
-     <VALUE>.txt</VALUE>
+     <VALUE>.json</VALUE>
     </WWWPARAMS>
     <WWWPARAMS>
      <NAME>filename</NAME>
-     <VALUE>ui5-controls-by-category_2.txt</VALUE>
+     <VALUE>ui5-controls-by-category_8.json</VALUE>
     </WWWPARAMS>
     <WWWPARAMS>
      <NAME>mimetype</NAME>
-     <VALUE>text/plain</VALUE>
+     <VALUE>application/json</VALUE>
     </WWWPARAMS>
    </PARAMS>
   </asx:values>

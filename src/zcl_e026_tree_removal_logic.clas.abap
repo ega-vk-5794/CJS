@@ -20,11 +20,21 @@ public section.
   methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_FIELDS
     redefinition .
 protected section.
-  PRIVATE SECTION.
-    CONSTANTS c_min_search_len  TYPE i      VALUE 3.
-    CONSTANTS c_default_idtype  TYPE string VALUE 'YFS002'.
-    CONSTANTS c_type_individual TYPE string VALUE '1'.
-    CONSTANTS c_type_company    TYPE string VALUE '2'.
+private section.
+
+  constants C_MIN_SEARCH_LEN type I value 3 ##NO_TEXT.
+  constants C_DEFAULT_IDTYPE type STRING value 'YFS002' ##NO_TEXT.
+  constants C_TYPE_INDIVIDUAL type STRING value '1' ##NO_TEXT.
+  constants C_TYPE_COMPANY type STRING value '2' ##NO_TEXT.
+  constants C_LOGIN_BP type STRING value 'OWNER_BP' ##NO_TEXT.
+  constants C_PARTNER_NAME type STRING value 'APP_NAME' ##NO_TEXT.
+  constants C_PARTNER_ID type STRING value 'APP_ID' ##NO_TEXT.
+  constants C_APPLICANTTYPE type STRING value 'PARTNER_TYPE' ##NO_TEXT.
+  constants C_LANG_EN type STRING value 'E' ##NO_TEXT.
+  constants C_PARTNER_MOBILE type STRING value 'APP_MOBILE' ##NO_TEXT.
+  constants C_PARTNER_EMAIL type STRING value 'APP_EMAIL' ##NO_TEXT.
+  constants C_ROLE type STRING value 'APP_ROLE' ##NO_TEXT.
+  constants C_OWNER_BP type STRING value 'OWNER' ##NO_TEXT.
 ENDCLASS.
 
 
@@ -149,35 +159,74 @@ ENDMETHOD.
 **
 **    io_ctx->set_val( iv_name = 'PERMIT_NUMBER' iv_value = 'E21DI04468' ).
 
-    io_ctx->set_val( iv_name = 'PARTNER_TYPE' iv_value = 'OWNER' ).
+*    io_ctx->set_val( iv_name = 'PARTNER_TYPE' iv_value = 'OWNER' ).
+*
+*    DATA(lr_noc_api) = NEW zcl_epda_consult_noc_handl_api( ).
+*    DATA lv_login_bp TYPE  bu_partner VALUE '3000000043'.
+*
+*    lr_noc_api->get_bp_details(
+*      EXPORTING
+*        iv_bp_id      = lv_login_bp
+*      IMPORTING
+*        es_bp_details = DATA(ls_login_bp) ).
+*
+*    IF ls_login_bp-bp_name_en IS NOT INITIAL.
+*      io_ctx->set_val( iv_name = 'APP_NAME' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
+*    ELSE.
+*      io_ctx->set_val( iv_name = 'APP_NAME' iv_value = CONV #( ls_login_bp-bp_name_ar ) ).
+*    ENDIF.
+*
+*    io_ctx->set_val( iv_name = 'OWNER' iv_value = CONV #( ls_login_bp-emirates_id ) ).
+*    io_ctx->set_val( iv_name = 'APP_MOBILE' iv_value = CONV #( ls_login_bp-mobile_number ) ).
+*    io_ctx->set_val( iv_name = 'APP_EMAIL' iv_value = CONV #( ls_login_bp-email_address ) ).
+*    io_ctx->set_val( iv_name = 'APP_ID' iv_value = CONV #( ls_login_bp-partner ) ).
+*
+*
+*    io_ctx->set_val( iv_name = 'PERMIT_NUMBER' iv_value = 'E21DI04468' ).
+*
+*
+*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '3000000043' ).
 
-    DATA(lr_noc_api) = NEW zcl_epda_consult_noc_handl_api( ).
-    DATA lv_login_bp TYPE  bu_partner VALUE '3000000043'.
 
-    lr_noc_api->get_bp_details(
+*     io_ctx->set_val( iv_name = 'PARTNER_TYPE' iv_value = 'OWNER' ).
+
+    CALL METHOD super->zif_rak_journey_logic~on_init
       EXPORTING
-        iv_bp_id      = lv_login_bp
-      IMPORTING
-        es_bp_details = DATA(ls_login_bp) ).
+        io_ctx = io_ctx.
 
-    IF ls_login_bp-bp_name_en IS NOT INITIAL.
-      io_ctx->set_val( iv_name = 'APP_NAME' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
-    ELSE.
-      io_ctx->set_val( iv_name = 'APP_NAME' iv_value = CONV #( ls_login_bp-bp_name_ar ) ).
+    DATA: lv_loginbp TYPE bu_partner.
+
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
+
+    IF lv_loginbp IS NOT INITIAL.
+      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+        EXPORTING
+          iv_bp_id      = lv_loginbp
+        IMPORTING
+          es_bp_details = DATA(ls_bp) ).
+
+      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+
+      IF sy-langu = c_lang_en.
+        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name ) ).
+      ELSE.
+        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+      ENDIF.
+
+      io_ctx->set_val( iv_name = c_partner_id iv_value = CONV #( ls_bp-emirates_id ) ).
+
+      io_ctx->set_val( iv_name = c_partner_mobile iv_value = CONV #( ls_bp-mobile_number ) ).
+      io_ctx->set_val( iv_name = c_partner_email iv_value = CONV #( ls_bp-email_address ) ).
+
+
+      io_ctx->set_val( iv_name = c_applicanttype iv_value = |{ lv_role }| ).
+
+      io_ctx->set_val( iv_name = 'OWNER' iv_value = ' ' ).
+
+
     ENDIF.
-
-    io_ctx->set_val( iv_name = 'OWNER' iv_value = CONV #( ls_login_bp-emirates_id ) ).
-    io_ctx->set_val( iv_name = 'APP_MOBILE' iv_value = CONV #( ls_login_bp-mobile_number ) ).
-    io_ctx->set_val( iv_name = 'APP_EMAIL' iv_value = CONV #( ls_login_bp-email_address ) ).
-    io_ctx->set_val( iv_name = 'APP_ID' iv_value = CONV #( ls_login_bp-partner ) ).
-
-
-    io_ctx->set_val( iv_name = 'PERMIT_NUMBER' iv_value = 'E21DI04468' ).
-
-
-    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '3000000043' ).
-
-
 
   endmethod.
 
@@ -185,8 +234,8 @@ ENDMETHOD.
   METHOD zif_rak_journey_logic~on_search.
     CHECK to_upper( iv_field ) = 'OWNER'.
 
-    DATA(lv_term) = condense( io_ctx->get_val( 'OWNER' ) ).
-    IF strlen( lv_term ) < c_min_search_len.
+    DATA(lv_eid) = condense( io_ctx->get_val( 'OWNER' ) ).
+    IF strlen( lv_eid ) < c_min_search_len.
       io_ctx->add_msg( iv_type = 'Warning'
                        iv_text = |Enter at least { c_min_search_len } characters to search| ).
       RETURN.
@@ -198,35 +247,91 @@ ENDMETHOD.
       lv_idtype = c_default_idtype.
     ENDIF.
 
-    SELECT SINGLE a~partner, a~zzfull_name_eng, a~NAME1_TEXT,  b~idnumber
-*              "   a~zzcompany_name, a~zztrade_license, a~zzmobile, a~zzemail
+*    SELECT SINGLE a~partner, a~zzfull_name_eng, a~NAME1_TEXT,  b~idnumber
+**              "   a~zzcompany_name, a~zztrade_license, a~zzmobile, a~zzemail
+*
+*      FROM but000 AS a
+*      LEFT JOIN but0id AS b ON b~partner = a~partner AND b~type = @lv_idtype
+*      WHERE b~idnumber = @lv_term "OR a~partner = @lv_term    "commented by rabindra
+*      INTO @DATA(ls_bp).
+*
+*    IF sy-subrc <> 0.
+*      io_ctx->add_msg( iv_type = 'Error' iv_text = |Nothing found for { lv_term }| ).
+*      io_ctx->set_val( iv_name = 'FOUND_FLAG' iv_value = '' ).
+*      RETURN.
+*    ENDIF.
+*
+**    " Contact fields shown regardless of individual/company (rules R4/R5).
+*    io_ctx->set_val( iv_name = 'OWNER' iv_value = |{ ls_bp-partner }| ).
+**    io_ctx->set_val( iv_name = 'EXECMOBILE' iv_value = |{ ls_bp-zzmobile }| ).   " REVIEW: field names on BUT000 are placeholders
+**    io_ctx->set_val( iv_name = 'EXECEMAIL' iv_value = |{ ls_bp-zzemail }| ).    " REVIEW: field names on BUT000 are placeholders
+*
+*    " Individual-branch fields (rules R6/R7 show these when OWNERTYPE = 1).
+*    io_ctx->set_val( iv_name = 'EXECFULLNAME' iv_value = |{ ls_bp-zzfull_name_eng }| ).
+*    io_ctx->set_val( iv_name = 'EXECID' iv_value = |{ ls_bp-idnumber }| ).
+*
+*    " Company-branch fields (rules R8/R9 show these when OWNERTYPE = 2).
+**    io_ctx->set_val( iv_name = 'EXECCOMPANY' iv_value = |{ ls_bp-zzcompany_name }| ).   " REVIEW: field names are placeholders
+**    io_ctx->set_val( iv_name = 'EXECLICENSE' iv_value = |{ ls_bp-zztrade_license }| ).  " REVIEW: field names are placeholders
+*
+*    " Flip the bridge flag so rules R3-R5 can reveal OWNERTYPE/contact fields.
+*    io_ctx->set_val( iv_name = 'FOUND_FLAG' iv_value = 'X' ).
 
-      FROM but000 AS a
-      LEFT JOIN but0id AS b ON b~partner = a~partner AND b~type = @lv_idtype
-      WHERE b~idnumber = @lv_term "OR a~partner = @lv_term    "commented by rabindra
-      INTO @DATA(ls_bp).
+    DATA: lv_eid_no   TYPE bu_id_number,
+          lv_eid_type TYPE bu_id_type.
 
-    IF sy-subrc <> 0.
-      io_ctx->add_msg( iv_type = 'Error' iv_text = |Nothing found for { lv_term }| ).
-      io_ctx->set_val( iv_name = 'FOUND_FLAG' iv_value = '' ).
-      RETURN.
+    IF to_upper( iv_field ) = c_owner_bp.
+      lv_eid_no = lv_eid.
+      lv_eid_type = lv_idtype.
+
+      DATA ev_partner         TYPE partner.
+      DATA ev_id_number       TYPE bu_id_number.
+      DATA ev_passport        TYPE bu_id_number.
+      DATA ev_name            TYPE bu_name1tx.
+      DATA ev_phone           TYPE farp_mobile.
+      DATA ev_email           TYPE ad_smtpadr.
+      DATA ev_nationality     TYPE natio50.
+      DATA ev_nationality_key TYPE bu_natio.
+      DATA ev_date_of_birth   TYPE bu_birthdt.
+      DATA ev_message         TYPE bapiret2-message.
+
+      CALL FUNCTION 'ZFE_CJ_SEARCH_BP_BY_ID'
+        EXPORTING
+          iv_type            = lv_eid_type
+          iv_idnumber        = lv_eid_no
+*         IV_APP             = IV_APP
+        IMPORTING
+          ev_partner         = ev_partner
+          ev_id_number       = ev_id_number
+          ev_passport        = ev_passport
+          ev_name            = ev_name
+          ev_phone           = ev_phone
+          ev_email           = ev_email
+          ev_nationality     = ev_nationality
+          ev_nationality_key = ev_nationality_key
+          ev_date_of_birth   = ev_date_of_birth
+          ev_message         = ev_message.
+
+      io_ctx->set_val( iv_name = 'EXECFULLNAME'        iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'EXEC_PHONE'      iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'EXECMOBILE'       iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'EXEC_DOB'         iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'EXEC_NATIONALITY' iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'EXEC_TYPE' iv_value = ' ' ).
+
+*
+      io_ctx->set_val( iv_name = 'FOUND_FLAG' iv_value = 'X' ).
+      io_ctx->set_val( iv_name = 'OWNER'  iv_value = |{ lv_eid }| ).
+      io_ctx->set_val( iv_name = 'EXECFULLNAME'        iv_value = |{ ev_name }| ).
+      io_ctx->set_val( iv_name = 'EXECMOBILE'      iv_value = |{ ev_phone }| ).
+      io_ctx->set_val( iv_name = 'EXECEMAIL'       iv_value = |{ ev_email }| ).
+      io_ctx->set_val( iv_name = 'EXEC_DOB'         iv_value = |{ ev_date_of_birth DATE = USER }| ).
+      io_ctx->set_val( iv_name = 'EXEC_NATIONALITY' iv_value = |{ ev_nationality }| ).
+    ELSE.
+      io_ctx->set_val( iv_name = 'FOUND_FLAG' iv_value = ' ' ).
     ENDIF.
 
-*    " Contact fields shown regardless of individual/company (rules R4/R5).
-    io_ctx->set_val( iv_name = 'OWNER' iv_value = |{ ls_bp-partner }| ).
-*    io_ctx->set_val( iv_name = 'EXECMOBILE' iv_value = |{ ls_bp-zzmobile }| ).   " REVIEW: field names on BUT000 are placeholders
-*    io_ctx->set_val( iv_name = 'EXECEMAIL' iv_value = |{ ls_bp-zzemail }| ).    " REVIEW: field names on BUT000 are placeholders
 
-    " Individual-branch fields (rules R6/R7 show these when OWNERTYPE = 1).
-    io_ctx->set_val( iv_name = 'EXECFULLNAME' iv_value = |{ ls_bp-zzfull_name_eng }| ).
-    io_ctx->set_val( iv_name = 'EXECID' iv_value = |{ ls_bp-idnumber }| ).
-
-    " Company-branch fields (rules R8/R9 show these when OWNERTYPE = 2).
-*    io_ctx->set_val( iv_name = 'EXECCOMPANY' iv_value = |{ ls_bp-zzcompany_name }| ).   " REVIEW: field names are placeholders
-*    io_ctx->set_val( iv_name = 'EXECLICENSE' iv_value = |{ ls_bp-zztrade_license }| ).  " REVIEW: field names are placeholders
-
-    " Flip the bridge flag so rules R3-R5 can reveal OWNERTYPE/contact fields.
-    io_ctx->set_val( iv_name = 'FOUND_FLAG' iv_value = 'X' ).
   ENDMETHOD.
 
 

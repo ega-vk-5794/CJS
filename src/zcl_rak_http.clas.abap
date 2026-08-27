@@ -125,10 +125,8 @@ CLASS ZCL_RAK_HTTP IMPLEMENTATION.
             username TYPE string,
             password TYPE string,
           END OF ls_cfg.
-    ls_cfg-url      = 'https://rakqaecmicn.ega.lan/NOTARYES/api/v1'.
-    ls_cfg-username = 'notaryportal'.
-    ls_cfg-password = 'QxC1Bgp0ZRH2VUYembjvzn0E5BI0ErpQYcSa1SPEgx3dWEpcoWHZmK35Qiz013TczymLac+6F7a91GVlE27JytvwoC8lc+m15gOgNPDJ5JcVRZu1WTLC7WO7/kshqYXchAtjOE3ufeO0MniTgP3cyG775EZKcXqq2ktegc3mEok='.
 
+    ls_cfg-url      = 'https://rakqaecmicn.ega.lan/NOTARYES/api/v1'.
 
     CHECK sy-subrc = 0.
 

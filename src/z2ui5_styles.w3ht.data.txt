@@ -1,0 +1,1297 @@
+.RAKEGA-firstContainer {
+    background: #F3F3F3;
+    width: 100%;
+    /* subtract header height */
+    min-height: calc(100svh - 3.125rem);
+}
+
+.RAKEGA-card {
+    background: #FFF;
+    width: clamp(22.5rem, 100%, 75rem);
+    /* subtract header & footer height */
+    min-height: calc(100svh - 3.125rem - 3.75rem);
+    margin: 0 auto;
+    justify-content: flex-start;
+}
+
+.RAKEGA-card-top {
+    padding: 3rem 3.75rem 0;
+    width: 100%;
+    justify-content: flex-start;
+    /*align-items: flex-start;*/
+}
+
+.RAKEGA-footer {
+    border-inline-start: 1px solid var(--Grey3);
+    background: var(--Gray2);
+    width: clamp(22.5rem, 100%, 75rem);
+    padding: 0 3.75rem;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 auto;
+    height: clamp(3.75rem, 3.75rem, 3.75rem);
+}
+
+.RAKEGA-next-btn-end {
+    justify-content: end !important;
+}
+
+.RAKEGA-cardheader-vseparator {
+    height: 1.125rem;
+    width: 0.0625rem;
+    background: #D9D9D9;
+}
+
+.RAKEGA-cardheader-topbtn .sapMBtnInner {
+    color: var(--Dark-Blue) !important;
+    background: transparent !important;
+    border: none !important;
+    font-family: var(--fontname);
+    font-size: 1rem;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    padding: 0 0.25rem;
+}
+
+.RAKEGA-cardheader-topbtn.sapMBtn:hover>.sapMBtnHoverable.sapMBtnInner .sapMBtnContent {
+    text-decoration: underline;
+}
+
+.RAKEGA-cardheader-topbtn .sapMBtnIcon {
+    color: var(--Dark-Blue) !important;
+}
+
+.RAKEGA-card-descriptioncont {
+    max-width: 55.125rem;
+    align-items: flex-start;
+}
+
+.RAKEGA-card-descriptionpanel .sapMPanelContent {
+    border: none;
+}
+
+.RAKEGA-card-descriptionpanel .sapMPanelWrappingDiv {
+    border: none;
+}
+
+.RAKEGA-card-descriptionpanel .sapMPanelHdr {
+    overflow: hidden;
+    color: var(--Dark-Blue);
+    text-overflow: ellipsis;
+    font-family: var(--fontname);
+    font-size: 1rem;
+    font-style: normal;
+    font-weight: 400;
+}
+
+.RAKEGA-card-descriptionpanel .sapMPanelWrappingDiv>.sapUiIcon {
+    color: var(--Dark-Blue);
+}
+
+.RAKEGA-hide-in-desktop {
+    display: none;
+}
+
+.RAKEGA-journey-municioality-image {
+    background: url(Images/Extend_Land_Img.png), url(/sap/bc/ui5_ui5/sap/zRAKEGA/css/RAKEGA1120/Images/Extend_Land_Img.png);
+    background-repeat: no-repeat;
+    background-size: cover;
+    width: 1.0625rem;
+    height: 1.0625rem;
+}
+
+.RAKEGA-part2 {
+    padding: 2rem 3.75rem 3rem;
+    justify-content: flex-start;
+    /*align-items: flex-start;*/
+}
+
+/* Containing HBox for several RadioButtons */
+.rbline {
+    gap: 1rem;
+}
+
+.toggle-line .toggle.sapMBtn {
+    width: 7.625rem;
+    min-width: 7.625rem;
+}
+
+.toggle-line .toggle .sapMBtnContent {
+    top: 0rem;
+}
+
+.toggle-line .toggle-left-round-border .sapMBtnInner,
+.toggle-line .toggle-right-round-border .sapMBtnInner,
+.toggle-line .toggle-square-borders .sapMBtnInner {
+    width: 7.625rem;
+}
+
+/* commented out!!
+.toggle-right-round-border .sapMBtnInner{
+    border-bottom-left-radius: 0 !important;
+    border-top-left-radius: 0 !important;
+}
+.toggle-left-round-border .sapMBtnInner{
+    border-bottom-right-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+}
+*/
+.part2-gap {
+    gap: 2rem;
+}
+
+.gap-15 {
+    gap: 1.5rem;
+}
+
+.gap-1 {
+    gap: 1rem;
+}
+
+.gap-2 {
+    gap: 2rem;
+}
+
+.gap-05 {
+    gap: 0.5rem;
+}
+
+.gap-3 {
+    gap: 3rem;
+}
+
+.gap0 {
+    gap: 0 !important
+}
+
+.gap-062 {
+    gap: 0.62rem;
+}
+
+.gap-075 {
+    gap: 0.75rem;
+}
+
+.gap-02 {
+    gap: 0.2rem;
+}
+
+.nca-min-height {
+    min-height: 3rem;
+}
+
+/* mobile screens up to 900px  */
+
+@media only screen and (max-width: 900px) {
+
+    .RAKEGA-card-top {
+        padding: 1rem;
+        border-bottom: 1px solid var(--Gray2);
+        background: var(--Gray0);
+    }
+
+    .RAKEGA-footer {
+        padding: 0 0.625rem;
+    }
+
+
+    .RAKEGA-part2 {
+        padding: 1rem;
+    }
+
+    .RAKEGA-hide-in-desktop {
+        display: unset;
+    }
+
+    .RAKEGA-hide-in-mobile {
+        display: none !important;
+    }
+
+    .hide-in-mobile {
+        visibility: hidden;
+    }
+
+    .width-100-mobile {
+        width: 100%;
+    }
+
+    .gap-1-mobile {
+        gap: 1rem;
+    }
+
+    .RAKEGA-cardheader-topbtn.sapMBtn,
+    .RAKEGA-cardheader-topbtn .sapMBtnInner {
+        height: 24px;
+    }
+
+    .RAKEGA-cardheader-topbtn .sapMBtnIcon {
+        line-height: 14px;
+    }
+
+    .RAKEGA-cardheader {
+        align-items: flex-start !important;
+        flex-wrap: nowrap;
+    }
+
+    .RAKEGA-part2 .input.sapMInputBase,
+    .RAKEGA-part2 .datepicker.sapMInputBase,
+    .RAKEGA-part2 .datepicker .sapMInputBaseContentWrapper:not(.sapMInputBaseReadonlyWrapper):not(.sapMInputBaseContentWrapperState),
+    .RAKEGA-part2 .datepicker .sapMInputBaseContentWrapperError {
+        width: 20.5rem !important;
+        max-width: 20.5rem !important;
+    }
+
+
+    .toggle-line {
+        width: 20.5rem;
+    }
+
+    .toggle-line .toggle.sapMBtn {
+        width: 50% !important;
+    }
+
+    .toggle-line .toggle-left-round-border .sapMBtnInner,
+    .toggle-line .toggle-right-round-border .sapMBtnInner,
+    .toggle-line .toggle-square-borders .sapMBtnInner {
+        width: 100% !important;
+    }
+
+    .rbline {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+@media only screen and (max-width: 500px) {
+
+    .WV_Container .input.sapMInputBase,
+    .WV_Container .datepicker.sapMInputBase,
+    .WV_Container .datepicker .sapMInputBaseContentWrapper:not(.sapMInputBaseReadonlyWrapper):not(.sapMInputBaseContentWrapperState) {
+        width: 100% !important;
+        max-width: 100rem !important;
+    }
+
+ .mobileFullWidth {
+        width: 100% !important;
+    }
+}
+:root {
+    --Card-Width: 74.875rem;
+}
+
+.RAKEGA-lobby-firstContainer {
+    background: var(--White);
+    width: 100%;
+}
+
+.RAKEGA-lobby-card-container {
+    background: var(--Gray2);
+    width: 100%;
+    padding-bottom: 2.5rem;
+}
+
+.RAKEGA-lobby-card {
+    background: var(--White);
+    width: clamp(22.5rem, 100%, var(--Card-Width));
+    margin: 0 auto;
+    padding: 3rem 3.69rem;
+    gap: 3rem;
+    border-radius: 0rem 0rem 0.375rem 0.375rem;
+}
+
+.RAKEGA-lobby-part1 {
+    gap: 3rem;
+}
+
+.RAKEGA-lobby-button-back .sapMBtn {
+    height: 1.5rem !important;
+    /*width: 3.25rem !important;*/
+    min-width: 3.25rem !important;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background-color: transparent;
+}
+
+.RAKEGA-lobby-button-back .sapMBtnInner {
+    height: 1.5rem !important;
+    /*width: 3.25rem !important;*/
+    min-width: 3.25rem !important;
+    margin: 0;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+    background: transparent;
+    border: none;
+    text-shadow: none;
+    color: var(--Azure);
+    font-size: 1rem;
+    font-weight: 400;
+    font-family: var(--fontname);
+}
+
+/* HOVER */
+.RAKEGA-lobby-button-back.sapMBtn:hover>.sapMBtnHoverable {
+    background-image: none;
+    background-color: transparent;
+    border-color: none;
+}
+
+.RAKEGA-lobby-button-back.sapMBtn:hover:not(.sapMBtnDisabled):not(.sapMSBActive)>.sapMBtnHoverable:not(.sapMBtnDisabled):not(.sapMBtnActive):not(.sapMToggleBtnPressed):not(.sapMBtnTransparent).sapMBtnDefault {
+    color: var(--Azure);
+}
+
+.RAKEGA-lobby-button-back.sapMBtn:hover:not(.sapMBtnDisabled):not(.sapMSBActive)>.sapMBtnHoverable:not(.sapMBtnDisabled):not(.sapMBtnActive):not(.sapMToggleBtnPressed):not(.sapMBtnTransparent).sapMBtnDefault .sapMBtnContent {
+    text-decoration: underline;
+}
+
+/* DOTTET OUTLINE */
+html.sap-desktop .RAKEGA-lobby-button-back.sapMBtn:focus>.sapMFocusable {
+    outline: none;
+    outline-offset: -0.1875rem;
+}
+
+.RAKEGA-lobby-button-back.sapMBtn .sapMBtnContent {
+    /*overflow: hidden;*/
+    /*text-overflow: ellipsis;*/
+    white-space: nowrap;
+    vertical-align: top;
+    line-height: 2.375rem;
+    /*padding-inline-start: 0.625rem;*/
+}
+
+.RAKEGA-lobby-button-back .sapMBtnIcon {
+    font-size: 1.5rem;
+    line-height: 1.375rem;
+    width: 1.5rem;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+    vertical-align: top;
+    max-height: 1.5rem;
+    color: var(--Azure);
+    text-decoration: none !important;
+}
+
+.RAKEGA-lobby-button-back.sapMBtn:hover:not(.sapMBtnDisabled):not(.sapMSBActive)>.sapMBtnHoverable:not(.sapMBtnDisabled):not(.sapMBtnActive):not(.sapMToggleBtnPressed):not(.sapMBtnTransparent).sapMBtnDefault .sapUiIcon {
+    color: var(--Azure);
+}
+
+.RAKEGA-lobby-ex-text.sapMExText .sapMLnk {
+    color: var(--Azure) !important;
+    font-family: var(--fontname);
+    font-size: 1rem;
+    font-weight: 400;
+    text-decoration-line: underline;
+}
+
+.RAKEGA-lobby-journey-header-cont {
+    gap: 0.75rem;
+}
+
+.RAKEGA-lobby-journey-name-cont {
+	width: 100%;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.shapIT-lobby-youtube-manual-hbox {
+    justify-content: flex-end;
+    align-items: center;
+    gap: 1rem;
+}
+
+.RAKEGA-lobby-youtube-inner-hbox {
+    gap: 0.375rem;
+    align-items: center;
+}
+
+.RAKEGA-lobby-youtube-icon.sapUiIcon {
+    font-size: 1.5rem;
+    color: var(--Red);
+}
+
+.RAKEGA-lobby-manual-icon.sapUiIcon {
+    font-size: 1.5rem;
+    color: var(--Dark-Blue);
+}
+
+.shapIT-lobby-youtube-link.sapMLnk {
+    color: var(--Dark-Blue) !important;
+
+    /* Body 1_3 - 16PX Regular */
+    font-family: var(--fontname);
+    font-size: 1rem;
+    font-weight: 400;
+    text-decoration: none;
+}
+
+html.sap-desktop .shapIT-lobby-youtube-link.sapMLnk:not(.sapMLnkDsbl):hover:not(:active):not(:focus) {
+    text-decoration: underline;
+}
+
+.RAKEGA-lobby-steps-cont {
+    gap: 1rem;
+}
+
+.RAKEGA-lobby-step-vbox {
+    width: 100%;
+    padding: 1.5rem;
+    padding-inline-start: calc(1.5rem - 0.3125rem);
+    align-items: flex-start;
+    gap: 1rem;
+    border-radius: 0.375rem;
+}
+
+.RAKEGA-lobby-step-not-done.RAKEGA-lobby-step-vbox {
+    border: 1px solid var(--Red);
+    border-inline-start: 0.3125rem solid var(--Red);
+}
+
+.RAKEGA-lobby-processing-not-done.RAKEGA-lobby-step-vbox {
+    border: 1px solid var(--Gray4);
+    border-inline-start: 0.3125rem solid var(--Gray4);
+}
+
+.RAKEGA-lobby-step-done.RAKEGA-lobby-step-vbox {
+    border: 1px solid var(--Gray3);
+    border-inline-start: 0.3125rem solid var(--Green);
+}
+
+.RAKEGA-lobby-step-name {
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.RAKEGA-lobby-step-circle {
+    width: 2.25rem;
+    height: 2.25rem;
+    justify-content: center;
+    align-items: center;
+    border-radius: 2.3125rem;
+}
+
+.RAKEGA-lobby-step-not-done .RAKEGA-lobby-step-circle {
+    border: 2px solid var(--Red);
+}
+
+.RAKEGA-lobby-processing-not-done .RAKEGA-lobby-step-circle {
+    border: 2px solid var(--Gray4);
+}
+
+.RAKEGA-lobby-step-done .RAKEGA-lobby-step-circle {
+    border: 2px solid var(--Green);
+    background: var(--Soft-Green);
+}
+
+.RAKEGA-lobby-stepnum {
+    text-align: center;
+    font-family: var(--fontname);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.RAKEGA-lobby-step-not-done .RAKEGA-lobby-stepnum {
+    background: var(--Gradient-Red);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.RAKEGA-lobby-processing-not-done .RAKEGA-lobby-stepnum {
+    background: var(--Gray4);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.RAKEGA-lobby-step-done-icon {
+    color: var(--Green);
+}
+
+html[dir=rtl] .RAKEGA-lobby-step-done-icon.sapUiIconMirrorInRTL:not(.sapUiIconSuppressMirrorInRTL)::before,
+html[dir=rtl] .RAKEGA-lobby-step-done-icon.sapUiIconMirrorInRTL:not(.sapUiIconSuppressMirrorInRTL)::after {
+    transform: scale(1, 1);
+    webkit-transform: scale(1, 1);
+}
+
+.RAKEGA-lobby-completed-tag-hbox {
+    padding: 0.25rem 0.5rem;
+    justify-content: center;
+    align-items: center;
+    border-radius: 0.25rem;
+    background: var(--Soft-Green);
+}
+
+.RAKEGA-lobby-step-separator {
+    width: 100%;
+    height: 0.0625rem;
+    background: var(--Gray3);
+}
+
+.RAKEGA-loby-step-icon-hbox {
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.RAKEGA-lobby-step-icon.sapUiIcon {
+    color: var(--Gray7);
+    font-size: 1.5rem;
+}
+
+.RAKEGA-lobby-step-start-btn-cont {
+    width: 100%;
+    justify-content: flex-end;
+}
+
+.RAKEGA-lobby-additional-info-cont {
+    gap: 1rem;
+}
+
+.RAKEGA-lobby-additional-info-cont .sapMPanelWrappingDiv .sapUiIcon {
+    padding-inline-start: 1rem;
+    color: var(--Dark-Blue);
+}
+
+.RAKEGA-lobby-additional-info-cont .sapMPanelWrappingDiv .sapMPanel .sapMPanelHeadingDiv>.sapMPanelHdr,
+.RAKEGA-lobby-additional-info-cont .sapMPanelWrappingDiv .sapMPanelWrappingDiv,
+.RAKEGA-lobby-additional-info-cont .sapMPanelWrappingDiv .sapMPanelWrappingDivTb {
+    border: none;
+}
+
+.RAKEGA-lobby-additional-info-cont .sapMPanelHdr {
+    color: var(--Dark-Blue);
+
+    /* Body 1_2 - 16PX Med */
+    font-family: var(--fontname);
+    font-size: 1rem;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 3rem;
+}
+
+.RAKEGA-lobby-panel {
+    border-radius: 0.375rem;
+    border: 1px solid var(--Gray2);
+    background: #FFF;
+
+    /* Tile */
+    box-shadow: 0px 0px 7px 0px rgba(173, 173, 173, 0.25);
+}
+
+.RAKEGA-lobby-panel.sapMPanel .sapMPanelWrappingDivTb .sapMIBar.sapMTB {
+    height: 4.3125rem;
+}
+
+.RAKEGA-lobby-panel .sapMPanelWrappingDivTb .sapMBtn .sapUiIcon::before {
+    color: var(--Red);
+    font-family: 'icomoon';
+    content: '\e941';
+    font-size: 1.5rem;
+}
+
+.RAKEGA-lobby-panel .sapMPanelWrappingDivTb.sapMPanelWrappingDivTbExpanded .sapMBtn .sapUiIcon::before {
+    content: '\e924';
+}
+
+.RAKEGA-lobby-panel-header-toolbar {
+    gap: 0.875rem;
+}
+
+.RAKEGA-lobby-panel .sapMTB-Transparent-CTX .sapMText {
+    color: var(--Dark-Blue);
+
+    /* Body 1_2 - 16PX Med */
+    font-family: var(--fontname);
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.625rem;
+}
+
+.RAKEGA-lobby-start-button-cont {
+    justify-content: flex-end;
+}
+
+.RAKEGA-lobby-was-helpful-hbox {
+    background: var(--White, #FFF);
+    width: 100%;
+    padding-top: 1.25rem;
+    padding-right: max(calc((100vw - var(--Card-Width)) / 2), 3.69rem);
+    padding-left: max(calc((100vw - var(--Card-Width)) / 2), 3.69rem);
+    padding-bottom: 1.25rem;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 2.3125rem;
+}
+
+.RAKEGA-lobby-was-helpful-btns-hbox {
+    gap: 1rem;
+}
+
+.RAKEGA-lobby-links-cont {
+    width: 100%;
+    padding-top: 1.9375rem;
+    background: var(--White);
+    background-image: url("./Images/RAK-Skyline-Narrow.svg");
+    background-repeat: no-repeat;
+    background-position: center bottom;
+    border-top: 1px solid var(--Red);
+}
+
+.RAKEGA-lobby-links-hbox {
+    width: 100%;
+    padding-right: max(calc((100vw - var(--Card-Width)) / 2), 3.69rem);
+    padding-left: max(calc((100vw - var(--Card-Width)) / 2), 3.69rem);
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 20rem;
+    gap: 2rem;
+}
+
+.RAKEGA-lobby-links-vbox {
+    gap: 2rem;
+}
+
+.RAKEGA-lobby-links-rak-digital {
+    gap: 1.5rem;
+}
+
+.RAKEGA-lobby-links-list {
+    gap: 1.25rem;
+}
+
+.shapIT-lobby-footer-link.sapMLnk {
+    color: var(--Dark-Blue) !important;
+
+    /* Body 1_3 - 16PX Regular */
+    font-family: var(--fontname);
+    font-size: 1rem;
+    font-weight: 400;
+    text-decoration: none;
+}
+
+html.sap-desktop .shapIT-lobby-footer-link.sapMLnk:not(.sapMLnkDsbl):hover:not(:active):not(:focus) {
+    text-decoration: underline;
+}
+
+.RAKEGA-lobby-rak-digital-logo {
+    background: url("./Images/Rak-digital-logo-red.png");
+    background-repeat: no-repeat;
+    background-size: cover;
+    width: 8.75rem;
+    height: 3.675rem;
+    flex-shrink: 0;
+}
+
+.RAKEGA-lobby-link42-hbox {
+    width: 10.5rem;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.RAKEGA-lobby-link42-circle {
+    width: 3rem;
+    height: 3rem;
+    flex-shrink: 0;
+    border: 1px solid var(--Dark-Blue);
+    border-radius: 50%;
+    justify-content: center;
+    align-items: center;
+}
+
+.RAKEGA-lobby-footer {
+    width: 100%;
+    background: var(--Red);
+    padding-top: 0.625rem;
+    padding-right: max(calc((100vw - var(--Card-Width)) / 2), 3.69rem);
+    padding-left: max(calc((100vw - var(--Card-Width)) / 2), 3.69rem);
+    padding-bottom: 0.625rem;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.RAKEGA-footer-vseparator {
+    width: 0.0625rem;
+    height: 0.75rem;
+    background: var(--White);
+}
+
+/* screens above 1366px  */
+@media only screen and (min-width: 1367px) {
+
+    .RAKEGA-lobby-links-cont {
+        background-image: url("./Images/RAK-Skyline-wide.svg");
+    }
+}
+
+/* screens below Card Max Width 74.875rem (should be 1200px)  */
+@media only screen and (max-width: 74.875rem) {
+    .RAKEGA-lobby-card-container {
+        padding: 0;
+    }
+
+    .RAKEGA-lobby-card {
+        border-radius: 0;
+    }
+}
+
+/* mobile screens up to 900px  */
+@media only screen and (max-width: 900px) {
+
+    .RAKEGA-lobby-card {
+        padding: 1rem 1rem 2rem;
+        gap: 2rem;
+    }
+
+    .RAKEGA-lobby-part1 {
+        gap: 1.25rem;
+    }
+
+    .RAKEGA-lobby-journey-header-cont {
+        gap: 0.625rem;
+    }
+
+    .shapIT-lobby-youtube-manual-hbox {
+        width: 100%;
+    }
+
+    .RAKEGA-lobby-steps-cont {
+        gap: 0.9375rem;
+    }
+
+    .RAKEGA-lobby-step-start-btn-cont {
+        justify-items: stretch;
+    }
+
+    .RAKEGA-lobby-start-button-cont {
+        justify-items: stretch;
+    }
+
+    .RAKEGA-lobby-was-helpful-hbox {
+        padding: 0.9375rem 1rem;
+        gap: 0.625rem;
+
+        /* tile */
+        box-shadow: 0px 0px 7px 0px rgba(173, 173, 173, 0.25);
+    }
+
+    .RAKEGA-lobby-step-vbox {
+        padding: 1.25rem 1.5625rem;
+        padding-inline-start: calc(1.5625rem - 0.3125rem);
+        gap: 0.9375rem;
+    }
+
+    .RAKEGA-lobby-was-helpful-btns-hbox {
+        gap: 0.9375rem;
+    }
+
+    .RAKEGA-lobby-links-cont {
+        padding-top: 1rem;
+    }
+
+    .RAKEGA-lobby-links-hbox {
+        padding: 0 1rem;
+    }
+
+    .RAKEGA-lobby-footer {
+        padding: 0.5625rem 0.75rem;
+        justify-content: space-between;
+        gap: unset;
+    }
+}
+.RAKEGA-textArea {
+    width: 44.5625rem;
+    height: 12.5rem !important;
+    /*border: none;*/
+}
+
+.RAKEGA-textArea .sapMInputBaseContentWrapper {
+    padding: 0.9375rem 1.25rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--Gray3);
+}
+
+.RAKEGA-textArea .sapMInputBaseInner {
+    border: none !important;
+    color: var(--Dark-Blue);
+    font-family: var(--fontname);
+    font-weight: 400;
+    font-size: 0.875rem;
+}
+
+/* 1.4.2024 Hadas CJ Header Phase 1A */
+.RAKEGA-cardheader-begin {
+    display: flex;
+    width: 43.0625rem;
+    align-items: flex-start;
+    gap: 0.5625rem;
+    flex-wrap: wrap;
+}
+
+.RAKEGA-align-items-center-imp {
+	align-items: center !important;
+}
+
+.RAKEGA-journeyname {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 40.625rem;
+}
+
+.RAKEGA-description-m-panel {
+    display: none;
+}
+
+.RAKEGA-context-hbox-desktop {
+    display: flex;
+    width: 57.5rem;
+    align-items: center;
+    align-content: center;
+    gap: 0rem 0.5rem;
+    flex-wrap: wrap;
+}
+
+.RAKEGA-context-cont {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.RAKEGA-context-separator {
+    width: 1px;
+    height: 0.6875rem;
+    flex-shrink: 0;
+    background: var(--Gray3);
+}
+
+.RAKEGA-context-m-collapsed-hbox,
+.RAKEGA-context-m-expanded-vbox {
+    display: none;
+}
+
+.RAKEGA-context-m-button .sapMBtnTransparent {
+    color: var(--Azure);
+    font-size: 0.875rem;
+    font-family: var(--fontname);
+    font-weight: 400;
+    align-items: center;
+    padding: 0;
+    height: 2rem;
+}
+
+.RAKEGA-context-m-button.sapMBtn:hover:not(.sapMBtnDisabled)>.sapMBtnTransparent.sapMBtnHoverable:not(.sapMBtnActive):not(.sapMToggleBtnPressed):not(.sapMBtnEmphasized) {
+    color: var(--Azure);
+}
+
+.RAKEGA-context-m-button.sapMBtn:hover>.sapMBtnTransparent.sapMBtnHoverable {
+    background-color: transparent;
+    border-color: transparent;
+    color: var(--Azure);
+}
+
+.RAKEGA-context-m-button.sapMBtn {
+    padding: 0;
+    height: 2rem;
+}
+
+@media only screen and (max-width: 900px) {
+    .RAKEGA-textArea {
+        width: 100%;
+    }
+
+    .RAKEGA-cardheader-begin {
+        width: 14.625rem;
+        align-items: flex-start;
+        max-width: 14.625rem;
+        max-height: 5.625rem;
+        flex: 1 0 0;
+    }
+
+    .RAKEGA-journeyname {
+        max-width: 14.625rem;
+        max-height: 5.625rem;
+        flex: 1 0 0;
+    }
+
+    .RAKEGA-description-m-panel {
+        margin-top: 0.25rem;
+        display: flex;
+        width: 20.5rem;
+    }
+
+    .RAKEGA-context-hbox-desktop {
+        display: none;
+    }
+
+    .RAKEGA-context-m-collapsed-hbox {
+        margin-top: 0.25rem;
+        display: flex;
+        width: 20.5rem;
+        justify-content: space-between;
+        align-items: center;
+        align-content: center;
+        flex-wrap: wrap;
+    }
+
+    .RAKEGA-context-cont-collapsed {
+        display: flex;
+        width: 12rem;
+        max-width: 12rem;
+        align-items: center;
+        align-content: center;
+        gap: 0.5rem;
+        flex-wrap: nowrap;
+    }
+
+    .RAKEGA-context-cont-collapsed .sapMLabel {
+        max-width: 12rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-wrap: nowrap;
+    }
+
+    .RAKEGA-context-m-expanded-vbox {
+        margin-top: 0.25rem;
+        display: flex;
+        width: 20.5rem;
+        justify-content: flex-start;
+        align-items: center;
+        align-content: center;
+    }
+
+    .RAKEGA-context-cont {
+        display: flex;
+        width: 20.5rem;
+        max-width: 20.5rem;
+        gap: 0.5rem;
+        align-items: center;
+        align-content: center;
+        flex-wrap: nowrap;
+    }
+
+    .RAKEGA-context-cont .sapMLabel {
+        max-width: 20.5rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-wrap: nowrap;
+    }
+
+    .RAKEGA-context-less-hbox {
+        margin-top: 0.25rem;
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        align-self: stretch;
+    }
+}
+.RAKEGA-final-1-pic {
+    background: url(./Images/RAKEGA-Final.png), url(/sap/bc/ui5_ui5/sap/zRAKEGA/css/RAKEGA1120/Images/RAKEGA-Final.png);
+    background-repeat: no-repeat;
+    background-size: cover;
+    width: 18.78125rem;
+    height: 11.85706rem;
+}
+
+.RAKEGA-final-1-req-status-center {
+    text-align: center !important;
+}
+
+.RAKEGA-final-container-2-gap {
+    gap: 1rem;
+}
+
+.RAKEGA-final-container2 {
+    display: flex;
+    width: 32.875rem;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.RAKEGA-final-request-id-hbox {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.6875rem;
+    align-self: stretch;
+}
+
+.RAKEGA_final_desctext_label {
+    text-align: center !important;
+}
+
+.RAKEGA-final-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2.375rem;
+}
+
+.RAKEGA-final-footer-btn {
+    width: 15.9375rem;
+}
+
+.RAKEGA-final-firstContainer {
+    background: var(--Gray0);
+    width: 100%;
+    /* subtract header height */
+    min-height: calc(100svh - 3.125rem);
+}
+
+.RAKEGA-final-card {
+    background: var(--White);
+    width: clamp(22.5rem, 100%, 75rem);
+    margin: 0 auto;
+    display: flex;
+    padding: 3rem 3.625rem;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+    align-self: stretch;
+    min-height: calc(100svh - 3.125rem);
+}
+.RAKEGA-final-card-start {
+    background: var(--White);
+    width: clamp(22.5rem, 100%, 75rem);
+    margin: 0 auto;
+    display: flex;
+    padding: 3rem 3.625rem;
+    flex-direction: column;
+    justify-content: start;
+    align-items: center;
+    gap: 1.5rem;
+    align-self: stretch;
+    min-height: calc(100svh - 3.125rem);
+}
+
+.RAKEGA-final-container1 {
+    gap: 1.5rem;
+}
+
+.download-fishing-licence-btn-icon .sapMBtnIcon {
+    font-size: 1.5rem !important;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-inline-start: 0.3rem !important;
+}
+
+.m-inline-end-069 {
+    margin-inline-end: 0.69rem !important;
+}
+
+.m-inline-start-069 {
+    margin-inline-start: 0.69rem !important;
+}
+
+.mt-400 {
+    margin-top: 4rem !important;
+}
+
+.mt-100 {
+    margin-top: 1rem !important;
+}
+
+.mt-162 {
+    margin-top: 1.62rem !important;
+}
+
+.mr-069 {
+    margin-right: 0.69rem !important;
+}
+
+html[dir=rtl] .RAKEGA-v-icon-dir.sapUiIconMirrorInRTL:not(.sapUiIconSuppressMirrorInRTL)::before,
+html[dir=rtl] .RAKEGA-v-icon-dir.sapUiIconMirrorInRTL:not(.sapUiIconSuppressMirrorInRTL)::after {
+    transform: scale(1, 1);
+    webkit-transform: scale(1, 1);
+}
+
+/* mobile screens up to 900px  */
+@media only screen and (max-width: 900px) {
+
+    .RAKEGA-final-card,.RAKEGA-final-card-start {
+        padding: 3rem 1rem;
+        gap: 4rem;
+    }
+
+    .RAKEGA-final-container2 {
+        width: 18.0625rem;
+    }
+
+    .RAKEGA-final-footer {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .RAKEGA-final-footer-btn {
+        width: 17.1875rem;
+    }
+}
+.RAKEGA-final-1-pic {
+    background: url(./Images/RAKEGA-Final.png), url(/sap/bc/ui5_ui5/sap/zRAKEGA/css/RAKEGA1120/Images/RAKEGA-Final.png);
+    background-repeat: no-repeat;
+    background-size: cover;
+    width: 18.78125rem;
+    height: 11.85706rem;
+}
+
+.RAKEGA-final-1-pic_2 {
+    background: url(./Images/RAKEGA-Final_2.png), url(/sap/bc/ui5_ui5/sap/zRAKEGA/css/RAKEGA1120/Images/RAKEGA-Final_2.png);
+    background-repeat: no-repeat;
+    background-size: cover;
+    width: 28.75rem;
+    height: 20.625rem;
+}
+
+.RAKEGA-final-1-req-status-center {
+    text-align: center !important;
+}
+
+.RAKEGA-final-container-2-gap {
+    gap: 1rem;
+}
+
+.RAKEGA-final1-container2 {
+    display: flex;
+    width: 32.875rem;
+    flex-direction: column;
+    align-items: center;
+    align-content: start;
+    gap: 1rem;
+}
+
+.RAKEGA-final1-request-id-hbox {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    gap: 0.6875rem;
+    align-self: stretch;
+}
+
+.RAKEGA_final_desctext_label {
+    text-align: center !important;
+}
+
+.RAKEGA-final-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2.375rem;
+}
+
+.RAKEGA-final-footer-btn {
+    width: 15.9375rem;
+}
+
+.RAKEGA-final-firstContainer {
+    background: var(--Gray0);
+    width: 100%;
+    /* subtract header height */
+    min-height: calc(100svh - 3.125rem);
+}
+
+.RAKEGA-final1-card {
+    background: var(--White);
+    width: clamp(22.5rem, 100%, 75rem);
+    margin: 0 auto;
+    display: flex;
+    padding: 0;
+    /*flex-direction: column;*/
+    justify-content: space-between;
+    align-items: start;
+    gap: 1.5rem;
+    align-self: stretch;
+    min-height: 0;
+}
+
+.RAKEGA-final1-text-vbox {
+    align-items: start;
+
+}
+
+.RAKEGA-final-container1 {
+    gap: 1.5rem;
+}
+
+.download-fishing-licence-btn-icon .sapMBtnIcon {
+    font-size: 1.5rem !important;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-inline-start: 0.3rem !important;
+}
+
+.m-inline-end-069 {
+    margin-inline-end: 0.69rem !important;
+}
+
+.m-inline-start-069 {
+    margin-inline-start: 0.69rem !important;
+}
+
+.mt-400 {
+    margin-top: 4rem !important;
+}
+
+.mt-100 {
+    margin-top: 1rem !important;
+}
+
+.mt-162 {
+    margin-top: 1.62rem !important;
+}
+
+.mr-069 {
+    margin-right: 0.69rem !important;
+}
+
+html[dir=rtl] .RAKEGA-v-icon-dir.sapUiIconMirrorInRTL:not(.sapUiIconSuppressMirrorInRTL)::before,
+html[dir=rtl] .RAKEGA-v-icon-dir.sapUiIconMirrorInRTL:not(.sapUiIconSuppressMirrorInRTL)::after {
+    transform: scale(1, 1);
+    webkit-transform: scale(1, 1);
+}
+
+@media only screen and (max-width: 500px) {
+.RAKEGA-final-footer-btn.fullScreenMobile {
+    width: 100%;
+}
+
+
+}
+
+/* mobile screens up to 900px  */
+@media only screen and (max-width: 900px) {
+
+    .RAKEGA-final1-card {
+        padding: 3rem 1rem;
+        gap: 4rem;
+    }
+
+    .RAKEGA-final-1-pic_2 {
+        width: 20.5rem;
+        height: 14.75rem;
+    }
+
+    .RAKEGA-final1-container2 {
+        width: 18.0625rem;
+    }
+
+    .RAKEGA-final-footer {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .RAKEGA-final-footer-btn {
+        width: 17.1875rem;
+    }
+}

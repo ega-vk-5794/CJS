@@ -32,19 +32,19 @@
      <ID>S</ID>
      <KEY>P_ADAYS</KEY>
      <ENTRY>Keep files for (days)</ENTRY>
-     <LENGTH>21</LENGTH>
+     <LENGTH>29</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_TEST</KEY>
      <ENTRY>Test run (delete nothing)</ENTRY>
-     <LENGTH>25</LENGTH>
+     <LENGTH>33</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_POL</KEY>
      <ENTRY>List retention policy per journey</ENTRY>
-     <LENGTH>33</LENGTH>
+     <LENGTH>41</LENGTH>
     </item>
    </TPOOL>
   </asx:values>

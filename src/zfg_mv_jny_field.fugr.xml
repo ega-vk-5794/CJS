@@ -492,11 +492,11 @@
        <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
        <TYPE>TEXT</TYPE>
        <NAME>*ZMV_JNY_FIELD-ZLABEL</NAME>
-       <TEXT>+_______________________________________</TEXT>
+       <TEXT>Label_______________________________________</TEXT>
        <LINE>001</LINE>
        <COLUMN>003</COLUMN>
-       <LENGTH>040</LENGTH>
-       <VISLENGTH>150</VISLENGTH>
+       <LENGTH>044</LENGTH>
+       <VISLENGTH>044</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <REQU_ENTRY>N</REQU_ENTRY>
@@ -777,11 +777,11 @@
        <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
        <TYPE>TEXT</TYPE>
        <NAME>*ZMV_JNY_FIELD-ROLLNAME</NAME>
-       <TEXT>+_______________________________________</TEXT>
+       <TEXT>Rollname_______________________________________</TEXT>
        <LINE>001</LINE>
        <COLUMN>022</COLUMN>
-       <LENGTH>040</LENGTH>
-       <VISLENGTH>030</VISLENGTH>
+       <LENGTH>047</LENGTH>
+       <VISLENGTH>047</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <REQU_ENTRY>N</REQU_ENTRY>

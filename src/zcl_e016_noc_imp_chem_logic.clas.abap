@@ -534,7 +534,38 @@ super->zif_rak_journey_logic~on_render_popup(
 **    CHECK iv_id = c_pop_mat.
     CASE iv_id.
       when C_CHEM.
-      render_own_popup( io_ctx = io_ctx io_popup = io_popup ).
+**      render_own_popup( io_ctx = io_ctx io_popup = io_popup ).
+
+
+        dialog_form(
+          io_ctx     = io_ctx
+          io_popup   = io_popup
+          iv_title   = 'Add Chemical'
+          it_fields  = VALUE #(
+                                ( name = c_hs_code_pop          label = 'HS Code'  )
+                                ( name = c_material_name_pop    label = 'Material Name' )
+                                ( name = c_chemical_name_pop    label = 'Chemical Name' )
+                                ( name = c_cas_pop              label = 'CAS Number' maxlen = 20 )
+                                ( name = c_chemical_formula_pop label = 'Chemical Formula' )
+                                ( name = c_packaging_pop        label = 'Packing' )
+                                ( name = c_quantity_pop         label = 'Quantity'  )
+                                ( name = c_gross_weight_pop     label = 'Gross Weight'  )
+                                ( name = c_uom_pop              label = 'UOM' type = 'SELECT'
+                                  options = VALUE #( ( key = 'GAL' text = 'Gallon' )
+                                                     ( key = 'KG'  text = 'Kilogram' )
+                                                     ( key = 'LIT' text = 'Liter' )
+                                                     ( key = 'MAT' text = 'Metric Ton' ) ) )
+
+                                ( name = c_invoice_pop          label = 'Invoice Number'  )
+                                ( name = c_origin_pop           label = 'Country of Origin' shlp = 'H_T005'  )
+                                ( name = c_end_user_pop         label = 'Point of Entrance'  )
+                                ( name = c_bol_pop              label = 'Bill of Lading'  )
+**                                ( name = c_trans_comp           label = 'Transport Company'  )
+                              )
+          iv_ok_text = 'Add'
+          iv_ok_evt  = c_evt_ownok
+          iv_cxl_evt = c_evt_owncx ).
+        RETURN.
       RETURN.
       WHEN C_EVT_DETAILS.
 

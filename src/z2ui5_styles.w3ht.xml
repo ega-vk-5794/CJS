@@ -7,15 +7,15 @@
    <PARAMS>
     <WWWPARAMS>
      <NAME>fileextension</NAME>
-     <VALUE>.css</VALUE>
+     <VALUE>.txt</VALUE>
     </WWWPARAMS>
     <WWWPARAMS>
      <NAME>filename</NAME>
-     <VALUE>style.css</VALUE>
+     <VALUE>Z2UI5_STYLES.txt</VALUE>
     </WWWPARAMS>
     <WWWPARAMS>
      <NAME>mimetype</NAME>
-     <VALUE>text/css</VALUE>
+     <VALUE>text/plain</VALUE>
     </WWWPARAMS>
    </PARAMS>
   </asx:values>

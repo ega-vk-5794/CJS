@@ -1,5 +1,6 @@
 class ZCL_CJ_DEMO_P001 definition
   public
+  inheriting from Z2UI5_CL_EXT_WIDGETS
   create public .
 
 public section.
@@ -31,43 +32,12 @@ public section.
       END OF ty_lic_no_list .
   types:
     tt_lic_no_list TYPE STANDARD TABLE OF ty_lic_no_list WITH DEFAULT KEY .
-  types:
-    BEGIN OF ty_attach,
-        file_name     TYPE string,
-        file_data     TYPE string,
-        file_type     TYPE string,
-        allowed_types TYPE string,
-        label         TYPE string,
-        icon          TYPE string,
-        required      TYPE flag,
-        read_mode     TYPE flag,
-      END OF ty_attach .
-  types:
-    tt_attach TYPE STANDARD TABLE OF ty_attach WITH DEFAULT KEY .
-  types:
-    BEGIN OF ty_happy,
-        initilized   TYPE flag,
-        rate         TYPE string,
-        excellent    TYPE flag,
-        good         TYPE flag,
-        average      TYPE flag,
-        poor         TYPE flag,
-        verypoor     TYPE flag,
-        textareatext TYPE string,
-      END OF ty_happy .
 
   data:
     mt_table TYPE STANDARD TABLE OF ty_s_tab WITH EMPTY KEY .
   data MV_CHECK_POPOVER type ABAP_BOOL .
   data MV_PRODUCT type STRING .
   data GS_DATA type ZCL_EGA_CJ_PPD_ABS=>TY_DATA .
-  data MT_STAGES type Z2UI5_CL_EXT_RAKSTAGEBAR=>TT_STAGES .
-  data MT_RESULTS type WDY_KEY_VALUE_LIST .
-  data MT_ATTACH type TT_ATTACH .
-  data MS_PAYMENT type Z2UI5_CL_EXT_RAKPAY=>TY_PAYMENT .
-  data MS_HAPPY type TY_HAPPY .
-  data FUNCTIONS type STRING .
-  data STYLES type STRING .
 
   methods VIEW_DISPLAY .
   methods POPOVER_DISPLAY
@@ -78,33 +48,14 @@ public section.
   methods SCREEN_NP001_1_3 .
   methods SCREEN_NP001_1_4 .
   methods SCREEN_NP001_1_5 .
-  PROTECTED SECTION.
-    DATA client TYPE REF TO z2ui5_if_client.
-
+protected section.
 private section.
 
-  methods RAKHAPPY_SAVE .
-  methods GET_VALUE_LIST
-    importing
-      !PARENT type ref to Z2UI5_CL_XML_FRAGMENT
-      !SHLPNAME type SHLPNAME optional
-      !KEYFIELD type FIELDNAME optional
-      !VALUEFIELD type FIELDNAME optional
-      !IT_SELOPT type DDSHSELOPS optional .
   methods INIT_JOURNEY .
   methods CSS
     returning
       value(CSS) type STRING .
-  methods GET_TEXT_BY_ID
-    importing
-      !ID type ANY
-    returning
-      value(TEXT) type STRING .
   methods READ_CASE_DATA .
-  methods RAKUPLOADER
-    importing
-      !IO_PARENT type ref to Z2UI5_CL_XML_FRAGMENT
-      value(FILTER_BY) type STRING optional .
   methods CREATE_CASE
     importing
       !IV_CASE_TYPE type SCMGCASE_TYPE
@@ -118,7 +69,6 @@ private section.
       value(GS_DATA) type ZCL_EGA_CJ_PPD_ABS=>TY_DATA
     returning
       value(LS_REQUEST) type ZCL_EGA_CJ_PPD_ABS=>TY_REQUEST .
-  methods RAKHAPPY .
   methods GET_CPG_DETAILS
     returning
       value(EV_URL) type STRING .
@@ -171,59 +121,6 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
 
     ENDIF.
 
-  ENDMETHOD.
-
-
-  METHOD GET_TEXT_BY_ID.
-    SELECT SINGLE value_desc FROM /qnv/sb_valuet
-      INTO @DATA(lv_value)
-      WHERE spras EQ @sy-langu
-      AND   value_code EQ @id.
-    IF sy-subrc NE 0.
-      SELECT SINGLE labeltext FROM /qnv/sb_labelt
-        INTO @lv_value
-        WHERE spras EQ @sy-langu
-        AND   label_code EQ @id.
-    ENDIF.
-    IF sy-subrc EQ 0.
-      text = lv_value.
-    ENDIF.
-  ENDMETHOD.
-
-
-  METHOD get_value_list.
-
-    DATA: ls_shlp   TYPE shlp_descr,
-          lt_return TYPE STANDARD TABLE OF ddshretval.
-    CALL FUNCTION 'F4IF_GET_SHLP_DESCR'
-      EXPORTING
-        shlpname = shlpname
-      IMPORTING
-        shlp     = ls_shlp.
-    ls_shlp-selopt = it_selopt.
-    CALL FUNCTION 'F4IF_SELECT_VALUES'
-      EXPORTING
-        shlp           = ls_shlp
-        call_shlp_exit = 'X'
-      TABLES
-        return_tab     = lt_return.
-    DATA(lv_key_found) = abap_false.
-    DATA(lv_value_found) = abap_false.
-    LOOP AT lt_return INTO DATA(ls_return).
-      CASE ls_return-fieldname.
-        WHEN keyfield.
-          DATA(lv_key) = ls_return-fieldval.
-          lv_key_found = abap_true.
-        WHEN valuefield.
-          DATA(lv_value) = ls_return-fieldval.
-          lv_value_found = abap_true.
-
-      ENDCASE.
-      IF lv_key_found EQ abap_true AND lv_value_found EQ abap_true.
-        parent->item( key = lv_key text = lv_value ).
-        CLEAR: lv_key_found, lv_value_found, lv_key, lv_value.
-      ENDIF.
-    ENDLOOP.
   ENDMETHOD.
 
 
@@ -302,8 +199,6 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     <stage>-stagelabel      = 'Confirmation'.
     <stage>-screen          = 'SCREEN_NP001_1_5'.
 
-    client->_bind_edit( mt_stages ).
-*    DATA(rakstagebar) = NEW z2ui5_cl_ext_rakstagebar( me->client ).
   ENDMETHOD.
 
 
@@ -345,9 +240,9 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
 
   METHOD screen_np001_1_1.
     DATA(view)  = z2ui5_cl_xml_fragment=>factory( ).
-    DATA(fisrt) = view->vbox( class = 'shapeIT-firstContainer' ).
-    DATA(card) = fisrt->vbox( class = 'shapeIT-card' ).
-    DATA(card_top) = card->vbox( class = 'shapeIT-card-top' ).
+    DATA(fisrt) = view->vbox( class = 'RAKEGA-firstContainer' ).
+    DATA(card) = fisrt->vbox( class = 'RAKEGA-card' ).
+    DATA(card_top) = card->vbox( class = 'RAKEGA-card-top' ).
     DATA(card_header) = card_top->hbox( justifycontent = 'SpaceBetween' alignitems = 'Center' ).
     DATA(title) = card_header->hbox( alignitems = 'Center' ).
     DATA(ppd_logo) = title->image( src = '../css/img/services/SVG/PP.svg' height = '2rem' ).
@@ -357,10 +252,10 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     class = 'font1 weight600 color-dark-blue sapUiSmallMarginEnd' ).
     " TODO(STAGES): RAKSTAGEBAR is a custom extension control (EXTENDED=X) - exact z2ui5 API not yet confirmed.
     "   source data: steps=4 current=1
-    DATA(stages) = card->hbox( class = 'sapUiLargeMarginBegin' ).  " placeholder - see TODO above
-    NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->rakstagebar( stages ).
+    DATA(stages) = card_top->hbox( class = 'sapUiLargeMarginBegin' ).  " placeholder - see TODO above
+    me->rakstagebar( stages ).
 
-    DATA(body) = card->vbox( class = 'shapeIT-part2' ).
+    DATA(body) = card->vbox( class = 'RAKEGA-part2' ).
     DATA(hbox_4) = body->hbox( justifycontent = 'Center' ).
     DATA(vbox_9) = hbox_4->vbox( class = 'sapUiLargeMarginTop page-bg' alignitems = 'Center' aligncontent = 'Center' ).
     DATA(vbox_8) = vbox_9->vbox( class = 'sapUiLargeMarginTopBottom sapUiLargeMarginBeginEnd' ).
@@ -387,7 +282,7 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
 
     " TODO(CASE_TYPE_1): items come from search-help ZSH_CJ_PPD_CASE_TYPE - value-list binding pattern not yet confirmed
 *    DATA(journey) = hbox_7->label( text = '{JOURNEYTYPE}' ).
-    DATA(footer) = fisrt->hbox( class = 'shapeIT-footer shapeIT-next-btn-end' ).
+    DATA(footer) = fisrt->hbox( class = 'RAKEGA-footer RAKEGA-next-btn-end' ).
     DATA(buttonback) = footer->button( id = 'BUTTONBACK' visible = 'false' text = get_text_by_id( 'BACK_BUTTON' ) class = 'regularBTN_with_border' icon = 'sap-icon://icomoon/Left' press = client->_event( 'BACK' ) ).
     DATA(next) = footer->button( iconfirst = 'false' text = get_text_by_id( 'NEXT_BUTTON' ) class = 'regularBTN' icon = 'sap-icon://icomoon/Right' press = client->_event( 'SAVE' ) ).
 
@@ -400,45 +295,45 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
   METHOD screen_np001_1_2.
 
     DATA(view)  = z2ui5_cl_xml_fragment=>factory( ).
-    DATA(fisrt) = view->vbox( class = 'shapeIT-firstContainer' ).
-    DATA(card) = fisrt->vbox( class = 'shapeIT-card' ).
-    DATA(card_top) = card->vbox( class = 'shapeIT-card-top' ).
+    DATA(fisrt) = view->vbox( class = 'RAKEGA-firstContainer' ).
+    DATA(card) = fisrt->vbox( class = 'RAKEGA-card' ).
+    DATA(card_top) = card->vbox( class = 'RAKEGA-card-top' ).
     DATA(card_header) = card_top->hbox( justifycontent = 'SpaceBetween' alignitems = 'Center' ).
     DATA(title) = card_header->hbox( alignitems = 'Center' ).
     DATA(ppd_logo) = title->image( src = '../css/img/services/SVG/PP.svg' height = '2rem' ).
     " AMBIGUOUS(TITLE_TEXT): VALUE='DOKSL_ND016_1_1_TITLE_TEXT' also set in source (ignored here, using TECHNICAL_NAME binding) - see note below
-    DATA(title_text) = title->label( text = '{/XX/GS_DATA/DESCRIPTION}' class = 'font1 weight600 color-dark-blue sapUiSmallMarginEnd' ).
+    DATA(title_text) = title->label( text = gs_data-description class = 'font1 weight600 color-dark-blue sapUiSmallMarginEnd' ).
 
-    DATA(context_hbox_desktop) = card_header->hbox( class = 'shapeIT-context-hbox-desktop' ).
-    DATA(context1_d_cont) = context_hbox_desktop->hbox( class = 'shapeIT-context-cont' ).
+    DATA(context_hbox_desktop) = card_header->hbox( class = 'RAKEGA-context-hbox-desktop' ).
+    DATA(context1_d_cont) = context_hbox_desktop->hbox( class = 'RAKEGA-context-cont' ).
     " AMBIGUOUS(CTX1_D_LABEL): literal text 'CNTITLE', not an i18n key pattern - confirm
     DATA(ctx1_d_label) = context1_d_cont->label( text = get_text_by_id( 'CNTITLE' ) class = 'Body_1_3 color-gray7' ).
     " AMBIGUOUS(CTX1_D_VALUE): VALUE='F9' also set in source (ignored here, using TECHNICAL_NAME binding) - see note below
-    DATA(ctx1_d_value) = context1_d_cont->label( text = '{/XX/GS_DATA/CASE/CASE_NUMBER}' class = 'Body_1_3 color-gray7' ).
-    DATA(context1_d_separator) = context_hbox_desktop->vbox( class = 'shapeIT-context-separator' ).
-    DATA(context3_d_cont) = context_hbox_desktop->hbox( class = 'shapeIT-context-cont' ).
+    DATA(ctx1_d_value) = context1_d_cont->label( text = gs_data-case-case_number class = 'Body_1_3 color-gray7' ).
+    DATA(context1_d_separator) = context_hbox_desktop->vbox( class = 'RAKEGA-context-separator' ).
+    DATA(context3_d_cont) = context_hbox_desktop->hbox( class = 'RAKEGA-context-cont' ).
     DATA(ctx3_d_label) = context3_d_cont->label( text = get_text_by_id( 'PPD_NP001_1_1_LABEL_8' ) class = 'Body_1_3 color-gray7' ).
     " AMBIGUOUS(CTX3_D_VALUE): VALUE='Aug 23, 2023' also set in source (ignored here, using TECHNICAL_NAME binding) - see note below
-    DATA(ctx3_d_value) = context3_d_cont->label( text = '{/XX/GS_DATA/CASE/YEAR}' class = 'Body_1_3 color-gray7' ).
-    DATA(context3_d_separator) = context_hbox_desktop->vbox( class = 'shapeIT-context-separator' ).
-    DATA(context4_d_cont) = context_hbox_desktop->hbox( class = 'shapeIT-context-cont' ).
+    DATA(ctx3_d_value) = context3_d_cont->label( text = gs_data-case-year class = 'Body_1_3 color-gray7' ).
+    DATA(context3_d_separator) = context_hbox_desktop->vbox( class = 'RAKEGA-context-separator' ).
+    DATA(context4_d_cont) = context_hbox_desktop->hbox( class = 'RAKEGA-context-cont' ).
     " AMBIGUOUS(CTX4_D_LABEL): VALUE='Case Description' also set in source (ignored here, using TECHNICAL_NAME binding) - see note below
-    DATA(ctx4_d_label) = context4_d_cont->label( text = '{/XX/GS_DATA/CASE/DESCRIPTION}' class = 'Body_1_3 color-gray7' ).
+    DATA(ctx4_d_label) = context4_d_cont->label( text = gs_data-case-description class = 'Body_1_3 color-gray7' ).
     " AMBIGUOUS(CTX4_D_VALUE): VALUE='Aug 23, 2023' also set in source (ignored here, using TECHNICAL_NAME binding) - see note below
-    DATA(ctx4_d_value) = context4_d_cont->label( text = '{/XX/GS_DATA/PUBLIC_COURT/ORDER_DESCR}' class = 'Body_1_3 color-gray7' ).
+    DATA(ctx4_d_value) = context4_d_cont->label( text = gs_data-public_court-order_descr class = 'Body_1_3 color-gray7' ).
 
     DATA(buttons) = card_header->hbox( alignitems = 'Center' ).
-    DATA(savedraft) = buttons->button( id = 'SAVEDRAFT' text = get_text_by_id( 'SAVE_AS_DRAFT' ) class = 'shapeIT-cardheader-topbtn shapeIT-hide-in-mobile sapUiSmallMarginEnd' icon = 'sap-icon://icomoon/Save' press = client->_event( 'SAVEDRAFTHOME' ) ).
-    DATA(savedraft_icononly) = buttons->button( id = 'SAVEDRAFT_ICONONLY' class = 'shapeIT-cardheader-topbtn shapeIT-hide-in-desktop' icon = 'sap-icon://icomoon/Save' press = client->_event( 'SAVEDRAFTHOME' ) ).
-    DATA(delete) = buttons->button( id = 'DELETE' text = get_text_by_id( 'DELETE' ) class = 'shapeIT-cardheader-topbtn shapeIT-hide-in-mobile' icon = 'sap-icon://icomoon/Delete' press = client->_event( 'DELETE' ) ).
-    DATA(delete_icononly) = buttons->button( id = 'DELETE_ICONONLY' class = 'shapeIT-cardheader-topbtn shapeIT-hide-in-desktop' icon = 'sap-icon://icomoon/Delete' press = client->_event( 'DELETE' ) ).
+    DATA(savedraft) = buttons->button( id = 'SAVEDRAFT' text = get_text_by_id( 'SAVE_AS_DRAFT' ) class = 'RAKEGA-cardheader-topbtn RAKEGA-hide-in-mobile sapUiSmallMarginEnd' icon = 'sap-icon://icomoon/Save' press = client->_event( 'SAVEDRAFTHOME' ) ).
+    DATA(savedraft_icononly) = buttons->button( id = 'SAVEDRAFT_ICONONLY' class = 'RAKEGA-cardheader-topbtn RAKEGA-hide-in-desktop' icon = 'sap-icon://icomoon/Save' press = client->_event( 'SAVEDRAFTHOME' ) ).
+    DATA(delete) = buttons->button( id = 'DELETE' text = get_text_by_id( 'DELETE' ) class = 'RAKEGA-cardheader-topbtn RAKEGA-hide-in-mobile' icon = 'sap-icon://icomoon/Delete' press = client->_event( 'DELETE' ) ).
+    DATA(delete_icononly) = buttons->button( id = 'DELETE_ICONONLY' class = 'RAKEGA-cardheader-topbtn RAKEGA-hide-in-desktop' icon = 'sap-icon://icomoon/Delete' press = client->_event( 'DELETE' ) ).
     DATA(error_1) = card_top->message_strip( text = '{/XX/GS_DATA/ERROR}' visible = '{= ${/XX/GS_DATA/ERROR} !== '''' }'
     type = 'Error' showicon = 'true' showclosebutton = 'true' ).  " TODO(ERROR_1): EXTENDED=X, param names assumed - confirm
     " TODO(STAGES): RAKSTAGEBAR - source data: steps=4 current=1 texts=First,Second,Third,Fourth
-    DATA(stages) = card->hbox( class = 'sapUiLargeMarginBegin' ).  " placeholder
-    NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->rakstagebar( stages ).
+    DATA(stages) = card_top->hbox( class = 'sapUiLargeMarginBegin' ).  " placeholder
+    me->rakstagebar( stages ).
 
-    DATA(body) = card->vbox( class = 'shapeIT-part2' ).
+    DATA(body) = card->vbox( class = 'RAKEGA-part2' ).
     DATA(hbox_10) = body->hbox( justifycontent = 'SpaceBetween' ).
     DATA(vbox_11) = hbox_10->vbox( class = 'width49' ).
     DATA(applicant) = vbox_11->label( text = get_text_by_id( 'DOKSL_ND001_1_1_APPLICANT' ) class = 'font1 weight600 color-dark-blue sapUiSmallMarginEnd' ).
@@ -458,7 +353,7 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     DATA(vbox_14) = hbox_11->vbox( class = 'sapUiLargeMarginBegin' aligncontent = 'Start' ).
     DATA(label_18) = vbox_14->label( text = get_text_by_id( 'DOKSL_ND001_1_1_APP_ID_TEXT' ) class = 'font1 weight400 color-gray6' ).
     DATA(partner_id_1) = vbox_14->label( text = '{/XX/GS_DATA/CASE/PARTNER_ID}' class = 'font1 weight500 color-gray7 sapUiSmallMarginTop' ).
-    DATA(hseparator_1) = body->hbox( class = 'sapUiMediumMarginTop shapeIT-hr' ).  " horizontal rule
+    DATA(hseparator_1) = body->hbox( class = 'sapUiMediumMarginTop RAKEGA-hr' ).  " horizontal rule
     DATA(hbox_12) = body->hbox( class = 'sapUiMediumMarginTop' ).
     DATA(label_21) = hbox_12->label( text = get_text_by_id( 'PPD_NP001_1_2_LABEL_21' ) class = 'font1 weight500 color-gray6' ).
     DATA(category_txt_1) = hbox_12->label( text = '{/XX/GS_DATA/PUBLIC_COURT/CATEGORY_TXT}' class = 'font1 weight500 color-blue sapUiMediumMarginBeginEnd' ).
@@ -497,7 +392,7 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     DATA(vbox_10) = body->vbox( class = 'sapUiMediumMarginTop' ).
     DATA(notes_text) = vbox_10->label( text = get_text_by_id( 'PPD_NP001_1_2_NOTES_TEXT' ) class = 'font1 weight500 color-gray6' ).
     DATA(notes) = vbox_10->text_area( value = '{XX/GS_DATA/NOTES}' class = 'textarea' ).
-    DATA(footer) = fisrt->hbox( class = 'shapeIT-footer' ).
+    DATA(footer) = fisrt->hbox( class = 'RAKEGA-footer' ).
     DATA(buttonback) = footer->button( id = 'BUTTONBACK' text = get_text_by_id( 'BACK_BUTTON' ) class = 'regularBTN_with_border' icon = 'sap-icon://icomoon/Left' press = client->_event( 'BACK' ) ).
     DATA(next) = footer->button( iconfirst = 'false' id = 'NEXT' text = get_text_by_id( 'NEXT_BUTTON' ) class = 'regularBTN' icon = 'sap-icon://icomoon/Right' press = client->_event( 'SAVE' ) ).
 
@@ -509,23 +404,22 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
   METHOD screen_np001_1_3.
 
     DATA(view)  = z2ui5_cl_xml_fragment=>factory( ).
-    DATA(firstcontainer) = view->vbox( class = 'shapeIT-firstContainer' ).
-    DATA(card) = firstcontainer->vbox( class = 'shapeIT-card' ).
-    DATA(card_top) = card->vbox( class = 'shapeIT-card-top' ).
+    DATA(firstcontainer) = view->vbox( class = 'RAKEGA-firstContainer' ).
+    DATA(card) = firstcontainer->vbox( class = 'RAKEGA-card' ).
+    DATA(card_top) = card->vbox( class = 'RAKEGA-card-top' ).
     DATA(card_header) = card_top->hbox( justifycontent = 'SpaceBetween' alignitems = 'Center' ).
     DATA(card_header_title) = card_header->hbox( alignitems = 'Center' ).
     DATA(ppd_logo) = card_header_title->image( src = '../css/img/services/SVG/PP.svg' height = '2rem' ).
     " AMBIGUOUS(TITLE_TEXT): VALUE='DOKSL_ND016_1_1_TITLE_TEXT' also set in source (ignored here, using TECHNICAL_NAME binding) - see note below
     DATA(title_text) = card_header_title->label( text = '{/XX/GS_DATA/DESCRIPTION}' class = 'font1 weight600 color-dark-blue sapUiSmallMarginEnd' ).
     DATA(card_header_end) = card_header->hbox( alignitems = 'Center' ).
-    DATA(savedraft) = card_header_end->button( id = 'SAVEDRAFT' text = get_text_by_id( 'SAVE_AS_DRAFT' ) class = 'shapeIT-cardheader-topbtn shapeIT-hide-in-mobile sapUiSmallMarginEnd' icon = 'sap-icon://icomoon/Save' press = client->_event(
+    DATA(savedraft) = card_header_end->button( id = 'SAVEDRAFT' text = get_text_by_id( 'SAVE_AS_DRAFT' ) class = 'RAKEGA-cardheader-topbtn RAKEGA-hide-in-mobile sapUiSmallMarginEnd' icon = 'sap-icon://icomoon/Save' press = client->_event(
   'SAVEDRAFTHOME' ) ).
-    DATA(savedraft_icononly) = card_header_end->button( id = 'SAVEDRAFT_ICONONLY' class = 'shapeIT-cardheader-topbtn shapeIT-hide-in-desktop' icon = 'sap-icon://icomoon/Save' press = client->_event( 'SAVEDRAFTHOME' ) ).
-    DATA(delete) = card_header_end->button( id = 'DELETE' text = get_text_by_id( 'DELETE' ) class = 'shapeIT-cardheader-topbtn shapeIT-hide-in-mobile' icon = 'sap-icon://icomoon/Delete' press = client->_event( 'DELETE' ) ).
-    DATA(delete_icononly) = card_header_end->button( id = 'DELETE_ICONONLY' class = 'shapeIT-cardheader-topbtn shapeIT-hide-in-desktop' icon = 'sap-icon://icomoon/Delete' press = client->_event( 'DELETE' ) ).
-    " TODO(STAGES): RAKSTAGEBAR - source data: steps=4 current=2 texts=First,Second,Third,Fourth
+    DATA(savedraft_icononly) = card_header_end->button( id = 'SAVEDRAFT_ICONONLY' class = 'RAKEGA-cardheader-topbtn RAKEGA-hide-in-desktop' icon = 'sap-icon://icomoon/Save' press = client->_event( 'SAVEDRAFTHOME' ) ).
+    DATA(delete) = card_header_end->button( id = 'DELETE' text = get_text_by_id( 'DELETE' ) class = 'RAKEGA-cardheader-topbtn RAKEGA-hide-in-mobile' icon = 'sap-icon://icomoon/Delete' press = client->_event( 'DELETE' ) ).
+    DATA(delete_icononly) = card_header_end->button( id = 'DELETE_ICONONLY' class = 'RAKEGA-cardheader-topbtn RAKEGA-hide-in-desktop' icon = 'sap-icon://icomoon/Delete' press = client->_event( 'DELETE' ) ).
     DATA(stages) = card_top->hbox( class = 'sapUiLargeMarginBegin' ).  " placeholder
-    NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->rakstagebar( stages ).
+    me->rakstagebar( stages ).
 
     DATA(body) = card_top->vbox( ).
     DATA(size_warning) = body->vbox( ).
@@ -551,7 +445,7 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     DATA(disclaimer) = declaration_cont->hbox( class = 'sapUiMediumMarginTopBottom' ).
     DATA(icon_info) = disclaimer->icon( src = 'sap-icon://icomoon/info' class = 'font1 weight400 color-red' ).
     DATA(disclaimer_txt) = disclaimer->label( text = get_text_by_id( 'DOKSL_ND001_1_4_DISCLAIMER_TXT' ) class = 'font1 weight400 color-red sapUiSmallMarginBegin' wrapping = 'true' ).
-    DATA(footer) = firstcontainer->hbox( class = 'shapeIT-footer' ).
+    DATA(footer) = firstcontainer->hbox( class = 'RAKEGA-footer' ).
     DATA(buttonback) = footer->button( id = 'BUTTONBACK' text = get_text_by_id( 'BACK_BUTTON' ) class = 'regularBTN_with_border' icon = 'sap-icon://icomoon/Left' press = client->_event( 'BACK' ) ).
     DATA(pay) = footer->button( iconfirst = 'false' id = 'PAY' text = get_text_by_id( 'PAY_BUTTON' ) class = 'regularBTN' icon = 'sap-icon://icomoon/Right' press = client->_event( 'SAVE' ) ).
     " VISIBLE is NOT 'X' for NEXT (the only control on this whole screen where that's true) - PAY and
@@ -566,136 +460,9 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
 
 
   METHOD screen_np001_1_4.
-
-    ms_payment-quick = abap_true.
-    ms_payment-edirham = abap_true.
-
     DATA(view)  = z2ui5_cl_xml_fragment=>factory( ).
-    DATA(firstcontainer) = view->vbox( class = 'shapeIT-firstContainer shapeIT-pay-initial' ).
-    DATA(card) = firstcontainer->vbox( class = 'shapeIT-card' ).
-    DATA(card_top) = card->vbox( class = 'shapeIT-card-top' ).
-    DATA(back_hbox) = card_top->hbox( class = 'shapeIT-pay-hide-in-initial shapeIT-pay-hide-in-final' justifycontent = 'SpaceBetween' alignitems = 'Center' ).
-    DATA(paybuttonback) = back_hbox->button( id = 'PAYBUTTONBACK' text = get_text_by_id( 'BACK_BUTTON' ) class = 'shapeIT-lobby-button-back' icon = 'sap-icon://icomoon/left-arrow' press = client->_event( 'BACK' ) ).
-    DATA(card_header_pay) = card_top->hbox( class = 'shapeIT-pay-hide-in-initial shapeIT-pay-hide-in-final' justifycontent = 'SpaceBetween' alignitems = 'Center' ).
-    DATA(payment_screen_name) = card_header_pay->label( text = get_text_by_id( 'TITLEPM' ) class = 'font1375 weight600 color-dark-blue' ).
-    DATA(card_header) = card_top->hbox( class = 'shapeIT-pay-hide-in-pay' justifycontent = 'SpaceBetween' alignitems = 'Center' ).
-    DATA(card_header_begin) = card_header->hbox( alignitems = 'Center' ).
-    DATA(journeyname_image) = card_header_begin->hbox( class = 'sapUiTinyMarginEnd shapeIT-hide-in-mobile' alignitems = 'Center' ).
-    DATA(title) = card_header_begin->label( text = '{/XX/GS_DATA/DESCRIPTION}' class = 'font1375 weight600 color-dark-blue sapUiSmallMarginEnd' ).
-    DATA(card_header_vseparator) = card_header_begin->vbox( class = 'shapeIT-cardheader-vseparator shapeIT-hide-in-mobile sapUiSmallMarginEnd shapeIT-pay-hide-in-pay' ).
-    DATA(description_title) = card_header_begin->label( text = get_text_by_id( 'TITLEPART_PAYINITIAL_FEE' ) class = 'font1 weight400 color-gray5 shapeIT-hide-in-mobile shapeIT-pay-hide-in-pay' ).
-    DATA(card_header_end) = card_header->hbox( alignitems = 'Center' ).
-    DATA(savedraft) = card_header_end->button( id = 'SAVEDRAFT' text = get_text_by_id( 'SAVE_AS_DRAFT' ) class = 'shapeIT-cardheader-topbtn shapeIT-hide-in-mobile sapUiSmallMarginEnd' icon = 'sap-icon://icomoon/Save' press = client->_event(
-  'SAVEDRAFTHOME' ) ).
-    DATA(savedraft_icononly) = card_header_end->button( id = 'SAVEDRAFT_ICONONLY' class = 'shapeIT-cardheader-topbtn shapeIT-hide-in-desktop' icon = 'sap-icon://icomoon/Save' press = client->_event( 'SAVEDRAFTHOME' ) ).
-    DATA(delete) = card_header_end->button( id = 'DELETE' text = get_text_by_id( 'DELETE' ) class = 'shapeIT-cardheader-topbtn shapeIT-hide-in-mobile' icon = 'sap-icon://icomoon/Delete' press = client->_event( 'DELETE' ) ).
-    DATA(delete_icononly) = card_header_end->button( id = 'DELETE_ICONONLY' class = 'shapeIT-cardheader-topbtn shapeIT-hide-in-desktop' icon = 'sap-icon://icomoon/Delete' press = client->_event( 'DELETE' ) ).
-    DATA(description_panel) = card_top->vbox( class = 'shapeIT-hide-in-desktop  shapeIT-pay-hide-in-pay' alignitems = 'Start' ).
-    DATA(description_title_in_panel) = description_panel->label( text = get_text_by_id( 'TITLEPART_PAYINITIAL_FEE' ) class = 'font1 weight400 color-gray5' ).
 
-    DATA(stages) = card_top->hbox( class = 'shapeIT-pay-hide-in-pay' ).  " placeholder - see TODO above
-    NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->rakstagebar( stages ).
-
-    DATA(description_details_cont) = card_top->vbox( class = 'shapeIT-card-descriptioncont shapeIT-hide-in-mobile sapUiSmallMarginTop shapeIT-pay-hide-in-pay' alignitems = 'Center' ).
-    DATA(description) = description_details_cont->label( text = get_text_by_id( 'DESCRIPTION_RA_SELECTPARCELORGRANTED_1_1' ) class = 'font1 weight400 color-gray6' ).
-    DATA(description_details_panel) = card_top->vbox( class = 'shapeIT-hide-in-desktop sapUiTinyMarginTop shapeIT-pay-hide-in-pay' alignitems = 'Start' ).
-    DATA(journey_description_mobile) = description_details_panel->text_area( value = get_text_by_id( 'DESCRIPTION_RA_SELECTPARCELORGRANTED_1_1' ) maxlength = '65' class = 'Body_1_3 color-gray7 shapeIT-lobby-ex-text' ).
-    DATA(part2) = card->vbox( class = 'shapeIT-part2' ).
-    DATA(payment_container) = part2->vbox( class = 'shapeIT-pay-payment-container' ).
-    DATA(fees_vbox) = payment_container->vbox( class = 'shapeIT-pay-fees-vbox' ).
-    DATA(initialfeelabel) = fees_vbox->label( text = get_text_by_id( 'INITIALFEELABEL' ) class = 'H3_1 color-gray7 shapeIT-pay-hide-in-pay shapeIT-pay-hide-in-final' ).
-    DATA(finalfeelabel) = fees_vbox->label( text = get_text_by_id( 'FINAL_FEE' ) class = 'H3_1 color-gray7 shapeIT-pay-hide-in-pay shapeIT-pay-hide-in-initial' ).
-    DATA(feelabel) = fees_vbox->label( text = get_text_by_id( 'FEE' ) class = 'H3_1 color-gray7 shapeIT-pay-hide-in-initial shapeIT-pay-hide-in-final' ).
-    DATA(fees_inner_vbox) = fees_vbox->vbox( class = 'shapeIT-pay-fees-inner-vbox' ).
-    DATA(feeslist) = fees_inner_vbox->list( items = '{/XX/GS_DATA/FEES}' ).  " TODO(FEESLIST): assumes a class-level table attribute mt_fees - declare it, populated via DATA1=ZFM_EGA_CJ_FW_READ_TABLE_DATAN/DATA2=FEESLIST
-    DATA(feeslistitem) = feeslist->items( )->custom_list_item( ).
-    DATA(feeslistitemcontent) = feeslistitem->hbox( class = 'feesDialog-list-item' ).
-    DATA(descriptioncontainer) = feeslistitemcontent->hbox( class = 'feesDialog-list-description-container' ).
-    DATA(feeslistitemdescription) = descriptioncontainer->label( text = '{DESCRIPTION}' class = 'Body_1_3 color-gray6' ).
-    DATA(valuescontainer) = feeslistitemcontent->hbox( class = 'feesDialog-list-amount-container' ).
-    DATA(aed) = valuescontainer->label( text = get_text_by_id( 'AED' ) class = 'Body_1_3 color-gray6 sapUiTinyMarginEnd' ).
-    DATA(feeslistitemvalue) = valuescontainer->label( text = '{FEE}' class = 'Body_1_3 color-gray6' ).
-    DATA(total_hbox) = fees_inner_vbox->hbox( class = 'shapeIT-pay-total-hbox' ).
-    DATA(remainingfees_hbox_desktop) = total_hbox->hbox( class = 'shapeIT-hide-in-mobile' ).
-    DATA(remainingfeescontainer) = remainingfees_hbox_desktop->hbox( class = 'shapeIT-pay-hide-in-pay shapeIT-pay-hide-in-final' alignitems = 'End' ).
-    DATA(remainingfeeslabel) = remainingfeescontainer->label( text = get_text_by_id( 'REMAININGFEESLABEL' ) class = 'Body_2_3 color-gray6 sapUiTinyMarginEnd' ).
-    " DEFERRED(REMAININGFEES): RAKREMAININGFEES - link that opens a popup dialog with fee breakdown. Leaving as placeholder for now.
-    DATA(remainingfees) = remainingfeescontainer->link( text = '' class = '' ).  " placeholder - see DEFERRED note above
-    DATA(cantundocontainer) = remainingfees_hbox_desktop->hbox( class = 'shapeIT-pay-hide-in-pay shapeIT-pay-hide-in-initial' ).
-    DATA(cantundoicon) = cantundocontainer->icon( src = 'sap-icon://icomoon/info' class = 'shapeIT-pay-cantdo-icon sapUiTinyMarginEnd' ).
-    DATA(cantundolabel) = cantundocontainer->label( text = get_text_by_id( 'CANT_UNDO' ) class = 'Body_1_2 color-red' ).
-    DATA(total_inner_hbox) = total_hbox->hbox( ).
-    DATA(totallabel) = total_inner_hbox->label( text = get_text_by_id( 'TOTALLABEL' ) class = 'Body_1_1 color-gray6 sapUiTinyMarginEnd' ).
-    DATA(aedtoatal) = total_inner_hbox->label( text = get_text_by_id( 'AED' ) class = 'Body_1_1 color-gray6 sapUiTinyMarginEnd' ).
-    DATA(totalvalue) = total_inner_hbox->label( text = '{TOTAL_FEE}' class = 'Body_1_1 color-gray6' ).
-    DATA(aedtoatal_old) = total_inner_hbox->label( text = get_text_by_id( 'AED' ) class = 'Body_1_1 color-gray6' ).
-    DATA(remainingfees_hbox_mobile) = fees_inner_vbox->hbox( class = 'shapeIT-pay-hide-in-pay shapeIT-hide-in-desktop' ).
-    DATA(remainingfeescontainerm) = remainingfees_hbox_mobile->hbox( class = 'shapeIT-pay-hide-in-final' ).
-    DATA(remainingfeeslabelm) = remainingfeescontainerm->label( text = get_text_by_id( 'REMAININGFEESLABEL' ) class = 'Body_2_3 color-gray6 sapUiTinyMarginEnd' ).
-    " DEFERRED(REMAININGFEESM): RAKREMAININGFEES - link that opens a popup dialog with fee breakdown. Leaving as placeholder for now.
-    DATA(remainingfeesm) = remainingfeescontainerm->link( text = '' class = '' ).  " placeholder - see DEFERRED note above
-    DATA(cantundocontainerm) = remainingfees_hbox_mobile->hbox( class = 'shapeIT-pay-hide-in-initial' ).
-    DATA(cantundoiconm) = cantundocontainerm->icon( src = 'sap-icon://icomoon/info' class = 'shapeIT-pay-cantdo-icon sapUiTinyMarginEnd' ).
-    DATA(cantundolabelm) = cantundocontainerm->label( text = get_text_by_id( 'CANT_UNDO' ) class = 'Body_1_2 color-red' ).
-    DATA(payment_vbox) = payment_container->vbox( class = 'shapeIT-pay-payment-vbox' ).
-    DATA(payment_method_cont) = payment_vbox->vbox( class = 'shapeIT-pay-payment-method-cont' ).
-    DATA(payment_method_title) = payment_method_cont->label( text = get_text_by_id( 'PAYMENT_METHOD_TITLE' ) class = 'H3_1 color-gray7' ).
-    DATA(rbline) = payment_method_cont->hbox( class = 'rbline' ).
-    DATA(rb1) = rbline->radio_button( id = 'RB1' text = get_text_by_id( 'MML_SUBDIVISION_RB1' ) groupname = 'paymentWay' selected = '{/XX/MS_PAYMENT/QUICK}' class = 'radioButton' ).
-    DATA(rb2) = rbline->radio_button( id = 'RB2' text = get_text_by_id( 'MML_SUBDIVISION_RB2' ) groupname = 'paymentWay' selected = '{/XX/MS_PAYMENT/MRAK}' class = 'radioButton' ).
-    DATA(rb3) = rbline->radio_button( id = 'RB3' text = get_text_by_id( 'MML_SUBDIVISION_RB3' ) groupname = 'paymentWay' selected = '{/XX/MS_PAYMENT/KIOSK}' class = 'radioButton' ).
-    DATA(rb4) = rbline->radio_button( id = 'RB4' text = get_text_by_id( 'MML_SUBDIVISION_RB4' ) groupname = 'paymentWay' selected = '{/XX/MS_PAYMENT/WALKIN}' class = 'radioButton' ).
-    DATA(payment_method1_cont) = payment_method_cont->vbox( visible = '{/XX/MS_PAYMENT/QUICK}'  ).
-    DATA(please1) = payment_method1_cont->hbox( class = 'shapeIT-pay-please1' ).
-    DATA(please_icon1) = please1->icon( src = 'sap-icon://icomoon/info' class = 'shapeIT-pay-cantdo-icon' ).
-    DATA(please1_hbox) = please1->hbox( class = 'shapeIT-pay-please-hbox' ).
-    DATA(please_label1) = please1_hbox->label( text = get_text_by_id( 'PLEASE_ALLOW_POPUPS' ) class = 'Body_1_2 color-red' ).
-    DATA(payment_method2_cont) = payment_method_cont->vbox( class = 'shapeIT-pay-method2-cont' visible = '{= !${/XX/MS_PAYMENT/QUICK}}' ).
-    DATA(account_details_cont) = payment_method2_cont->vbox( class = 'shapeIT-pay-account-details-cont' ).
-    DATA(account_details) = account_details_cont->label( text = get_text_by_id( 'ACCOUNT_DETAILS' ) class = 'H3_1 color-gra7' ).
-    DATA(account_details_hbox) = account_details_cont->hbox( class = 'shapeIT-pay-account-details-hbox' ).
-    DATA(acountnumber) = account_details_hbox->vbox( class = 'shapeIT-pay-account-number' ).
-    DATA(antitle) = acountnumber->label( text = get_text_by_id( 'NUMBER' ) class = 'Body_1_2 color-gray7' ).
-    DATA(ansum) = acountnumber->label( text = '{ACCOUNT}' class = 'Body_1_3 color-gray6' ).
-    DATA(casenumber) = account_details_hbox->vbox( class = 'shapeIT-pay-account-number' ).
-    DATA(cntitle) = casenumber->label( text = get_text_by_id( 'CNTITLE' ) class = 'Body_1_2 color-gray7' ).
-    DATA(cnsum) = casenumber->label( text = '{CASE}' class = 'Body_1_3 color-gray6' ).
-    DATA(service_details_cont) = payment_method2_cont->hbox( class = 'shapeIT-pay-service-details-cont' ).
-    DATA(please2) = service_details_cont->hbox( class = 'shapeIT-pay-please2' visible = '{/XX/MS_PAYMENT/MRAK}' ).
-    DATA(please_image2) = please2->image( src = 'css/css/RAKEGA_extentions/Images/pay-mRak.png' densityaware = 'false' ).
-    DATA(please2_hbox) = please2->hbox( class = 'shapeIT-pay-please-hbox' ).
-    DATA(please_label2) = please2_hbox->label( text = get_text_by_id( 'PLEASE_PAY_MOBILE' ) class = 'Body_1_2 color-red' wrapping = 'true' ).
-    DATA(please3) = service_details_cont->hbox( class = 'shapeIT-pay-please2' visible = '{/XX/MS_PAYMENT/KIOSK}' ).
-    DATA(please_image3) = please3->image( src = 'css/css/RAKEGA_extentions/Images/pay-KIOSK.png' ).
-    DATA(please3_hbox) = please3->hbox( class = 'shapeIT-pay-please-hbox' ).
-    DATA(please_label3) = please3_hbox->label( text = get_text_by_id( 'PLEASE_PAY_KIOSK' ) class = 'Body_1_2 color-red' wrapping = 'true' ).
-    DATA(please4) = service_details_cont->hbox( class = 'shapeIT-pay-please2' visible = '{/XX/MS_PAYMENT/WALKIN}' ).
-    DATA(please_image4) = please4->image( src = 'css/css/RAKEGA_extentions/Images/pay-Walk-in.png' ).
-    DATA(please4_hbox) = please4->hbox( class = 'shapeIT-pay-please-hbox' ).
-    DATA(please_label4) = please4_hbox->label( text = get_text_by_id( 'PLEASE_PAY_OFFICE' ) class = 'Body_1_2 color-red' wrapping = 'true' ).
-    DATA(sendemail) = service_details_cont->check_box( selected = '{/XX/MS_PAYMENT/DONATE}' text = get_text_by_id( 'SENDEMAIL' ) class = 'checkbox' ).
-    DATA(paywith_cont) = payment_vbox->vbox( class = 'shapeIT-pay-paywith-cont' visible = '{/XX/MS_PAYMENT/QUICK}' ).
-    DATA(pay_with_title) = paywith_cont->label( text = get_text_by_id( 'PAY_WITH' ) class = 'Body_1_2 color-gray7' ).
-    DATA(pw_rbline) = paywith_cont->hbox( class = 'shapeIT-pay-pw-rbline' ).
-    DATA(rb_group2) = pw_rbline->radio_button_group( ).
-    DATA(pw_hbox2) = pw_rbline->hbox( class = 'shapeIT-pay-pw-hbox' ).
-    DATA(pw_rb2) = pw_hbox2->radio_button( id = 'PW_RB2' groupname = 'paymentMethod' selected = '{/XX/MS_PAYMENT/EDIRHAM}' class = 'shapeIT-pay-radio-button' ).
-    DATA(pw_img21) = pw_hbox2->image( src = 'css/css/RAKEGA_extentions/Images/pay-pw-rak-pay.png' height = '1.75rem' ).
-    DATA(pw_hbox1) = pw_rbline->hbox( class = 'shapeIT-pay-pw-hbox' ).
-    DATA(pw_rb1) = pw_hbox1->radio_button( id = 'PW_RB1' groupname = 'paymentMethod' selected = '{/XX/MS_PAYMENT/CREDITCARD}' class = 'shapeIT-pay-radio-button' ).
-    DATA(pw_images1) = pw_hbox1->hbox( class = 'shapeIT-pay-pw-images1' ).
-    DATA(pw_img11) = pw_images1->image( src = 'css/css/RAKEGA_extentions/Images/pay-pw-card1.png' height = '1.613rem' ).
-    DATA(pw_img12) = pw_images1->image( src = 'css/css/RAKEGA_extentions/Images/pay-pw-card2.png' height = '1.613rem' ).
-    DATA(pw_img13) = pw_images1->image( src = 'css/css/RAKEGA_extentions/Images/pay-pw-card3.png' height = '1.613rem' ).
-    DATA(pw_img14) = pw_images1->image( src = 'css/css/RAKEGA_extentions/Images/pay-pw-card4.png' height = '1.613rem' ).
-    DATA(footer) = firstcontainer->hbox( class = 'shapeIT-footer' ).
-    DATA(buttonback) = footer->button( id = 'BUTTONBACK' text = get_text_by_id( 'BACK_BUTTON' ) class = 'regularBTN_with_border shapeIT-pay-hide-in-pay' icon = 'sap-icon://icomoon/Left' press = client->_event( 'BACK' ) ).
-*    DATA(next_method2) = footer->button( id = 'NEXT_METHOD2' text = get_text_by_id( 'NEXT_BUTTON' ) class = 'regularBTN' icon = 'sap-icon://icomoon/Right' press = client->_event( 'SAVE' ) visible = '{= !${/XX/MS_PAYMENT/QUICK}}' ).
-*  DATA(next) = footer->button( id = 'NEXT' text = get_text_by_id( 'NEXT_BUTTON' ) class = 'regularBTN' icon = 'sap-icon://icomoon/Right' press = client->_event( 'SAVE' ) ).
-    NEW z2ui5_cl_ext_rakpay( me->client )->rakpay( footer ).
-*  DATA(pay) = footer->button( id = 'PAY' press = client->_event( 'SAVE' ) visible = '{/XX/MS_PAYMENT/QUICK}' ).
-    " TODO(PAY): RAKPAY is a custom control (EXTENDED=X) that navigates to an external payment screen - no LABEL_CON/icon in source (the custom control likely supplies its own),
-    "rendered as a plain button for now
+    me->rakpay( view ).
 
     client->view_display( view->stringify( ) ).
 
@@ -704,44 +471,155 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
 
   METHOD screen_np001_1_5.
 
+    me->rakhappy( ).
+
     DATA(view)  = z2ui5_cl_xml_fragment=>factory( ).
-    DATA(first_container) = view->vbox( class = 'shapeIT-firstContainer' ).
-    DATA(card) = first_container->vbox( class = 'shapeIT-card' ).
-    DATA(stage_cont) = card->vbox( class = 'shapeIT-card-top' ).
-    DATA(header_text_cont) = stage_cont->hbox( justifycontent = 'SpaceBetween' ).
+    DATA(first_container) = view->vbox( class = 'RAKEGA-firstContainer' ).
+    DATA(card) = first_container->vbox( class = 'RAKEGA-card' ).
+    DATA(stage_cont) = card->vbox( class = 'RAKEGA-card-top' ).
+    DATA(header_text_cont) = stage_cont->vbox( justifycontent = 'SpaceBetween' ).
     DATA(label_cont) = header_text_cont->hbox( justifycontent = 'Start' alignitems = 'Center' aligncontent = 'Center' ).
     DATA(ppd_logo) = label_cont->image( src = '../css/img/services/SVG/PP.svg' height = '2rem' ).
     DATA(title_text) = label_cont->label( text = '{/XX/GS_DATA/DESCRIPTION}' class = 'font1 weight600 color-dark-blue sapUiSmallMarginEnd' ).
-    DATA(stages) = header_text_cont->hbox( class = 'sapUiLargeMarginBegin' ).  " placeholder - see TODO above
-    NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->rakstagebar( stages ).
+    DATA(stages) = stage_cont->hbox( class = 'sapUiLargeMarginBegin' ).
+    me->rakstagebar( stages ).
 
-    DATA(general) = header_text_cont->hbox( justifycontent = 'SpaceBetween' ).
+    DATA: flamingo TYPE string,
+          xstring  TYPE xstring.
+
+    flamingo =
+'<svg width="300" height="190" viewBox="0 0 300 190" fill="none" xmlns="http://www.w3.org/2000/svg">' &&
+'<g clip-path="url(#clip0_3635_9480)">' &&
+'<ellipse cx="210.25" cy="174.5" rx="54.75" ry="13" fill="#BF1313" fill-opacity="0.25"/>' &&
+'<path d="M94.9641 72.5L95.766 70.8149L97.2361 67.9851C98.8805 64.8182 100.972 61.9071 103.448 59.333L116.208 41.9067C116.621' &&
+' 41.3431 117.062 40.7969 117.527 40.2797C119.084 38.5423 120.909 37.078 122.943 35.9391L139.061 26.8861C141.653 25.4276' &&
+' 144.123 23.7599 146.435 21.8889C153.083 16.5198 158.957 10.2559 163.885 3.27144L165.831 0.505553C166.162 0.0348878' &&
+' 166.895 0.337044 166.703 1.49918L166.157 4.7183C164.902 12.1153 162.438 19.2508 158.847 25.8343C156.395 30.3434 153.425' &&
+' 35.7241 150.259 41.0816C143.03 53.3131 133.233 63.8304 121.554 71.9189L121.699 72.1165C122.617 73.389 124.041 74.2025' &&
+' 125.604 74.3536L125.958 74.3884C132.129 74.9637 137.957 77.4797 142.612 81.5646L142.769 81.6983C145.099 83.7437 146.9' &&
+' 86.3236 148.027 89.2115C148.411 90.1935 148.754 91.0767 148.94 91.5474C148.992 91.6752 148.858 91.7973 148.73 91.7392L146.18' &&
+' 90.5538L151.595 100.507C151.676 100.664 151.531 100.839 151.363 100.781C149.596 100.17 148.021 99.0955 146.813 97.6661L145.651' &&
+' 96.2947C143.942 94.2784 141.804 92.6631 139.398 91.5706C137.028 90.4899 134.448 89.9378 131.845 89.9553L126.394' &&
+' 89.9843C125.999 89.9843 125.639 90.1993 125.447 90.548C125.18 91.0361 125.319 91.6462 125.778 91.96L130.003 94.9176L132.083' &&
+' 96.533C132.553 96.8991 132.629 97.5847 132.251 98.0438L131.519 98.9328C131.176 99.3512 130.578 99.4441 130.125 99.1478L127.463' &&
+' 97.422C124.866 95.7369 121.891 94.7491 118.817 94.5341C118.05 94.4818 117.277 94.4528 116.51 94.3714L115.65 94.2842C114.052' &&
+' 94.1157 112.472 93.8601 110.903 93.523L110.461 93.4243C107.678 92.8199 104.854 92.4248 102.012 92.2505C98.805 92.0529 95.6149' &&
+' 91.6694 92.4481 91.0942C88.7002 90.4143 84.9813 89.595 81.2916 88.6421L79.5425 88.1888C78.9731 88.0436 78.3862 87.9622 77.7935' &&
+' 87.9506H77.7064C77.073 87.9332 76.4396 88.0029 75.8237 88.1423C72.7499 88.8338 62.4591 90.7281 56.5322 86.6432L54.8994' &&
+' 85.3765C52.6797 83.6565 50.6286 81.7273 48.7691 79.6239C47.0085 77.625 45.428 75.475 44.0451 73.1914L40.0764 66.6312L37.8567' &&
+' 63.8072C37.0316 62.7554 36.0263 61.8548 34.8932 61.1459C33.9809 60.5764 32.9989 60.1406 31.9704 59.8385L30.204 59.3271C29.4486' &&
+' 59.1121 28.6758 58.9669 27.8913 58.9088L27.38 58.8681C25.5729 58.7286 23.7832 58.3684 22.0632 57.7989C21.2788 57.5433 20.5118' &&
+' 57.2411 19.7622 56.8983L18.449 56.2998" stroke="#BF1313" stroke-miterlimit="10" stroke-linecap="round"/>' &&
+'<path d="M99.5544 63.9059L98.5666 64.057C96.8931 64.3127 95.2429 64.6846 93.6275 65.1727C90.8442 66.0152 88.1829 67.2296' &&
+' 85.725 68.7811L85.2659 69.2053C84.4408 69.9665 83.1392 71.2623 82.378 72.0874L82.3664 72.099L80.844 73.7551C78.6824 76.1026' &&
+' 76.0909 78.0201 73.2088 79.403C71.8374 80.0596 70.3731 80.4954 68.8682 80.693L66.9739 80.9429C65.1784 81.1811 63.3596' &&
+' 81.0765 61.6048 80.6349L60.3671 80.3269C58.6356 79.8911 56.9969 79.1416 55.5385 78.1073C54.1265 77.1078 52.9004 75.8585' &&
+' 51.93 74.4175L49.9311 71.4598C46.2123 65.9571 41.9879 60.8205 37.3045 56.108C36.8745 55.6722 36.4736 55.2073 36.1133' &&
+' 54.7076L34.8059 52.9063C33.975 51.7558 32.9407 50.768 31.7611 49.9835C30.0702 48.8621 28.1236 48.1938 26.1015 48.0369L24.6663' &&
+' 47.9265C23.6552 47.851 22.6383 47.9033 21.6447 48.0834L21.052 48.188C19.9945 48.3798 18.9892 48.7807 18.0828 49.3618" stroke="#BF1313" stroke-miterlimit="10"/>' &&
+'<path d="M24.9569 52.058C25.4511 52.058 25.8517 51.6574 25.8517 51.1632C25.8517 50.6689 25.4511 50.2683 24.9569 50.2683C24.4626' &&
+' 50.2683 24.062 50.6689 24.062 51.1632C24.062 51.6574 24.4626 52.058 24.9569 52.058Z" stroke="#BF1313" stroke-miterlimit="10"/>' &&
+'<path d="M132.612 97.8345L156.389 110.234C158.033 111.007 159.579 111.989 160.973 113.157L161.032 113.21C161.334 113.459 161.555' &&
+' 113.791 161.682 114.163C162.037 115.232 162.618 116.208 163.385 117.033L192.711 148.602L192.874 148.742C194.036 149.759' &&
+' 195.518 150.34 197.058 150.381C197.982 150.404 198.871 150.752 199.568 151.357L210.132 160.503C210.393 160.729 210.289' &&
+' 161.159 209.952 161.235L208.563 161.554C208.243 161.63 207.918 161.647 207.593 161.607L206.675 161.491C206.512 161.473' &&
+' 206.355 161.438 206.204 161.392C204.6 160.898 203.147 159.991 202.003 158.765L197.976 154.471C197.703 154.181 197.389' &&
+' 153.931 197.04 153.733C193.525 152.374 190.387 150.2 187.883 147.382L160.602 116.684C159.66 115.627 158.62 114.662 157.493' &&
+' 113.808C156.662 113.175 155.785 112.611 154.866 112.106L131.292 99.1361" stroke="#BF1313" stroke-miterlimit="10"/' &&
+'<path d="M114.377 93.5115L116.289 97.6254C116.638 98.375 117.521 98.712 118.276 98.3867L118.788 98.1658C119.578 97.8288 119.938' &&
+' 96.8991 119.572 96.1147L118.73 94.2959" stroke="#BF1313" stroke-miterlimit="10"/>' &&
+'<path d="M117.684 98.7119L135.592 122.722C135.755 122.937 135.877 123.187 135.947 123.448L136.069 123.878C136.272 124.599 136.092' &&
+' 125.371 135.598 125.929C135.343 126.22 135.011 126.441 134.639 126.563L133.442 126.958C133.344 126.993 133.245 127.016 133.14' &&
+' 127.033L97.8055 133.419C96.1843 133.716 94.5341 133.861 92.8838 133.861L90.6583 133.797C88.7815 133.745 86.9221 134.244 85.3241' &&
+' 135.232L85.2021 135.308C84.8767 135.511 84.5571 135.732 84.255 135.976L74.9927 142.298C74.5918 142.571 74.7661 143.199 75.2542' &&
+' 143.222L76.1549 143.268C77.1834 143.321 78.2118 143.268 79.2345 143.123L80.7627 142.902C81.4426 142.803 82.1166 142.664 82.7791' &&
+' 142.484C84.9116 141.897 86.9046 140.874 88.6304 139.486L89.9378 138.434C90.8094 137.731 91.8612 137.295 92.971 137.173C93.5869' &&
+' 137.103 94.197 136.999 94.8014 136.853L99.171 135.802L128.317 130.02C129.259 129.857 130.212 129.753 131.165 129.706L134.198' &&
+' 129.567L135.935 129.427H135.993C138.591 129.195 140.131 126.406 138.928 124.087C138.55 123.361 138.114 122.669 137.626 122.019L119.2 97.637" stroke="#BF1313" stroke-miterlimit="10"/>' &&
+'<path d="M119.979 67.5085L121.652 57.241C122.21 53.8243 123.303 50.5181 124.889 47.4384C126.638 44.0566 128.957 41.0001' &&
+' 131.746 38.4086L134.076 36.247C135.581 34.8466 137.219 33.5915 138.963 32.4991L144.425 29.065C146.377 27.8389 148.196' &&
+' 26.4095 149.846 24.8058L154.367 20.4129C157.022 17.8329 159.224 14.8288 160.88 11.5167L166.401 0.604248" stroke="#BF1313" stroke-miterlimit="10" stroke-linecap="round"/>' &&
+'<path d="M88.1192 67.2761C88.1192 67.2761 84.7955 50.8376 83.151 45.6835C82.4712 43.5626 82.2446 39.4603 83.6972 34.5096C85.7252' &&
+' 27.5891 89.3743 21.2496 94.11 15.805C96.4633 13.0972 99.0258 10.5696 101.768 8.25109L108.91 2.21379C109.369 1.82447 110.031' &&
+' 2.34162 109.77 2.88202L105.342 12.0513C102.75 17.4262 101.408 23.3589 101.751 29.3206C101.966 33.0976 102.809 37.0953' &&
+' 104.964 40.2273C107.3 43.6208 108.753 47.328 109.514 50.8376" stroke="#BF1313" stroke-miterlimit="10"/' &&
+'<path d="M109.311 2.38818L98.7991 16.7929C97.451 18.6407 96.3877 20.7035 95.8705 22.9348C95.8705 22.9522 95.8647 22.9638 95.8589' &&
+' 22.9813C95.5509 24.3119 95.394 25.6716 95.394 27.0371V27.4962C95.394 32.2958 96.4923 37.0373 98.6015 41.3488C99.0141 42.1856' &&
+' 99.3569 43.0572 99.6358 43.952C101.234 49.1294 102.047 54.5101 102.047 59.9314V61.0761" stroke="#BF1313" stroke-miterlimit="10"/>' &&
+'<path d="M0.429975 59.7863C0.226601 59.4609 0.244033 59.0483 0.47065 58.7403L4.65435 53.0401C5.71189 51.6048 7.13551 50.4834' &&
+' 8.77993 49.7977C9.15763 49.6408 9.55857 49.5537 9.97113 49.5478L16.8742 49.3851C18.2223 49.3503 19.4484 50.1405 19.9829' &&
+' 51.3782C20.2909 52.0929 20.3374 52.8948 20.1108 53.6386L19.9423 54.1964C19.6459 55.1784 18.908 55.9628 17.9492 56.3289L17.0834' &&
+' 56.6543C16.6244 56.8286 16.1305 56.8984 15.6365 56.8577L14.1723 56.7357C11.9642 56.5497 9.7387 56.7763 7.61199 57.4039C5.81067' &&
+' 57.9327 4.0849 58.6822 2.46372 59.6236L1.71414 60.0942C1.27252 60.3732 0.691456 60.2337 0.418354 59.7921L0.429975 59.7863Z" fill="#BF1313" stroke="#BF1313" stroke-miterlimit="10"/>' &&
+'<path d="M228.639 173.315C229.609 173.734 230.15 174.193 230.15 174.675C230.15 176.552 221.986 178.074 211.916 178.074C207.796' &&
+' 178.074 203.99 177.819 200.939 177.389C196.529 176.767 193.682 175.785 193.682 174.675C193.682 174.158 194.304 173.664' &&
+' 195.419 173.222" stroke="#BF1313" stroke-miterlimit="10" stroke-linecap="round"/>' &&
+'<path d="M182.037 179.324C175.64 178.028 171.729 176.296 171.729 174.39C171.729 173.281 173.065 172.223 175.454 171.282" stroke="#BF1313" stroke-miterlimit="10" stroke-linecap="round"/>' &&
+'<path d="M225.263 181.16C220.783 181.491 215.896 181.677 210.783 181.677C201.956 181.677 193.816 181.131 187.273' &&
+' 180.213C186.802 180.149 186.337 180.079 185.878 180.009" stroke="#BF1313" stroke-miterlimit="10" stroke-linecap="round"/>' &&
+'<path d="M246.594 171.485C248.674 172.374 249.831 173.362 249.831 174.39C249.831 177.203 241.271 179.649 228.744 180.858" stroke="#BF1313" stroke-miterlimit="10" stroke-linecap="round"/>' &&
+'<path d="M201.631 184.751C194.193 184.443 187.354 183.844 181.479 183.019C179.945 182.804 178.475 182.572 177.081 182.328" stroke="#BF1313" stroke-miterlimit="10" stroke-linecap="round"/>' &&
+'<path d="M260.801 171.351C263.585 172.543 265.13 173.856 265.13 175.239C265.13 177.319 261.626 179.248 255.665 180.834" stroke="#BF1313" stroke-miterlimit="10" stroke-linecap="round"/>' &&
+'<path d="M211.265 189.44C196.831 189.44 183.513 188.545 172.822 187.04C157.383 184.867 148.411 181.282 147.406 177.528C146.761' &&
+' 175.122 151.438 172.967 154.204 171.636C155.082 171.212 155.831 171.02 155.186 170.288L155.151 170.247C154.872 169.933 154.477' &&
+' 169.753 154.059 169.759C151.578 169.777 138.887 172.136 129.567 172.409C119.729 172.699 112.106 172.769 101.873 172.572C95.2547' &&
+' 172.444 88.6421 172.002 82.0702 171.264L73.8423 170.34" stroke="#BF1313" stroke-miterlimit="10" stroke-linecap="round"/>' &&
+'<path d="M275.124 177.534C275.124 182.671 257.692 187.046 233.264 188.72" stroke="#BF1313" stroke-miterlimit="10" stroke-linecap="round"/>' &&
+'<path d="M299.709 170.753C295.334 171.258 285.177 173.124 271.417 170.753" stroke="#BF1313" stroke-miterlimit="10" stroke-linecap="round"/>' &&
+'<path d="M129.75 39.25C121.87 43.5656 122.75 65.25 122.75 65.25C122.75 65.25 145.773 42.0326 152.5 33.5C159.798 24.2421 166 6.5' &&
+' 166 6.5C166 6.5 140.25 33.5 129.75 39.25Z" fill="#BF1313" fill-opacity="0.3"/>' &&
+'</g>' &&
+'<defs>' &&
+'<clipPath id="clip0_3635_9480">' &&
+'<rect width="300" height="189.731" fill="white"/>' &&
+'</clipPath>' &&
+'</defs>' &&
+'</svg>'.
+
+    CALL FUNCTION 'SCMS_STRING_TO_XSTRING'
+      EXPORTING
+        text   = flamingo
+      IMPORTING
+        buffer = xstring
+      EXCEPTIONS
+        failed = 1
+        OTHERS = 2.
+
+    CALL FUNCTION 'SCMS_BASE64_ENCODE_STR'
+      EXPORTING
+        input  = xstring
+      IMPORTING
+        output = flamingo.
+    flamingo = 'data:image/svg+xml;base64,' && flamingo.
+
+
+    DATA(general) = stage_cont->hbox( justifycontent = 'SpaceBetween' ).
     DATA(results_box) = general->vbox( ).
     DATA(request_1_txt) = results_box->label( text = get_text_by_id( 'E003_REQUEST_SUBMITTED' ) class = 'font1 weight600 color-dark-blue sapUiMediumMarginTop' ).
     DATA(request_2_txt) = results_box->label( text = get_text_by_id( 'DOKSL_ND001_1_6_REQUEST_2_TXT' ) class = 'font1 weight400 color-gray7 sapUiSmallMarginTop' ).
     DATA(line1) = results_box->hbox( class = 'sapUiTinyMarginTop' ).
-    DATA(icon_1) = line1->icon( src = 'sap-icon://icomoon/fi_check' class = 'color-green shapeIT-v-icon-dir sapUiSmallMarginEnd' ).
+    DATA(icon_1) = line1->icon( src = 'sap-icon://icomoon/fi_check' class = 'color-green RAKEGA-v-icon-dir sapUiSmallMarginEnd' ).
     DATA(request_id_txt) = line1->label( text = get_text_by_id( 'REQUEST_ID_TEXT' ) class = 'font1 weight400 color-gray6 sapUiSmallMarginEnd' ).
-    DATA(request_id) = line1->label( text = '{/XX/GS_DATA/CASEID}' class = 'font1 weight500 color-gray7' ).
+    DATA(request_id) = line1->label( text = gs_data-caseid class = 'font1 weight500 color-gray7' ).
     " VISIBLE is NOT 'X' for LINE2 (its siblings LINE1/LINE3 both have VISIBLE=X) - this whole row
     " (application type icon+labels) is presumably conditional on something not captured elsewhere
     " in the export. Placeholder binding below - please confirm the real field.
     DATA(line2) = results_box->hbox( class = 'sapUiTinyMarginTop' visible = '{TODO_LINE2_VISIBLE}' ).
-    DATA(icon_2) = line2->icon( src = 'sap-icon://icomoon/fi_check' class = 'color-green shapeIT-v-icon-dir sapUiSmallMarginEnd' ).
+    DATA(icon_2) = line2->icon( src = 'sap-icon://icomoon/fi_check' class = 'color-green RAKEGA-v-icon-dir sapUiSmallMarginEnd' ).
     DATA(application_type_txt) = line2->label( text = get_text_by_id( 'E003_APPLICATION_TYPE' ) class = 'font1 weight400 color-gray6 sapUiSmallMarginEnd' ).
-    DATA(application_type) = line2->label( text = '{/XX/GS_DATA/CASE_STAT}' class = 'font1 weight500 color-gray7' ).
+    DATA(application_type) = line2->label( text = gs_data-case_stat class = 'font1 weight500 color-gray7' ).
     DATA(line3) = results_box->hbox( class = 'sapUiTinyMarginTop' ).
-    DATA(icon_3) = line3->icon( src = 'sap-icon://icomoon/fi_check' class = 'color-green shapeIT-v-icon-dir sapUiSmallMarginEnd' ).
+    DATA(icon_3) = line3->icon( src = 'sap-icon://icomoon/fi_check' class = 'color-green RAKEGA-v-icon-dir sapUiSmallMarginEnd' ).
     DATA(application_number_txt) = line3->label( text = get_text_by_id( 'PPD_NP001_1_5_APPLICATION_NUMBER_TXT' ) class = 'font1 weight400 color-gray6 sapUiSmallMarginEnd' ).
-    DATA(application_number) = line3->label( text = '{/XX/GS_DATA/APPL_NO}' class = 'font1 weight500 color-gray7' ).
+    DATA(application_number) = line3->label( text = gs_data-appl_no class = 'font1 weight500 color-gray7' ).
     DATA(notification_txt) = results_box->label( text = get_text_by_id( 'FINAL_1_NOTIFICATION_SENT_MESSAGE' ) class = 'font1 weight400 color-gray7 sapUiMediumMarginTop' ).
-    DATA(print) = results_box->button( id = 'PRINT' text = get_text_by_id( 'PRINT' ) class = 'shapeIT-cardheader-topbtn shapeIT-final-footer-btn' icon = 'sap-icon://icomoon/print' press = client->_event( 'PRINT' ) ).
-    DATA(buttonback) = results_box->button( id = 'BUTTONBACK' text = get_text_by_id( 'BACK_TO_HOME_BUTTON' ) class = 'regularBTN shapeIT-final-footer-btn sapUiMediumMarginTop' icon = 'sap-icon://icomoon/Left' press = client->_event( 'HOME' ) ).
-    DATA(flamingo_box) = general->vbox( ).
-    DATA(flamingo) = flamingo_box->image( src = '/css/css/RAKEGA_extentions/Images/ShapeIT-Final.png' height = '10rem' ).
+    DATA(print) = results_box->button( id = 'PRINT' text = get_text_by_id( 'PRINT' ) class = 'RAKEGA-cardheader-topbtn RAKEGA-final-footer-btn' icon = 'sap-icon://icomoon/print' press = client->_event( 'PRINT' ) ).
+    DATA(buttonback) = results_box->button( id = 'BUTTONBACK' text = get_text_by_id( 'BACK_TO_HOME_BUTTON' ) class = 'regularBTN RAKEGA-final-footer-btn sapUiMediumMarginTop' icon = 'sap-icon://icomoon/Left' press = client->_event( 'HOME' ) ).
+    DATA(flamingo_box) = general->vbox( class = 'sapUiLargeMarginTop' ).
+    DATA(flamingo_img) = flamingo_box->image( src = '/css/css/RAKEGA_extentions/Images/ShapeIT-Final.png' height = '10rem' ).
+*    DATA(flamingo_img) = flamingo_box->image( src = flamingo ).
 
     client->view_display( view->stringify( ) ).
-    me->rakhappy( ).
 
   ENDMETHOD.
 
@@ -789,47 +667,40 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
 
     IF client->check_on_init( ).
 
-      me->functions = 'sap.ui.define([], function () {' && |\n| &&
-'        return {' && |\n| &&
-'            afterOpen: function (oEvent) {' && |\n| &&
-'                var url = oEvent.getSource().getCustomData().find(item => item.getKey() === "URL");' && |\n| &&
-'                window.open(url, "_blank");debugger;' && |\n| &&
-'            }' && |\n| &&
-'        };' && |\n| &&
-'    });'.
-      client->_bind_edit( functions ).
+*      me->functions = 'sap.ui.define([], function () {' && |\n| &&
+*'        return {' && |\n| &&
+**'           afterOpen: function (oEvent) {' && |\n| &&
+**'             var url = oEvent.getSource().getCustomData().find(item => item.getKey() === "URL");' && |\n| &&
+**'             if (url && url.getValue()){' && |\n| &&
+**'               window.open(url.getValue(), "_blank");' && |\n| &&
+**'               setTimeout(function () {' && |\n| &&
+**'             that._checkIfPaymentCompleted(that, oModel.getProperty("/XX/GS_DATA/CASEID"), that._z2ui5Popup);' && |\n| &&
+**'           }, 5000);' && |\n| &&
+**'         }' && |\n| &&
+**'       }' && |\n| &&
+*'     };' && |\n| &&
+*'   });'.
 
-      DATA(lv_params) = client->get( )-s_config-search.
-      IF lv_params IS NOT INITIAL.
-        SPLIT lv_params AT '?' INTO DATA(dummy) lv_params.
-        SPLIT lv_params AT '&' INTO TABLE DATA(lt_params).
-        LOOP AT lt_params INTO DATA(lv_param).
-          SPLIT lv_param AT '=' INTO DATA(lv_key) DATA(lv_value).
-          TRANSLATE lv_key TO UPPER CASE.
-          CASE lv_key.
-            WHEN 'JOURNEY'.
-              gs_data-journeytype = lv_value.
-            WHEN 'ROLE'.
-              gs_data-role = lv_value.
-            WHEN 'PARTNER'.
-              gs_data-partner = lv_value.
-            WHEN 'COPMPANY'.
-              gs_data-company = lv_value.
-          ENDCASE.
-        ENDLOOP.
-      ENDIF.
+
+      me->init( ).
+      gs_data-journeytype = ms_params-journey.
+      gs_data-role        = ms_params-role.
+      gs_data-partner     = ms_params-partner.
+      gs_data-company     = ms_params-company.
       client->_bind_edit( gs_data ).
-      client->_bind_edit( mt_attach ).
-      client->_bind_edit( ms_payment ).
+
       init_journey( ).
-      me->mt_stages = NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->step_forward( control = me ).
+      ms_payment-description = gs_data-description.
+      ms_payment-fees[]      = gs_data-fees[].
+
+      me->step_forward( control = me ).
       RETURN.
     ENDIF.
 
 
     CASE client->get( )-event.
       WHEN 'SAVE'.
-        CASE NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->get_current_screen( ).
+        CASE me->get_current_screen( ).
           WHEN 'SCREEN_NP001_1_1'.
             DATA: lt_public_court TYPE ztt_case_head_details.
             CALL FUNCTION 'ZWDA_CASE_HEAD_DEATLS'
@@ -885,16 +756,18 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
                           type = 'Error' ).
             ENDLOOP.
         ENDCASE.
-        me->mt_stages = NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->step_forward( control = me direction = '+' ).
+        me->step_forward( control = me direction = '+' ).
       WHEN 'BACK'.
-        me->mt_stages = NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->step_forward( control = me direction =  '-' ).
+        me->step_forward( control = me direction =  '-' ).
       WHEN 'PAY'.
-        me->mt_stages = NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->step_forward( control = me direction =  '=' ).
-        NEW z2ui5_cl_ext_rakpay( me->client )->rakpay_popup( me->get_cpg_details( ) ).
+        me->rakpay_popup( me->get_cpg_details( ) ).
+      WHEN 'PAYCHECK'.
+        me->rakpay_result( gs_data-caseid ).
+        me->rakpay_popup( '' ).
       WHEN 'RAKHAPPY'.
-        rakhappy_save( ).
-        client->popover_destroy( ).
-        me->mt_stages = NEW z2ui5_cl_ext_rakstagebar( me->mt_stages )->step_forward( control = me direction =  '=' ).
+        rakhappy_save( iv_case_type = gs_data-journeytype iv_caseid = gs_data-caseid ).
+
+        me->step_forward( control = me direction =  '=' ).
       WHEN `BUTTON_DETAILS`.
         client->popover_destroy( ).
 
@@ -1000,198 +873,6 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
 
       ENDIF.
     ENDIF.
-  ENDMETHOD.
-
-
-  METHOD rakuploader.
-
-    DATA: lv_binding TYPE string VALUE 'path: ''/XX/MT_ATTACH''',
-          lv_filter  TYPE string,
-          lv_filters TYPE string.
-
-    IF filter_by IS NOT INITIAL.
-      SPLIT filter_by AT ',' INTO TABLE DATA(lt_file_types).
-      LOOP AT lt_file_types INTO DATA(lv_file_type).
-        CONDENSE lv_file_type NO-GAPS.
-        lv_filter = '{ path : ''FILE_TYPE'', operator : ''EQ'', value1 : ''' && lv_file_type && '''}'.
-        IF lv_filters IS INITIAL.
-          lv_filters = lv_filter.
-        ELSE.
-          CONCATENATE lv_filters lv_filter INTO lv_filters SEPARATED BY ', '.
-        ENDIF.
-      ENDLOOP.
-      IF lv_filters IS NOT INITIAL.
-        lv_filters = 'filters : [' && lv_filters && ']'.
-        CONCATENATE lv_binding lv_filters INTO lv_binding SEPARATED BY ', '.
-      ENDIF.
-    ENDIF.
-    lv_binding = '{' && lv_binding && '}'.
-
-    DATA(attachments) = io_parent->list( items = lv_binding class = 'list' ).
-    DATA(attachment_item) = attachments->items( )->custom_list_item( ).
-    DATA(root) = attachment_item->vbox( ).
-
-    DATA(attach_txt) = root->label( text = '{LABEL}' required = '{REQUIRED}' class = 'font1 weight500 color-gray7 sapUiMediumMarginTop' ).
-    " ===================== STATE 1: no file yet, show uploader =====================
-    DATA(state_empty) = root->vbox( class = 'sapUiTinyMarginTop' height = '2.6875rem' width = '100%'
-                                     visible = '{= ${FILE_NAME} || ${READ_MODE} ? false : true }' ).
-
-    DATA(select_row) = state_empty->hbox( class = 'brdrRed rakuploader-hbox' rendertype = 'Bare' ).
-    DATA(select_text) = select_row->text( text = '{i18n>SelectFile}' class = 'color-gray4 font0875 weight400' ).
-
-    DATA(uploader_box) = select_row->hbox( class = 'rakuploader-uploader-hbox' rendertype = 'Bare' ).
-    DATA(file_uploader) = uploader_box->icon( src = 'sap-icon://icomoon/Attach' color = '#10233E'
-                                              press = '.onUploadStart'
-                                              size = '1.25rem'
-                                              visible = '{= ${READ_MODE} ? false : true }' ).
-*    DATA(file_uploader) = uploader_box->_z2ui5( )->file_uploader(
-*                              buttononly           = 'true'
-**                              class                 = 'FileUploader'
-*                              filetype               = '{FileModel>/allowedFileType}'
-*                              icononly               = 'true'
-**                              samefilenameallowed    = 'true'
-**                              change                 = '.extension.RAKUPLOADER.onChangeUploadedFile'
-*                              icon                   = 'sap-icon://icomoon/Attach'
-**                              typemissmatch          = '.extension.RAKUPLOADER.typeMissmatch'
-**                              valuestate             = 'Error'
-*                               ).
-    " TODO: data:control="{FileModel>/control}" inline custom-data - exact z2ui5 syntax for
-    " CustomData/data: shorthand not yet confirmed. Best guess:
-*    file_uploader->custom_data( key = 'control' value = '{FileModel>/control}' ).
-
-    " <customData><core:CustomData key="upload" .../></customData> - explicit aggregation form,
-    " same TODO as above re: exact method name/signature.
-*    select_row->custom_data( key = 'upload' value = '{FileModel>/upload}' writetodom = 'true' ).
-
-    DATA(mandatory_msg) = state_empty->text( text = '{i18n>MandatoryMessage}' class = 'sapMValueStateMessageError'
-                                              visible = '{= ${FileModel>/mandatoryMsg} ? true : false }' ).
-
-    DATA(special_char_row) = state_empty->hbox( visible = '{= ${FileModel>/mandatoryMsg} ? false : true }' ).
-    DATA(special_char_text) = special_char_row->text( text = '{i18n>fileSpecialChar}' class = 'sapMValueStateMessageError'
-                                                        visible = '{= ${FileModel>/fileSpecialChar} ? true : false }' ).
-
-
-    " ===================== STATE 2: uploaded (file present, done) =====================
-    DATA(state_done) = root->vbox( class = 'sapUiTinyMarginTop' height = '2.6875rem'
-                                    visible = '{= ${FILE_NAME} ? true : false }' ).
-
-    DATA(done_row) = state_done->hbox( class = 'rakuploader-hbox' rendertype = 'Bare' ).
-    DATA(done_link) = done_row->link( text = '{FILE_NAME}' class = 'rakuploader-previewlink'
-                                       press = '.onDisplayUploadedFile' ).
-*    done_link->custom_data( key = 'control' value = '{FileModel>/control}' ).
-
-    DATA(done_uploader_box) = done_row->hbox( class = 'rakuploader-uploader-hbox' rendertype = 'Bare' ).
-    DATA(delete_icon) = done_uploader_box->icon( src = 'sap-icon://icomoon/Delete' color = '#10233E'
-                                                  press = '.onDeleteUploadedFile'
-                                                  size = '1.25rem'
-                                                  visible = '{= ${FileModel>/readMode} ? false : true }' ).
-*    delete_icon->custom_data( key = 'controlObj' value = '{FileModel>/control}' ).
-
-    DATA(done_special_char) = state_done->text( text = '{i18n>fileSpecialChar}' class = 'sapMValueStateMessageError'
-                                                 visible = '{= ${FileModel>/fileSpecialChar} ? true : false }' ).
-
-  ENDMETHOD.
-
-
-  METHOD rakhappy.
-
-    CHECK ms_happy-initilized EQ abap_false.
-    ms_happy-initilized = abap_true.
-    client->_bind_edit( ms_happy ).
-
-    DATA(popup) = z2ui5_cl_xml_fragment=>factory( ).
-    DATA(happy_dialog) = popup->dialog(
-                               id                  = 'happyDialog'
-                               showheader          = 'false'
-                               class               = 'happyDialog'
-                               horizontalscrolling = 'false' ).
-
-    DATA(outer_cont) = happy_dialog->vbox( class = 'happyDialog-outer-cont' ).
-    DATA(main_cont) = outer_cont->vbox( class = 'happyDialog-main-cont' rendertype = 'Bare' ).
-
-    " ---- header: desktop ----
-    DATA(header_desktop) = main_cont->hbox( class = 'happyDialog-header-hbox-desktop' rendertype = 'Bare' ).
-    DATA(header_desktop_text) = header_desktop->text( text = 'How was your experience?' class = 'H2_1 color-gray7' ).
-    DATA(header_desktop_close) = header_desktop->icon( src = 'sap-icon://icomoon/close' color = '#10233E' size = '1.5rem'
-                                                         press = '.destroyPopup' ).
-
-    " ---- header: mobile ----
-    DATA(header_mobile) = main_cont->vbox( class = 'happyDialog-header-vbox-mobile' rendertype = 'Bare' ).
-    DATA(header_mobile_close) = header_mobile->icon( src = 'sap-icon://icomoon/close' color = '#10233E' size = '1.5rem'
-                                                       press = '.extension.RAKHAPPY.closeHappyDialog' ).
-    DATA(header_mobile_text_row) = header_mobile->hbox( class = 'happyDialog-header-text-hbox-mobile' rendertype = 'Bare' ).
-    DATA(header_mobile_text) = header_mobile_text_row->text( text = 'How was your experience?' class = 'H2_1 color-gray7' ).
-
-    " ---- rating images row (5 static entries: Excellent / Good / Average / Poor / VeryPoor) ----
-    DATA(images_row) = main_cont->hbox( class = 'happyDialog-images-hbox' rendertype = 'Bare' ).
-
-    " Excellent
-    DATA(rate_excellent_vbox) = images_row->vbox( class = 'happyDialog-image-vbox' rendertype = 'Bare' ).
-    DATA(rate_excellent_img_row) = rate_excellent_vbox->hbox( class = 'happyDialog-image-hbox' rendertype = 'Bare' ).
-    DATA(radio_btn) = rate_excellent_img_row->radio_button( selected = '{/XX/MS_HAPPY/EXCELLENT}' class = 'happyDialog-radio happyDialog-radio-Excellent' groupname = 'Happy' ).
-*    DATA(rate_excellent_img) = rate_excellent_img_row->image(
-*                                   src   = '{= ${/XX/MS_HAPPY/RATE} === ''Excellent'' ? ''css/css/RAKEGA_extentions/Images/Excellent-selected.svg'' : ''css/css/RAKEGA_extentions/Images/Excellent.svg''}'
-*                                   press = '.extension.RAKHAPPY.onImagePress($event, ''Excellent'')' ).
-    DATA(rate_excellent_text) = rate_excellent_vbox->text( text = 'Excellent' class = 'Body_2_3 color-gray7 shapeIT-hide-in-mobile happyDialog-rate-txt' ).
-*    rate_excellent_text->custom_data( )->core_custom_data( key = 'text-selected' value = '{= ${happyModel>/Rate} === ''Excellent'' ? ''X'' : ''''}' write_to_dom = 'true' ).
-
-    " Good
-    DATA(rate_good_vbox) = images_row->vbox( class = 'happyDialog-image-vbox' rendertype = 'Bare' ).
-    DATA(rate_good_img_row) = rate_good_vbox->hbox( class = 'happyDialog-image-hbox' rendertype = 'Bare' ).
-    DATA(radio_btn_good) = rate_good_img_row->radio_button( selected = '{/XX/MS_HAPPY/GOOD}' class = 'happyDialog-radio happyDialog-radio-Good' groupname = 'Happy' ).
-*    DATA(rate_good_img) = rate_good_img_row->image(
-*                              src   = '{= ${/XX/MS_HAPPY/RATE} ===''Good'' ? ''css/css/RAKEGA_extentions/Images/Good-selected.svg'' : ''css/css/RAKEGA_extentions/Images/Good.svg''}'
-*                              press = '.extension.RAKHAPPY.onImagePress($event, ''Good'')' ).
-    DATA(rate_good_text) = rate_good_vbox->text( text = 'Good' class = 'Body_2_3 color-gray7 shapeIT-hide-in-mobile happyDialog-rate-txt' ).
-*    rate_good_text->custom_data( )->core_custom_data( key = 'text-selected' value = '{= ${happyModel>/Rate} ===''Good'' ? ''X'' : ''''}' write_to_dom = 'true' ).
-
-    " Average
-    DATA(rate_average_vbox) = images_row->vbox( class = 'happyDialog-image-vbox' rendertype = 'Bare' ).
-    DATA(rate_average_img_row) = rate_average_vbox->hbox( class = 'happyDialog-image-hbox' rendertype = 'Bare' ).
-    DATA(radio_btn_avg) = rate_average_img_row->radio_button( selected = '{/XX/MS_HAPPY/AVERAGE}' class = 'happyDialog-radio happyDialog-radio-Average' groupname = 'Happy' ).
-*    DATA(rate_average_img) = rate_average_img_row->image(
-*                                 src   = '{= ${/XX/MS_HAPPY/RATE} ===''Average'' ? ''css/css/RAKEGA_extentions/Images/Average-selected.svg'' : ''css/css/RAKEGA_extentions/Images/Average.svg''}'
-*                                 press = '.extension.RAKHAPPY.onImagePress($event, ''Average'')' ).
-    DATA(rate_average_text) = rate_average_vbox->text( text = 'Average' class = 'Body_2_3 color-gray7 shapeIT-hide-in-mobile happyDialog-rate-txt' ).
-*    rate_average_text->custom_data( )->core_custom_data( key = 'text-selected' value = '{= ${happyModel>/Rate} ===''Average'' ? ''X'' : ''''}' write_to_dom = 'true' ).
-
-    " Poor
-    DATA(rate_poor_vbox) = images_row->vbox( class = 'happyDialog-image-vbox' rendertype = 'Bare' ).
-    DATA(rate_poor_img_row) = rate_poor_vbox->hbox( class = 'happyDialog-image-hbox' rendertype = 'Bare' ).
-    DATA(radio_btn_poor) = rate_poor_img_row->radio_button( selected = '{/XX/MS_HAPPY/POOR}' class = 'happyDialog-radio happyDialog-radio-Poor' groupname = 'Happy' ).
-*    DATA(rate_poor_img) = rate_poor_img_row->image(
-*                              src   = '{= ${/XX/MS_HAPPY/RATE} ===''Poor'' ? ''css/css/RAKEGA_extentions/Images/Poor-selected.svg'' : ''css/css/RAKEGA_extentions/Images/Poor.svg''}'
-*                              press = '.extension.RAKHAPPY.onImagePress($event, ''Poor'')' ).
-    DATA(rate_poor_text) = rate_poor_vbox->text( text = 'Poor' class = 'Body_2_3 color-gray7 shapeIT-hide-in-mobile happyDialog-rate-txt' ).
-*    rate_poor_text->custom_data( )->core_custom_data( key = 'text-selected' value = '{= ${happyModel>/Rate} ===''Poor'' ? ''X'' : ''''}' write_to_dom = 'true' ).
-
-    " VeryPoor
-    DATA(rate_verypoor_vbox) = images_row->vbox( class = 'happyDialog-image-vbox' rendertype = 'Bare' ).
-    DATA(rate_verypoor_img_row) = rate_verypoor_vbox->hbox( class = 'happyDialog-image-hbox' rendertype = 'Bare' ).
-    DATA(radio_btn_crap) = rate_verypoor_img_row->radio_button( selected = '{/XX/MS_HAPPY/VERYPOOR}' class = 'happyDialog-radio happyDialog-radio-VeryPoor' groupname = 'Happy' ).
-*    DATA(rate_verypoor_img) = rate_verypoor_img_row->image(
-*                                  src   = '{= ${/XX/MS_HAPPY/RATE} ===''VeryPoor'' ? ''css/css/RAKEGA_extentions/Images/VeryPoor-selected.svg'' : ''css/css/RAKEGA_extentions/Images/VeryPoor.svg''}'
-*                                  press = '.extension.RAKHAPPY.onImagePress($event, ''VeryPoor'')' ).
-    DATA(rate_verypoor_text) = rate_verypoor_vbox->text( text = 'Very Poor' class = 'Body_2_3 color-gray7 shapeIT-hide-in-mobile happyDialog-rate-txt' ).
-*    rate_verypoor_text->custom_data( )->core_custom_data( key = 'text-selected' value = '{= ${happyModel>/Rate} ===''VeryPoor'' ? ''X'' : ''''}' write_to_dom = 'true' ).
-
-    " ---- optional feedback textarea ----
-    DATA(textarea_vbox) = outer_cont->vbox( class = 'happyDialog-textarea-vbox' visible = '{/XX/MS_HAPPY/VERYPOOR}' rendertype = 'Bare' ).
-    DATA(textarea_label) = textarea_vbox->text( text = 'Can you tell us Why?' class = 'H3_2 color-gray7' ).
-    DATA(textarea_inner) = textarea_vbox->vbox( class = 'happyDialog-textarea-inner-vbox' rendertype = 'Bare' ).
-    DATA(feedback_textarea) = textarea_inner->text_area(
-                                 value       = '{/XX/MS_HAPPY/TEXTAREATEXT}'
-                                 class       = 'happyDialog-textarea'
-                                 livechange  = '.extension.RAKHAPPY.onTextAreaChange'
-                                 maxlength   = '300' ).
-*    DATA(textarea_counter) = textarea_inner->text( text = '{= ${/XX/MS_HAPPY/TEXTAREATEXT}.lenght}/300' class = 'Body_2_3 color-gray4' ).
-
-    " ---- footer ----
-    DATA(footer) = outer_cont->hbox( class = 'happyDialog-footer' rendertype = 'Bare' ).
-    DATA(done_btn) = footer->button( text = 'Done' class = 'regularBTN' press = client->_event( 'RAKHAPPY' )
-                                     enabled = '{= ${/XX/MS_HAPPY/EXCELLENT} || ${/XX/MS_HAPPY/GOOD} || ${/XX/MS_HAPPY/AVERAGE} || ${/XX/MS_HAPPY/POOR} || ${/XX/MS_HAPPY/VERYPOOR}}' ).
-
-    client->popup_display( popup->stringify( ) ).
   ENDMETHOD.
 
 
@@ -1420,53 +1101,5 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     ENDLOOP.
 
 
-  ENDMETHOD.
-
-
-  METHOD rakhappy_save.
-
-    DATA:lv_username     TYPE string,
-         ls_feedback     TYPE zdt_hm_feedback,
-         lv_feedback     TYPE string,
-         lv_departmentid TYPE string.
-
-    ls_feedback-sessionid = NEW cl_random_number( )->if_random_number~get_random_int( i_limit = 1000000000 ).
-    ls_feedback-casetype  = gs_data-journeytype.
-    CASE abap_true.
-      WHEN ms_happy-excellent.
-        ls_feedback-feedback = '1'.
-      WHEN ms_happy-good.
-        ls_feedback-feedback = '4'.
-      WHEN ms_happy-average.
-        ls_feedback-feedback = '3'.
-      WHEN ms_happy-poor.
-        ls_feedback-feedback = '5'.
-      WHEN ms_happy-verypoor.
-        ls_feedback-feedback = '2'.
-    ENDCASE.
-
-    ls_feedback-uname     = COND #( WHEN lv_username IS INITIAL THEN sy-uname ELSE lv_username ).
-    ls_feedback-caseid    = gs_data-caseid.
-    ls_feedback-comments  = ms_happy-textareatext.
-    ls_feedback-crdate    = sy-datum.
-    ls_feedback-crtime    = sy-uzeit+0(2) && ':' && sy-uzeit+2(2) && ':' && sy-uzeit+4(2).
-    ls_feedback-step      = '2'.
-
-*    CASE ls_data-department.
-*      WHEN 'EPDA'.
-*        ls_feedback-departmentid    = '1'.
-*      WHEN 'MUN'.
-*        ls_feedback-departmentid    = '2'.
-*      WHEN 'COURT'.
-*        ls_feedback-departmentid    = '3'.
-*      WHEN 'PP'.
-*        ls_feedback-departmentid    = '4'.
-*      WHEN OTHERS.
-*    ENDCASE.
-
-    TRY.
-        MODIFY zdt_hm_feedback FROM ls_feedback.
-      CATCH cx_root.
-    ENDTRY.
   ENDMETHOD.
 ENDCLASS.
