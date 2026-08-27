@@ -797,7 +797,7 @@ CLASS ZCL_RAK_JOURNEY_DESIGNER IMPLEMENTATION.
       ( `DATE` ) ( `TIME` ) ( `DATETIME` ) ( `SELECT` ) ( `MULTISELECT` ) ( `RADIO` )
       ( `CHECKBOX` ) ( `SWITCH` ) ( `SEGMENTED` ) ( `SLIDER` ) ( `STEPPER` ) ( `RATING` )
       ( `DISPLAY` ) ( `READONLY` ) ( `STATUS` ) ( `OBJNUM` ) ( `PROGRESS` ) ( `LINK` )
-      ( `SEARCH` ) ( `TABLE` ) ( `UPLOAD` ) ).
+      ( `SEARCH` ) ( `TABLE` ) ( `UPLOAD` ) ( `PDF` ) ).
   ENDMETHOD.
 
 

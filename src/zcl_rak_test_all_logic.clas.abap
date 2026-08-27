@@ -312,6 +312,9 @@ CLASS zcl_rak_test_all_logic DEFINITION
     METHODS bp_opts   IMPORTING iv_subject TYPE string
                       RETURNING VALUE(rs)  TYPE zcl_rak_bp_search=>ty_req.
     METHODS seed_fees IMPORTING io_ctx TYPE REF TO zif_rak_journey.
+*   The reference example for FTYPE = 'PDF' - see the method for the two
+*   config shapes a developer can copy.
+    METHODS seed_pdf  IMPORTING io_ctx TYPE REF TO zif_rak_journey.
 
 *   The field list behind the two multi-column dialogs. One list, three layouts:
 *   that is the demonstration. Building it once also makes the point that nothing
@@ -1774,6 +1777,68 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
     ENDIF.
 
     seed_fees( io_ctx ).
+    seed_pdf( io_ctx ).
+  ENDMETHOD.
+
+
+  METHOD seed_pdf.
+*&---------------------------------------------------------------------*
+*& PDF - the reference example for FTYPE = 'PDF'.
+*&
+*& The control shows a document with sap.m.PDFViewer. It holds no value
+*& the citizen enters, so it is skipped by validation entirely: no
+*& REQUIRED, no MIN_LEN, no REGEX will ever fire on it.
+*&
+*& WHERE THE DOCUMENT COMES FROM - two routes, and the field's VALUE wins:
+*&
+*&   1. DEFAULT_VAL   a static URL. The same document for everyone - terms,
+*&                    a specimen form, a fee schedule. Pure configuration,
+*&                    no handler needed at all.
+*&
+*&   2. the VALUE     a URL a handler resolved for THIS case, set with
+*&                    set_val( ). A certificate the backend generated, an
+*&                    attachment the citizen just uploaded. Overrides the
+*&                    default, which is why a per-case document beats a
+*&                    general one.
+*&
+*& CONFIG FOR ROUTE 1 - one row in ZRAK_T_JNY_FLD, nothing else:
+*&
+*&   STEP_ID     S6
+*&   FIELD_NAME  TERMS_PDF
+*&   FTYPE       PDF
+*&   ZLABEL      Terms and conditions
+*&   ZLABEL_AR   الشروط والأحكام
+*&   DEFAULT_VAL /sap/public/bc/its/mimes/terms.pdf
+*&   WIDTH       50rem            (optional - the viewer HEIGHT, default 45rem)
+*&
+*& CONFIG FOR ROUTE 2 - the same row with DEFAULT_VAL left blank, plus a
+*& handler that fills it. This method is that handler.
+*&
+*& A RELATIVE URL IS TREATED AS TRUSTED, an absolute one is not.
+*& sap.m.PDFViewer prompts before opening a cross-origin document, and the
+*& renderer only suppresses that prompt for a path beginning '/' - served
+*& by this system. Point DEFAULT_VAL at another host and the citizen gets
+*& the prompt, which is correct: nothing here can vouch for that host.
+*&
+*& NO DOCUMENT IS NOT AN ERROR. A blank source renders an information
+*& strip rather than an empty grey panel, because an empty viewer reads as
+*& one still loading and the citizen waits for something never coming.
+*& Leave the field blank on this journey to see that state.
+*&---------------------------------------------------------------------*
+
+*   Route 2, demonstrated. A real handler would resolve this from the
+*   backend - get_attach_url( ), a generated certificate, a document id off
+*   the case - and would do it wherever that answer becomes available,
+*   not necessarily in on_init( ).
+*
+*   Deliberately NOT overwriting a value that is already there: a resumed
+*   draft may carry a document resolved on an earlier visit, and re-seeding
+*   would replace a real one with this placeholder.
+    IF io_ctx->get_val( 'CASE_PDF' ) IS INITIAL.
+      io_ctx->set_val(
+        iv_name  = 'CASE_PDF'
+        iv_value = '/sap/public/bc/its/mimes/sap/public/bc/ur/nw5/themes/sap_belize/sample.pdf' ).
+    ENDIF.
   ENDMETHOD.
 
 

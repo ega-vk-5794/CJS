@@ -1556,7 +1556,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       ( `DATE` ) ( `TIME` ) ( `DATETIME` ) ( `SELECT` ) ( `MULTISELECT` ) ( `RADIO` )
       ( `CHECKBOX` ) ( `SWITCH` ) ( `SEGMENTED` ) ( `CHECKGROUP` ) ( `SLIDER` ) ( `STEPPER` ) ( `RATING` )
       ( `DISPLAY` ) ( `READONLY` ) ( `STATUS` ) ( `OBJNUM` ) ( `PROGRESS` ) ( `LINK` )
-      ( `SEARCH` ) ( `TABLE` ) ( `EDITABLE_TABLE` ) ( `RECORDCARD` ) ( `RO_PANEL` ) ( `REVIEW` ) ( `REQPANEL` ) ( `UPLOAD` ) ( `PAYFEE` ) ).
+      ( `SEARCH` ) ( `TABLE` ) ( `EDITABLE_TABLE` ) ( `RECORDCARD` ) ( `RO_PANEL` ) ( `REVIEW` ) ( `REQPANEL` ) ( `UPLOAD` ) ( `PAYFEE` )
+      ( `PDF` ) ).
   ENDMETHOD.
 
 

@@ -1718,6 +1718,59 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         req_label( io_form = io_form is_field = is_field ).
         io_form->input( value = lv_bind editable = abap_false width = lv_w class = mo_e->mo_css->cls( 'INPUT' ) ).
 
+      WHEN 'PDF'.
+*       sap.m.PDFViewer, emitted through _GENERIC( ) because Z2UI5_CL_XML_VIEW
+*       does not expose it directly - PDF_VIEWER( ) lives on the fragment class,
+*       which is not the one the renderer builds with. _GENERIC is public and
+*       takes the control name plus its properties, so nothing is lost.
+*
+*       WHERE THE DOCUMENT COMES FROM, in order:
+*         the field's VALUE      a URL a handler resolved at runtime - an
+*                                attachment just uploaded, a certificate the
+*                                backend generated for this request
+*         DEFAULT_VAL            a static URL from configuration - terms, a
+*                                specimen form, anything the same for everyone
+*
+*       Value first, because a handler that resolved a document for THIS case
+*       must outrank a default that describes the service in general.
+        DATA(lv_pdf) = mo_e->val_get( is_field-name ).
+        IF lv_pdf IS INITIAL.
+          lv_pdf = is_field-default.
+        ENDIF.
+
+        IF lv_pdf IS INITIAL.
+*         Say so rather than drawing an empty grey box. A viewer with no source
+*         renders as a blank panel that reads as a document still loading, and
+*         the citizen waits for something that is never coming.
+          req_label( io_form = io_form is_field = is_field ).
+          io_form->message_strip(
+            text     = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-pdf_none
+                                          iv_default = 'No document to display yet.' )
+            type     = 'Information'
+            showicon = abap_true ).
+        ELSE.
+*         ISTRUSTEDSOURCE only for a same-origin path. sap.m.PDFViewer shows a
+*         trust prompt before opening a cross-origin document, and suppressing
+*         that on an arbitrary URL from configuration would be deciding, on the
+*         citizen's behalf, that whatever DEFAULT_VAL points at is safe. A
+*         relative path is served by this system and needs no prompt.
+          DATA(lv_trusted) = COND string(
+            WHEN strlen( lv_pdf ) > 0 AND lv_pdf(1) = '/' THEN 'true' ELSE 'false' ).
+
+          io_form->_generic(
+            name   = 'PDFViewer'
+            t_prop = VALUE #(
+              ( n = 'source'             v = lv_pdf )
+              ( n = 'title'              v = zcl_rak_journey_util=>esc( is_field-label ) )
+              ( n = 'height'             v = COND string( WHEN is_field-width IS NOT INITIAL
+                                                          THEN is_field-width ELSE '45rem' ) )
+              ( n = 'width'              v = '100%' )
+              ( n = 'isTrustedSource'    v = lv_trusted )
+*             The download button is the one control a reader genuinely needs -
+*             a declaration they are agreeing to is one they may want to keep.
+              ( n = 'showDownloadButton' v = 'true' ) ) ).
+        ENDIF.
+
       WHEN 'DISPLAY'.
         req_label( io_form = io_form is_field = is_field ).
 *       A DISPLAY field has always taken its paragraph from DEFAULT_VAL by

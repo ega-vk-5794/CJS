@@ -134,6 +134,10 @@ CLASS zcl_rak_text DEFINITION
         pay_inprog    TYPE symsgno VALUE '071',
         pay_nofee     TYPE symsgno VALUE '072',
         pay_first     TYPE symsgno VALUE '073',
+*       A PDF field with no document yet. Not an error - a certificate that
+*       does not exist until the request is approved is the normal case, and
+*       an empty viewer reads as one still loading.
+        pdf_none      TYPE symsgno VALUE '075',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -353,7 +357,10 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
         ar = `لم يتم إصدار الرسوم لهذا الطلب بعد، لذلك لا يمكن فتح صفحة الدفع. تم حفظ الطلب - أعد فتحه بعد بضع دقائق للدفع.` )
       ( msgno = c_no-pay_first
         en = `Payment must be completed before submitting.`
-        ar = `يجب إتمام عملية الدفع قبل الإرسال.` ) ).
+        ar = `يجب إتمام عملية الدفع قبل الإرسال.` )
+      ( msgno = c_no-pdf_none
+        en = `No document to display yet.`
+        ar = `لا يوجد مستند للعرض حتى الآن.` ) ).
   ENDMETHOD.
 
 

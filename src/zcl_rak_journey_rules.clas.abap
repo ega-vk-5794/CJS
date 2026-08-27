@@ -360,7 +360,10 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
+*     PDF joins the display-only list: it shows a document and holds no value
+*     the citizen enters, so every check below has nothing to check.
       IF ls_f-type = 'DISPLAY' OR ls_f-type = 'READONLY' OR ls_f-type = 'TABLE'
+         OR ls_f-type = 'PDF'
          OR ls_f-type = 'UPLOAD' OR ls_f-type = 'STATUS' OR ls_f-type = 'OBJNUM'
          OR ls_f-type = 'PROGRESS' OR ls_f-type = 'LINK' OR ls_f-type = 'EDITABLE_TABLE'.
         CONTINUE.
