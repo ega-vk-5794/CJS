@@ -1254,6 +1254,22 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   EVERY FIELD THE RENDERER IS ASKED TO DRAW, and the type it was asked to
+*   draw it as. Behind the trace flag, so it costs nothing normally.
+*
+*   This exists because "the field does not render" is otherwise unanswerable
+*   from the outside: a field missing from the config, a field hidden by a
+*   rule, and a field whose FTYPE does not match any branch all look identical
+*   on screen - an absence. The three have completely different fixes, and
+*   telling them apart took four rounds of reading source that could not be
+*   run from where it was being read.
+*
+*   Its absence from the list is the finding. A field that appears here and
+*   still shows nothing is a rendering problem; a field that never appears
+*   never reached RENDER_ONE( ) at all, and the cause is upstream - config,
+*   cache, or a hidden flag.
+    mo_e->trace( |render { is_field-name } type=[{ is_field-type }]| ).
+
     DATA(lv_bind) = bind_of( is_field-name ).
     DATA(lv_vs)   = bind_state( |{ is_field-name }_VS| ).
     DATA(lv_vst)  = bind_state( |{ is_field-name }_VST| ).
