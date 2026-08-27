@@ -117,8 +117,23 @@ CLASS zcl_rak_journey_engine DEFINITION
     METHODS merge_dynamic_steps.
     DATA mt_dyn_required TYPE string_table.
     DATA mv_dyn_note TYPE string.
-    METHODS val_get IMPORTING iv_name TYPE string RETURNING VALUE(rv) TYPE string.
-    METHODS val_set IMPORTING iv_name TYPE string iv_value TYPE string.
+*   PREFERRED PARAMETER IV_NAME on VAL_GET( ) - not on VAL_SET( ), which never
+*   had a single-value call site to protect. Every existing VAL_GET( name )
+*   call across the engine, the render class and every grid/rule method is a
+*   functional call with exactly one unnamed actual parameter; ABAP only
+*   allows that shorthand when the method has one IMPORTING parameter or a
+*   declared PREFERRED PARAMETER. Adding IV_SUFFIX as a second IMPORTING
+*   parameter without this addition would have turned every one of those call
+*   sites into "parameter assignment must be named" - a syntax error taking
+*   the whole class down at load, exactly what COMP_NAME( )'s own history
+*   warns about.
+    METHODS val_get IMPORTING iv_name     TYPE string
+                               iv_suffix   TYPE string OPTIONAL
+                       PREFERRED PARAMETER iv_name
+                     RETURNING VALUE(rv)   TYPE string.
+    METHODS val_set IMPORTING iv_name   TYPE string
+                               iv_suffix TYPE string OPTIONAL
+                               iv_value  TYPE string.
 
     METHODS take_case IMPORTING iv_case TYPE string.
 
@@ -384,7 +399,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       val_set( iv_name = mv_pop_field iv_value = lv_bp ).
       READ TABLE mt_bp_hits INTO DATA(ls_hit) WITH KEY partner = lv_bp.
       IF sy-subrc = 0.
-        val_set( iv_name = |{ mv_pop_field }_NAME| iv_value = ls_hit-name ).
+        val_set( iv_name = mv_pop_field iv_suffix = '_NAME' iv_value = ls_hit-name ).
       ENDIF.
       IF mo_logic IS BOUND.
         mo_logic->on_change( io_ctx = me iv_field = mv_pop_field ).
@@ -677,8 +692,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
           val_set( iv_name = ls_field-name iv_value = ls_field-default ).
         ENDIF.
         IF ls_field-type = 'RO_PANEL'.
-          val_set( iv_name  = |{ ls_field-name }_EXP|
-                   iv_value = COND string( WHEN to_upper( ls_field-default ) = 'CLOSED'
+          val_set( iv_name   = ls_field-name
+                   iv_suffix = '_EXP'
+                   iv_value  = COND string( WHEN to_upper( ls_field-default ) = 'CLOSED'
                                            THEN '' ELSE 'X' ) ).
         ENDIF.
       ENDLOOP.
@@ -944,7 +960,19 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   name is free text on ZRAK_T_JNY_FLD, and the model component it built for
 *   this same name went through COMP_NAME( ) - VAL_SET( ) has to arrive at the
 *   identical key or a field with a sanitised name would read back empty.
-    DATA(lv_key) = zcl_rak_journey_util=>comp_name( iv_name ).
+*
+*   IV_SUFFIX, appended AFTER COMP_NAME( ), never before. A companion component
+*   ( _VS, _VST, _IDTYPE, _NAME, _IX, _EXP ) is built by BUILD_MODEL( ) as
+*   COMP_NAME( base-name ) && suffix - the hash, when the base name needs one,
+*   is over the base name alone. Running COMP_NAME( ) over the base name and
+*   suffix already concatenated hashes a DIFFERENT string once base name plus
+*   suffix together exceed 23 characters, so callers used to write
+*   VAL_GET( |{ name }_VS| ) and silently read back empty once the base name
+*   got long enough - the exact silent failure BUILD_MODEL( )'s own comment
+*   warns COMP_NAME( ) exists to avoid, reintroduced one level up. Do not
+*   re-concatenate the suffix into IV_NAME at the call site; pass it here
+*   instead.
+    DATA(lv_key) = zcl_rak_journey_util=>comp_name( iv_name ) && iv_suffix.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mr_model->* TO <model>.
     ASSIGN COMPONENT lv_key OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
@@ -987,8 +1015,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD val_set.
-*   Same key VAL_GET( ) computes - see the note there.
-    DATA(lv_key) = zcl_rak_journey_util=>comp_name( iv_name ).
+*   Same key VAL_GET( ) computes - see the note there. IV_SUFFIX appended
+*   AFTER COMP_NAME( ), never concatenated into IV_NAME before the call.
+    DATA(lv_key) = zcl_rak_journey_util=>comp_name( iv_name ) && iv_suffix.
     IF lv_key IS INITIAL.
       RETURN.
     ENDIF.
@@ -1469,7 +1498,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA(lv_idtype) = val_get( |{ mv_pop_field }_IDTYPE| ).
+    DATA(lv_idtype) = val_get( iv_name = mv_pop_field iv_suffix = '_IDTYPE' ).
     IF lv_idtype IS INITIAL.
       lv_idtype = 'YFS002'.
     ENDIF.
@@ -1598,8 +1627,8 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD set_field_state.
-    val_set( iv_name = |{ iv_name }_VS|  iv_value = iv_state ).
-    val_set( iv_name = |{ iv_name }_VST| iv_value = iv_text ).
+    val_set( iv_name = iv_name iv_suffix = '_VS'  iv_value = iv_state ).
+    val_set( iv_name = iv_name iv_suffix = '_VST' iv_value = iv_text ).
   ENDMETHOD.
 
 
@@ -2029,7 +2058,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     DATA lv_ix TYPE i.
-    lv_ix = val_get( |{ ls_f-name }_IX| ).
+    lv_ix = val_get( iv_name = ls_f-name iv_suffix = '_IX' ).
     IF lv_ix < 0.
       RETURN.
     ENDIF.

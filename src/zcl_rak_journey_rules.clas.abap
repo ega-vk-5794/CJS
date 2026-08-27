@@ -270,10 +270,18 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
                 LOOP AT <tab_r> ASSIGNING FIELD-SYMBOL(<row_r>).
                   ASSIGN COMPONENT gcr-name OF STRUCTURE <row_r> TO FIELD-SYMBOL(<cell_r>).
                   IF sy-subrc = 0 AND <cell_r> IS INITIAL.
+*                   No ZRAK_T_JNY_COL twin to read an Arabic phrase from, so the
+*                   connective is a literal by SY-LANGU - same convention as the
+*                   other hardcoded messages in this engine (see e.g.
+*                   ZCL_RAK_BP_SEARCH). GCR-LABEL and LS_MF-LABEL are already
+*                   resolved to session language by the config loader.
                     APPEND VALUE #( name  = |{ ls_mf-name }.{ gcr-name }|
                                     label = |{ ls_mf-label } - { gcr-label }|
                                     kind  = 'VAL'
-                                    msg   = |{ gcr-label } is required on every row of { ls_mf-label }| ) TO rt.
+                                    msg   = COND string(
+                                      WHEN sy-langu = 'A'
+                                      THEN |{ gcr-label } مطلوب في كل صف من { ls_mf-label }|
+                                      ELSE |{ gcr-label } is required on every row of { ls_mf-label }| ) ) TO rt.
                     EXIT.
                   ENDIF.
                 ENDLOOP.

@@ -84,8 +84,18 @@ CLASS zcl_rak_journey_render DEFINITION
                                    is_field TYPE zif_rak_journey=>ty_field.
     METHODS f4_opts    IMPORTING is_field  TYPE zif_rak_journey=>ty_field
                        RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
-    METHODS bind_of IMPORTING iv_name TYPE string RETURNING VALUE(rv_bind) TYPE string.
-    METHODS bind_state IMPORTING iv_name TYPE string RETURNING VALUE(rv) TYPE string.
+*   PREFERRED PARAMETER IV_NAME - BIND_OF( name ) is called as a single-value
+*   functional call throughout this class and from ZCL_RAK_JOURNEY_ENGINE;
+*   without this addition, adding IV_SUFFIX as a second IMPORTING parameter
+*   would turn every one of those into a syntax error (see the note on
+*   VAL_GET( ) in ZCL_RAK_JOURNEY_ENGINE for the full reasoning).
+    METHODS bind_of IMPORTING iv_name         TYPE string
+                               iv_suffix       TYPE string OPTIONAL
+                       PREFERRED PARAMETER iv_name
+                     RETURNING VALUE(rv_bind)  TYPE string.
+    METHODS bind_state IMPORTING iv_name   TYPE string
+                                 iv_suffix TYPE string OPTIONAL
+                       RETURNING VALUE(rv) TYPE string.
     METHODS render_block_laid_out
       IMPORTING io_parent  TYPE REF TO z2ui5_cl_xml_view
                 iv_journey TYPE zcl_rak_cj_lay=>ty_key
@@ -151,9 +161,17 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   BUILD_MODEL( ). A bare TO_UPPER( ) here would try to bind a control straight
 *   to a component name the model never has, on any field whose name needed
 *   sanitising - CX_SY_STRUCT_COMP_NAME, uncaught, on the first render.
+*
+*   IV_SUFFIX is appended AFTER COMP_NAME( ), matching how BUILD_MODEL( ) builds
+*   a companion component ( _IDTYPE, _IX, _EXP ): COMP_NAME( base name ) then the
+*   raw suffix. Passing an already-suffixed string as IV_NAME instead - the
+*   pattern this replaces - hashes a different, longer string once base name
+*   plus suffix exceeds 23 characters, and the ASSIGN COMPONENT below then finds
+*   nothing: the control silently binds to no value.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
+    DATA(lv_comp) = zcl_rak_journey_util=>comp_name( iv_name ) && iv_suffix.
+    ASSIGN COMPONENT lv_comp OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
     IF sy-subrc = 0.
       rv_bind = mo_e->mo_client->_bind_edit( <f> ).
     ENDIF.
@@ -164,7 +182,8 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   Same key BIND_OF( ) computes - see the note there.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
+    DATA(lv_comp) = zcl_rak_journey_util=>comp_name( iv_name ) && iv_suffix.
+    ASSIGN COMPONENT lv_comp OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
     IF sy-subrc = 0.
       rv = mo_e->mo_client->_bind( <f> ).
     ENDIF.
@@ -445,7 +464,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       WHEN 'SEARCH'.
         io_parent->title( text = zcl_rak_journey_util=>esc( is_field-label ) class = |{ mo_e->mo_css->cls( 'SECTION' ) } rakBlkTitle| ).
         DATA(lo_box) = io_parent->hbox( class = 'rakSearch' alignitems = 'End' justifycontent = 'Start' ).
-        DATA(lo_idt) = lo_box->combobox( selectedkey = bind_of( |{ is_field-name }_IDTYPE| ) width = '12rem' ).
+        DATA(lo_idt) = lo_box->combobox( selectedkey = bind_of( iv_name = is_field-name iv_suffix = '_IDTYPE' ) width = '12rem' ).
         LOOP AT is_field-options INTO DATA(ls_o).
           lo_idt->item( key = ls_o-key text = zcl_rak_journey_util=>opt_text( iv_key = ls_o-key iv_text = ls_o-text ) ).
         ENDLOOP.
@@ -1271,8 +1290,8 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     mo_e->trace( |render { is_field-name } type=[{ is_field-type }]| ).
 
     DATA(lv_bind) = bind_of( is_field-name ).
-    DATA(lv_vs)   = bind_state( |{ is_field-name }_VS| ).
-    DATA(lv_vst)  = bind_state( |{ is_field-name }_VST| ).
+    DATA(lv_vs)   = bind_state( iv_name = is_field-name iv_suffix = '_VS' ).
+    DATA(lv_vst)  = bind_state( iv_name = is_field-name iv_suffix = '_VST' ).
     DATA(lv_edit) = xsdbool( mo_e->mo_rules->is_readonly( is_field ) = abap_false ).
     DATA(lv_min)  = COND string( WHEN is_field-validation-min_val IS NOT INITIAL THEN is_field-validation-min_val ELSE '0' ).
     DATA(lv_max)  = COND string( WHEN is_field-validation-max_val IS NOT INITIAL THEN is_field-validation-max_val ELSE '100' ).
@@ -1356,9 +1375,9 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             EXIT.
           ENDIF.
         ENDLOOP.
-        mo_e->val_set( iv_name = |{ is_field-name }_IX| iv_value = |{ lv_rsel }| ).
+        mo_e->val_set( iv_name = is_field-name iv_suffix = '_IX' iv_value = |{ lv_rsel }| ).
 
-        DATA(lo_rg) = io_form->radio_button_group( selectedindex = bind_of( |{ is_field-name }_IX| )
+        DATA(lo_rg) = io_form->radio_button_group( selectedindex = bind_of( iv_name = is_field-name iv_suffix = '_IX' )
                                                    editable      = lv_edit
                                                    select        = mo_e->change_evt( is_field-name )
                                                    width         = lv_w
@@ -1406,7 +1425,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       WHEN 'RO_PANEL'.
         DATA(lo_rop) = io_form->panel( headertext = zcl_rak_journey_util=>esc( is_field-label )
                                        expandable = abap_true
-                                       expanded   = bind_of( |{ is_field-name }_EXP| ) ).
+                                       expanded   = bind_of( iv_name = is_field-name iv_suffix = '_EXP' ) ).
         DATA(lo_ropc) = lo_rop->content( ).
         DATA ls_rot TYPE zif_rak_journey=>ty_table.
         IF mo_e->mo_logic IS BOUND.
