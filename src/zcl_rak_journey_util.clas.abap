@@ -116,7 +116,7 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
     rv = xsdbool( iv_type = 'SEARCH' OR iv_type = 'TABLE'
                OR iv_type = 'UPLOAD' OR iv_type = 'PAYFEE'
                OR iv_type = 'EDITABLE_TABLE' OR iv_type = 'RECORDCARD'
-               OR iv_type = 'REQPANEL' ).
+               OR iv_type = 'REQPANEL' OR iv_type = 'PDF' ).
   ENDMETHOD.
 
 
