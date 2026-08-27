@@ -1786,59 +1786,67 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *& PDF - the reference example for FTYPE = 'PDF'.
 *&
 *& The control shows a document with sap.m.PDFViewer. It holds no value
-*& the citizen enters, so it is skipped by validation entirely: no
-*& REQUIRED, no MIN_LEN, no REGEX will ever fire on it.
+*& the citizen enters, so validation skips it entirely: no REQUIRED, no
+*& MIN_LEN, no REGEX will ever fire on it.
 *&
-*& WHERE THE DOCUMENT COMES FROM - two routes, and the field's VALUE wins:
+*& WHERE THE DOCUMENT COMES FROM - two routes, and the VALUE wins:
 *&
-*&   1. DEFAULT_VAL   a static URL. The same document for everyone - terms,
-*&                    a specimen form, a fee schedule. Pure configuration,
-*&                    no handler needed at all.
+*&   1. DEFAULT_VAL   a static URL. The same document for everyone -
+*&                    terms, a specimen form, a fee schedule. Pure
+*&                    configuration; this method is not involved.
+*&                    TERMS_PDF on S2 is that route.
 *&
-*&   2. the VALUE     a URL a handler resolved for THIS case, set with
-*&                    set_val( ). A certificate the backend generated, an
-*&                    attachment the citizen just uploaded. Overrides the
-*&                    default, which is why a per-case document beats a
-*&                    general one.
+*&   2. the VALUE     a URL the handler resolved for THIS case. A
+*&                    certificate the backend generated, a document the
+*&                    citizen uploaded earlier. Overrides the default,
+*&                    which is why a per-case document beats a general one.
+*&                    CASE_PDF on S2 is that route, and this is it.
 *&
-*& CONFIG FOR ROUTE 1 - one row in ZRAK_T_JNY_FLD, nothing else:
+*& NOTHING IS INVENTED HERE, and that is the correction worth reading.
+*& An earlier version of this method set CASE_PDF to a plausible-looking
+*& MIME path that did not exist, and the viewer answered "The PDF file
+*& could not be loaded" - which reads as a broken control rather than a
+*& wrong URL. A reference example that ships a dead link teaches the
+*& wrong lesson twice: once about the control, once about the path.
 *&
-*&   STEP_ID     S6
-*&   FIELD_NAME  TERMS_PDF
-*&   FTYPE       PDF
-*&   ZLABEL      Terms and conditions
-*&   ZLABEL_AR   الشروط والأحكام
-*&   DEFAULT_VAL /sap/public/bc/its/mimes/terms.pdf
-*&   WIDTH       50rem            (optional - the viewer HEIGHT, default 45rem)
+*& So the document is supplied at launch instead:
 *&
-*& CONFIG FOR ROUTE 2 - the same row with DEFAULT_VAL left blank, plus a
-*& handler that fills it. This method is that handler.
+*&     ?journey=ZTEST_ALL&pdfguid=<guid>
 *&
-*& A RELATIVE URL IS TREATED AS TRUSTED, an absolute one is not.
-*& sap.m.PDFViewer prompts before opening a cross-origin document, and the
-*& renderer only suppresses that prompt for a path beginning '/' - served
-*& by this system. Point DEFAULT_VAL at another host and the citizen gets
-*& the prompt, which is correct: nothing here can vouch for that host.
+*& A GUID, not a URL. ZCL_RAK_JOURNEY_UTIL=>ATT_URL( ) builds the address
+*& of the streaming ICF node from it, which keeps the URL relative and
+*& same-origin - and a relative path is what the renderer treats as
+*& trusted, so the viewer opens it without sap.m.PDFViewer's cross-origin
+*& prompt. Passing a whole URL as a query parameter would also nest a ?
+*& inside a ? and need escaping nobody wants to debug.
 *&
-*& NO DOCUMENT IS NOT AN ERROR. A blank source renders an information
-*& strip rather than an empty grey panel, because an empty viewer reads as
-*& one still loading and the citizen waits for something never coming.
-*& Leave the field blank on this journey to see that state.
+*& TO SEE IT WORK
+*&   1. S4 Documents - upload any PDF to Main document
+*&   2. SE16N ZRAK_CJ_ATTX - copy the GUID of that row
+*&   3. relaunch with &pdfguid=<that guid>
+*&
+*& WITH NO PARAMETER the field stays empty, and that is the third state
+*& worth seeing: an information strip, not a grey panel. An empty viewer
+*& reads as a document still loading and the citizen waits for something
+*& that is never coming.
 *&---------------------------------------------------------------------*
 
-*   Route 2, demonstrated. A real handler would resolve this from the
-*   backend - get_attach_url( ), a generated certificate, a document id off
-*   the case - and would do it wherever that answer becomes available,
-*   not necessarily in on_init( ).
-*
-*   Deliberately NOT overwriting a value that is already there: a resumed
-*   draft may carry a document resolved on an earlier visit, and re-seeding
-*   would replace a real one with this placeholder.
-    IF io_ctx->get_val( 'CASE_PDF' ) IS INITIAL.
-      io_ctx->set_val(
-        iv_name  = 'CASE_PDF'
-        iv_value = '/sap/public/bc/its/mimes/sap/public/bc/ur/nw5/themes/sap_belize/sample.pdf' ).
+*   Not overwriting a value already present: a resumed draft may carry a
+*   document resolved on an earlier visit, and re-seeding would replace a
+*   real one with whatever this launch happened to pass.
+    IF io_ctx->get_val( 'CASE_PDF' ) IS NOT INITIAL.
+      RETURN.
     ENDIF.
+
+    DATA(lv_guid) = condense( io_ctx->get_param( 'pdfguid' ) ).
+    IF lv_guid IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    io_ctx->set_val( iv_name  = 'CASE_PDF'
+                     iv_value = zcl_rak_journey_util=>att_url( lv_guid ) ).
+    io_ctx->add_msg( iv_type = 'Information'
+                     iv_text = |Certificate resolved from staged document { lv_guid }.| ).
   ENDMETHOD.
 
 
