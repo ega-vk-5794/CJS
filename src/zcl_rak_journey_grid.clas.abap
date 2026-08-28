@@ -938,9 +938,15 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
         ASSIGN COMPONENT lv_txtcomp OF STRUCTURE <srow> TO FIELD-SYMBOL(<stxt>).
         CHECK sy-subrc = 0.
         READ TABLE lt_sopt INTO DATA(ls_sopt) WITH KEY key = <skey>.
-        <stxt> = COND #( WHEN sy-subrc = 0
-                          THEN zcl_rak_journey_util=>opt_text( iv_key = ls_sopt-key iv_text = ls_sopt-text )
-                          ELSE <skey> ).
+*       COND string( ), not COND #( ) - <STXT> is a field symbol from a
+*       dynamic ASSIGN COMPONENT, TYPE any at compile time, so there is no
+*       static target type for COND #( ) to derive its result type from
+*       ("No type can be derived from the context for the operator...").
+*       An explicit type gives every branch, including <SKEY> (also ANY),
+*       something concrete to convert to.
+        <stxt> = COND string( WHEN sy-subrc = 0
+                               THEN zcl_rak_journey_util=>opt_text( iv_key = ls_sopt-key iv_text = ls_sopt-text )
+                               ELSE CONV string( <skey> ) ).
       ENDLOOP.
     ENDLOOP.
 
