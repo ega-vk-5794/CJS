@@ -1843,7 +1843,6 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
   METHOD render_hdr.
     DATA(p) = io->panel( headertext = 'Journey header'
                          expandable = abap_true
-                         expandanimation = abap_false
                          expanded   = mv_pn_hdr
                          expand     = mo_client->_event( 'PNL~HDR' )
                          class      = 'sapUiSmallMarginBeginEnd rakPnlHDR' ).
@@ -1889,7 +1888,6 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
   METHOD render_steps.
     DATA(p) = io->panel( headertext = |Steps — { lines( mt_steps ) }|
                          expandable = abap_true
-                         expandanimation = abap_false
                          expanded   = mv_pn_steps
                          expand     = mo_client->_event( 'PNL~STEPS' )
                          class      = 'sapUiSmallMarginBeginEnd rakPnlSTEPS' ).
@@ -1956,7 +1954,6 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                    COND string( WHEN mv_only_bad = abap_true      THEN ` · showing findings only`
                                 WHEN mv_fld_filter IS NOT INITIAL THEN ` · filtered` )
       expandable = abap_true
-      expandanimation = abap_false
       expanded   = mv_pn_flds
       expand     = mo_client->_event( 'PNL~FLDS' )
       class      = 'sapUiSmallMarginBeginEnd rakPnlFLDS' ).
@@ -2271,7 +2268,6 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                            COND string( WHEN ov_step IS NOT INITIAL OR ov_field IS NOT INITIAL
                                         THEN | · showing { ov_step }{ COND string( WHEN ov_field IS NOT INITIAL THEN | / { ov_field }| ) }| )
                          expandable = abap_true
-                         expandanimation = abap_false
                          expanded   = mv_pn_opts
                          expand     = mo_client->_event( 'PNL~OPTS' )
                          class      = 'sapUiSmallMarginBeginEnd rakPnlOPTS' ).
@@ -2354,7 +2350,6 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                            COND string( WHEN cv_step IS NOT INITIAL OR cv_field IS NOT INITIAL
                                         THEN | · showing { cv_step }{ COND string( WHEN cv_field IS NOT INITIAL THEN | / { cv_field }| ) }| )
                          expandable = abap_true
-                         expandanimation = abap_false
                          expanded   = mv_pn_cols
                          expand     = mo_client->_event( 'PNL~COLS' )
                          class      = 'sapUiSmallMarginBeginEnd rakPnlCOLS' ).
@@ -2474,7 +2469,6 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
   METHOD render_rules.
     DATA(p) = io->panel( headertext = |Rules (side effects) — { lines( mt_rules ) }|
                          expandable = abap_true
-                         expandanimation = abap_false
                          expanded   = mv_pn_rules
                          expand     = mo_client->_event( 'PNL~RULES' )
                          class      = 'sapUiSmallMarginBeginEnd rakPnlRULES' ).
@@ -4351,7 +4345,6 @@ TO rt.
                        COND string( WHEN g-active = abap_false THEN ` (inactive)` ) &&
                        |  ·  { lv_je } error(s), { lv_jw } warning(s)|
           expandable = abap_true
-          expandanimation = abap_false
           expanded   = xsdbool( lv_je > 0 )
           class      = 'sapUiSmallMarginBeginEnd sapUiTinyMarginTop' ).
 
@@ -4675,7 +4668,6 @@ TO rt.
   METHOD render_doc.
     DATA(p) = io->panel( headertext = 'Journey document (export / import)'
                          expandable = abap_true
-                         expandanimation = abap_false
                          expanded   = mv_pn_doc
                          expand     = mo_client->_event( 'PNL~DOC' )
                          class      = 'sapUiSmallMarginBeginEnd rakPnlDOC' ).
@@ -4752,7 +4744,6 @@ TO rt.
                            THEN |Validation — { to_upper( mv_journey_id ) } — no issues|
                            ELSE |Validation — { to_upper( mv_journey_id ) } — { lines( lt ) } issue{ COND string( WHEN lines( lt ) = 1 THEN `` ELSE `s` ) }| )
       expandable = abap_true
-      expandanimation = abap_false
       expanded   = mv_pn_lint
       expand     = mo_client->_event( 'PNL~LINT' )
       class      = 'sapUiSmallMarginBeginEnd' ).
@@ -4831,7 +4822,6 @@ TO rt.
 *                    reads as a verdict on what is on screen, which it is not.
                      COND string( WHEN mv_dirty = abap_true THEN ` · as last saved, not the current draft` )
         expandable = abap_true
-        expandanimation = abap_false
         expanded   = mv_pn_xchk
         expand     = mo_client->_event( 'PNL~XCHK' )
         class      = 'sapUiSmallMarginBeginEnd' ).
@@ -4850,7 +4840,7 @@ TO rt.
     io->html( content         = `<div class="rakHero"><h1>Migration Cockpit</h1><p>Pick a legacy journey, migrate it in one click &mdash; config, studio journey and portal tile. Delete to reset the demo and run it again.</p></div>`
               sanitizecontent = abap_false ).
 
-    DATA(p1) = io->panel( headertext = 'Legacy journeys detected (/QNV/SB_UI_DEFIN)' expandable = abap_true expandanimation = abap_false expanded = abap_true class = 'sapUiSmallMarginBeginEnd' ).
+    DATA(p1) = io->panel( headertext = 'Legacy journeys detected (/QNV/SB_UI_DEFIN)' expandable = abap_true expanded = abap_true class = 'sapUiSmallMarginBeginEnd' ).
     DATA(t1) = p1->table( class = 'sapUiSmallMarginBeginEnd' ).
     DATA(c1) = t1->columns( ).
     c1->column( )->text( 'Category' ). c1->column( )->text( 'Journey' ).
@@ -4868,7 +4858,7 @@ TO rt.
                       press   = mo_client->_event( |MIGSEL_{ cd-category }~{ cd-journey }| ) ).
     ENDLOOP.
 
-    DATA(p2) = io->panel( headertext = 'Migration settings' expandable = abap_true expandanimation = abap_false expanded = abap_true class = 'sapUiSmallMarginBeginEnd' ).
+    DATA(p2) = io->panel( headertext = 'Migration settings' expandable = abap_true expanded = abap_true class = 'sapUiSmallMarginBeginEnd' ).
     DATA(f) = p2->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '2' columnsl = '2' columnsm = '1' )->content( ns = 'form' ).
     f->label( 'Category' ).           f->input( value = mo_client->_bind_edit( mg_cat ) ).
     f->label( 'Legacy journey' ).     f->input( value = mo_client->_bind_edit( mg_jny ) ).
@@ -4882,7 +4872,7 @@ TO rt.
     p2->hbox( class = 'sapUiSmallMargin'
       )->button( text = 'Migrate now' icon = 'sap-icon://process' type = 'Emphasized' press = mo_client->_event( 'MIGGO' ) ).
 
-    DATA(p3) = io->panel( headertext = 'Migrated journeys (demo control)' expandable = abap_true expandanimation = abap_false expanded = abap_true class = 'sapUiSmallMarginBeginEnd' ).
+    DATA(p3) = io->panel( headertext = 'Migrated journeys (demo control)' expandable = abap_true expanded = abap_true class = 'sapUiSmallMarginBeginEnd' ).
     SELECT journey_id, title, tile_code FROM zrak_t_jny WHERE tile_code <> @space ORDER BY journey_id INTO TABLE @DATA(lt_mig).
     DATA(t3) = p3->table( class = 'sapUiSmallMarginBeginEnd' ).
     DATA(c3) = t3->columns( ).
@@ -4993,7 +4983,6 @@ title = 'Showcase — all controls' sub = 'Every field type and capability, for 
 
     DATA(pt) = io->panel( headertext = |Applies to every journey in client { sy-mandt }|
                           expandable = abap_true
-                          expandanimation = abap_false
                           expanded   = abap_true
                           class      = 'sapUiSmallMarginBeginEnd' ).
     DATA(ct) = pt->content( ).
