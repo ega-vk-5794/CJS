@@ -1,8 +1,8 @@
-CLASS zcl_e029_new_store_logic DEFINITION
-  PUBLIC
-  INHERITING FROM zcl_rak_journey_logic
-  FINAL
-  CREATE PUBLIC.
+class ZCL_E029_NEW_STORE_LOGIC definition
+  public
+  inheriting from ZCL_RAK_JOURNEY_LOGIC
+  final
+  create public .
 
 *   Handler for E029 - Issuance of New Store Contract
 *   (legacy NE029_1_*, seeded by ZRAK_E029_LOAD).
@@ -33,27 +33,64 @@ CLASS zcl_e029_new_store_logic DEFINITION
 *   the rules for the rest of the session. OWNER_1 is already governed by
 *   rule R001, so calling set_hidden( ) on it from this class would not
 *   add to that rule - it would silently take the decision away from it.
-  PUBLIC SECTION.
-    METHODS zif_rak_journey_logic~on_change          REDEFINITION.
-    METHODS zif_rak_journey_logic~on_after_read      REDEFINITION.
-    METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
+public section.
 
-  PRIVATE SECTION.
-    CONSTANTS c_applicant_type TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
-    CONSTANTS c_validity       TYPE string VALUE 'VALIDITY_YEAR1'  ##NO_TEXT.
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
+    redefinition .
+protected section.
+private section.
+
+  constants C_APPLICANT_TYPE type STRING value 'PARTNER_OWNER_1' ##NO_TEXT.
+  constants C_VALIDITY type STRING value 'VALIDITY_YEAR1' ##NO_TEXT.
 *   The Lease Details step, zero-based as the hooks count them: STP1 is
 *   the licence picker at index 0, STP2 Lease Details at index 1.
-    CONSTANTS c_step_lease     TYPE i      VALUE 1.
+  constants C_STEP_LEASE type I value 1 ##NO_TEXT.
+  constants C_LOGIN_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
+  constants C_LANG_EN type STRING value 'E' ##NO_TEXT.
+  constants C_APP_ROLE type STRING value 'APP_ROLE' ##NO_TEXT.
+  constants C_PERMIT_MODE type STRING value 'PERMIT_MODE' ##NO_TEXT.
+  constants C_PERMIT_NUMBER type STRING value 'PERMIT_NUMBER' ##NO_TEXT.
+  constants C_OWNER_BP_IDTYPE type STRING value 'OWNER_BP_IDTYPE' ##NO_TEXT.
+  constants C_OWNER_NAME type STRING value 'OWNER_NAME' ##NO_TEXT.
+  constants C_OWNER_MOBILE type STRING value 'OWNER_MOBILE' ##NO_TEXT.
+  constants C_OWNER_EMAIL type STRING value 'OWNER_EMAIL' ##NO_TEXT.
+  constants C_OWNER_DOB type STRING value 'OWNER_DOB' ##NO_TEXT.
+  constants C_OWNER_NATIONALITY type STRING value 'OWNER_NATIONALITY' ##NO_TEXT.
+  constants C_OWNER_SEG type STRING value 'APP_ROLE' ##NO_TEXT.
+  constants C_OWNER type STRING value 'OWNER' ##NO_TEXT.
+  constants C_REP type STRING value 'REP' ##NO_TEXT.
+  constants C_PARTNER_OWNER_1 type STRING value 'PARTNER_OWNER_1' ##NO_TEXT.
+  constants C_PERMIT_YES type STRING value 'PERMIT_YES' ##NO_TEXT.
+  constants C_MIN_SEARCH_LEN type I value 3 ##NO_TEXT.
+  constants C_DEFAULT_IDTYPE type STRING value 'YFS002' ##NO_TEXT.
+  constants C_OWNER_BP type STRING value 'OWNER_BP' ##NO_TEXT.
+  constants C_PERMIT_NO type STRING value 'PERMIT_NUMBER' ##NO_TEXT.
+  constants C_PERMIT_DETAIL type STRING value 'PERMIT_DETAIL' ##NO_TEXT.
+  constants C_APP_NAME type STRING value 'APP_NAME' ##NO_TEXT.
+  constants C_APP_ID type STRING value 'APP_ID' ##NO_TEXT.
+  constants C_APP_MOBILE type STRING value 'APP_MOBILE' ##NO_TEXT.
+  constants C_APP_EMAIL type STRING value 'APP_EMAIL' ##NO_TEXT.
 
 *   Write EVERY flag in a group on every change, not only the chosen one.
 *   The citizen who picks Representative after picking Owner must leave
 *   GS_DATA-PARTNER_OWNER blank behind them, or the backend sees an
 *   applicant who is both - and the same for a validity changed from
 *   2 years down to 1.
-    METHODS set_group
-      IMPORTING io_ctx  TYPE REF TO zif_rak_journey
-                iv_pick TYPE string
-                it_map  TYPE zif_rak_journey=>tt_kv.
+  methods SET_GROUP
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IV_PICK type STRING
+      !IT_MAP type ZIF_RAK_JOURNEY=>TT_KV .
 ENDCLASS.
 
 
@@ -155,4 +192,169 @@ CLASS ZCL_E029_NEW_STORE_LOGIC IMPLEMENTATION.
           text = 'Choose a storage number, or tick Waiting List to join the queue.' ) ).
     ENDIF.
   ENDMETHOD.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES.
+ CALL METHOD super->zif_rak_journey_logic~on_before_tables
+      EXPORTING
+        io_ctx    = io_ctx
+      CHANGING
+        ct_tables = ct_tables.
+    DATA(lv_sel) = io_ctx->get_val( 'LIC_SEL' ).
+    CHECK lv_sel IS NOT INITIAL.
+    LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<t>) WHERE ui_table_name = 'LICENSES' AND ui_table_column1 = lv_sel..
+      IF <t>-ui_table_column1 = lv_sel.
+        <t>-ui_table_column29 = 'S'.
+         io_ctx->set_val( iv_name = 'LICENCE_NO_1'     iv_value = CONV #( <t>-UI_TABLE_COLUMN1 ) ).
+      ENDIF.
+    ENDLOOP.
+  endmethod.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_INIT.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+*  EXPORTING
+*    IO_CTX =
+*    .
+     DATA: lv_loginbp TYPE bu_partner.
+      lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+      DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+      DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
+
+      IF lv_loginbp IS INITIAL AND syst-sysid = 'E10'.
+        lv_loginbp = '1000116563'.
+      ENDIF.
+
+      IF lv_loginbp IS NOT INITIAL.
+        NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+          EXPORTING
+            iv_bp_id      = lv_loginbp
+          IMPORTING
+            es_bp_details = DATA(ls_bp) ).
+
+        io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+
+        IF sy-langu = c_lang_en.
+          io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name ) ).
+        ELSE.
+          io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+        ENDIF.
+
+        io_ctx->set_val( iv_name = c_app_id     iv_value = CONV #( ls_bp-emirates_id ) ).
+        io_ctx->set_val( iv_name = c_app_mobile iv_value = CONV #( ls_bp-mobile_number ) ).
+        io_ctx->set_val( iv_name = c_app_email  iv_value = CONV #( ls_bp-email_address ) ).
+*      io_ctx->set_val( iv_name = c_app_role iv_value = |{ lv_role }| ).
+        io_ctx->set_val( iv_name = c_app_role iv_value = |{ c_rep }| ).
+
+
+      ELSE.
+
+
+*      io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '3000180559' ). "'1000116563' )
+*      io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '1000116563' ). "'1000116563' ).
+*
+**    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
+*      io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
+**    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
+*      io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
+*
+**    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+*      io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
+
+      ENDIF.
+
+  endmethod.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
+*  EXPORTING
+*    IO_CTX   =
+*    IV_FIELD =
+*    .
+     IF iv_field = c_owner_bp.
+
+
+      CHECK to_upper( iv_field ) = c_owner_bp."'OWNER_BP'.
+
+      DATA(lv_eid) = condense( io_ctx->get_val( c_owner_bp ) ).
+*    IF strlen( lv_eid ) < c_min_search_len.
+*      io_ctx->add_msg( iv_type = 'Warning'
+*                       iv_text = |Enter at least { c_min_search_len } characters to search| ).
+*      RETURN.
+*    ENDIF.
+
+      DATA(lv_idtype) = io_ctx->get_val( c_owner_bp_idtype ).
+      IF lv_idtype IS INITIAL.
+        lv_idtype = c_default_idtype.
+      ENDIF.
+
+      DATA: lv_eid_no   TYPE bu_id_number,
+            lv_eid_type TYPE bu_id_type.
+
+      lv_eid_no = lv_eid.
+      lv_eid_type = lv_idtype.
+
+
+      DATA ev_partner         TYPE partner.
+      DATA ev_id_number       TYPE bu_id_number.
+      DATA ev_passport        TYPE bu_id_number.
+      DATA ev_name            TYPE bu_name1tx.
+      DATA ev_phone           TYPE farp_mobile.
+      DATA ev_email           TYPE ad_smtpadr.
+      DATA ev_nationality     TYPE natio50.
+      DATA ev_nationality_key TYPE bu_natio.
+      DATA ev_date_of_birth   TYPE bu_birthdt.
+      DATA ev_message         TYPE bapiret2-message.
+
+      CALL FUNCTION 'ZFE_CJ_SEARCH_BP_BY_ID'
+        EXPORTING
+          iv_type            = lv_eid_type
+          iv_idnumber        = lv_eid_no
+*         IV_APP             = IV_APP
+        IMPORTING
+          ev_partner         = ev_partner
+          ev_id_number       = ev_id_number
+          ev_passport        = ev_passport
+          ev_name            = ev_name
+          ev_phone           = ev_phone
+          ev_email           = ev_email
+          ev_nationality     = ev_nationality
+          ev_nationality_key = ev_nationality_key
+          ev_date_of_birth   = ev_date_of_birth
+          ev_message         = ev_message.
+
+      io_ctx->set_val( iv_name = c_owner_name        iv_value = ' ' ).
+      io_ctx->set_val( iv_name = c_owner_mobile      iv_value = ' ' ).
+      io_ctx->set_val( iv_name = c_owner_email       iv_value = ' ' ).
+      io_ctx->set_val( iv_name = c_owner_dob         iv_value = ' ' ).
+      io_ctx->set_val( iv_name = c_owner_nationality iv_value = ' ' ).
+
+
+      io_ctx->set_val( iv_name = c_owner_bp          iv_value = |{ lv_eid }| ).
+      io_ctx->set_val( iv_name = c_owner_name        iv_value = |{ ev_name }| ).
+      io_ctx->set_val( iv_name = c_owner_mobile      iv_value = |{ ev_phone }| ).
+      io_ctx->set_val( iv_name = c_owner_email       iv_value = |{ ev_email }| ).
+      io_ctx->set_val( iv_name = c_owner_dob         iv_value = |{ ev_date_of_birth }| ).
+      io_ctx->set_val( iv_name = c_owner_nationality iv_value = |{ ev_nationality }| ).
+
+*    ELSEIF iv_field = c_permit_no.
+*      DATA(lv_permit) = condense( io_ctx->get_val( c_permit_no ) ).
+*
+*      IF lv_permit IS NOT INITIAL.
+*        SELECT SINGLE contractname FROM zv_epdapmmast INTO @DATA(lv_contrat) WHERE permitid = @lv_permit.
+*
+*        IF lv_contrat IS NOT INITIAL.
+*          io_ctx->set_val( iv_name = c_permit_no  iv_value = |{ lv_permit }| ).
+*          io_ctx->set_val( iv_name = c_permit_detail  iv_value = |{ lv_contrat }| ).
+**          gs_data-permit_number = lv_permit.
+*        ELSE.
+*          io_ctx->set_val( iv_name = c_permit_detail iv_value = ' ' ).
+*          io_ctx->add_msg( iv_type = 'Error'
+*                           iv_text = |Enter Valid Permit No to search| ).
+*        ENDIF.
+*
+*      ENDIF.
+    ENDIF.
+  endmethod.
 ENDCLASS.

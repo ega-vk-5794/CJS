@@ -372,97 +372,39 @@ CLASS ZCL_E028_NEW_BERTH_LOGIC IMPLEMENTATION.
 
   METHOD zif_rak_journey_logic~on_value_help.
 
-    CONSTANTS: c_dok_id TYPE string VALUE 'DOK_PARKING_NUMBER_1',
+    CONSTANTS: c_dok_id  TYPE string VALUE 'DOK_PARKING_NUMBER_1',
+               c_dok_id2 TYPE string VALUE 'CB_DOK_PARKING_NUMBER_2',
                c_port_id TYPE string VALUE 'PORT_ID'.
 
+    DATA: lv_port_id TYPE zde_ega_fshry_port,
+          lt_berth   TYPE zega_cj_epda_port_objects_tt.
 
 
     CASE iv_field.
-      WHEN c_dok_id.
-        DATA(lv_port_id) = condense( io_ctx->get_val( c_port_id ) ).
-        rt = VALUE #(
-                      ( key = 'GAL' text = 'Gallon' )
-                      ( key = 'KG'  text = 'Kilogram' )
-                      ( key = 'LTR' text = 'Liter' )
-                      ( key = 'MT'  text = 'Metric Ton' )
-                    ).
+      WHEN c_dok_id OR c_dok_id2.
+        DATA(lv_port) = condense( io_ctx->get_val( c_port_id ) ).
+        lv_port_id = lv_port.
 
+
+        CALL FUNCTION 'ZEGA_CJ_EPDA_PORT_OBJECTS'
+          EXPORTING
+            iv_port  = lv_port_id
+          IMPORTING
+            et_berth = lt_berth.
+
+        DELETE lt_berth WHERE available NE abap_true.
+        READ TABLE lt_berth WITH KEY available = abap_true TRANSPORTING NO FIELDS.
+
+        IF lt_berth IS NOT INITIAL.
+          " Build a simplified result table with VALUE and FOR
+          rt = VALUE #(
+                FOR ls_berth IN lt_berth
+                 ( key = ls_berth-arch_object_id text =  ls_berth-arch_object_text )
+                   ).
+        ENDIF.
 
       WHEN OTHERS.
     ENDCASE.
-
-
-
-*    DATA(lv_step) = io_ctx->get_step( ).
-*    CASE iv_field.
-*      WHEN 'TREES.TREE_TYPE'.
-*
-*        DATA(lt_values) = VALUE dd07v_tab( ).
-*
-*        CALL FUNCTION 'DD_DOMVALUES_GET'
-*          EXPORTING
-*            domname        = 'ZDO_EPDA_TREE_TYPE'
-*            text           = 'X'
-*            langu          = Sy-langu
-**           BYPASS_BUFFER  = ' '
-**         IMPORTING
-**           RC             =
-*          TABLES
-*            dd07v_tab      = lt_values
-*          EXCEPTIONS
-*            wrong_textflag = 1
-*            OTHERS         = 2.
-*        IF sy-subrc <> 0.
-** Implement suitable error handling here
-*        ENDIF.
-*
-*        IF sy-subrc = 0.
-*          " Build a simplified result table with VALUE and FOR
-*          rt = VALUE #(
-*                FOR ls_value IN lt_values
-*                 ( key = ls_value-domvalue_l text =  ls_value-ddtext )
-*                   ).
-*        ENDIF.
-*      WHEN 'TREES.ACTION'.
-*
-*        CALL FUNCTION 'DD_DOMVALUES_GET'
-*          EXPORTING
-*            domname        = 'ZDO_EPDA_ACTION'
-*            text           = 'X'
-*            langu          = Sy-langu
-**           BYPASS_BUFFER  = ' '
-**         IMPORTING
-**           RC             =
-*          TABLES
-*            dd07v_tab      = lt_values
-*          EXCEPTIONS
-*            wrong_textflag = 1
-*            OTHERS         = 2.
-*        IF sy-subrc <> 0.
-** Implement suitable error handling here
-*        ENDIF.
-*
-*        IF sy-subrc = 0.
-*          " Build a simplified result table with VALUE and FOR
-*          rt = VALUE #(
-*                FOR ls_value IN lt_values
-*                 ( key = ls_value-domvalue_l text =  ls_value-ddtext )
-*                   ).
-*        ENDIF.
-**      WHEN OTHERS.
-*    ENDCASE.
-
-
-*    DATA(lv_step) = io_ctx->get_step( ).
-*    CASE iv_field.
-*      WHEN 'MATERIALS_DET.UNIT_1'.
-*        rt = VALUE #(
-*                      ( key = 'GAL' text = 'Gallon' )
-*                      ( key = 'KG'  text = 'Kilogram' )
-*                      ( key = 'LTR' text = 'Liter' )
-*                      ( key = 'MT'  text = 'Metric Ton' )
-*                    ).
-*    ENDCASE.
 
 
 
