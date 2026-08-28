@@ -76,7 +76,16 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
     " (prefix and all) rather than an empty label, so the failure is a
     " visible "OTR:..." on screen, not a blank one nobody can explain.
     IF strlen( rv ) > 4 AND substring( val = rv len = 4 ) = 'OTR:'.
-      DATA(lv_alias) = substring( val = rv off = 4 ).
+*     TYPE sotr_alias, not the STRING SUBSTRING( ) returns by default - a
+*     function module's import parameters are typed strictly, unlike a
+*     method's by-reference binding. Passing a STRING here dumped
+*     CX_SY_DYN_CALL_ILLEGAL_TYPE at runtime: "a field may have been
+*     assigned to the parameter ALIAS whose type is not compatible with
+*     this parameter." ZCL_C022_KHULA_CERTI_LOGIC's own GET_OTR_TEXT_BY_ALIAS
+*     already calls this same FM with IV_ALIAS TYPE SOTR_ALIAS - this now
+*     matches it.
+      DATA lv_alias TYPE sotr_alias.
+      lv_alias = substring( val = rv off = 4 ).
       DATA lv_otr TYPE sotr_txt.
       CLEAR lv_otr.
       CALL FUNCTION 'SOTR_GET_TEXT_KEY'
