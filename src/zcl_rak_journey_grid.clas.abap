@@ -911,8 +911,15 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *   Same option source (ROLLNAME, else the handler) the editable combobox
 *   uses further down. A key with no matching option falls back to itself,
 *   same as before this existed.
-    LOOP AT lt_gc INTO DATA(ls_selcol) WHERE ctype = 'SELECT'
-                                         AND ( readonly = abap_true OR lv_ro = abap_true ).
+    LOOP AT lt_gc INTO DATA(ls_selcol) WHERE ctype = 'SELECT'.
+*     LV_RO is not a component of LT_GC, so it cannot sit in the LOOP...WHERE
+*     above - every comparison there needs a table component on one side,
+*     and "no component exists with the name LV_RO" is what the compiler
+*     says when one doesn't. Filtered here instead, same condition as the
+*     read-only cell binding further down.
+      IF ls_selcol-readonly = abap_false AND lv_ro = abap_false.
+        CONTINUE.
+      ENDIF.
       DATA lt_sopt TYPE zif_rak_journey=>tt_option.
       CLEAR lt_sopt.
       IF ls_selcol-src IS NOT INITIAL.
