@@ -419,6 +419,17 @@ CLASS zcl_rak_cjs DEFINITION
     DATA mv_pn_cols      TYPE abap_bool.
     DATA mv_pn_rules     TYPE abap_bool.
     DATA mv_pn_doc       TYPE abap_bool.
+*   Validation and ShapeIt cross-check never got the fix above: their EXPANDED
+*   was computed fresh every render from the issue count, with no EXPAND event
+*   and no state variable to remember a manual collapse. Any round trip after
+*   the one that drew them - editing a field, saving, anything - rebuilds the
+*   view from scratch and puts them straight back to whatever the count says,
+*   undoing whatever the author just clicked. Reads as "expand/collapse not
+*   working". Both default to collapsed (ABAP-initial FALSE): a panel that is
+*   never force-open lets the header's own issue count be the summary, and an
+*   author who wants the detail can still open it themselves.
+    DATA mv_pn_lint      TYPE abap_bool.
+    DATA mv_pn_xchk      TYPE abap_bool.
 *   Panel key to bring into view on THIS render, then cleared. Empty means the
 *   page keeps the scroll position it had - see SCROLL_JS.
     DATA mv_focus        TYPE string.
@@ -664,6 +675,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         WHEN 'COLS'.  mv_pn_cols  = xsdbool( mv_pn_cols  = abap_false ).
         WHEN 'RULES'. mv_pn_rules = xsdbool( mv_pn_rules = abap_false ).
         WHEN 'DOC'.   mv_pn_doc   = xsdbool( mv_pn_doc   = abap_false ).
+        WHEN 'LINT'.  mv_pn_lint  = xsdbool( mv_pn_lint  = abap_false ).
+        WHEN 'XCHK'.  mv_pn_xchk  = xsdbool( mv_pn_xchk  = abap_false ).
       ENDCASE.
 *     Deliberately NOT returning here. MV_LINT_OK was cleared at the top of this
 *     method, so a short-circuit would render the field list with an empty !
@@ -4731,7 +4744,8 @@ TO rt.
                            THEN |Validation — { to_upper( mv_journey_id ) } — no issues|
                            ELSE |Validation — { to_upper( mv_journey_id ) } — { lines( lt ) } issue{ COND string( WHEN lines( lt ) = 1 THEN `` ELSE `s` ) }| )
       expandable = abap_true
-      expanded   = xsdbool( lt IS NOT INITIAL )
+      expanded   = mv_pn_lint
+      expand     = mo_client->_event( 'PNL~LINT' )
       class      = 'sapUiSmallMarginBeginEnd' ).
     IF lt IS INITIAL.
       p->message_strip( text = 'No structural problems detected in the current draft.' type = 'Success' showicon = abap_true class = 'sapUiSmallMargin' ).
@@ -4790,8 +4804,12 @@ TO rt.
 *   this one describes the journey AS SAVED. Two different objects, and showing
 *   them as one list would make a stale finding look current.
 *
-*   Collapsed unless something blocks, because the healthy answer is a single
-*   "CJS and ShapeIt agree" line and an author does not need that unfolded.
+*   Collapsed by default, same as every other panel here (MV_PN_XCHK) - the
+*   header's own "N blocker(s)"/"N note(s)" count is the summary, and the
+*   author decides whether the detail is worth opening. It used to force
+*   itself open on a blocker via a freshly-computed EXPANDED with no EXPAND
+*   event, which also meant a manual collapse never survived the next round
+*   trip - see MV_PN_LINT's declaration for the fuller version of this.
     IF mt_xchk IS NOT INITIAL.
       DATA(lv_xbad) = REDUCE i( INIT k = 0 FOR x IN mt_xchk
                                 WHERE ( type = 'Error' ) NEXT k = k + 1 ).
@@ -4804,7 +4822,8 @@ TO rt.
 *                    reads as a verdict on what is on screen, which it is not.
                      COND string( WHEN mv_dirty = abap_true THEN ` · as last saved, not the current draft` )
         expandable = abap_true
-        expanded   = xsdbool( lv_xbad > 0 )
+        expanded   = mv_pn_xchk
+        expand     = mo_client->_event( 'PNL~XCHK' )
         class      = 'sapUiSmallMarginBeginEnd' ).
       LOOP AT mt_xchk INTO DATA(mx).
         px->message_strip(
