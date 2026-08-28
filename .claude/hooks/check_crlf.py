@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
-"""PostToolUse (Write|Edit|MultiEdit), files under src/: verify CRLF survived.
+"""PostToolUse (Write|Edit|MultiEdit), files under src/: verify LF survived.
 
-CLAUDE.md: "Source files are CRLF. sed -i strips them on this machine; use
-perl -i -pe and check file -b afterwards." This reads the file back off disk
-(the edit has already happened) and nudges Claude to fix it in place if any
-bare LF (not preceded by CR) turns up, rather than blocking the turn.
+This repo's git history stores every src/ file as plain LF - checked with
+`git show HEAD:<path> | file -` across every file type here (.abap, .xml),
+zero exceptions found. CLAUDE.md used to claim these files were CRLF; that
+was wrong for this repository (it may describe a different working copy,
+e.g. one synced live against SAP via abapGit) and cost a real session a
+spurious six-file, ~10k-line diff before the mistake was caught. Fixed
+2026-08-28 - see the session that found this. Match what's actually in git:
+flag a file that GAINED CRLF line endings, not one that lost them.
+
+This reads the file back off disk (the edit has already happened) and nudges
+Claude to fix it in place, rather than blocking the turn.
 """
 import sys
 from _common import read_input, file_path, note
@@ -22,15 +29,13 @@ try:
 except OSError:
     sys.exit(0)
 
-if b"\n" not in raw:
-    sys.exit(0)
-
-bare_lf = raw.count(b"\n") - raw.count(b"\r\n")
-if bare_lf > 0:
+crlf = raw.count(b"\r\n")
+if crlf > 0:
     note(
-        f"{path} now has {bare_lf} bare LF line ending(s) — CJS source files are CRLF. "
-        "This is likely sed -i or a plain text write stripping them. Fix with "
-        "perl -i -pe 's/(?<!\\r)\\n/\\r\\n/g' on this file, then confirm with file -b."
+        f"{path} now has {crlf} CRLF line ending(s) — this repo's git history stores "
+        "src/ files as plain LF (verified across every file here), so this file just "
+        "picked up line endings that don't match the rest of the repo. Fix with "
+        "perl -i -pe 's/\\r\\n/\\n/g' on this file, then confirm with file -b."
     )
 
 sys.exit(0)

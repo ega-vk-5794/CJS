@@ -115,6 +115,17 @@ These raise nothing and render nothing. They account for most of the bugs found 
   as the field's value — without that guard a consent checkbox renders pre-ticked and passes
   its own required check. `ZCL_RAK_CJS_XCHECK` rule **X13** reports any label sitting exactly
   at 150 characters, which is what a truncated one looks like.
+- **`OTR:<alias>` in any bilingual text column resolves to that OTR concept, live, on every
+  round trip.** `ZCL_RAK_JOURNEY_REPO->PICK( )` — the one place every `ZLABEL`/`ZLABEL_AR`,
+  `MSG`/`MSG_AR`, `PLACEHOLDER`/`PLACEHOLDER_AR`, `ZSECTION`/`ZSECTION_AR`, title, subtitle and
+  option-text pair already resolves EN/AR through — checks for the prefix after picking a
+  language and, if present, calls `SOTR_GET_TEXT_KEY` with the rest of the string as the alias
+  and the resolved language. `ENSURE_CONFIG( )` rebuilds `MS_CONFIG` from scratch every round
+  trip (nothing here is cached across requests), so this genuinely re-resolves each time — a
+  wording change in SOTR reaches the journey with no redeploy. An alias with no OTR entry falls
+  back to the literal `OTR:...` string, on screen, rather than going blank — a visible symptom
+  instead of a silent one. Existing literal text is unaffected: only a value that starts with
+  the four characters `OTR:` is treated this way.
 
 ## Conventions
 
@@ -144,10 +155,22 @@ These raise nothing and render nothing. They account for most of the bugs found 
   the signature. Several single-line `io_form->input( ... )` calls in `ZCL_RAK_JOURNEY_RENDER`
   already sit in the 250s, so adding one parameter tips them over. After editing, check with
   `awk 'length($0)>255' src/*.abap` and split the call across lines.
-- **Source files are CRLF.** `sed -i` strips them on this machine; use `perl -i -pe` and check
-  `file -b` afterwards.
-- **New engine capability?** Cover it in `ZCL_RAK_TEST_ALL_LOGIC`, which exercises every hook
-  and runs with no database dependency.
+- **Source files in this git history are LF, not CRLF** — checked with `git show HEAD:<path> |
+  file -` across every `.abap` and `.xml` file here, zero CRLF found. (An earlier version of
+  this file claimed the opposite; that claim cost a real session a spurious six-file diff before
+  `check_crlf.py` was caught nudging the wrong direction and both were fixed. If you're editing
+  against a *different* working copy — one synced live from SAP via abapGit rather than this git
+  history — re-check with `file -b` before trusting either direction.) `sed -i` and a plain-text
+  `Write` can still silently normalize line endings depending on the tool; if a diff on a file
+  you touched looks far larger than your edit, check `file -b` before committing.
+- **New engine capability?** Cover it in `ZCL_RAK_TEST_ALL_LOGIC` if it's a **hook** (`on_*`,
+  `render_*` — see the class header for the full list); it exercises every hook with no database
+  dependency. If it's config-only framework behaviour instead — a rule, a validation, a grid
+  column property — a hook class can't reach it: seed a small, self-contained, re-runnable
+  journey instead, the way `ZRAK_SEED_GRIDTEST` (grid/rules features) and `ZRAK_SEED_VALIDTEST`
+  (scalar validation features) do. Neither needs `ZCL_RAK_MIGRATOR`: both are throwaway
+  `journey_id`s that delete their own rows first, not production journeys, so the rule two lines
+  up doesn't apply to them.
 
 ## Hooks
 
@@ -160,13 +183,16 @@ mistake lands rather than relying on this file being read closely:
 | `block_legacy_writes.py` | PreToolUse (Write/Edit/MultiEdit) | The namespace boundary — denies creating/editing a legacy-namespace object |
 | `check_journey_rules.py` | PreToolUse (Write/Edit/MultiEdit) | `ON_CUSTOM_VALIDATE` redefinitions call `super->` before any `CHECK`; `commit_step( )` is never called from `ON_BEFORE_POST`/`ON_BEFORE_TABLES` |
 | `protect_abapgit_config.py` | PreToolUse (Write/Edit/MultiEdit) | Asks for confirmation before touching `.abapgit.xml` / `*.devc.xml` |
-| `check_crlf.py` | PostToolUse (Write/Edit/MultiEdit) | Flags a file under `src/` that lost its CRLF line endings |
+| `check_crlf.py` | PostToolUse (Write/Edit/MultiEdit) | Flags a file under `src/` that gained CRLF line endings, since this repo's git history is LF |
 
-> **They are not running on this machine.** Every hook shells out to `python3`, which here
-> resolves to the Windows Store alias stub: it prints an install message and **exits 0**, so
-> every check silently passes. Verify with `echo '{}' | python3 .claude/hooks/check_crlf.py`
-> before trusting anything below. Until a real Python is on PATH, the CRLF rule and the
-> namespace boundary are conventions you enforce by hand, not guardrails.
+> **Whether these run depends on whether `python3` is on PATH.** On a machine where it resolves
+> to a stub (the Windows Store alias is the one that's bitten this project before), every hook
+> prints an install message and **exits 0**, so every check silently passes — verify with
+> `echo '{}' | python3 .claude/hooks/check_crlf.py` before trusting anything below. On other
+> machines, including at least one Claude Code cloud/remote session, `python3` is real and these
+> hooks fire for real: a `check_crlf.py` nudge landed and was acted on mid-session. Don't assume
+> either way — check on the machine you're actually on, and don't trust a hook's nudge over
+> `git show HEAD:<path> | file -` if the two disagree, per the CRLF note above.
 
 These are static, regex-based checks on the text being written — they catch the shape of a
 known mistake, not everything semantically wrong. They deny/ask before the tool call, except
@@ -216,9 +242,12 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
 
 ## Open items
 
-- **Two DDIC changes are in git but not necessarily in SAP**: `ZRAK_T_JNY` gained
-  `DRAFT_MODE` / `ATTACH_MODE`, `ZRAK_CJ_LAY` gained `FLOW`. Both need activation **and a table
-  adjust** before the code reading them behaves.
+- **Three DDIC changes are in git but not necessarily in SAP**: `ZRAK_T_JNY` gained
+  `DRAFT_MODE` / `ATTACH_MODE`, `ZRAK_CJ_LAY` gained `FLOW`, and `ZRAK_T_JNY_FLD` gained
+  `ZSECTION_AR`. All three need activation **and a table adjust** before the code reading them
+  behaves. `ZSECTION_AR` additionally needs its Studio maintenance screen regenerated — the
+  `ZCL_RAK_CJS` field editor already has a "Section (AR)" input wired to it, but the column
+  won't reach a plain SM30/view-cluster screen on `ZRAK_T_JNY_FLD` until that's done.
 - `ZRAK_CJ_ATT_PURGE` **has never been run.** Nothing has ever purged `ZRAK_CJ_ATTX`, so every
   file staged against an abandoned journey is still there with its content and its uploader.
   Test run is the default; schedule it once the retention days are agreed.
