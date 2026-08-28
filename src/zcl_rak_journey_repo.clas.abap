@@ -63,6 +63,36 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
     " Arabic preferred when lang = 'A', falling back to English
     rv = COND #( WHEN iv_lang = 'A' AND iv_ar IS NOT INITIAL THEN iv_ar
                  ELSE iv_en ).
+
+    " OTR:<alias> lets a config text stay single-sourced with an SAP OTR
+    " concept instead of being frozen at whatever it was when someone last
+    " typed it into the Studio - the same choice a Studio-editable text and
+    " a runtime-resolved one used to force, never both at once. Every
+    " bilingual text column passes through PICK( ), and PICK( ) runs every
+    " time BUILD_CONFIG( ) rebuilds MS_CONFIG - which ENSURE_CONFIG( ) does
+    " on every round trip, nothing here is cached across requests - so this
+    " already IS "resolved at render time", not merely at Studio save.
+    " A missing or deleted OTR concept falls back to the stored literal
+    " (prefix and all) rather than an empty label, so the failure is a
+    " visible "OTR:..." on screen, not a blank one nobody can explain.
+    IF strlen( rv ) > 4 AND substring( val = rv len = 4 ) = 'OTR:'.
+      DATA(lv_alias) = substring( val = rv off = 4 ).
+      DATA lv_otr TYPE sotr_txt.
+      CLEAR lv_otr.
+      CALL FUNCTION 'SOTR_GET_TEXT_KEY'
+        EXPORTING
+          alias           = lv_alias
+          langu           = iv_lang
+        IMPORTING
+          e_text          = lv_otr
+        EXCEPTIONS
+          no_entry_found  = 1
+          parameter_error = 2
+          OTHERS          = 3.
+      IF sy-subrc = 0 AND lv_otr IS NOT INITIAL.
+        rv = lv_otr.
+      ENDIF.
+    ENDIF.
   ENDMETHOD.
 
 
@@ -142,7 +172,7 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
           placeholder  = pick( iv_en = ls_f-placeholder iv_ar = ls_f-placeholder_ar iv_lang = iv_lang )
           default      = ls_f-default_val
           group        = ls_f-fgroup
-          section      = ls_f-zsection
+          section      = pick( iv_en = ls_f-zsection iv_ar = ls_f-zsection_ar iv_lang = iv_lang )
           has_attach   = bool( ls_f-has_attach )
           attach_label = ls_f-attach_label
           attach_types = ls_f-attach_types

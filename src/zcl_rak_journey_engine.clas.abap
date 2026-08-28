@@ -269,6 +269,18 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     DATA(ls_get)   = mo_client->get( ).
     DATA(lv_event) = ls_get-event.
 
+*   Refresh the rule state against THIS round trip's field values before
+*   dispatching the event. An INPUT-triggered rule's field arrives already
+*   updated in the model (the blur that types the value and the button
+*   press that submits it land in the same round trip), but MT_RULEREQ /
+*   MT_RULERO / MT_RULEEDIT otherwise still hold what EVAL_RULES( ) computed
+*   last round trip. VALIDATE_STEP( ) / VALIDATE_ALL( ) - reached from NEXT
+*   and SUBMIT below - would then check requiredness against stale rule
+*   state while the render at the bottom of this method draws the fresh
+*   one, so a field could be validated and rendered as disagreeing answers
+*   to the same round trip.
+    mo_rules->eval_rules( ).
+
     IF strlen( lv_event ) > 7 AND substring( val = lv_event len = 7 ) = 'SEARCH_'.
       IF mo_logic IS BOUND.
         mo_logic->on_search( io_ctx = me iv_field = substring( val = lv_event off = 7 ) ).
@@ -831,6 +843,20 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                 APPEND VALUE #( name = gc-name
                                 type = COND #( WHEN gc-name CP '*_EN' OR gc-ctype = 'CHECKBOX'
                                               THEN lo_bool ELSE lo_str ) ) TO lt_rowcomp.
+              ENDIF.
+*             A read-only SELECT column shows the resolved option label, not
+*             the stored key (ZCL_RAK_JOURNEY_GRID->RENDER_GRID resolves it
+*             into this companion, once per column, before the table
+*             binds - the cell template is one control shared by every row,
+*             so there is no per-row place to do the lookup at render time).
+*             4 characters, well inside the 23-character base COMP_NAME( )
+*             already leaves for the longest existing companion.
+              IF gc-ctype = 'SELECT'.
+                DATA(lv_txtname) = |{ gc-name }_TXT|.
+                READ TABLE lt_rowcomp WITH KEY name = lv_txtname TRANSPORTING NO FIELDS.
+                IF sy-subrc <> 0.
+                  APPEND VALUE #( name = lv_txtname type = lo_str ) TO lt_rowcomp.
+                ENDIF.
               ENDIF.
             ENDLOOP.
             DATA(lo_row)  = cl_abap_structdescr=>create( lt_rowcomp ).

@@ -903,6 +903,40 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       lv_footer = concat_lines_of( table = lt_parts sep = `   |   ` ).
     ENDIF.
 
+*   A read-only SELECT column would otherwise show the stored KEY, not the
+*   option text - the cell template below is one Text control shared by
+*   every row, with no per-row place to resolve a key to its label. So
+*   resolve it here instead, once per column, into the <col>_TXT companion
+*   BUILD_MODEL( ) gives every SELECT column, before the table binds.
+*   Same option source (ROLLNAME, else the handler) the editable combobox
+*   uses further down. A key with no matching option falls back to itself,
+*   same as before this existed.
+    LOOP AT lt_gc INTO DATA(ls_selcol) WHERE ctype = 'SELECT'
+                                         AND ( readonly = abap_true OR lv_ro = abap_true ).
+      DATA lt_sopt TYPE zif_rak_journey=>tt_option.
+      CLEAR lt_sopt.
+      IF ls_selcol-src IS NOT INITIAL.
+        lt_sopt = mo_e->mo_render->f4_opts( VALUE #( rollname = ls_selcol-src ) ).
+      ELSEIF mo_e->mo_logic IS BOUND.
+        TRY.
+            lt_sopt = mo_e->mo_logic->on_value_help( io_ctx = mo_e iv_field = |{ is_field-name }.{ ls_selcol-name }| ).
+          CATCH cx_root.
+            CLEAR lt_sopt.
+        ENDTRY.
+      ENDIF.
+      DATA(lv_txtcomp) = |{ ls_selcol-name }_TXT|.
+      LOOP AT <tab> ASSIGNING FIELD-SYMBOL(<srow>).
+        ASSIGN COMPONENT ls_selcol-name OF STRUCTURE <srow> TO FIELD-SYMBOL(<skey>).
+        CHECK sy-subrc = 0.
+        ASSIGN COMPONENT lv_txtcomp OF STRUCTURE <srow> TO FIELD-SYMBOL(<stxt>).
+        CHECK sy-subrc = 0.
+        READ TABLE lt_sopt INTO DATA(ls_sopt) WITH KEY key = <skey>.
+        <stxt> = COND #( WHEN sy-subrc = 0
+                          THEN zcl_rak_journey_util=>opt_text( iv_key = ls_sopt-key iv_text = ls_sopt-text )
+                          ELSE <skey> ).
+      ENDLOOP.
+    ENDLOOP.
+
     DATA(lo_tab) = lo_box->table( items              = mo_e->mo_client->_bind_edit( <tab> )
                                   alternaterowcolors = abap_true
                                   class              = 'sapUiSmallMarginTop'
@@ -977,12 +1011,12 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *     explicit conversion, not an implicit one, to reach it.
       DATA(lv_maxlen) = COND string( WHEN gc-maxlen > 0 THEN |{ gc-maxlen }| ELSE `` ).
       IF lv_ro = abap_true OR gc-readonly = abap_true.
-*       One Text per cell, bound to the same model path the input would have
-*       used. A SELECT column therefore shows the stored KEY, not the option
-*       text: the cell template is one control for every row, so there is no
-*       per-row place to resolve a key to its label. If the label matters, store
-*       it in the row alongside the key.
-        lo_cells->text( text = lv_path visible = lv_vis ).
+*       A SELECT column binds to its resolved <col>_TXT companion instead of
+*       the raw key path - populated once above, before the table bound.
+*       Every other read-only ctype still shows its own stored value; there
+*       is nothing to resolve for those.
+        DATA(lv_rop) = COND string( WHEN gc-ctype = 'SELECT' THEN |\{{ gc-name }_TXT\}| ELSE lv_path ).
+        lo_cells->text( text = lv_rop visible = lv_vis ).
         CONTINUE.
       ENDIF.
       CASE gc-ctype.

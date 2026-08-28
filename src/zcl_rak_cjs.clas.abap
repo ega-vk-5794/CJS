@@ -33,6 +33,7 @@ CLASS zcl_rak_cjs DEFINITION
         default_val  TYPE string,
         fgroup       TYPE string,
         section      TYPE string,
+        section_ar   TYPE string,
         fstate       TYPE string,
         width        TYPE string,
         hidden       TYPE abap_bool,
@@ -262,6 +263,7 @@ CLASS zcl_rak_cjs DEFINITION
     DATA fv_default  TYPE string.
     DATA fv_group    TYPE string.
     DATA fv_sect     TYPE string.
+    DATA fv_sect_ar  TYPE string.
     DATA fv_state    TYPE string.
     DATA fv_width    TYPE string.
     DATA fv_hidden   TYPE abap_bool.
@@ -709,7 +711,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         clear_field_form( ).
         fv_step = ls_dup-step_id. fv_field = |{ ls_dup-field_name }2|. fv_type = ls_dup-ftype.
         fv_label = ls_dup-label. fv_label_ar = ls_dup-label_ar. fv_place = ls_dup-placeholder. fv_place_ar = ls_dup-place_ar.
-        fv_default = ls_dup-default_val. fv_group = ls_dup-fgroup. fv_sect = ls_dup-section.
+        fv_default = ls_dup-default_val. fv_group = ls_dup-fgroup. fv_sect = ls_dup-section. fv_sect_ar = ls_dup-section_ar.
         fv_state = ls_dup-fstate. fv_width = ls_dup-width.
         fv_hidden = ls_dup-hidden. fv_readonly = ls_dup-readonly. fv_req = ls_dup-required.
         fv_regex = ls_dup-regex. fv_minlen = ls_dup-min_len. fv_maxlen = ls_dup-max_len.
@@ -739,7 +741,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       IF sy-subrc = 0.
         fv_seq = ls_ef-seqnr. fv_step = ls_ef-step_id. fv_field = ls_ef-field_name. fv_type = ls_ef-ftype.
         fv_label = ls_ef-label. fv_label_ar = ls_ef-label_ar. fv_place = ls_ef-placeholder. fv_place_ar = ls_ef-place_ar.
-        fv_default = ls_ef-default_val. fv_group = ls_ef-fgroup. fv_sect = ls_ef-section.
+        fv_default = ls_ef-default_val. fv_group = ls_ef-fgroup. fv_sect = ls_ef-section. fv_sect_ar = ls_ef-section_ar.
         fv_state = ls_ef-fstate. fv_width = ls_ef-width.
         fv_hidden = ls_ef-hidden. fv_readonly = ls_ef-readonly. fv_req = ls_ef-required.
         fv_regex = ls_ef-regex. fv_minlen = ls_ef-min_len. fv_maxlen = ls_ef-max_len.
@@ -1063,7 +1065,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
               <f> = VALUE #( seqnr = lv_fseq step_id = to_upper( fv_step ) field_name = to_upper( fv_field )
                              ftype = to_upper( fv_type ) label = fv_label label_ar = fv_label_ar
                              placeholder = fv_place place_ar = fv_place_ar default_val = fv_default
-                             fgroup = fv_group section = fv_sect fstate = fv_state width = fv_width
+                             fgroup = fv_group section = fv_sect section_ar = fv_sect_ar fstate = fv_state width = fv_width
                              hidden = fv_hidden readonly = fv_readonly required = fv_req
                              regex = fv_regex min_len = fv_minlen max_len = fv_maxlen
                              min_val = fv_minval max_val = fv_maxval msg = fv_msg msg_ar = fv_msg_ar
@@ -1222,7 +1224,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     LOOP AT lf INTO DATA(f).
       APPEND VALUE #( seqnr = |{ f-seqnr }| step_id = f-step_id field_name = f-field_name ftype = f-ftype
                       label = f-zlabel label_ar = f-zlabel_ar placeholder = f-placeholder place_ar = f-placeholder_ar
-                      default_val = f-default_val fgroup = f-fgroup section = f-zsection fstate = f-fstate width = f-width
+                      default_val = f-default_val fgroup = f-fgroup section = f-zsection section_ar = f-zsection_ar fstate = f-fstate width = f-width
                       hidden = xsdbool( f-hidden = 'X' ) readonly = xsdbool( f-readonly = 'X' ) required = xsdbool( f-required = 'X' )
                       regex = f-regex min_len = |{ f-min_len }| max_len = |{ f-max_len }| min_val = f-min_val max_val = f-max_val
                       msg = f-msg msg_ar = f-msg_ar
@@ -1407,7 +1409,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       INSERT zrak_t_jny_fld FROM @( VALUE #( mandt = sy-mandt journey_id = jid step_id = f-step_id
         field_name = f-field_name seqnr = to_int( f-seqnr ) ftype = f-ftype
         zlabel = f-label zlabel_ar = f-label_ar placeholder = f-placeholder placeholder_ar = f-place_ar
-        default_val = f-default_val fgroup = f-fgroup zsection = f-section fstate = f-fstate width = f-width
+        default_val = f-default_val fgroup = f-fgroup zsection = f-section zsection_ar = f-section_ar fstate = f-fstate width = f-width
         hidden   = COND string( WHEN f-hidden   = abap_true THEN 'X' ELSE ' ' )
         readonly = COND string( WHEN f-readonly = abap_true THEN 'X' ELSE ' ' )
         required = COND string( WHEN f-required = abap_true THEN 'X' ELSE ' ' )
@@ -1964,6 +1966,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     f->label( 'Group' ).      f->input( value = mo_client->_bind_edit( fv_group )
     placeholder = 'container heading, OR ROW:name to share a row with the neighbouring ROW:name fields' ).
     f->label( 'Section' ).    f->input( value = mo_client->_bind_edit( fv_sect ) ).
+    f->label( 'Section (AR)' ). f->input( value = mo_client->_bind_edit( fv_sect_ar ) ).
 *   Stored in ZRAK_T_JNY_FLD-WIDTH, but ZCL_RAK_JOURNEY_UTIL=>CTRL_WIDTH( )
 *   never reads it - the renderer calls that method and it returns a per-type
 *   default and nothing else. Say so rather than let an author set a width and
@@ -2640,7 +2643,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
   METHOD clear_field_form.
     CLEAR: mt_grid_preview, mv_grid_sel, mv_grid_warn.
     CLEAR: fv_seq, fv_field, fv_type, fv_label, fv_label_ar, fv_place, fv_place_ar, fv_default,
-           fv_group, fv_sect, fv_state, fv_width, fv_hidden, fv_readonly, fv_req, fv_regex,
+           fv_group, fv_sect, fv_sect_ar, fv_state, fv_width, fv_hidden, fv_readonly, fv_req, fv_regex,
            fv_minlen, fv_maxlen, fv_minval, fv_maxval, fv_msg, fv_msg_ar, fv_tech, fv_roll, fv_shlp, fv_dom,
            fv_hasatt, fv_attlabel, fv_atttypes, fv_attmb, fv_attmulti.
   ENDMETHOD.

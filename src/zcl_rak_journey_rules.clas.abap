@@ -218,7 +218,14 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    LOOP AT ls_ms-fields INTO DATA(ls_mf) WHERE readonly = abap_false.
+*   READONLY is deliberately NOT filtered here. A read-only field can still
+*   be REQUIRED - the citizen does not type it, but something else must
+*   (a popup, ON_INIT seeding, a rule SET action) before submit. The
+*   WebDynpro original enforced exactly this: CHECK_MANDATORY_ATTR_ON_VIEW
+*   tests the bound context attribute, not whether the control is
+*   editable. Genuinely unenforceable field types (DISPLAY, TABLE, UPLOAD,
+*   STATUS, OBJNUM, PROGRESS, LINK) are still excluded below, by FTYPE.
+    LOOP AT ls_ms-fields INTO DATA(ls_mf).
       IF is_hidden( ls_mf ) = abap_true
          OR ls_mf-type = 'PAYFEE' OR ls_mf-type = 'REQPANEL'.
         CONTINUE.
@@ -282,6 +289,34 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
                                       WHEN sy-langu = 'A'
                                       THEN |{ gcr-label } مطلوب في كل صف من { ls_mf-label }|
                                       ELSE |{ gcr-label } is required on every row of { ls_mf-label }| ) ) TO rt.
+                    EXIT.
+                  ENDIF.
+                ENDLOOP.
+              ENDLOOP.
+
+*             GC-MAXLEN reaches the cell as the browser control's maxlength
+*             attribute only (ZCL_RAK_JOURNEY_GRID) - nothing server-side
+*             re-tested it, unlike ZRAK_T_JNY_FLD-MAX_LEN which VALIDATE_STEP
+*             already re-checks with STRLEN( ) for a scalar field. A request
+*             that did not come from the rendered page could overflow a
+*             component such as a CHAR(2) column, truncating silently on
+*             assignment rather than failing. Same walk as REQUIRED above,
+*             gated on MAXLEN > 0 instead.
+              LOOP AT lt_gcr INTO gcr WHERE maxlen > 0.
+                LOOP AT <tab_r> ASSIGNING <row_r>.
+                  ASSIGN COMPONENT gcr-name OF STRUCTURE <row_r> TO <cell_r>.
+*                 CONV string( ) rather than STRLEN( <cell_r> ) directly - <cell_r>
+*                 is TYPE any, and a numeric column's runtime type is not
+*                 guaranteed character-like, which STRLEN( ) requires.
+                  IF sy-subrc = 0 AND strlen( CONV string( <cell_r> ) ) > gcr-maxlen.
+                    APPEND VALUE #( name  = |{ ls_mf-name }.{ gcr-name }|
+                                    label = |{ ls_mf-label } - { gcr-label }|
+                                    kind  = 'VAL'
+                                    msg   = COND string(
+                                      WHEN sy-langu = 'A'
+                                      THEN |{ gcr-label } في { ls_mf-label } لا يتجاوز { gcr-maxlen } حرف|
+                                      ELSE |{ gcr-label } in { ls_mf-label } must be at most | &&
+                                           |{ gcr-maxlen } characters| ) ) TO rt.
                     EXIT.
                   ENDIF.
                 ENDLOOP.
@@ -407,7 +442,16 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
 *     for SLIDER/STEPPER/RATING are enforced by their controls, so only the
 *     free-entry numeric types are checked here. DATE range is intentionally
 *     not handled yet (bind format must be confirmed first).
-      IF ( ls_f-type = 'NUMBER' OR ls_f-type = 'CURRENCY' )
+*
+*     INPUT is included deliberately: type = 'Number' on a value that is not
+*     safely numeric renders an empty sap.m.Input (see CLAUDE.md), so a
+*     bounded numeric answer that must still render as free text has no
+*     honest way to reach NUMBER/CURRENCY. The CATCH below already turns a
+*     non-numeric INPUT value into "must be a valid number" rather than a
+*     dump, so configuring MIN_VAL/MAX_VAL on a genuinely textual INPUT field
+*     is now the failure mode - the citizen is loudly told, not silently
+*     ignored as before.
+      IF ( ls_f-type = 'NUMBER' OR ls_f-type = 'CURRENCY' OR ls_f-type = 'INPUT' )
          AND ( lv_v-min_val IS NOT INITIAL OR lv_v-max_val IS NOT INITIAL ).
         TRY.
             DATA(lv_num) = CONV decfloat34( lv_val ).
