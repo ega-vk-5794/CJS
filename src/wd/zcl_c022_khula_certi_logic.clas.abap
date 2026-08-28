@@ -59,7 +59,25 @@ public section.
     METHODS t100_text
       IMPORTING iv_id          TYPE symsgid
                 iv_no          TYPE symsgno
+                iv_v1          TYPE symsgv DEFAULT space
+                iv_v2          TYPE symsgv DEFAULT space
+                iv_v3          TYPE symsgv DEFAULT space
+                iv_v4          TYPE symsgv DEFAULT space
       RETURNING VALUE(rv_text) TYPE string.
+
+    METHODS date_display
+      IMPORTING iv_int    TYPE d
+      RETURNING VALUE(rv) TYPE string.
+
+    METHODS date_order_msg
+      IMPORTING iv_a_en   TYPE string
+                iv_a_ar   TYPE string
+                iv_a_val  TYPE d
+                iv_before TYPE abap_bool
+                iv_b_en   TYPE string
+                iv_b_ar   TYPE string
+                iv_b_val  TYPE d
+      RETURNING VALUE(rv) TYPE string.
 
     " Origin: VIEW_MAIN->E_GET_HELP_URL. Maps SERVICE_TYPE to a help code
     METHODS refresh_help_url
@@ -483,6 +501,47 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD DATE_DISPLAY.
+*&---------------------------------------------------------------------*
+*& date_display — internal YYYYMMDD -> DD.MM.YYYY for a message.
+*& io_ctx hands DATE fields over as ISO 'YYYY-MM-DD' and CONV_DATE_INTERNAL
+*& turns that into YYYYMMDD; neither is what a citizen recognises mid-sentence.
+*& One place to change if the portal ever shows a different format.
+*&---------------------------------------------------------------------*
+    IF iv_int IS INITIAL.
+      RETURN.
+    ENDIF.
+    rv = |{ iv_int+6(2) }.{ iv_int+4(2) }.{ iv_int(4) }|.
+  ENDMETHOD.
+
+
+  METHOD DATE_ORDER_MSG.
+*&---------------------------------------------------------------------*
+*& date_order_msg — "<date A> cannot be after/before <date B>".
+*& The WD raises ONE generic OTR text per date for every ordering rule that
+*& date takes part in ("Please check date value for last divorce date"), so the
+*& citizen cannot tell which comparison failed. These messages name both dates,
+*& the direction, AND each date's value - five of the six comparisons read a date
+*& owned by an earlier step, so without the values the citizen has to walk back
+*& through the wizard to see what they entered. Deliberately not the OTR wording:
+*& the field NAMES inside them are the OTR labels, but the sentence is ours.
+*&---------------------------------------------------------------------*
+    DATA(lv_a) = |{ iv_a_ar } ({ date_display( iv_a_val ) })|.
+    DATA(lv_b) = |{ iv_b_ar } ({ date_display( iv_b_val ) })|.
+    IF sy-langu = 'A'.
+      rv = COND string( WHEN iv_before = abap_true
+                        THEN |لا يمكن أن يكون { lv_a } قبل { lv_b }|
+                        ELSE |لا يمكن أن يكون { lv_a } بعد { lv_b }| ).
+    ELSE.
+      lv_a = |{ iv_a_en } ({ date_display( iv_a_val ) })|.
+      lv_b = |{ iv_b_en } ({ date_display( iv_b_val ) })|.
+      rv = COND string( WHEN iv_before = abap_true
+                        THEN |{ lv_a } cannot be before { lv_b }|
+                        ELSE |{ lv_a } cannot be after { lv_b }| ).
+    ENDIF.
+  ENDMETHOD.
+
+
   METHOD T100_TEXT.
 *&---------------------------------------------------------------------*
 *& t100_text — a T100 message's text in the logon language.
@@ -500,6 +559,10 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         id     = iv_id
         lang   = sy-langu
         no     = iv_no
+        v1     = iv_v1
+        v2     = iv_v2
+        v3     = iv_v3
+        v4     = iv_v4
       IMPORTING
         msg    = lv_text
       EXCEPTIONS
@@ -777,31 +840,23 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         ENDIF.
 
       WHEN c_step_divo.
-        "   DIVO — Divorce Details. The date-ordering rule lives here because
-        "   this is the LAST step that owns any of its fields: marriage contract
+        "   DIVO — Divorce Details. Only the contract-vs-divorce ordering lives
+        " here: DIVO is the last step that owns either of those two dates. The
+        " two comparisons involving FIRST_MARR_CTR_DT and LAST_DIV_DATE moved to
+        " HIST when those fields did - validate on the step that owns the field,
+        " or the check runs before the citizen can have entered a value.
         DATA(lv_div_dat)  = conv_date_internal( io_ctx->get_val( 'DIV_KHULA_DATE' ) ). " Date of divorce or khula
         DATA(lv_marr_dat) = conv_date_internal( io_ctx->get_val( 'MARR_CONTRACT_DATE' ) ). " Marriage contract date
-        DATA(lv_fst_marr) = conv_date_internal( io_ctx->get_val( 'FIRST_MARR_CTR_DT' ) ). " First marriage contract date
-        DATA(lv_lst_div)  = conv_date_internal( io_ctx->get_val( 'LAST_DIV_DATE' ) ). " Last divorce date
         IF lv_marr_dat IS NOT INITIAL AND lv_div_dat IS NOT INITIAL AND lv_marr_dat > lv_div_dat.
-          APPEND VALUE #( type = 'Error'
-          text = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZEGA_SRC_V_MAIN_LAST_MARR_CONTR_DATE' ) ) TO rt.
-        ENDIF.
-        IF lv_fst_marr IS NOT INITIAL.
-          IF ( lv_div_dat IS NOT INITIAL AND lv_fst_marr > lv_div_dat )
-          OR ( lv_marr_dat  IS NOT INITIAL AND lv_fst_marr > lv_marr_dat )
-          OR ( lv_lst_div  IS NOT INITIAL AND lv_fst_marr > lv_lst_div ).
-            APPEND VALUE #( type = 'Error'
-            text = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZEGA_SRC_V_MAIN_FST_MARR_CONTR_DATE' ) ) TO rt.
-          ENDIF.
-        ENDIF.
-        IF lv_lst_div IS NOT INITIAL.
-          IF ( lv_div_dat IS NOT INITIAL AND lv_lst_div > lv_div_dat )
-          OR ( lv_marr_dat  IS NOT INITIAL AND lv_lst_div > lv_marr_dat )
-          OR ( lv_fst_marr  IS NOT INITIAL AND lv_lst_div < lv_fst_marr ).
-            APPEND VALUE #( type = 'Error'
-            text = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZEGA_SRC_V_MAIN_LAST_DIV_DATE' ) ) TO rt.
-          ENDIF.
+          "   Was the generic OTR text ZEGA_SRC_V_MAIN_LAST_MARR_CONTR_DATE,
+          " "Please check date value for last marriage contract" - which names
+          " neither field in the comparison. The contract date is owned by MARR,
+          " a step back from here, so its value goes in the message too.
+          APPEND VALUE #( type = 'Error' text = date_order_msg(
+          iv_a_en = 'Marriage contract date' iv_a_ar = |تاريخ عقد الزواج| iv_a_val = lv_marr_dat
+          iv_before = abap_false
+          iv_b_en = 'Date of divorce or khula' iv_b_ar = |تاريخ الطلاق أو الخلع أو التطليق|
+          iv_b_val = lv_div_dat ) ) TO rt.
         ENDIF.
 
       WHEN c_step_hist.
@@ -839,6 +894,57 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
           WHEN sy-langu = 'A'
           THEN |الرجاء ادخال رقم لحقل عدد الابناء|
           ELSE |Please add numeric value only for no. of children| ) ) TO rt.
+        ENDIF.
+        "   Moved here with the two dates themselves. HIST is now the last step
+        " that owns FIRST_MARR_CTR_DT and LAST_DIV_DATE, so this is where the
+        " ordering can be judged with every value present. The two dates read
+        " from earlier steps need their own locals: inline DATA( ) is
+        " method-scoped, so the DIVO branch's lv_div_dat / lv_marr_dat cannot be
+        " redeclared here.
+        DATA(lv_khula_dat) = conv_date_internal( io_ctx->get_val( 'DIV_KHULA_DATE' ) ). " Date of divorce or khula
+        DATA(lv_ctr_dat)   = conv_date_internal( io_ctx->get_val( 'MARR_CONTRACT_DATE' ) ). " Marriage contract date
+        DATA(lv_fst_marr)  = conv_date_internal( io_ctx->get_val( 'FIRST_MARR_CTR_DT' ) ). " First marriage contract date
+        DATA(lv_lst_div)   = conv_date_internal( io_ctx->get_val( 'LAST_DIV_DATE' ) ). " Last divorce date
+        "   One check per comparison, each naming both dates. The WD ORs three
+        " comparisons together per date and raises a single generic OTR text, so
+        " the citizen is told only that a date is wrong, never which pair
+        " disagrees. Note the WD also tests first-marriage > last-divorce AND
+        " last-divorce < first-marriage - the same comparison twice, so one
+        " violation produced two messages. It is asserted once here.
+        IF lv_fst_marr IS NOT INITIAL AND lv_khula_dat IS NOT INITIAL
+        AND lv_fst_marr > lv_khula_dat.
+          APPEND VALUE #( type = 'Error' text = date_order_msg(
+          iv_a_en = 'First marriage contract date' iv_a_ar = |تاريخ عقد الزواج الأول بين الطرفين| iv_a_val = lv_fst_marr
+          iv_before = abap_false
+          iv_b_en = 'Date of divorce or khula' iv_b_ar = |تاريخ الطلاق أو الخلع أو التطليق| iv_b_val = lv_khula_dat ) ) TO rt.
+        ENDIF.
+        IF lv_fst_marr IS NOT INITIAL AND lv_ctr_dat IS NOT INITIAL
+        AND lv_fst_marr > lv_ctr_dat.
+          APPEND VALUE #( type = 'Error' text = date_order_msg(
+          iv_a_en = 'First marriage contract date' iv_a_ar = |تاريخ عقد الزواج الأول بين الطرفين| iv_a_val = lv_fst_marr
+          iv_before = abap_false
+          iv_b_en = 'Marriage contract date' iv_b_ar = |تاريخ عقد الزواج| iv_b_val = lv_ctr_dat ) ) TO rt.
+        ENDIF.
+        IF lv_fst_marr IS NOT INITIAL AND lv_lst_div IS NOT INITIAL
+        AND lv_fst_marr > lv_lst_div.
+          APPEND VALUE #( type = 'Error' text = date_order_msg(
+          iv_a_en = 'First marriage contract date' iv_a_ar = |تاريخ عقد الزواج الأول بين الطرفين| iv_a_val = lv_fst_marr
+          iv_before = abap_false
+          iv_b_en = 'Last divorce date' iv_b_ar = |تاريخ الطلاق السابق| iv_b_val = lv_lst_div ) ) TO rt.
+        ENDIF.
+        IF lv_lst_div IS NOT INITIAL AND lv_khula_dat IS NOT INITIAL
+        AND lv_lst_div > lv_khula_dat.
+          APPEND VALUE #( type = 'Error' text = date_order_msg(
+          iv_a_en = 'Last divorce date' iv_a_ar = |تاريخ الطلاق السابق| iv_a_val = lv_lst_div
+          iv_before = abap_false
+          iv_b_en = 'Date of divorce or khula' iv_b_ar = |تاريخ الطلاق أو الخلع أو التطليق| iv_b_val = lv_khula_dat ) ) TO rt.
+        ENDIF.
+        IF lv_lst_div IS NOT INITIAL AND lv_ctr_dat IS NOT INITIAL
+        AND lv_lst_div > lv_ctr_dat.
+          APPEND VALUE #( type = 'Error' text = date_order_msg(
+          iv_a_en = 'Last divorce date' iv_a_ar = |تاريخ الطلاق السابق| iv_a_val = lv_lst_div
+          iv_before = abap_false
+          iv_b_en = 'Marriage contract date' iv_b_ar = |تاريخ عقد الزواج| iv_b_val = lv_ctr_dat ) ) TO rt.
         ENDIF.
         "   Origin: CHECK_INITIAL_FIELDS — for ZZAFLD0000UM alone the WD swaps
         " the framework's mandatory text for ZMSG_ECOURT 000, "Number of
@@ -1412,8 +1518,33 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         t_bapireturn = lt_bapireturn.
 
     " any 'Error' row and keeps the citizen on the page).
+    "   Origin: VIEW_MAIN->DISPLAY_ERROR_MESSAGES — the FM often returns a row
+    " with MESSAGE blank but ID, NUMBER and MESSAGE_V1..V4 filled, so the text
+    " has to be built from the T100 entry. The WD does this with
+    " MESSAGE_TEXT_BUILD; T100_TEXT( ) reaches the same text through
+    " FORMAT_MESSAGE with lang = sy-langu. Appending the raw MESSAGE without
+    " this produced an error strip with nothing in it, which blocks the citizen
+    " on the page with no way to know what the backend rejected.
+    " Last resort if even the T100 lookup comes back empty: say something
+    " rather than block behind an empty strip, and name the id/number so the
+    " failure is traceable in support.
     LOOP AT lt_bapireturn INTO DATA(ls_ret) WHERE type = 'E' OR type = 'A'.
-      APPEND VALUE #( type = 'Error' text = |{ ls_ret-message }| ) TO rt.
+      DATA(lv_rtxt) = CONV string( ls_ret-message ).
+      IF lv_rtxt IS INITIAL.
+        lv_rtxt = t100_text( iv_id = ls_ret-id
+                             iv_no = ls_ret-number
+                             iv_v1 = ls_ret-message_v1
+                             iv_v2 = ls_ret-message_v2
+                             iv_v3 = ls_ret-message_v3
+                             iv_v4 = ls_ret-message_v4 ).
+      ENDIF.
+      IF lv_rtxt IS INITIAL.
+        lv_rtxt = COND string(
+        WHEN sy-langu = 'A'
+        THEN |تعذر إنشاء الطلب. رمز الخطأ { ls_ret-id } { ls_ret-number }|
+        ELSE |The request could not be created. Error code { ls_ret-id } { ls_ret-number }| ).
+      ENDIF.
+      APPEND VALUE #( type = 'Error' text = lv_rtxt ) TO rt.
     ENDLOOP.
     IF line_exists( rt[ type = 'Error' ] ).
       RETURN.

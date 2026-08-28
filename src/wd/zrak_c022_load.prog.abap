@@ -121,10 +121,6 @@ START-OF-SELECTION.
   ftype = 'DATE' required = 'X' zlabel = 'Marriage contract date' zlabel_ar = |تاريخ عقد الزواج| fgroup = 'ROW:M5'
   tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008K'
   msg = 'Marriage contract date is required' msg_ar = |تاريخ عقد الزواج مطلوب| )
-  ( mandt = sy-mandt journey_id = c_jid step_id = 'MARR' field_name = 'FIRST_MARR_CTR_DT' seqnr = 120
-  ftype = 'DATE' zlabel = 'First marriage contract date' zlabel_ar = |تاريخ عقد الزواج الأول بين الطرفين|
-  fgroup = 'ROW:M5' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UE'
-  msg = 'First marriage contract date is required' msg_ar = |تاريخ عقد الزواج الأول بين الطرفين مطلوب| )
 *   STEP DIVO ------------------------------------------------------
   ( mandt = sy-mandt journey_id = c_jid step_id = 'DIVO' field_name = 'DIV_DECL_TYPE' seqnr = 10
   ftype = 'SELECT' zlabel = 'Type of divorce declaration' zlabel_ar = |نوع إقرار الطلاق|
@@ -157,10 +153,6 @@ START-OF-SELECTION.
   ftype = 'DATE' required = 'X' zlabel = 'Date of divorce or khula' zlabel_ar = |تاريخ الطلاق أو الخلع أو التطليق|
   fgroup = 'ROW:D5' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UB'
   msg = 'Date of divorce or khula is required' msg_ar = |تاريخ الطلاق أو الخلع أو التطليق مطلوب| )
-  ( mandt = sy-mandt journey_id = c_jid step_id = 'DIVO' field_name = 'LAST_DIV_DATE' seqnr = 100
-  ftype = 'DATE' zlabel = 'Last divorce date' zlabel_ar = |تاريخ الطلاق السابق| fgroup = 'ROW:D5'
-  tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UF'
-  msg = 'Last divorce date is required' msg_ar = |تاريخ الطلاق السابق مطلوب| )
 *   STEP HIST ------------------------------------------------------
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'RELATIVE_RELATION' seqnr = 10
   ftype = 'SELECT' required = 'X' zlabel = 'Relative relation' zlabel_ar = |صلة القرابة بين المطلقين| fgroup = 'ROW:H1'
@@ -199,11 +191,19 @@ START-OF-SELECTION.
   ftype = 'SELECT' required = 'X' zlabel = 'Earlier marriages' zlabel_ar = |هل تم الزواج من قبل بين الطرفين|
   fgroup = 'ROW:H5' domname = 'ZADTEL0001TW' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UY'
   msg = 'Earlier marriages is required' msg_ar = |هل تم الزواج من قبل بين الطرفين مطلوب| )
+  ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'FIRST_MARR_CTR_DT' seqnr = 105
+  ftype = 'DATE' zlabel = 'First marriage contract date' zlabel_ar = |تاريخ عقد الزواج الأول بين الطرفين|
+  fgroup = 'ROW:H6' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UE'
+  msg = 'First marriage contract date is required' msg_ar = |تاريخ عقد الزواج الأول بين الطرفين مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'PREV_DIVORCES_COUNT' seqnr = 110
   ftype = 'INPUT' zlabel = 'The number of previous divorces'
   zlabel_ar = |عدد حالات الطلاق السابقة بين الطرفين| fgroup = 'ROW:H6'
   max_len = 2 tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UM'
   msg = 'The number of previous divorces is required' msg_ar = |عدد حالات الطلاق السابقة بين الطرفين مطلوب| )
+  ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'LAST_DIV_DATE' seqnr = 120
+  ftype = 'DATE' zlabel = 'Last divorce date' zlabel_ar = |تاريخ الطلاق السابق| fgroup = 'ROW:H7'
+  tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UF'
+  msg = 'Last divorce date is required' msg_ar = |تاريخ الطلاق السابق مطلوب| )
 *   STEP PRTY ------------------------------------------------------
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'PERS_INFO' seqnr = 10
   ftype = 'EDITABLE_TABLE' required = 'X' zlabel = 'Personal information' zlabel_ar = |البيانات الشخصية للاطراف|
