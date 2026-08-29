@@ -1657,12 +1657,18 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
       WHEN 'NUMBER'.
         req_label( io_form = io_form is_field = is_field ).
+*       MAXLENGTH, same COND the TEXTAREA branch above already uses - a
+*       plain count with no formatting to make room for, unlike CURRENCY
+*       below, which deliberately stays submit-time-only (a thousands
+*       separator and a decimal part are characters too, so a digit-count
+*       cap would cut a legitimate amount short as the browser formats it).
         io_form->input( class          = mo_e->mo_css->cls( 'INPUT' )
                         value          = lv_bind
                         type           = 'Number'
                         placeholder    = is_field-placeholder
                         editable       = lv_edit
                         change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
+                        maxlength      = COND string( WHEN is_field-validation-max_len > 0 THEN |{ is_field-validation-max_len }| ELSE `0` )
                         valuestate     = lv_vs
                         valuestatetext = lv_vst
                         width          = lv_w ).
@@ -1853,10 +1859,13 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             lo_gcb->item( key = ls_g-key text = zcl_rak_journey_util=>opt_text( iv_key = ls_g-key iv_text = ls_g-text ) ).
           ENDLOOP.
         ELSE.
+*         MAXLENGTH - see the NUMBER branch above for why this and TEXTAREA
+*         get it and CURRENCY deliberately does not.
           io_form->input( value          = lv_bind
                           placeholder    = is_field-placeholder
                           editable       = lv_edit
                           change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
+                          maxlength      = COND string( WHEN is_field-validation-max_len > 0 THEN |{ is_field-validation-max_len }| ELSE `0` )
                           valuestate     = lv_vs
                           valuestatetext = lv_vst
                           width          = lv_w ).
