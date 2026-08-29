@@ -213,7 +213,7 @@ CLASS ZCL_CJ_DEMO_D011 IMPLEMENTATION.
     DATA(lo_popover) = z2ui5_cl_xml_view=>factory_popup( ).
 
     lo_popover->popover( placement    = `Right`
-                         title        = |abap2UI5 - Popover - { mv_product }|
+                         title        = |CJS - Popover - { mv_product }|
                          contentwidth = `50%`
       )->simple_form( editable = abap_true
       )->content( `form`
@@ -704,7 +704,7 @@ CLASS ZCL_CJ_DEMO_D011 IMPLEMENTATION.
     DATA(view) = z2ui5_cl_xml_view=>factory( ).
 
     DATA(page) = view->page( id = `page_main`
-            title               = `abap2UI5 - List Report Features`
+            title               = `CJS - List Report Features`
             navbuttonpress      = client->_event_nav_app_leave( )
             shownavbutton       = client->check_app_prev_stack( ) ).
 

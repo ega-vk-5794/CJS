@@ -136,7 +136,7 @@ CLASS z2ui5_cl_app_startup IMPLEMENTATION.
   METHOD view_display_start.
 
     DATA(page) = z2ui5_cl_xml_view=>factory( )->shell( )->page(
-                     title         = `abap2UI5 - Building UI5 Apps Purely in ABAP`
+                     title         = `Building UI5 Apps Purely in ABAP`
                      shownavbutton = abap_false ).
 
     DATA(toolbar) = page->header_content( ).
@@ -162,10 +162,6 @@ CLASS z2ui5_cl_app_startup IMPLEMENTATION.
       )->text( `Add the interface: Z2UI5_IF_APP`
       )->label( `Step 3`
       )->text( `Define the view, implement behavior`
-      )->label(
-      )->link( text   = `(Example)`
-               target = `_blank`
-               href   = `https://github.com/abap2UI5/abap2UI5/blob/main/src/02/z2ui5_cl_app_hello_world.clas.abap`
       )->label( `Step 4` ).
 
     IF ms_home-class_editable = abap_true.
@@ -202,31 +198,7 @@ CLASS z2ui5_cl_app_startup IMPLEMENTATION.
                            press = client->_event_client( val   = client->cs_event-open_new_tab
                                                           t_arg = VALUE #( ( lv_url_samples ) ) )
                            width = `70%` ).
-
-    ELSE.
-      simple_form->label( `Install the sample repository` ).
-      simple_form->link( text   = `And explore more than 250 sample apps...`
-                         target = `_blank`
-                         href   = `https://github.com/abap2UI5/samples` ).
     ENDIF.
-
-    simple_form->toolbar( )->title( `Contribution` ).
-
-    simple_form->label( `Open an issue` ).
-    simple_form->link( text   = `You have problems, comments or wishes?`
-                       target = `_blank`
-                       href   = `https://github.com/abap2UI5/abap2UI5/issues` ).
-
-    simple_form->label( `Open a Pull Request` ).
-    simple_form->link( text   = `You added a new feature or fixed a bug?`
-                       target = `_blank`
-                       href   = `https://github.com/abap2UI5/abap2UI5/pulls` ).
-
-    simple_form->toolbar( )->title( `Documentation` ).
-    simple_form->label( ).
-    simple_form->link( text   = `abap2UI5.org`
-                       target = `_blank`
-                       href   = `https://abap2UI5.org` ).
 
     client->view_display( page->stringify( ) ).
 
@@ -264,7 +236,7 @@ CLASS z2ui5_cl_app_startup IMPLEMENTATION.
   METHOD view_display_popup.
 
     DATA(page2) = z2ui5_cl_xml_view=>factory_popup(
-         )->dialog( title      = `abap2UI5 - System Information`
+         )->dialog( title      = `System Information`
                     afterclose = client->_event( cs_event-close ) ).
 
     DATA(content) = page2->content( ).
@@ -290,7 +262,7 @@ CLASS z2ui5_cl_app_startup IMPLEMENTATION.
     simple_form2->text( z2ui5_cl_exit=>get_user_exit_class( ) ).
 
     DATA(lv_count) = CONV string( NEW z2ui5_cl_core_srv_draft( )->count_entries( ) ).
-    simple_form2->toolbar( )->title( `abap2UI5` ).
+    simple_form2->toolbar( )->title( `Framework` ).
     simple_form2->label( `Version` ).
     simple_form2->text( z2ui5_if_app=>version ).
     simple_form2->label( `Draft Entries` ).
