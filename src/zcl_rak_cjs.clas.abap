@@ -537,6 +537,7 @@ CLASS zcl_rak_cjs DEFINITION
                         RETURNING VALUE(rv) TYPE string.
     METHODS render.
     METHODS render_toolbar  IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
+    METHODS render_branding IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_compose  IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_style    IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_theme    IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
@@ -1620,6 +1621,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       `.rakDsgSel { background:#fdf3f4; border-inline-start:3px solid rgb(196,30,38); ` &&
       `border-radius:6px; padding-inline-start:6px; }` &&
       `.rakLintMsg { flex:1 1 auto; min-width:0; }` &&
+      `.rakBrandBar { display:flex; align-items:center; gap:0.75rem; ` &&
+      `padding:0.5rem 0.9rem 0; }` &&
+      `.rakBrandLogo { height:2.4rem; width:auto; }` &&
+      `.rakBrandText { color: rgb(196,30,38); font-weight:800; ` &&
+      `font-size:1.15rem; letter-spacing:0.02em; }` &&
 *     Bottom right, not top: the toolbar and the panel headers are what the author
 *     is aiming at, and a banner across the top covers exactly those. z-index 90
 *     sits above the page and below UI5's own dialogs, which start around 1000 -
@@ -1739,6 +1745,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(page) = view->shell( )->page( title = 'RAK Customer Journey Studio' class = 'sapUiSizeCompact' ).
     page->html( content = css( ) sanitizecontent = abap_false ).
     page->html( content = scroll_js( ) sanitizecontent = abap_false ).
+    render_branding( page ).
     render_toolbar( page ).
 *   Floating, not in the flow. An inline strip appears and disappears between the
 *   toolbar and the panels, so every action that produced a message pushed the
@@ -1835,6 +1842,97 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                  icon  = 'sap-icon://screen-split-two'
                  type  = COND string( WHEN mv_mode = 'DESIGN' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_DESIGN' ) ).
+  ENDMETHOD.
+
+  METHOD render_branding.
+*   RAK Digital / EGA / RAK Government branding, top of every Studio
+*   page. Both authority marks are embedded as base64 data URIs directly
+*   in the view - there is no MIME repository object or CDN wired up for
+*   this yet, and a data URI needs neither. The EGA mark had its unused
+*   Photoshop/EXIF/ICC metadata stripped before encoding - same pixels,
+*   80% smaller - so the pair together stay under 13KB of source.
+    DATA(lv_brand_ega) =
+      `/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ` &&
+      `EBAQEBAQEBD/wAARCACWAMgDASIAAhEBAxEB/8QAHQABAAIDAQEBAQAAAAAAAAAAAAYHBAUIAwkCAf/EAD8QAAEEAgIBAwIEAwQHCAMAAAECAwQFAAYHERIIEyEiMRQyQWEVI1EJFnGBJDNSV5GW1RcYQkNicoKhU5Lw/8QAGgEBAAIDAQAAAAAAAAAAAAAAAAIFAwQG` &&
+      `Af/EADARAAIBAwMCBAQFBQAAAAAAAAABAgMEEQUhQRIxBlFhgRMicaFSkbHB8BQWMkLh/9oADAMBAAIRAxEAPwD6p4xjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMY` &&
+      `wBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGeEybEr4rk2fJajx2U+TjrqwlCB/Uk/AzU7pumu6BrkvadoniLAhgeRA8luLPwltCR8qWo/ASPuc542bm/dBuLkWfx7JsLOPDbsIFKZzTDNQhfXg7J9z4fldKQrxH0t+XSe1BSsyqniHxam0c47NtvySWW/XbZeyc7ej` &&
+      `Vva/9NbpOeG3mUYpJcylJqKXllrL2Re9zv8AVVMZMyW9+Cjup8mlvtn3nx/Vtn4V1/6leI/Y5pabatk3d0r12lSzXpUUqsLRRWk/1CGUdJJ/z6/qc55Rte0rsGdw5G43vjQmwjxbCczZxpC0KdWEoAbR9Sh2R2E/IB6HyUg39ytyr/2WppNX1HUDsN/blxECnjvez0w0` &&
+      `gqWskJUUgAHr6fkJWR2U+JzVbqytoP4eXJd8xksZ7YTSbb/J+XBkjoWq1a8Kc+nE8qPTUpzT6d5ZnCcoxUVvLLWFu3jcsGHXFiIY8x8SitPTnbSUJP7BKR8D/Hv/ABzmv1E71yF6br2l27TLd2y1e6dXHmUto4p9ph9ACh7Liv5jaVp8ukhRSkpPx0QBZj3qAoFcG/8A` &&
+      `bhW1b0yK22z79el9KXWnlPoYcaKuuu0KWfnrpQAI+FA5Svr6vf4tq2m6/XR1vLlvu2zhT0UstpbCElavypB91XySB9Jzb0CrSr30IVcOnJNyz2xhvPpjHfgrte0+7tLaeISVSMulY3fWmk47Zb7+qeTobh3l7WuZ9Qa2rXPNlaV+xNhOkFyK+ACUEj8w6IIUPgg/oewJ` &&
+      `1nFnoNmVeqLvmLvZ4EJWwOw49fElSm2VTJCQ8r/R0qUFOnwP6DsgAgFJBN6WXqq4brId3KXdTX3KPY06quLHgOrfl2Sgspbjp6/mpPtPj3AfDth76voOauoQtoXMlZy6qfeL9GvXuvJ8rdZyZaFK8oQVK/h0VY7SW2z8nhvD813i8xaTTRb+M1mt3sfZ6GDsESLKjM2D` &&
+      `CX0NSm/beQCPstPZ6P7d4zTMps8YxgDGMYAxjGAMYxgDGMYAxjGAMYxgDMWxsYFRXybWzlNxocNpb77zqukNtpBKlE/oAATmVnKPr05Vka9qtfxhUyPbkbD3KsCk/UmGhX0o/wDm4P8Ag2ofrm9ptjPUbqFtDl7+i5f5Gnf3cbG3lXlx93wZnF1vO9UHLUnkm1Zcb0XR` &&
+      `pHta/Xuj6ZM4jsSXB9itKSFdf+EqbA+yiYLyNqMXduZdp2jbayLPr1+ESubdcX5I9vxST0kjr4Qfufuc6A9KWsR9W4G1VlpsJcsYxs31dfK1vqKwT/ggoH+CcjfKvH1lS3MnYq6Mt+tlOF9ZQO/YWT2oKH+yT8g/b56/xtqsLO9vZWtWK+HB4gn2+V8575e782a1hf6j` &&
+      `o1ur2yqONWafVKLakupcNNNYWyxweEL0+3vGz2vbXwpYPQ5iX44vKOTNX/D5rCiPdISry8Fp+eldFQ6BT9ihe0Rxbyza7RuHI6r+so9omvpqtccW1+Mar6lt8FS/E/BW8hIUUfoe/lBWfG4tfuId/TxLaC4lbUhtKvg/lV18pP8AQg9j/LNNvnJmlcbVwsNtu2oqnPiP` &&
+      `FR25Jkq/RLTSe1LP6fA6H6kffOYWnqdR0qcGm3/itt9+yXb25SZ1c/Et44KvcVFOSjjrn80nFtPDlLPUtsfNnMZSi/leCgeVOIdk03VeU4VLNrImk37UG7R+IkhlMGa1JaU+lCPkeKktn4HQ6DLaASDnHyoh5J3xOuccaHDZasJKGa+vY9xSkpSAPcU4pXkPylalH4T2` &&
+      `f0GdO73Q+oT1a2bEFrXH9H0KM6HWRa9tOPn9HXG/zuK678UgBA7/ADE/Vl+cKenzReEa9aaFlc63lICZdrJSPecH38EgfDaO/nxH3+OyroHOipafpOlW83ewjWrSWFF4koZ378PO7w88LHcpv7r8R3VWEdNuJ29KDTc4OUJT6UorKTXUlFJLKx3byys+OPSFrcoUtvzH` &&
+      `qFXJ2rSL5+2169r5rvuLecS0fxDiB4oUpK2WykLT49tJPgPnyynvQPwMzDiNwXdihLhMRSqQuwRK9+VHW4tE15uU26yt7/SJQUCj2yJLv0dlJT0gpSUJK1qASB2SfsB/XOc9w5Inc/7q5wnxVPWNbj9Hbtijn6fw/fSosdf27X0U+Q+/1ddpSomrtLSpdyeZPpjvKTbe` &&
+      `F6t7vyS7vseahfxU3UcUpTe0YpRTfOEtll7vCUVvhJYRbfET1W5odczQOrfp4gVErZS2WWTLjtHwD/tsNttJSspUUhCEpKSkgDvGSmtroNRXRamsitxocJlEdhlsdJbbQkJSkD+gAA/yxmtUcXNuCwuCUFJRSm8vkysYxkSQxjGAMYxgDGMYAxjGAMYxgDGMYAz5qetW` &&
+      `zk2HqDu476lFFfFhxWQf/Cj2EuHr/wCTij/nn0rzhT178W2MHaoXK9fFW5XWbDcGwWlPYZkt/DalH9AtHikfug/1GdR4QrU6Wo4n/tFpfXZ/sznfE9KdSxzDhpv6br9zoX0kb3A3bhGhZZfSZtAyKiY139Tamh02SP6Kb8D3/XsfocuUgKBBHYP3Bz5N8P8AMe3cLbOn` &&
+      `YtYeS406A3OgvE+zLa/2VAfYj5KVD5B/qCQe5NG9bXCu1RWhfWMnWJxH8xicypbXl+vi62Ckj91BJ/bMmu+HbqhcSrW8HKEnnbdrPGO/uQ0bXLetQjSryUZxWN9k8c5Lzh0tXXPOP18FuKp4+TgZHglZ/qUj4J/frvP61T1LE5dmzVxETHfzyEspDqh+6+uz/wAcgbvq` &&
+      `Q4JZZ99fKdAU9d9IkhSv/wBR2f8A6yCbX64+D9fbWmmm2ewyB8JRCiKbQT+63vD4/cA5SU9N1CvLEKUm/o/1ZbVL+yorMqkV7o6EyGck8vcf8TVn8S3bYGIalpJYiI+uTI/ZDY+T8/r8JH6kZxhvHrZ5f5Ck/wB3uNqMUKZSi20iEhUye73+iVePQP8A7UA/vm64n9F+` &&
+      `7b5Yp3HnS1nwmXlB1UJx8u2Er5/81ZJ9oH/Nf3HSfvlxHw9Cyh8bVaigvwreT/nv7FZLW53cvhabTc3+J7RX89j2tOTOZvWHfvaTxzEf1jS21BNjJUo9lo/rIcT+Ykd9MoPR/UkDyHWHFfFeq8QamxqmqxSltJDkmS50Xpb3QCnHD/U9fA+wHQGbzWNV13S6WPruq08a` &&
+      `srow6bYjo8Ug/qT+qlH9VEkn9Tm2ys1DU1cxVvbR6KK7Llvzk+X+hv2WnuhJ17iXXVfPl6JcL9RjGMqSzGM0O9bONL1C22pTcFz+GRlPhE2xagMKI+yVyHfoaBPx5K+Bmq4j5NqOXdJZ3akVEVGemzYQMSWJTRVGkuMEpdCUhXft9/A6HfXZ67IEzxmFYXNRUuQ2bW1h` &&
+      `w12MgRIaZD6WzIfKVKDTYUR5rKUqPiOz0kn9DmbgDGQxHK2p11ZZ2m7XNPqrVXbP1LpsrqIEhaPqbKlJcKW1OM+LwbUQ4ELBUkZI62/obl15iou4E52O2y68iNJQ6ptDqPNpSgkkgLT9SSfzD5HYwDYYyJanu1nsOx32u2epuUzlIWylTlnDkLkNuOvJbcLTDinGQpDK` &&
+      `XE+4lPYc6HyhYEN2z1S8Q6byu1xHebfRwLFmKJdrKsbePCYrw5/qGiXVAuPOfcNoB8UjyWUhSPIC38Z+W3EOoS40tK0LAUlST2CD9iDkA5E5noONNpotbvquzeRdVVzbmVDYL4js1zbLjwLSO3XFqS+PFKEqJ8Vfr0CBYOMpR/1T6ad4gabU0thZt2dnr8CHaR3Gvwr7` &&
+      `VtDly48lBKvIthENYPwCStPQI7Obu350p6Xmqn4bmppxLu1FEVQvGlTCoRHpCu4SUlxACWQApRSCFdjvrogWhjGRRvlfjF7YLLU2+QtdVc00d2XYwRZs+/EYa691x1Hl2hKPJPkT8J8h312MAleYN1S1OxVUqjva9idXzWi1IjvoCkOIP6EH/wDgejmHqm6ajvVc5b6X` &&
+      `s1ZeQmX1RXJFfKQ+2h5IBU2pSCQFAKSSD89Ef1yuNe9VHD2zcqW3FlduVEiXUSEVpfk3EZlUyyJ+qJGYUv3XigdBSwPHyPgkqUlQT6m4vK7njSksMqPkH+z8orGS7P4325ypCz5CBYtl9pP7JdSfMD/3BZ/fKtlegjm1h0ojz9Yko7+FonOJ7H+Cmhn0PzQVG/aRf7Ha` &&
+      `afSbfTz72kCTZVsaa25JiBXwC42D5JHfx2R9/j750VDxVqdCPS5qX1WX+e33KOt4c0+tLq6XH6P9jh2p/s/eWZSx/Ftl1mA3+pQ888v/AIBsD/7yz9P/ALPjSq9xD+67nZ3Ck/JYhspiNE/0JJWoj/ApzoXkzkODxlr8PYbGtlTWZl1VUgbjlIUhydNZiNuHyIHilb6V` &&
+      `K6+egegTkVg8/wBTZ8ON8wtVcavhrs364x7m3jwEoDNi5DcWX1kt9/yluJR+ZXwkfUcjX8U6nXWPidK9El9+/wByVHw7p9F56M/Vt/8ACVaLxTx5xpGMbSdSgVhUnxW+hHm+4P8A1Oq7Wr/M5LchWlcmRN54krOV6OrdntWlOLZiDXuh9byvbKvZZWoIC1FQ8UqPiCej` &&
+      `8DP3xHvk/kvQK3crPXhSSp3uh2AmWmUGFIcUgp91ICV9FJBIHXYIHfXeUNSrOtJzqNtvl7lxTpwpR6ILC8kTLGYdTcVF9CTZ0drDsYa1uNpkRH0vNlaFlC0hSSQSlaVJI7+Ckg/IOazcN807j+A1Z7nsUOojPu+y0uQvrzX0T0kD5PwCT0PgDIEzf4zX0F/RbVTQ9i1m` &&
+      `4hWtXYNB+LNhvpeYfbP2UhaSQof4HGARPmfi4ct6hH1xu+XTy6+4rbyDL/DJktJlQpTchoOsKKQ82VNgKR5J+D2CCAcgeh8P8+8ZVc+h1nlzSJkKdc2V2V2WmyS8H50pyU8ntqwSnxDrq/H47CfEEkjs671vcy7xwlxzqewaJeR6iRc7xU0E+Y7W/jizCk+6HVoZ+6lp` &&
+      `8UqAAJPj1185CV873eq8v8fTNi5gsLbRk6Ntuw7BMkURqxIEB5rxdXFU2HEFpK1pHQHn0D0exgG+5T071A7VuWh01ztdS85r9/G2OBYVHHkh2A3KS1JYSiW65adobCHHCrwHkPJsg/JGWd/A/U7/ALzONP8Akyd/1PINF9dvCp1i42a3j39UKusqLhmA9GZel2Ea0UUQ` &&
+      `RHbYdWC4tY8S0spWg/nCR2c/HI3qZ37W+QOKtMq+I7qt/vptUijtW7duMX0MNQxJ84qmpJaWCFfK/JSR7bqevMdYBDuT/S9yPBodp5Brdlrtp3e+XfKdrGKBbMF920rYdcgMIMhSmHG0wWu33HFAJdf8ukkdSLizijnjWNr2e51K71nXq9+voaLxvKB+a5OerIIYdlNe` &&
+      `1KYKGVLUpCfMEqDfkOklPexrfXbw/aUdzsUfXt2RAqLdvXWnnqYIRZXDktUZECIsueLz5UjzI7CUoUlSin5AzrL1o8aU7zVTP1bcP7wHb/7jvUTEFl6YxbKj/iGkK8XvbU2430UOpWUnv5KeldAelLw76gqHkDZuSoXLWhLs9siV0KdHc0qV7DaIQeDKm+rEL8j+Ic8v` &&
+      `IkfCeuuj3s9k489Qm1UVnr1xv/FzsS2iPQ5AVo0tfkhxBQr4VZEH4P6gjIJV+qzSeSN+4ks6Xbd01WLczdrrp+uy6iIll6TVxgqS3YuqWpUf2P8AWILKlBRJCuustTiDnql5rjRLzUtN2lnW7aLImVN/OiNNQ57TL4ZJSA4XWypR8kJdbQVoBUB0DgGg0fjf1H6Fpev6` &&
+      `NWcq8eyYeu1cWpjvSdNmqedajtJaSpZFkAVEIBPQA7J+Mwdl4+5li7JA5i2baKXZLfS6e0h0FPr2sOx/flT/AGEF1/3pyy4hHspPglTZ6Kj5dgDNRX8pcrc1eonkLifQNmi6VqnFaIEa0sk1zU2wtbGWyXUoaD3bTLLaQQSUKUpX2IB+JS5zlH48Gq8e7HcO8k7zsaLO` &&
+      `RCTrEJhn8VEhlSnH3At4MtFCPbbV/MHm72EJHfSQIHxt6MbXVLaJs1zyY1MkM7fXbMxBjUqo0SDDiMTkNVrCFvuLQhKrF0pKlq8UoQgJ6Azd3npa3BnkV3kLQ+VoFcobg9uzEC2138ckT3q017za3kSGlrZ9lSihPwUK6HkUgJzNofW3whsg96rkXSormiu8gxpK4QDc` &&
+      `uuaeUy8019fapLbyVNqZIB8h8Egg56Oes7iNjemtFktXDDh2aJpj89bbH4eNeyWC63BWA77vkOvbU4ltTSXCElfz2AJP/A/U7/vM40/5Mnf9TypKn0VbS7q0vXdy5ghzPaqrmuqna7XDHLK7K1Ys33ZPuSHTKHuxm2/DtAU2VhRUpXkNlTf2gXEd9qNfvVfo/I5pbe9g` &&
+      `a1XSV0AQmbZSnJDaWGCXenShUZQWUEhJcbHySQnMh+uvjKfEp0w9F3967uNlttQTQN1TKrCPb1zSXX4zqff9sHxWkpUFqT8/UUgEgDB4N489UVFB3C8d23R6c7dt1hfpjWWpS1vlDiWmkOKQmwT7IWlhKw0oqUkKAUrvtKd5yZwnzxyppszSr7krjiNFluxn/fi6RKDz` &&
+      `TjD6HkKQVWJAIW2n567+/XR+c0+tf2gvB2wN69ZTKvb6Gj2emtriuuraqSzDcFY2pywj9pcUv3WQhYPSChRT0lSj1nt/3+eGGddnbDY1G0xRDr6S4RCESO/KkV9q+GIkhCGnlD/WKSlbail1BUAUdkDALB/gfqd/3mcaf8mTv+p5X9n6c+Y5W16rutLyBxvQW+pT50yO` &&
+      `/WaVLb/FNzfcVNjSAqxPuNPOue8ofBDqELBBB70HIfrgca1wOcb8e3jex13I9Pol5UX8RpqTE/GOJ6WhKZHgtTjav5R8/HyPa+gPm/OXt+kcdcZXG3wYP4i1QwiNUwXCAZNnIWliHHPR6+uQ60gkHoAk/pgEI2jibm3kVqppN95O000cG9qruS1UapJjynzBmNS22kuu` &&
+      `znUoCnGUBSvBR8Sevn5zEY9Mc6BoOj6zU8gJjXOhbVYbTXWL1SmRGddlOzipp2KpweQS3PWEqDiVBaErBH2yK8ResiA96d6HkTl+DKG0RtoRx/skOqjoUqPfCSY/ygrSEoUS24eieg4Oges8+ZPWa/rkyLQ8WafNtbSDyrUcc3gnMNpSPxSfdcMX+enzcU30EFZSkEkq` &&
+      `6AHYEs404f8AUBxLolNxvq/LWizKmgj/AIOE/Y6bKVJW0FEp9wt2KUFXR6JSkA9fYZqtP4x5/wDT/wAVnXNZ5F1S/raFM2ayw1okl2wkqefckrbbbbskIUrzdWlIHXwEgnvs5AeFfVvKoOQt50zlxzbLNi15rs9H1y2/AtKrqvtDSode46lSVBRPu9dJX0OipQBBy1KL` &&
+      `1m8S7BZ1DEGHf/wnZpVxA127VFb/AAVxJrEqMptkhwrT34Oe2pxCEuFCgk/bsDT8G8ceoHS+Oo9DrnIGrxYKbO1lJZ2DQpMealx+wkPOkoasvENlxxamz9y0pvv57xyxwB6g+YIcWvv+a9PgRokec2hqv1Ka2n3pDBZRJPdkf5zHkVtK+yVny6JA60bXq807lpPFuz6Z` &&
+      `Yck6rTbHuMOrhLe1yOhjYlOxnlqjFbyyQwktkLea76Wnod/mHtwz60lbJDhu8tajNoV7LyRZ6HQyYsdtUNt5hSksNSHPfWoOrLbifIDxK+wn4HeAXNwPxfM4c4xr9Bsb9m6lRpljOfmswzFbcclzX5SglorWUhJfKR9R+3f64yQaFu9RyLq0TcaBmWitnrfEVclsNqfa` &&
+      `bdW2l5IBP8tzw80H9UKSeh31jAIZ6iOCGOf9YoKBzbZmuSNc2WBtEOZGjNvn8TE8y0lSHPpKfJYJH6+PX65GNq9Kcfku4rrrljkOw2KRH1a91Kd7MBmCmbDsynzV0337a20oQElP3KQTl94wDmb/ALktTZcMr4a2jkF+ZHgCuNDcV9HDgWFe5BX5RnnHG0kSXB0lKisA` &&
+      `KAJ8QpRVku2X0+7Nuc/jrado5Yel7Vx1ePW8WxbpWWo8lt6OY7rCoyVdJ7QSQvzJCiT9uki68YBzmj0W6mOH2+KVbnbF2u3Ve+09x7LXvQLT8WqSg+314ONpUtaSlX5kqPyD0QY9GlIraa3fbXfLGXsjXICOQbOYiG003NktxjGZipb7PtMNskpH1KX2VEqPfx0ZjAOa` &&
+      `tf8AQ/qNLtOubJK3OzsGqG+2+7chOxmktzf7wMhqSwsj6glCe/EpPZ7+cn3p/wCELXgTWGOPonJE+/1OnbXHooE2Ay2/CYU4VhDkhHy/49lKT4o+n7hR6ItfGAUvb+nWTXcrXfM3EnIUvS7/AGuPHj7JGXXt2FdalhPiw+thakKQ+hJKQtDgBB+UnskwvUvRDVcfQ9Kn` &&
+      `6NyXaQdo0tm8itXEmvYfbmMWry3pCHI48Ejwdc82ilQ8SOleY+M6cxgHOMT0NcWVlfw9VVNnbRo3EBeTHHmlSrlp5xLzzUs9AKQuQhLxSB499gAA5uNZ9K9VpXL+y8mattDbNdt9wnYLWmmUkWWtNh4gOORpax7jCXClKlJ6V8glBR3l7YwDnGm9F9BTcM8ZcNN7/buw` &&
+      `+MtyjblEnLjNe9MdZlvyUsOJH0pQVSFDtPz0kfvn6170Y6/r3IlfyG1vls/Ir+Q7/kNMZcZoIXJtYyGHIxI+fbbSjtKvzHs950ZjAOVYP9n3oA0/j3RL3dbm1p9Dj7XEU0plppVk1fIcS+FqT8tlsOkoKf1A77zYx/Ray5xE1w9cclKkwID9Oa+fG12HEmIYrpLb7SH3` &&
+      `Gx/pC1e02lSz1349+PkST0zjAOcdq9GVPsVrt+wxd/sYNrsu80m+xnjCadbgTqxKUst+2SPdaUE/IJB/fLW5B4qqOT16zE3F9uwp6GebOZUvRG3I1q+lhxtn3kq7+htbnvBPyPNCCfy5OMYByxs/oF0uyVvjGnbtY6jX7jc0+zQq6tgsfhaS4rykolR2yPEhzo+4hQ6J` &&
+      `IPY8Rns76IGXWLGc9y/dSNhm8iVnJbdpIrY6kt2kNr2w2phHilTKkk/SCkp+nonr56hxgHNyfRXQlxTr+/2rhc5gTzA4DEZ6VMCPEwuv/wAJ/wBr8375jan6GtS1V3V6trd7WTrGgyryfqdQuM0DAkWYWFqde/NISz7rvtAhJHn9RX0OumsYBz9T+kKhp9G4X0ZrdrRx` &&
+      `jhi5ZuIMhUdvzsFNpdSG3R9kp8XlDtPz8DIRyR6S4ddwfsHCddZ3t9F3jf2bmofjwvCTrT0ieJT8pUhvvpDKUvEOKCSe0t99rBzrjGAYdPU11BUQqKniNxYFdHbiRWGx0lpltIShA/YJAH+WMzMYAxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgDGMY` &&
+      `AxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgH//2Q==`.
+
+    DATA(lv_brand_rak) =
+      `R0lGODlhywBCAMQQAPGRlPjIyepbX/3x8uUyNuhNUfvk5PStruc/RPrW1+52eu+Eh/Ofofa6vOxpbOMkKf///wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAEAABAALAAAAADLAEIAAAX/ICSOZGmeaKqubOu+cCzPdG3feK7v` &&
+      `fO//wKBwSCwaj8ikcslsOp/QqLSZmFqvzASigO16hwJG9Usu5xYFgnnNhg0a4bb8ZnhqEYA5K3DQmwp9Jgt1SABjfiUJBA1CAwICAwoEhzsHDwInDwpJCA6NC4wLC0ENBA+EQA4Pq6tqPQIPriQBsQNHBquoPgWrsA+jPZGxCEOKDwG8gTsDrLYkDKvKRLQPDEEKqwCr` &&
+      `1jsGAKYFC57FjAMBPg0FCMcl2g/jRdAPXEADC30H0jYGB6rZEA7yIBIBgIGqcyTcySLi7oGzMgYUrFuFYJGIAgh9mAvAkQ88G5EOCQigLSNBAqYo/wnRZspkDgMdOTIARqfjgAEEEDr8sYBVrDAPbfCaJMKTtqAQAAjoqS9IgDAPBOZw5LNT0xy0ziH7IZGBSx28HjCC` &&
+      `YMCAAGIl4DSIaoRWgnc6BhQQcEDlj6wQGHDj0a8RXRH2Vn0NQIAZphpIVeCCQOAwjgV7p7EbtCsxEC0PEIwtwQzC3BoNNr1wCGuq4yJ4U3CkkUA0kVIEAFgW8QDCIxkGFmyZjQJjTxbpXJ9gcNUpuxNye9llAUBqiQMEEOhCbArBAd4Yb794Oq+4ipHaVlBzbsLBVxE9` &&
+      `T2M9/senRRjmT1haRdMGNVYCADSQTWKkdhYDqKLAci0sQBJaKcBCVP8KhZ2AzSqbkaCIAs0VQJ5q7JFgSUATaTLdd18ZAM48LwHQoU+UGCjARynI5cCHMAAQgAPqJaIJCzulNcwvJ/Tkkz4NLJBYaiUgAExy+LmQX3lErYOUXLMpcB56PvFIQgO0XHjCiik095wIkQWg` &&
+      `SH0mKFBjJi4NsBsu9JQQVitBrXWJCVma0ABaEVWp5ZYs0jIWU+3cWOacJgQYi4wwJvUAgbOcgsJbCEKgpggLQWBJhCXgMmUJ1bRDACG8TPfgT5FB0GGptEQqAoUHvDkPhbyVIElQCDi2Vk6AQbeKAqgEMCoAhCQQGjixKqIqCmZiqMlNM5qHBglqVloCjS58NgL/LlL1` &&
+      `VEAd/PACiGVv+YQQPxONJClJVeKRqAqW7KUNJaZUKa9PBbhaJZl0muJdf/iOwMy8EI6QAC97WvrAviRgk5EADYoQbpXC9TgPwP4A/BcNzBD1VsTzuWdvL+bMq5liD7KYgpW9ASzaAO60aYKxL6xVgC3Q6DPqPy08/COS7lF2AzaxmfJhAs0BgI1+1RQtxrVFN8coWaM6` &&
+      `ECsJJDJIXHP7GULWAvHO/Ki+MKwTTmYnZM3AuuUdXPQBhAzAwNoK9DuDzgWLQEsB2OBg6CqAwADLlAycKQxF3jEATgwdZ2gDNhF3iakNPnqtwn0my7BRAFNLvKC/XMN4+brcxfI0/wq+NG75Aes0zBzaMhzA3wo4if4ELqsERJIkbMXAh26sIDA6Cm6XCsPNrCBMAutC` &&
+      `GHB2mVIz4HsRiftk+goGVHyJ8UKk0/vjcjw4kbRAhE5R3XpkvsZ460zvVADID+S+3ee88f789Ndv//3456///vz377/7DcBeiQTopT2Y7wQFxM0CHhGG9ulhLafxRtMOiECT0EI9zSHEfmyxChZAo3It6GDrDhUAw52pC08RIAICEKFwAYAXx3LBW1x2wRK0BAIbo01t` &&
+      `VrAWueHohJNbxSESIEAoKCxnOaJabWi3KRX4qFeEGsHfPOMYEQYhii+AhfpcB4BAZJAgdSBJF0XgOv/lcURGb/MisDIowba9jQG2IEkJ9QMB7kiJM28DFtTeoQ8RCkZSeXRjQRJTkU6JABfq+RsaHiLEL5KlOXCs4xhdRzRDsExrj2yOMy4hxgMGbEti0cYoeGGNt7xB` &&
+      `E9AYBSwIxpKwMAKGYkPAOjCBkwKUggutFIwdTVLLGYklTxcbQQeh0aClqMIVCjAPRtJiHbIJM5GaWJQSZUk2A+CBF5ughSpjMZR6xeIiSiHUMGbpgj/aSVBC+2BSNsELDtZmlTLSxiYskYcpruMc61CUNVSxnxtBIw8lkdXBcEi2OnHqEu+YDi+q8I6blEk2QgQMFm3D` &&
+      `igjlwlRJNEwd2QILa5D/0jMZ8qNDYldO9iTgLIoSyN9woQZbQiAb7jipWAjCljqVhqIiKI0Ww9mcmrIloP05TgcNqsRd+asffzRFbDhzMGQIqoZBXQcCGLnDKSqPnDadDDsCOoAD+II2h7kpC8B2yA5qQ6XsIKUrdMkHsxznrBvdZk6r+s5qcARLcK0TUIUp1NoQla/U` &&
+      `qIMicjJFXRkSTI0RwFDsNlFY6EoqIvybJbY1p6yeI6AluaVbwTpXF2hjqmWtDVwxWgdiiuaGUnyrTzFx09bWBhv1yetPFWfVguZOiRTFBFynKKnRigABewEbVFOLLmm+lK7cOUdlOcqOgyiKO33I50vDukMAeasK2/MhC9nechja/WkeCUjANhEiW9bStbO0WITyvOFT` &&
+      `gM5UQzfShjX+makOhgtdDjDGOaTmGWXQAhXYwMRwf8sOselwrtzRi23ryY4p/k1A1KANWsTaglaxAm8iSEdFFPAQao2Aa5npwwLH4NU+nHQUNKpDigEigDrcKRbz/AscRkEYApTKRGkQSIkToZ0FcpgX+ZmTA6IT24/AARInLsEjqnDkc/RYAMIyhTiauhQIjNjKUMZy` &&
+      `eGcJW9uEFYj/C7OYx0zmMpv5zGhOs5rXzOY2u/nNcI6znOdMZy+EAAA7`.
+
+    DATA(bar) = io->hbox( alignitems = 'Center' class = 'rakBrandBar' ).
+    bar->image( src        = |data:image/jpeg;base64,{ lv_brand_ega }|
+                height     = '2.4rem'
+                class      = 'rakBrandLogo'
+                decorative = abap_false
+                alt        = 'Electronic Government Authority' ).
+    bar->image( src        = |data:image/gif;base64,{ lv_brand_rak }|
+                height     = '2.4rem'
+                class      = 'rakBrandLogo'
+                decorative = abap_false
+                alt        = 'Government of Ras Al Khaimah' ).
+    bar->text( text = 'rak digital' class = 'rakBrandText' ).
   ENDMETHOD.
 
 
