@@ -24,6 +24,19 @@ CLASS zcl_rak_journey_util DEFINITION
     CLASS-METHODS ctrl_width IMPORTING is_field  TYPE zif_rak_journey=>ty_field
                        RETURNING VALUE(rv) TYPE string.
 
+*   Language fallback (Arabic when IV_LANG = 'A' and the Arabic text is
+*   filled, English otherwise) plus OTR:<alias> resolution, lifted out of
+*   ZCL_RAK_JOURNEY_REPO~PICK( ) so a bilingual pair that never passes
+*   through REPO - ZRAK_T_JNY_COL's ZLABEL/ZLABEL_AR, read directly by
+*   ZCL_RAK_JOURNEY_GRID - can still resolve an OTR alias instead of being
+*   frozen at whatever was last typed into the Studio. PICK( ) itself now
+*   delegates here rather than duplicating the logic.
+    CLASS-METHODS pick_text
+      IMPORTING iv_en     TYPE clike
+                iv_ar     TYPE clike
+                iv_lang   TYPE sy-langu
+      RETURNING VALUE(rv) TYPE string.
+
 *   A field name, made safe to be an ABAP structure component: upper case, only
 *   letters digits and underscore, never longer than 23 (so BUILD_MODEL( )'s
 *   companions - _VS, _VST, _IDTYPE, _NAME, _IX, _EXP - all still fit inside the
@@ -295,5 +308,43 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
     ENDWHILE.
 
     rv = |{ lv_out(18) }_{ lv_h MOD 10000 WIDTH = 4 PAD = '0' ALIGN = RIGHT }|.
+  ENDMETHOD.
+
+
+  METHOD pick_text.
+*   Arabic preferred when lang = 'A' and the Arabic text is filled, English
+*   otherwise - same fallback PICK( ) always used.
+    rv = COND #( WHEN iv_lang = 'A' AND iv_ar IS NOT INITIAL THEN iv_ar
+                 ELSE iv_en ).
+
+*   OTR:<alias> lets a config text stay single-sourced with an SAP OTR
+*   concept instead of being frozen at whatever it was when someone last
+*   typed it into the Studio. A missing or deleted OTR concept falls back
+*   to the stored literal (prefix and all) rather than an empty text, so
+*   the failure is a visible "OTR:..." on screen, not a blank one nobody
+*   can explain.
+    IF strlen( rv ) > 4 AND substring( val = rv len = 4 ) = 'OTR:'.
+*     TYPE sotr_alias, not the STRING SUBSTRING( ) returns by default - a
+*     function module's import parameters are typed strictly, unlike a
+*     method's by-reference binding. Passing a STRING here dumps
+*     CX_SY_DYN_CALL_ILLEGAL_TYPE at runtime.
+      DATA lv_alias TYPE sotr_alias.
+      lv_alias = substring( val = rv off = 4 ).
+      DATA lv_otr TYPE sotr_txt.
+      CLEAR lv_otr.
+      CALL FUNCTION 'SOTR_GET_TEXT_KEY'
+        EXPORTING
+          alias           = lv_alias
+          langu           = iv_lang
+        IMPORTING
+          e_text          = lv_otr
+        EXCEPTIONS
+          no_entry_found  = 1
+          parameter_error = 2
+          OTHERS          = 3.
+      IF sy-subrc = 0 AND lv_otr IS NOT INITIAL.
+        rv = lv_otr.
+      ENDIF.
+    ENDIF.
   ENDMETHOD.
 ENDCLASS.

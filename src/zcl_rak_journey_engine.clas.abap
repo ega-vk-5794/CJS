@@ -185,6 +185,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     CLEAR mt_msg.
     CLEAR mt_gate.
+*   The highlight is MT_MSG's companion, not a separate fact - it lives in the
+*   model (_VS/_VST) rather than in MT_MSG itself, so clearing one without the
+*   other leaves a field red with no message explaining why. Only NEXT/SUBMIT
+*   re-validate and can re-redden a field that is genuinely still wrong; every
+*   other round trip (a blur CHANGE_ event, most commonly) now starts clean
+*   like MT_MSG already did, instead of carrying the previous validation's red
+*   forward with no text to point at it.
+    clear_field_states( ).
 
     TRY.
         CALL METHOD ('ZCL_RAK_NOT_TRACE')=>('RESET').

@@ -60,48 +60,13 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
 
 
   METHOD pick.
-    " Arabic preferred when lang = 'A', falling back to English
-    rv = COND #( WHEN iv_lang = 'A' AND iv_ar IS NOT INITIAL THEN iv_ar
-                 ELSE iv_en ).
-
-    " OTR:<alias> lets a config text stay single-sourced with an SAP OTR
-    " concept instead of being frozen at whatever it was when someone last
-    " typed it into the Studio - the same choice a Studio-editable text and
-    " a runtime-resolved one used to force, never both at once. Every
-    " bilingual text column passes through PICK( ), and PICK( ) runs every
-    " time BUILD_CONFIG( ) rebuilds MS_CONFIG - which ENSURE_CONFIG( ) does
-    " on every round trip, nothing here is cached across requests - so this
-    " already IS "resolved at render time", not merely at Studio save.
-    " A missing or deleted OTR concept falls back to the stored literal
-    " (prefix and all) rather than an empty label, so the failure is a
-    " visible "OTR:..." on screen, not a blank one nobody can explain.
-    IF strlen( rv ) > 4 AND substring( val = rv len = 4 ) = 'OTR:'.
-*     TYPE sotr_alias, not the STRING SUBSTRING( ) returns by default - a
-*     function module's import parameters are typed strictly, unlike a
-*     method's by-reference binding. Passing a STRING here dumped
-*     CX_SY_DYN_CALL_ILLEGAL_TYPE at runtime: "a field may have been
-*     assigned to the parameter ALIAS whose type is not compatible with
-*     this parameter." ZCL_C022_KHULA_CERTI_LOGIC's own GET_OTR_TEXT_BY_ALIAS
-*     already calls this same FM with IV_ALIAS TYPE SOTR_ALIAS - this now
-*     matches it.
-      DATA lv_alias TYPE sotr_alias.
-      lv_alias = substring( val = rv off = 4 ).
-      DATA lv_otr TYPE sotr_txt.
-      CLEAR lv_otr.
-      CALL FUNCTION 'SOTR_GET_TEXT_KEY'
-        EXPORTING
-          alias           = lv_alias
-          langu           = iv_lang
-        IMPORTING
-          e_text          = lv_otr
-        EXCEPTIONS
-          no_entry_found  = 1
-          parameter_error = 2
-          OTHERS          = 3.
-      IF sy-subrc = 0 AND lv_otr IS NOT INITIAL.
-        rv = lv_otr.
-      ENDIF.
-    ENDIF.
+*   Language fallback + OTR:<alias> resolution now live in
+*   ZCL_RAK_JOURNEY_UTIL=>PICK_TEXT( ), stateless and callable from anywhere -
+*   not only from a REPO instance - so ZCL_RAK_JOURNEY_GRID's column headers
+*   (ZRAK_T_JNY_COL-ZLABEL/ZLABEL_AR, read directly, never built by REPO) can
+*   resolve an OTR alias too instead of being the one bilingual pair frozen
+*   at whatever was last typed into the Studio.
+    rv = zcl_rak_journey_util=>pick_text( iv_en = iv_en iv_ar = iv_ar iv_lang = iv_lang ).
   ENDMETHOD.
 
 

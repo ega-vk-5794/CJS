@@ -966,8 +966,11 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       IF gc-hide = abap_true.
         CONTINUE.
       ENDIF.
-      DATA(lv_hdr) = COND string( WHEN mo_e->mv_lang = 'A' AND gc-label_ar IS NOT INITIAL
-                                  THEN gc-label_ar ELSE gc-label ).
+*     Through PICK_TEXT( ), not a plain language COND - ZRAK_T_JNY_COL-ZLABEL/
+*     ZLABEL_AR is read directly here, never built by ZCL_RAK_JOURNEY_REPO, so
+*     this was the one bilingual pair an OTR:<alias> couldn't reach. Same
+*     helper REPO's own PICK( ) now delegates to, so both stay in step.
+      DATA(lv_hdr) = zcl_rak_journey_util=>pick_text( iv_en = gc-label iv_ar = gc-label_ar iv_lang = mo_e->mv_lang ).
       IF gc-required = abap_true.
         lv_hdr = lv_hdr && ` *`.
       ENDIF.

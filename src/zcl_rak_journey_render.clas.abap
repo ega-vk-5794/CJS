@@ -1751,7 +1751,17 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
       WHEN 'READONLY'.
         req_label( io_form = io_form is_field = is_field ).
-        io_form->input( value = lv_bind editable = abap_false width = lv_w class = mo_e->mo_css->cls( 'INPUT' ) ).
+*       VALUESTATE/VALUESTATETEXT bound same as the plain INPUT branch below -
+*       without them a REQUIRED READONLY field that fails validation has
+*       nothing on screen to turn red, leaving a message with no field to
+*       point at (a FTYPE 'INPUT' + READONLY='X' field renders identically
+*       and already binds both, which is what masked this until now).
+        io_form->input( value          = lv_bind
+                        editable       = abap_false
+                        width          = lv_w
+                        class          = mo_e->mo_css->cls( 'INPUT' )
+                        valuestate     = lv_vs
+                        valuestatetext = lv_vst ).
 
       WHEN 'PDF'.
 *       sap.m.PDFViewer, emitted through _GENERIC( ) because Z2UI5_CL_XML_VIEW
