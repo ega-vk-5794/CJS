@@ -252,7 +252,7 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
         ENDIF.
       ENDIF.
 
-      IF ls_mf-type = 'DISPLAY' OR ls_mf-type = 'READONLY' OR ls_mf-type = 'TABLE'
+      IF ls_mf-type = 'DISPLAY' OR ls_mf-type = 'TABLE'
          OR ls_mf-type = 'UPLOAD' OR ls_mf-type = 'STATUS' OR ls_mf-type = 'OBJNUM'
          OR ls_mf-type = 'PROGRESS' OR ls_mf-type = 'LINK'.
         CONTINUE.
