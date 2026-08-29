@@ -636,6 +636,28 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
   METHOD z2ui5_if_app~main.
     mo_client = client.
+
+*   Studio is DEV-only by design: journey config is authored here and
+*   reaches every other system by transport/abapGit, never by editing
+*   directly against QA or PROD data. A hard stop before ANY other logic
+*   runs - INIT( ), LOAD_LIST( ), every event handler - so no event, mode
+*   or round trip can route around it.
+*
+*   ZCL_RAK_JOURNEY_ENGINE - what a citizen actually opens to use a live
+*   service - is deliberately NOT gated this way. This check belongs only
+*   to the authoring tool.
+    IF sy-sysid <> 'E10'.
+      mo_client->view_display(
+        z2ui5_cl_xml_view=>factory(
+          )->message_page( text        = |This system is { sy-sysid }.|
+                           description = 'The Journey Studio only opens on E10. Author journeys ' &&
+                                         'there and let them reach this system by transport, not ' &&
+                                         'by editing here directly.'
+                           icon        = 'sap-icon://locked'
+          )->stringify( ) ).
+      RETURN.
+    ENDIF.
+
     IF mv_init = abap_false.
       mv_init = abap_true.
       mv_mode = 'COMPOSE'.
