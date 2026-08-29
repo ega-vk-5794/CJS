@@ -251,7 +251,7 @@ CLASS Z2UI5_CL_HTTP_HANDLER IMPLEMENTATION.
           CATCH cx_root ##NO_HANDLER.
         ENDTRY.
 
-        result = VALUE #( body          = |abap2UI5 Error: { lv_error_text }|
+        result = VALUE #( body          = |CJS Error: { lv_error_text }|
                           status_code   = 500
                           status_reason = `error` ).
     ENDTRY.
