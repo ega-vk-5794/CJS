@@ -1621,11 +1621,25 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       `.rakDsgSel { background:#fdf3f4; border-inline-start:3px solid rgb(196,30,38); ` &&
       `border-radius:6px; padding-inline-start:6px; }` &&
       `.rakLintMsg { flex:1 1 auto; min-width:0; }` &&
-      `.rakBrandBar { display:flex; align-items:center; gap:0.75rem; ` &&
-      `padding:0.5rem 0.9rem 0; }` &&
-      `.rakBrandLogo { height:2.4rem; width:auto; }` &&
-      `.rakBrandText { color: rgb(196,30,38); font-weight:800; ` &&
-      `font-size:1.15rem; letter-spacing:0.02em; }` &&
+*     Logos at the two edges, text dead-center on the BAR, not just in
+*     whatever gap is left between two differently-sized logos. Flex
+*     space-between pushes the two images (the only normal-flow children
+*     once the text is taken out of flow) to the ends; the text is
+*     positioned independently off left:50% + a -50% transform, so its
+*     own width never throws off its centering the way it would inside a
+*     three-way flex/grid split with unequal siblings.
+*     Kept to ONE short line of text - the hero banner right below this
+*     bar already carries the full "RAK Customer Journey Studio" title
+*     and its own subtitle, so restating that here would just be the
+*     same words twice before the author has scrolled past the toolbar.
+      `.rakBrandBar { position:relative; display:flex; align-items:center; ` &&
+      `justify-content:space-between; padding:0.7rem 1.1rem; background:#fff; ` &&
+      `border-bottom:1px solid #eceff3; box-shadow:0 2px 10px rgba(16,35,62,0.04); }` &&
+      `.rakBrandLogo { height:2.3rem; width:auto; }` &&
+      `.rakBrandText { position:absolute; left:50%; top:50%; ` &&
+      `transform:translate(-50%,-50%); white-space:nowrap; ` &&
+      `color: rgb(196,30,38); font-weight:800; ` &&
+      `font-size:1.1rem; letter-spacing:0.03em; }` &&
 *     Bottom right, not top: the toolbar and the panel headers are what the author
 *     is aiming at, and a banner across the top covers exactly those. z-index 90
 *     sits above the page and below UI5's own dialogs, which start around 1000 -
@@ -1932,7 +1946,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                 class      = 'rakBrandLogo'
                 decorative = abap_false
                 alt        = 'Government of Ras Al Khaimah' ).
-    bar->text( text = 'rak digital' class = 'rakBrandText' ).
+    bar->text( text = 'RAK Digital' class = 'rakBrandText' ).
   ENDMETHOD.
 
 
