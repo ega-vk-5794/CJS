@@ -72,16 +72,35 @@ START-OF-SELECTION.
 *   RX: - the columns whose change fires GRIDCHG_PERS_INFO~<COL> into ON_CHANGE,
 *         which recomputes the <COL>_EN gates (see REACT_PERS_INFO).
 *
-* FIELD_NAME LENGTH - keep it to 19 characters or fewer. The engine derives the
-* model components <FIELD>_VS and <FIELD>_VST for the validation highlight, and
-* ZCL_RAK_JOURNEY_UTIL=>COMP_NAME caps a component name at 23 characters. Past
-* that the component is never created: VAL_SET falls through to the scratch
-* store and BIND_STATE's ASSIGN COMPONENT finds nothing, so the field reports
-* "is required" and never turns red - no dump, no warning, nothing in a trace.
-* 19 + '_VST' = 23 is the boundary. WIVES_COUNT_HUSBAND sits exactly on it and
-* works; DIV_CASE_UPON_DIVORCE at 21 did not, which is why five fields were
-* renamed. A SEARCH field also needs '_IDTYPE' (7 chars), so its ceiling is 16;
-* a RADIO needs '_IX'. None of either type is used here.
+* FIELD_NAME LENGTH - 19 characters or fewer is a readability preference, not a
+* correctness rule. ZCL_RAK_JOURNEY_UTIL=>COMP_NAME caps a model component at 23
+* characters so every companion the engine derives (_VS and _VST for the
+* validation highlight, plus _IDTYPE, _NAME, _IX, _EXP) still fits the 30
+* character limit; a longer name is truncated to 18 characters plus a four-digit
+* fingerprint of the whole key, so two names sharing a prefix cannot collapse
+* onto one component, and ZCL_RAK_CJS_XCHECK warns at save time as well.
+* An earlier reading of this - that an over-length name produced a component
+* that was never created, leaving the field permanently "is required" and never
+* red - was taken from branch MAIN of the engine repository, which is frozen and
+* is not a sync target. FEATURE/DEV, which is, has always handled it. Five
+* fields were renamed under that wrong belief; the names are kept because they
+* read better, not because they had to change.
+*
+* FTYPE 'INPUT' + READONLY = 'X' rather than FTYPE 'READONLY', on the three
+* fields that are starred but never typed into (CONTRACT_PLACE,
+* DIVORCEE_PARTNER, DIVORCER_PARTNER). Both render the same non-editable input,
+* and as of feature/dev both are now enforced: MISSING_REQUIRED dropped its
+* WHERE READONLY = ABAP_FALSE filter, and 'READONLY' has since been taken off
+* its excluded-FTYPE list as well. So this is no longer about enforcement.
+* What still separates them is the highlight. RENDER_ONE's 'READONLY' branch
+* binds no VALUESTATE, so such a field can be blocked but can never turn red;
+* the branch an INPUT field falls into binds both VALUESTATE and VALUESTATETEXT.
+* The extra class the 'READONLY' branch passes, CLS( 'INPUT' ), resolves to
+* blank in every shipped theme - CLS_SET is empty even in the LEGACY preset - so
+* nothing is lost by not taking that branch. If the engine ever binds VALUESTATE
+* on 'READONLY' too, the two become equivalent and this can go back.
+* The other READONLY fields are left as they are: none of them is REQUIRED, so
+* neither enforcement nor a highlight has anything to act on.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
 *   STEP MARR ------------------------------------------------------
   ( mandt = sy-mandt journey_id = c_jid step_id = 'MARR' field_name = 'COURT' seqnr = 10 ftype = 'READONLY'
@@ -91,8 +110,9 @@ START-OF-SELECTION.
   ftype = 'READONLY' readonly = 'X' zlabel = 'Emirate' zlabel_ar = |الإمارة| fgroup = 'ROW:M1'
   tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UG' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'MARR' field_name = 'CONTRACT_PLACE' seqnr = 30
-  ftype = 'READONLY' required = 'X' readonly = 'X' zlabel = 'Contract Place' zlabel_ar = |مكان الإصدار|
-  fgroup = 'ROW:M2' tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00004D' )
+  ftype = 'INPUT' required = 'X' readonly = 'X' zlabel = 'Contract Place' zlabel_ar = |مكان الإصدار|
+  fgroup = 'ROW:M2' tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00004D'
+  msg = 'Contract place is required' msg_ar = |مكان الإصدار مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'MARR' field_name = 'MARR_CONTRACT_NO' seqnr = 40
   ftype = 'INPUT' required = 'X' zlabel = 'Marriage contract number' zlabel_ar = |رقم عقد الزواج| fgroup = 'ROW:M2'
   max_len = 10 tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000U3'
@@ -176,16 +196,16 @@ START-OF-SELECTION.
   msg = 'Isolation is required' msg_ar = |تمت الخلوة مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'CHILDREN_COUNT' seqnr = 60
   ftype = 'INPUT' zlabel = 'No. of children' zlabel_ar = |عدد الابناء| fgroup = 'ROW:H3'
-  max_len = 60 tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008M' )
+  tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008M' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'MARR_PROVING_DATE' seqnr = 70
   ftype = 'DATE' zlabel = 'Marriage proving date' zlabel_ar = |تاريخ الدخول| fgroup = 'ROW:H4'
   tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008N' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'CHILDREN_UNDER_21' seqnr = 80
   ftype = 'INPUT' zlabel = 'Children under 21' zlabel_ar = |عدد الأولاد أقل من 21 سنة| fgroup = 'ROW:H4'
-  max_len = 2 tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UL' )
+  tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UL' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'WIVES_COUNT_HUSBAND' seqnr = 90
   ftype = 'INPUT' required = 'X' zlabel = 'Number of waives for husband' zlabel_ar = |عدد الزوجات في عصمة الزوج|
-  fgroup = 'ROW:H5' max_len = 1 tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000V3'
+  fgroup = 'ROW:H5' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000V3'
   msg = 'Number of waives for husband is required' msg_ar = |عدد الزوجات في عصمة الزوج مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'EARLIER_MARRIAGES' seqnr = 100
   ftype = 'SELECT' required = 'X' zlabel = 'Earlier marriages' zlabel_ar = |هل تم الزواج من قبل بين الطرفين|
@@ -198,7 +218,7 @@ START-OF-SELECTION.
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'PREV_DIVORCES_COUNT' seqnr = 110
   ftype = 'INPUT' zlabel = 'The number of previous divorces'
   zlabel_ar = |عدد حالات الطلاق السابقة بين الطرفين| fgroup = 'ROW:H6'
-  max_len = 2 tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UM'
+  tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UM'
   msg = 'The number of previous divorces is required' msg_ar = |عدد حالات الطلاق السابقة بين الطرفين مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'LAST_DIV_DATE' seqnr = 120
   ftype = 'DATE' zlabel = 'Last divorce date' zlabel_ar = |تاريخ الطلاق السابق| fgroup = 'ROW:H7'
@@ -209,14 +229,16 @@ START-OF-SELECTION.
   ftype = 'EDITABLE_TABLE' required = 'X' zlabel = 'Personal information' zlabel_ar = |البيانات الشخصية للاطراف|
   default_val = 'FIX|RX:ZZAFLD0000TT,ZZAFLD0000TW' tech_name = 'PERS_INFO' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCEE_PARTNER' seqnr = 20
-  ftype = 'READONLY' required = 'X' readonly = 'X' zlabel = 'Divorcee' zlabel_ar = |المطلقة| fgroup = 'ROW:P1'
-  max_len = 10 tech_name = 'NO_PARTIES_INVOLVED2-DIVORCEE_BP' )
+  ftype = 'INPUT' required = 'X' readonly = 'X' zlabel = 'Divorcee' zlabel_ar = |المطلقة| fgroup = 'ROW:P1'
+  max_len = 10 tech_name = 'NO_PARTIES_INVOLVED2-DIVORCEE_BP'
+  msg = 'The divorcee is required' msg_ar = |يجب إضافة المطلقة| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCEE_NAME' seqnr = 30
   ftype = 'READONLY' readonly = 'X' zlabel = 'Divorcee name' zlabel_ar = |اسم المطلقة| fgroup = 'ROW:P1'
   max_len = 35 tech_name = 'NO_PARTIES_INVOLVED2-DIVORCEE_NAME' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCER_PARTNER' seqnr = 40
-  ftype = 'READONLY' required = 'X' readonly = 'X' zlabel = 'Divorcer' zlabel_ar = |المطلق| fgroup = 'ROW:P2'
-  max_len = 10 tech_name = 'NO_PARTIES_INVOLVED2-DIVORCER_BP' )
+  ftype = 'INPUT' required = 'X' readonly = 'X' zlabel = 'Divorcer' zlabel_ar = |المطلق| fgroup = 'ROW:P2'
+  max_len = 10 tech_name = 'NO_PARTIES_INVOLVED2-DIVORCER_BP'
+  msg = 'The divorcer is required' msg_ar = |يجب إضافة المطلق| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCER_NAME' seqnr = 50
   ftype = 'READONLY' readonly = 'X' zlabel = 'Divorcer name' zlabel_ar = |اسم المطلق| fgroup = 'ROW:P2'
   max_len = 35 tech_name = 'NO_PARTIES_INVOLVED2-DIVORCER_NAME' )

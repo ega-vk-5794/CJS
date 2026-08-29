@@ -5,12 +5,6 @@ CLASS z2ui5_cl_util DEFINITION
 
   PUBLIC SECTION.
 
-    " abap-toolkit - Utility Functions for ABAP Cloud & Standard ABAP
-    " version: `0.0.1`.
-    " origin: https://github.com/oblomov-dev/abap-toolkit
-    " author: https://github.com/oblomov-dev
-    " license: MIT.
-
     CONSTANTS:
       BEGIN OF cs_ui5_msg_type,
         e TYPE string VALUE `Error` ##NO_TEXT,
@@ -1248,7 +1242,7 @@ ENDCLASS.
 
 
 
-CLASS z2ui5_cl_util IMPLEMENTATION.
+CLASS Z2UI5_CL_UTIL IMPLEMENTATION.
 
 
   METHOD boolean_abap_2_json.
@@ -1657,8 +1651,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
   ENDMETHOD.
 
 
-
-
   METHOD itab_get_itab_by_csv.
 
     DATA lt_comp TYPE cl_abap_structdescr=>component_table.
@@ -1968,6 +1960,7 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
     ENDTRY.
 
   ENDMETHOD.
+
 
   METHOD conv_exit.
 
@@ -2399,6 +2392,7 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
     ENDLOOP.
 
   ENDMETHOD.
+
 
   METHOD itab_filter_by_t_range.
 
@@ -3505,8 +3499,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
   ENDMETHOD.
 
 
-  " ========== String Extras ==========
-
   METHOD c_pad_left.
 
     result = val.
@@ -3584,8 +3576,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-  " ========== Number Formatting ==========
 
   METHOD conv_number_to_string.
 
@@ -3679,8 +3669,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
   ENDMETHOD.
 
 
-  " ========== i18n / Text Resolution ==========
-
   METHOD text_get.
 
     DATA lv_msgid TYPE c LENGTH 20.
@@ -3717,8 +3705,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-  " ========== Itab Extras ==========
 
   METHOD itab_sort_by.
 
@@ -3807,8 +3793,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-  " ========== Validation Helpers ==========
 
   METHOD check_is_email.
 
@@ -3926,8 +3910,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
   ENDMETHOD.
 
 
-  " ========== Deep Comparison ==========
-
   METHOD data_equals.
 
     TRY.
@@ -3965,8 +3947,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
   ENDMETHOD.
 
 
-  " ========== Stopwatch ==========
-
   METHOD time_measure_start.
 
     GET TIME STAMP FIELD result.
@@ -3983,8 +3963,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-  " ========== Authorization Check ==========
 
   METHOD auth_check.
 
@@ -4006,8 +3984,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-  " ========== Enum/Domain Helpers ==========
 
   METHOD enum_to_text.
 
@@ -4043,8 +4019,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-  " ========== Deep Field Access ==========
 
   METHOD data_get_by_path.
 
@@ -4101,8 +4075,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-  " ========== BAL Extensions ==========
 
   METHOD bal_search.
 
@@ -4428,8 +4400,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-  " ========== Transport Extensions ==========
 
   METHOD tr_get_objects.
 
@@ -4787,8 +4757,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
   ENDMETHOD.
 
 
-  " ========== Lock Extensions ==========
-
   METHOD lock_is_locked.
 
     " Try to set the lock — if it fails, the object is locked.
@@ -4853,8 +4821,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
   ENDMETHOD.
 
 
-  " ========== Number Range ==========
-
   METHOD numrange_get_next.
 
     DATA lv_object  TYPE c LENGTH 10.
@@ -4904,8 +4870,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-  " ========== Change Documents ==========
 
   METHOD changdoc_read.
 
@@ -5058,8 +5022,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
   ENDMETHOD.
 
 
-  " ========== Background Job ==========
-
   METHOD job_submit_report.
 
     IF context_check_abap_cloud( ).
@@ -5148,8 +5110,6 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-  " ========== Email ==========
 
   METHOD mail_send.
 
@@ -5286,5 +5246,4 @@ CLASS z2ui5_cl_util IMPLEMENTATION.
     ENDTRY.
 
   ENDMETHOD.
-
 ENDCLASS.

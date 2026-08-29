@@ -3,7 +3,9 @@
 *&---------------------------------------------------------------------*
 
 CLASS lcl_editor DEFINITION DEFERRED.
+CLASS lcl_editor DEFINITION LOAD.
 CLASS lcl_event_receiver DEFINITION DEFERRED.
+CLASS lcl_loader DEFINITION DEFERRED.
 CLASS lcl_dragdropobj DEFINITION LOAD.
 
 DATA: ok_code   TYPE sy-ucomm,

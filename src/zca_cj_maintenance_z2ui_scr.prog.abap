@@ -9,10 +9,7 @@
 MODULE status_0100 OUTPUT.
   SET PF-STATUS 'MAIN'.
   SET TITLEBAR 'MAIN'.
-  IF go_editor IS INITIAL.
-    go_event = NEW lcl_event_receiver( ).
-    go_editor = NEW lcl_editor( ).
-  ENDIF.
+  go_editor->init_screens( ).
 ENDMODULE.
 *&---------------------------------------------------------------------*
 *&      Module  USER_COMMAND_0100  INPUT

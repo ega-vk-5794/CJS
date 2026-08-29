@@ -148,15 +148,15 @@
     <TIT>
      <RSMPE_TITT>
       <CODE>MAIN</CODE>
-      <TEXT>CJS Maintenance Editor</TEXT>
+      <TEXT>ABAP2UI5 Editor</TEXT>
      </RSMPE_TITT>
     </TIT>
    </CUA>
    <TPOOL>
     <item>
      <ID>R</ID>
-     <ENTRY>CJS Maintenance Editor</ENTRY>
-     <LENGTH>22</LENGTH>
+     <ENTRY>ABAP2UI Editor</ENTRY>
+     <LENGTH>14</LENGTH>
     </item>
    </TPOOL>
   </asx:values>

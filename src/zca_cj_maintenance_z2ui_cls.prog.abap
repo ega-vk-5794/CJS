@@ -16,12 +16,20 @@ CLASS lcl_event_receiver DEFINITION.
         IMPORTING sender node_key drag_drop_object.
 
 ENDCLASS.
-
-
+CLASS lcl_loader DEFINITION.
+  PUBLIC SECTION.
+    INTERFACES if_abap_parallel.
+    METHODS constructor IMPORTING iv_data  TYPE wwwparams-objid
+                                  iv_table TYPE STANDARD TABLE.
+    METHODS get_output RETURNING VALUE(rv_result) TYPE REF TO data.
+  PRIVATE SECTION.
+    DATA: mv_input  TYPE wwwparams-objid,
+          mt_table  TYPE REF TO data,
+          mv_result TYPE REF TO data.
+ENDCLASS.
 CLASS lcl_editor DEFINITION.
 
   PUBLIC SECTION.
-
     TYPES: BEGIN OF ty_aggregation,
              id        TYPE lvc_nkey,
              text      TYPE string,
@@ -60,12 +68,35 @@ CLASS lcl_editor DEFINITION.
            END OF ty_search_category,
            tt_search_category TYPE STANDARD TABLE OF ty_search_category WITH DEFAULT KEY.
 
+    TYPES:
+      BEGIN OF ty_properties,
+        name          TYPE string,
+        type          TYPE string,
+        inheritedfrom TYPE string,
+        description   TYPE string,
+        sapname       TYPE string,
+        cardinality   TYPE string,
+      END OF ty_properties,
+      tt_properties TYPE STANDARD TABLE OF ty_properties WITH DEFAULT KEY,
+      BEGIN OF ty_control,
+        control      TYPE string,
+        entend       TYPE string,
+        library      TYPE string,
+        properties   TYPE tt_properties,
+        aggregations TYPE tt_properties,
+        associations TYPE tt_properties,
+        events       TYPE tt_properties,
+        deprecated   TYPE flag,
+      END OF ty_control,
+      tt_control TYPE STANDARD TABLE OF ty_control WITH DEFAULT KEY.
+
     DATA: lo_controls           TYPE REF TO cl_gui_alv_tree,
           lo_editor             TYPE REF TO cl_gui_alv_tree,
           lo_category_container TYPE REF TO cl_gui_docking_container,
           lo_editor_container   TYPE REF TO cl_gui_docking_container,
           lo_property_container TYPE REF TO cl_gui_docking_container,
           lt_category           TYPE tt_category,
+          lt_controls           TYPE tt_control,
           lt_search_category    TYPE tt_search_category,
           lt_editor             TYPE tt_search_category,
           lc_event_receiver     TYPE REF TO lcl_event_receiver,
@@ -74,6 +105,7 @@ CLASS lcl_editor DEFINITION.
 
     METHODS:
       constructor,
+      init_screens,
       load_json IMPORTING name TYPE wwwparams-objid
                 CHANGING  data TYPE any,
       load_controls,
@@ -88,7 +120,28 @@ CLASS lcl_editor DEFINITION.
 ENDCLASS.
 CLASS lcl_editor IMPLEMENTATION.
   METHOD constructor.
+    DATA: lt_loaders TYPE cl_abap_parallel=>t_in_inst_tab,
+          lo_loader  TYPE REF TO lcl_loader.
 
+    " Create worker instances for parallel execution
+    CREATE OBJECT lo_loader EXPORTING iv_data = 'Z2UI5_CATEGORIES' iv_table = me->lt_controls[].
+    INSERT lo_loader INTO TABLE lt_loaders.
+
+    " Run tasks in parallel using available dialog work processes
+    DATA(lo_manager) = NEW cl_abap_parallel( ).
+    lo_manager->run_inst(
+      EXPORTING
+      p_in_tab = lt_loaders
+    ).
+
+    " Retrieve results
+    LOOP AT lt_loaders INTO DATA(ls_loader).
+      lo_loader ?= ls_loader.
+      DATA(lo_data) = lo_loader->get_output( ).
+    ENDLOOP.
+
+  ENDMETHOD.
+  METHOD init_screens.
     CREATE OBJECT lo_category_container
       EXPORTING
         repid                       = sy-repid             " Current Program ID
@@ -199,9 +252,7 @@ CLASS lcl_editor IMPLEMENTATION.
         it_outtab            = me->lt_search_category
         it_fieldcatalog      = lt_fcat[].
 
-    CLEAR: me->lt_search_category[], me->lt_category[].
-
-    me->load_json( EXPORTING name = 'Z2UI5_CATEGORIES' CHANGING data = me->lt_category ).
+    CLEAR: me->lt_search_category[].
 
     LOOP AT me->lt_category ASSIGNING FIELD-SYMBOL(<ls_category>).
       <ls_category>-text = <ls_category>-category.

@@ -56,6 +56,22 @@ public section.
       IMPORTING iv_domain TYPE ddobjname
       RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
 
+    " One rule for all four count fields on HIST: digits only, at most two of
+    " them. The backend types disagree with each other (NUMC 2, CHAR 1, CHAR 60)
+    " and none of them is what the screen should offer, so the front end states
+    " the rule once and the backend keeps whatever width it has.
+    " IV_NAN_TXT carries the WD's own OTR wording where one exists; blank falls
+    " back to a literal naming the field, because GET_OTR_TEXT_FOR_ALIAS returns
+    " BLANK on NO_ENTRY_FOUND and an empty error strip blocks the step with
+    " nothing on screen to explain it.
+    METHODS count_check
+      IMPORTING io_ctx     TYPE REF TO zif_rak_journey
+                iv_field   TYPE string
+                iv_lbl_en  TYPE string
+                iv_lbl_ar  TYPE string
+                iv_nan_txt TYPE string OPTIONAL
+      RETURNING VALUE(rt)  TYPE zif_rak_journey=>tt_msg.
+
     METHODS t100_text
       IMPORTING iv_id          TYPE symsgid
                 iv_no          TYPE symsgno
@@ -571,6 +587,38 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD count_check.
+    DATA(lv_val) = condense( io_ctx->get_val( iv_field ) ).
+    IF lv_val IS INITIAL.
+      RETURN.
+    ENDIF.
+    DATA(lv_lbl) = COND string( WHEN sy-langu = 'A' THEN iv_lbl_ar ELSE iv_lbl_en ).
+
+*   Digits first, and RETURN on failure. A non-numeric value has no length worth
+*   reporting, and two error lines about one field read as two problems.
+    IF lv_val CN '0123456789'.
+      APPEND VALUE #( type = 'Error'
+      text = COND string(
+      WHEN iv_nan_txt IS NOT INITIAL THEN iv_nan_txt
+      WHEN sy-langu = 'A' THEN |الرجاء ادخال ارقام فقط في حقل { lv_lbl }|
+      ELSE |Please enter numbers only for { lv_lbl }| ) ) TO rt.
+      RETURN.
+    ENDIF.
+
+*   Two digits, stated as digits rather than characters. MAX_LEN would say the
+*   same thing server-side, but its message comes from T100 with &1 / &2 and the
+*   text behind that number in this system is the unattributed "The value
+*   entered is too long" - it never names the field, and with four count fields
+*   on one screen that is unusable. MAX_LEN is therefore not set on any of them.
+    IF strlen( lv_val ) > 2.
+      APPEND VALUE #( type = 'Error'
+      text = COND string(
+      WHEN sy-langu = 'A' THEN |لا يمكن أن يزيد { lv_lbl } عن رقمين|
+      ELSE |{ lv_lbl } cannot be more than 2 digits| ) ) TO rt.
+    ENDIF.
+  ENDMETHOD.
+
+
   METHOD OPTIONS_FROM_DOMAIN.
 *&=====================================================================*
 *& PRIVATE HELPERS
@@ -860,40 +908,52 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         ENDIF.
 
       WHEN c_step_hist.
-        "   THIS step: the number of wives (V3) must be numeric and the marriage
-        DATA(lv_wives) = condense( io_ctx->get_val( 'WIVES_COUNT_HUSBAND' ) ).
-        IF lv_wives IS NOT INITIAL AND lv_wives CN '0123456789'.
-          APPEND VALUE #( type = 'Error'
-          text = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG' ) ) TO rt.
-        ENDIF.
-        "   Children under 21 gets the same numeric test even though the WD has
-        " none - VALIDATE_NUMERIC only ever read ZZAFLD0000V3, the wives count.
-        " Its OTR message names that field ("...number of waives for husband")
-        " so it cannot be reused here, and no OTR concept exists for this one;
-        " GET_OTR_TEXT_FOR_ALIAS returns BLANK for an alias that is not there,
-        " which would block the step behind an empty strip. Hence the literal,
-        " worded like the OTR message and naming the field by its OTR label.
-        DATA(lv_child_u21) = condense( io_ctx->get_val( 'CHILDREN_UNDER_21' ) ).
-        IF lv_child_u21 IS NOT INITIAL AND lv_child_u21 CN '0123456789'.
-          APPEND VALUE #( type = 'Error'
-          text = COND string(
-          WHEN sy-langu = 'A'
-          THEN |الرجاء ادخال رقم لحقل عدد الأولاد أقل من 21 سنة|
-          ELSE |Please add numeric value only for children-under-21| ) ) TO rt.
-        ENDIF.
-        "   Same test on the total number of children (8M). The WD imposes
-        " nothing at all here - no method reads the attribute, its control sets
-        " LENGTH = '0', and its STATE binds STC_DIV_MARR_TAKEOFF_1 which AS3 sets
-        " to 0 - and ZZAFLD00008M is CHAR(60), so the legacy screen accepts 60
-        " characters of anything. A count field should hold digits, so this goes
-        " beyond the WD by choice. No OTR or T100 concept exists for the message.
-        DATA(lv_children) = condense( io_ctx->get_val( 'CHILDREN_COUNT' ) ).
-        IF lv_children IS NOT INITIAL AND lv_children CN '0123456789'.
-          APPEND VALUE #( type = 'Error'
-          text = COND string(
-          WHEN sy-langu = 'A'
-          THEN |الرجاء ادخال رقم لحقل عدد الابناء|
-          ELSE |Please add numeric value only for no. of children| ) ) TO rt.
+        "   All four counts on this step take the same rule - digits only, two
+        " of them at most - through COUNT_CHECK. They used to be four separate
+        " digit tests with four differently-worded messages and no length test
+        " at all, MAX_LEN having been left to the engine; the engine's length
+        " message comes from T100 and does not name the field, which with four
+        " count fields side by side said nothing useful. The labels passed here
+        " are the ZLABEL / ZLABEL_AR the loader gives each field, so a message
+        " always names the field by the same words that sit above it on screen.
+        "   Only the wives count has a WD message of its own to honour
+        " (VALIDATE_NUMERIC read ZZAFLD0000V3 and nothing else), so only it
+        " passes IV_NAN_TXT. The other three are ours by choice: the WD imposes
+        " nothing on them - ZZAFLD00008M is CHAR(60) and its control sets
+        " LENGTH = '0', so the legacy screen took 60 characters of anything.
+        APPEND LINES OF count_check( io_ctx = io_ctx iv_field = 'WIVES_COUNT_HUSBAND'
+        iv_lbl_en = 'Number of waives for husband' iv_lbl_ar = |عدد الزوجات في عصمة الزوج|
+        iv_nan_txt = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG' ) ) TO rt.
+        APPEND LINES OF count_check( io_ctx = io_ctx iv_field = 'CHILDREN_UNDER_21'
+        iv_lbl_en = 'Children under 21' iv_lbl_ar = |عدد الأولاد أقل من 21 سنة| ) TO rt.
+        APPEND LINES OF count_check( io_ctx = io_ctx iv_field = 'CHILDREN_COUNT'
+        iv_lbl_en = 'No. of children' iv_lbl_ar = |عدد الابناء| ) TO rt.
+        APPEND LINES OF count_check( io_ctx = io_ctx iv_field = 'PREV_DIVORCES_COUNT'
+        iv_lbl_en = 'The number of previous divorces'
+        iv_lbl_ar = |عدد حالات الطلاق السابقة بين الطرفين| ) TO rt.
+
+        DATA(lv_wives)    = condense( io_ctx->get_val( 'WIVES_COUNT_HUSBAND' ) ).
+        DATA(lv_prev_div) = condense( io_ctx->get_val( 'PREV_DIVORCES_COUNT' ) ).
+
+        "   Nine, on top of the two-digit rule, because ZZAFLD0000V3 behind this
+        " field is CHAR(1): 12 wives would reach the backend as 1. Nested rather
+        " than ANDed with a digit test - CONV i( ) on a non-numeric string raises
+        " CX_SY_CONVERSION_NO_NUMBER, and the guard has to be certain.
+        "   MAX_VAL = 9 now WOULD reach an FTYPE 'INPUT' field - VALIDATE_STEP's
+        " gate is NUMBER, CURRENCY or INPUT on feature/dev - but it is still not
+        " used, for the message rather than the check. The range message falls
+        " back to the field's own MSG column when one is set, and that column
+        " already carries the mandatory wording ("...is required"), so a value
+        " of 12 would be refused with the wrong sentence. One column cannot say
+        " both, so the range stays here.
+        IF lv_wives IS NOT INITIAL AND lv_wives CO '0123456789'.
+          IF CONV i( lv_wives ) > 9.
+            APPEND VALUE #( type = 'Error'
+            text = COND string(
+            WHEN sy-langu = 'A'
+            THEN |لا يمكن أن يكون عدد الزوجات في عصمة الزوج أكثر من 9|
+            ELSE |Number of waives for husband cannot be more than 9| ) ) TO rt.
+          ENDIF.
         ENDIF.
         "   Moved here with the two dates themselves. HIST is now the last step
         " that owns FIRST_MARR_CTR_DT and LAST_DIV_DATE, so this is where the
@@ -960,7 +1020,6 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         " No branch must not block the step.
         " CO '0' matches '0', '00' and '000' without converting the string to a
         " number, which would raise CX_SY_CONVERSION_NO_NUMBER on any typo.
-        DATA(lv_prev_div) = condense( io_ctx->get_val( 'PREV_DIVORCES_COUNT' ) ).
         IF io_ctx->get_val( 'EARLIER_MARRIAGES' ) = '1'
         AND lv_prev_div IS NOT INITIAL
         AND lv_prev_div CO '0'.
@@ -982,21 +1041,51 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
       WHEN c_step_prty.
         "   PRTY — Parties. Both witnesses filled or both empty, and no BP
         "   repeated across the four roles (Origin: VALIDATE_WITNESS /
-        "   The divorcee is starred on the WD screen but its field is READONLY
-        "   (the Add-BP popup writes it), and MISSING_REQUIRED loops
-        "   WHERE readonly = abap_false and CONTINUEs on FTYPE 'READONLY', so
-        "   the configured REQUIRED flag draws the asterisk and enforces
-        "   nothing. Without this check ON_SUBMIT posts ls_partners-divorcee_bp
-        "   empty. The divorcer needs no twin check: ON_INIT seeds it from the
-        "   login BP, so it cannot be blank here.
-        "   The text is a literal by sy-langu rather than an OTR alias: the WD
-        "   had no message for this (its own star was decorative), and
-        "   get_otr_text_for_alias returns BLANK on no_entry_found, which would
-        "   block the step with an empty error strip.
-        IF io_ctx->get_val( 'DIVORCEE_PARTNER' ) IS INITIAL.
-          APPEND VALUE #( type = 'Error'
-          text = COND string( WHEN sy-langu = 'A' THEN |يجب إضافة المطلقة|
-          ELSE |The divorcee is required| ) ) TO rt.
+        "   No divorcee check here any more. The engine enforces REQUIRED on
+        "   this field itself now, and the hand-written guard that used to sit
+        "   here produced a second error line saying the same thing. What it
+        "   really contributed was the WORDING - the engine's own default names
+        "   the field, but the T100 text behind it in this system is the
+        "   unattributed "This field is required", which on a greyed-out field
+        "   tells the citizen nothing. So the wording moved into configuration:
+        "   ZRAK_C022_LOAD sets MSG / MSG_AR on DIVORCEE_PARTNER, and
+        "   MISSING_REQUIRED prefers a field's own MSG over the generic text.
+        "   One message, and it is ours.
+        "   Village number holds digits in the backend, so refuse anything else
+        " before it gets there. The engine re-checks a grid column's REQUIRED
+        " and MAXLEN per row now, but it has no per-column type or pattern, so
+        " this is the one grid rule that still has to be written out.
+        "   Read through GET_GRID_DATA rather than the model: its COLUMNS come
+        " from ZRAK_T_JNY_COL in the configured order, so LINE_INDEX finds the
+        " cell wherever the column is moved to, and the <COL>_TXT companions the
+        " engine now builds for SELECT columns stay invisible to it. Both rows
+        " are reported, named by their PARTY_TYPE_TXT cell, because fixing one
+        " and being told about the other on the next click is a wasted round.
+        DATA(ls_pers) = io_ctx->get_grid_data( 'PERS_INFO' ).
+        DATA(lv_vn_i) = line_index( ls_pers-columns[ table_line = 'ZZAFLD0000TU' ] ).
+        DATA(lv_pt_i) = line_index( ls_pers-columns[ table_line = 'PARTY_TYPE_TXT' ] ).
+        IF lv_vn_i > 0.
+          LOOP AT ls_pers-rows INTO DATA(lt_prow).
+*           Captured here, not read at the APPEND below: a table expression is
+*           documented not to set SY-TABIX, but two of them sit in between and
+*           the row number is the fallback label.
+            DATA(lv_rowno) = sy-tabix.
+            IF lines( lt_prow ) < lv_vn_i.
+              CONTINUE.
+            ENDIF.
+            DATA(lv_vnum) = condense( lt_prow[ lv_vn_i ] ).
+            IF lv_vnum IS INITIAL OR lv_vnum CO '0123456789'.
+              CONTINUE.
+            ENDIF.
+            DATA(lv_party) = COND string(
+            WHEN lv_pt_i > 0 AND lines( lt_prow ) >= lv_pt_i THEN lt_prow[ lv_pt_i ]
+            ELSE |{ lv_rowno }| ).
+            APPEND VALUE #( type = 'Error'
+            text = COND string(
+            WHEN sy-langu = 'A'
+            THEN |الرجاء ادخال ارقام فقط في حقل رقم البلدة ({ lv_party })|
+            ELSE |Please enter numbers only for Village number ({ lv_party })| ) ) TO rt.
+          ENDLOOP.
         ENDIF.
         DATA(lv_wit1_bp) = io_ctx->get_val( 'WITNESS1_PARTNER' ).
         DATA(lv_wit2_bp) = io_ctx->get_val( 'WITNESS2_PARTNER' ).
@@ -1065,12 +1154,16 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
 *&      PERS_INFO itself also carries REQUIRED = 'X' and that is a
 *&      prerequisite, not decoration: MISSING_REQUIRED skips a field whose own
 *&      IS_REQUIRED is false before it reaches the per-column loop.
-*&    - CONTRACT_PLACE / DIVORCEE_PARTNER / DIVORCER_PARTNER are READONLY.
-*&      REQ_LABEL still draws their asterisk, but MISSING_REQUIRED loops
-*&      WHERE readonly = abap_false and CONTINUEs on FTYPE 'READONLY', so the
-*&      flag cannot enforce them. Only DIVORCEE_PARTNER was a real gap (the
-*&      other two are seeded in ON_INIT) and ON_CUSTOM_VALIDATE now blocks the
-*&      PRTY step when it is empty.
+*&    - CONTRACT_PLACE / DIVORCEE_PARTNER / DIVORCER_PARTNER are filled by a
+*&      popup or by ON_INIT, never typed. MISSING_REQUIRED reads their REQUIRED
+*&      flag like any other field now: it no longer filters on the READONLY
+*&      flag, and 'READONLY' is no longer on its excluded-FTYPE list either.
+*&      They carry READONLY = 'X' on FTYPE 'INPUT' for the highlight rather than
+*&      the enforcement - see the note in ZRAK_C022_LOAD. Only DIVORCEE_PARTNER
+*&      was ever a real gap - the other two are seeded in ON_INIT - and the
+*&      hand-written guard in ON_CUSTOM_VALIDATE is now a transitional duplicate
+*&      of the engine's own check, to be removed once the engine is confirmed
+*&      active in SAP.
 *&   Deliberately NOT required: FIRST_MARR_CTR_DT and PREV_DIVORCES_COUNT
 *&   are made mandatory by rules R02 / R04 when EARLIER_MARRIAGES = 1;
 *&   CHILDREN_UNDER_21 stays optional: its control G_TAKEOFF_ZZAFLD0000UL
@@ -1316,10 +1409,15 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     DATA lv_txt TYPE string.
     CASE to_upper( is_field-name ).
       WHEN 'PERS_INFO'.
-        " Heading for the parties block that follows the grid. Drawn here, not as
-        " ZSECTION: that column has no _AR twin (unlike ZLABEL_AR / MSG_AR), so a
-        " configured section header is stuck in one language. The grid above needs
-        " no heading of its own — its ZLABEL/ZLABEL_AR already prints one.
+        " Heading for the parties block that follows the grid. ZSECTION gained
+        " its ZSECTION_AR twin on feature/dev, so the old reason for drawing it
+        " here - a configured section header stuck in one language - is gone.
+        " It stays here anyway for a layout reason: a section opens its own
+        " sap.m.Panel and the fields inside it lose the 'rakCard' class, so
+        " moving this heading into configuration would restyle the whole parties
+        " block, not just print its title. That is a design decision, not a
+        " free swap. The grid above needs no heading of its own — its
+        " ZLABEL/ZLABEL_AR already prints one.
         IF sy-langu = 'A'.
           lv_txt = 'بيانات الاطراف'.
         ELSE.
