@@ -538,6 +538,7 @@ CLASS zcl_rak_cjs DEFINITION
     METHODS render.
     METHODS render_toolbar  IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_branding IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
+    METHODS render_hero     IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS brand_logo_ega RETURNING VALUE(rv) TYPE string.
     METHODS brand_logo_rak RETURNING VALUE(rv) TYPE string.
     METHODS render_compose  IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
@@ -1606,18 +1607,21 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       `.rakHero { background: linear-gradient(135deg, rgb(196,30,38), rgb(166,18,22)); color:#fff; padding:22px 26px; border-radius:16px; margin:10px; box-shadow:0 10px 30px rgba(196,30,38,0.26); }` &&
       `.rakHero h1 { margin:0; font-size:1.6rem; font-weight:700; }` &&
       `.rakHero p { margin:6px 0 0; opacity:0.92; }` &&
-*     The two authority logos sit INSIDE this same card on Compose,
-*     right of the title, rather than a second branding strip stacked on
-*     top of it. White chips behind each mark - both source images have
-*     a white/light background themselves, so placed directly on the
-*     dark red gradient they would read as two stray rectangles instead
-*     of a deliberate letterhead-style pairing.
-      `.rakHeroTop { display:flex; align-items:center; justify-content:space-between; gap:1.2rem; }` &&
-      `.rakHeroTitle { flex:1 1 auto; min-width:0; }` &&
-      `.rakHeroBrand { display:flex; align-items:center; gap:0.6rem; flex:none; }` &&
+*     The two authority logos sit INSIDE this same card on Compose, one
+*     at each edge flanking the title, rather than grouped together on
+*     one side. Grid, not flex+space-between - with a logo now in BOTH
+*     outer columns the title has to stay centred regardless of whether
+*     the two logos happen to be the same width, and auto/1fr/auto is
+*     what guarantees that (the same trick RENDER_BRANDING( )'s thin bar
+*     already uses for its centred text). White chips behind each mark -
+*     both source images have a white/light background themselves, so
+*     placed directly on the dark red gradient they would read as two
+*     stray rectangles instead of a deliberate letterhead-style pairing.
+      `.rakHeroTop { display:grid; grid-template-columns: auto 1fr auto; align-items:center; gap:1.2rem; }` &&
+      `.rakHeroTitle { min-width:0; text-align:center; }` &&
       `.rakHeroLogo { background:#fff; border-radius:8px; padding:0.35rem 0.6rem; ` &&
       `display:inline-flex; align-items:center; line-height:0; }` &&
-      `.rakHeroLogo img { height:1.7rem; width:auto; display:block; }` &&
+      `.rakHeroLogo img { height:2.1rem; width:auto; display:block; }` &&
       `.rakSec { color: rgb(16,35,62); font-weight:700; font-size:1.05rem; margin:16px 14px 2px; }` &&
       `.rakCard { background:#fff; border:1px solid #eceff3; border-radius:14px; padding:14px; box-shadow:0 2px 10px rgba(16,35,62,0.06); }` &&
       `.rakCard:hover { box-shadow:0 10px 22px rgba(16,35,62,0.12); }` &&
@@ -1780,10 +1784,14 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(page) = view->shell( )->page( showheader = abap_false class = 'sapUiSizeCompact' ).
     page->html( content = css( ) sanitizecontent = abap_false ).
     page->html( content = scroll_js( ) sanitizecontent = abap_false ).
-*   Not on Compose - RENDER_COMPOSE( ) puts both logos inside its own
-*   hero card instead, so this thin bar would otherwise repeat them a
-*   moment later on the exact same page.
-    IF mv_mode <> 'COMPOSE'.
+*   Compose gets the hero card instead of the thin bar - and it goes
+*   first, above the toolbar and mode tabs, so it reads as the page's
+*   masthead rather than a banner sandwiched between two rows of
+*   buttons. RENDER_BRANDING( )'s bar would also just repeat both logos
+*   a moment later on the exact same page, so it only runs elsewhere.
+    IF mv_mode = 'COMPOSE'.
+      render_hero( page ).
+    ELSE.
       render_branding( page ).
     ENDIF.
     render_toolbar( page ).
@@ -1992,27 +2000,31 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD render_compose.
-*   Logos live INSIDE this hero card, beside the title, rather than as a
-*   second branding strip stacked on top of it - Compose already has
-*   this one big red banner, and RENDER_BRANDING( )'s thin bar right
-*   above it would just repeat the same two marks a moment later. Every
-*   other tab (Author, Preview, Migrate, Audit, Design) has no hero of
-*   its own, so RENDER_BRANDING( ) still runs there unchanged.
-*   Subtitle trimmed to one clause - "theme, colours and branding, the
-*   full configuration lives in Author" was telling the author something
-*   the Author tab itself already shows.
+  METHOD render_hero.
+*   Compose's masthead - called from RENDER( ), above the toolbar and
+*   mode tabs, not from RENDER_COMPOSE( ) itself, so it is the first
+*   thing on the page rather than a banner sandwiched between two rows
+*   of buttons. One logo at each edge, title centred between them
+*   (RAKHEROTOP's grid does the centring - see CSS( )). Every other tab
+*   (Author, Preview, Migrate, Audit, Design) has no hero of its own, so
+*   RENDER_BRANDING( ) still runs there unchanged. Subtitle trimmed to
+*   one clause - "theme, colours and branding, the full configuration
+*   lives in Author" was telling the author something the Author tab
+*   itself already shows.
     io->html(
       content = `<div class="rakHero"><div class="rakHeroTop">` &&
-                `<div class="rakHeroTitle"><h1>RAK Customer Journey Studio</h1>` &&
-                `<p>Pick a pattern to start a new service, or restyle the one you have.</p></div>` &&
-                `<div class="rakHeroBrand">` &&
                 `<span class="rakHeroLogo"><img src="data:image/jpeg;base64,` && brand_logo_ega( ) &&
                 `" alt="Electronic Government Authority"/></span>` &&
+                `<div class="rakHeroTitle"><h1>RAK Customer Journey Studio</h1>` &&
+                `<p>Pick a pattern to start a new service, or restyle the one you have.</p></div>` &&
                 `<span class="rakHeroLogo"><img src="data:image/gif;base64,` && brand_logo_rak( ) &&
                 `" alt="Government of Ras Al Khaimah"/></span>` &&
-                `</div></div></div>`
+                `</div></div>`
       sanitizecontent = abap_false ).
+  ENDMETHOD.
+
+
+  METHOD render_compose.
     DATA(split) = io->hbox( alignitems = 'Stretch' class = 'sapUiSmallMargin' ).
     DATA(left)  = split->vbox( width = '60%' class = 'sapUiSmallMarginEnd' ).
     DATA(right) = split->vbox( width = '26rem' ).
