@@ -275,7 +275,13 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
       ( msgno = c_no-too_long
         en = `&1 must be at most &2 characters`
         ar = `يجب ألا يتجاوز &1 &2 أحرف` )
-      ( msgno = c_no-bad_format   en = `The format is not valid`       ar = `الصيغة غير صحيحة` )
+*     &1, not a placeholder-free line - ZCL_RAK_JOURNEY_RULES's regex check
+*     (its only caller) already passes IV_V1 = the field's label expecting
+*     one, and already uses this exact English wording as ITS OWN IV_DEFAULT
+*     fallback; the catalogue's own copy was the one place still missing it,
+*     so the field name never actually appeared unless the DB table override
+*     supplied its own &1.
+      ( msgno = c_no-bad_format   en = `&1 has an invalid format`      ar = `صيغة &1 غير صحيحة` )
       ( msgno = c_no-choose_one   en = `Please make a selection`       ar = `يرجى تحديد أحد الخيارات` )
       ( msgno = c_no-upload en = `Upload` ar = `إرفاق` )
       ( msgno = c_no-attachments  en = `Attachments`                   ar = `المرفقات` )
