@@ -155,6 +155,13 @@ INTERFACE zif_rak_journey
 *     red-border-plus-tooltip treatment every built-in check already gives
 *     itself, instead of leaving the citizen to find the field by reading.
 *     VALIDATE_STEP is what acts on it - see ZCL_RAK_JOURNEY_RULES.
+*
+*     A grid cell, not a scalar field, takes '<grid_field>.<col>#<row>' -
+*     the same compound shape ON_CUSTOM_VALIDATE's own IO_CTX already
+*     hands a handler for a grid change (ON_CHANGE's IV_FIELD, built from
+*     the cell that fired it), so naming one to highlight needs no new
+*     syntax to learn. ROW is 1-based, matching the grid's own internal
+*     table - not the row's _UID.
       field TYPE string,
     END OF ty_msg,
     tt_msg TYPE STANDARD TABLE OF ty_msg WITH EMPTY KEY.

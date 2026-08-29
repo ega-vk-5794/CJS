@@ -1047,8 +1047,15 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *         TEXT shows a value nobody may change.
           lo_cells->text( text = lv_path visible = lv_vis ).
         WHEN 'NUMBER'.
+*         VALUESTATE/VALUESTATETEXT bound per row, same trick VALUE
+*         already uses - {gc-name} resolves against whichever row the
+*         table binding is currently drawing, so {gc-name}_VS does too,
+*         no per-row loop needed here. BUILD_MODEL( ) gives NUMBER and
+*         INPUT columns these two companions; SET_CELL_STATE( ) is what
+*         a handler's TY_MSG-FIELD = '<grid>.<col>#<row>' writes into them.
           lo_cells->input( value = lv_path type = 'Number' editable = lv_en change = lv_chg
-                           visible = lv_vis maxlength = lv_maxlen ).
+                           visible = lv_vis maxlength = lv_maxlen
+                           valuestate = |\{{ gc-name }_VS\}| valuestatetext = |\{{ gc-name }_VST\}| ).
         WHEN 'DATE'.
           lo_cells->date_picker( value = lv_path editable = lv_en change = lv_chg visible = lv_vis ).
         WHEN 'CHECKBOX'.
@@ -1079,8 +1086,10 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
             lo_ccb->item( key = co-key text = zcl_rak_journey_util=>opt_text( iv_key = co-key iv_text = co-text ) ).
           ENDLOOP.
         WHEN OTHERS.
+*         VALUESTATE/VALUESTATETEXT - see the NUMBER branch above.
           lo_cells->input( value = lv_path editable = lv_en change = lv_chg
-                           visible = lv_vis maxlength = lv_maxlen ).
+                           visible = lv_vis maxlength = lv_maxlen
+                           valuestate = |\{{ gc-name }_VS\}| valuestatetext = |\{{ gc-name }_VST\}| ).
       ENDCASE.
     ENDLOOP.
 *   The delete column and its button are one column apart in two loops, exactly

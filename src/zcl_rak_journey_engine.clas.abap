@@ -171,6 +171,13 @@ CLASS zcl_rak_journey_engine DEFINITION
       RETURNING VALUE(rv) TYPE abap_bool.
 
   PRIVATE SECTION.
+*   IV_NAME shape '<GRID_FIELD>.<COL>#<ROW>' - the same compound name
+*   ON_CHANGE already receives for a grid cell (see the GRIDCHG_ branch
+*   in Z2UI5_IF_APP~MAIN). SET_FIELD_STATE( ) dispatches here whenever
+*   IV_NAME contains '#'; a scalar field name never does.
+    METHODS set_cell_state IMPORTING iv_name  TYPE string
+                                     iv_state TYPE string
+                                     iv_text  TYPE string.
 ENDCLASS.
 
 
@@ -864,6 +871,26 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                 READ TABLE lt_rowcomp WITH KEY name = lv_txtname TRANSPORTING NO FIELDS.
                 IF sy-subrc <> 0.
                   APPEND VALUE #( name = lv_txtname type = lo_str ) TO lt_rowcomp.
+                ENDIF.
+              ENDIF.
+*             A per-row highlight, same idea as _TXT above - NUMBER and
+*             INPUT are the two free-text cell types a value can actually
+*             be wrong in (SELECT and CHECKBOX are constrained choices,
+*             nothing to flag red). ZCL_RAK_JOURNEY_GRID binds these on
+*             the cell control; ZCL_RAK_JOURNEY_ENGINE~SET_CELL_STATE( )
+*             writes them from a handler's TY_MSG-FIELD. 3 and 4
+*             characters, same budget the _TXT note above already
+*             reasons about.
+              IF gc-ctype = 'NUMBER' OR gc-ctype = 'INPUT'.
+                DATA(lv_vsname)  = |{ gc-name }_VS|.
+                DATA(lv_vstname) = |{ gc-name }_VST|.
+                READ TABLE lt_rowcomp WITH KEY name = lv_vsname TRANSPORTING NO FIELDS.
+                IF sy-subrc <> 0.
+                  APPEND VALUE #( name = lv_vsname type = lo_str ) TO lt_rowcomp.
+                ENDIF.
+                READ TABLE lt_rowcomp WITH KEY name = lv_vstname TRANSPORTING NO FIELDS.
+                IF sy-subrc <> 0.
+                  APPEND VALUE #( name = lv_vstname type = lo_str ) TO lt_rowcomp.
                 ENDIF.
               ENDIF.
             ENDLOOP.
@@ -1661,8 +1688,73 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD set_field_state.
+*   A grid cell, not a scalar field - '<GRID_FIELD>.<COL>#<ROW>', the
+*   same compound name ON_CHANGE already gets for one (see GRIDCHG_ in
+*   Z2UI5_IF_APP~MAIN). A scalar field name never carries a '#', so this
+*   is a safe, sufficient test - existing callers are all scalar and hit
+*   VAL_SET( ) exactly as before.
+    IF iv_name CS '#'.
+      set_cell_state( iv_name = iv_name iv_state = iv_state iv_text = iv_text ).
+      RETURN.
+    ENDIF.
     val_set( iv_name = iv_name iv_suffix = '_VS'  iv_value = iv_state ).
     val_set( iv_name = iv_name iv_suffix = '_VST' iv_value = iv_text ).
+  ENDMETHOD.
+
+
+  METHOD set_cell_state.
+    DATA(lv_hash) = find( val = iv_name sub = '#' ).
+    IF lv_hash < 0.
+      RETURN.
+    ENDIF.
+    DATA(lv_head) = substring( val = iv_name len = lv_hash ).
+    DATA(lv_row)  = substring( val = iv_name off = lv_hash + 1 ).
+    IF lv_row IS INITIAL OR lv_row CN '0123456789'.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_dot) = find( val = lv_head sub = '.' ).
+    IF lv_dot < 0.
+      RETURN.
+    ENDIF.
+    DATA(lv_grid) = substring( val = lv_head len = lv_dot ).
+    DATA(lv_col)  = substring( val = lv_head off = lv_dot + 1 ).
+
+*   Same lookup GRID_INDEX( ) already does to turn a grid field name into
+*   its internal table - COMP_NAME( ), then ASSIGN COMPONENT against the
+*   live model, never a fresh SELECT or a cached copy.
+    FIELD-SYMBOLS <model> TYPE any.
+    ASSIGN mr_model->* TO <model>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( lv_grid ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    FIELD-SYMBOLS <t> TYPE STANDARD TABLE.
+    ASSIGN <tab> TO <t>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+*   ROW is already the 1-based table index GRID_INDEX( ) resolved from
+*   the cell's _UID when the compound name was built - never a UID
+*   itself, so this goes straight to a table READ, no second lookup.
+    READ TABLE <t> ASSIGNING FIELD-SYMBOL(<row>) INDEX CONV i( lv_row ).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_colname) = zcl_rak_journey_util=>comp_name( lv_col ).
+    ASSIGN COMPONENT |{ lv_colname }_VS| OF STRUCTURE <row> TO FIELD-SYMBOL(<vs>).
+    IF sy-subrc = 0.
+      <vs> = iv_state.
+    ENDIF.
+    ASSIGN COMPONENT |{ lv_colname }_VST| OF STRUCTURE <row> TO FIELD-SYMBOL(<vst>).
+    IF sy-subrc = 0.
+      <vst> = iv_text.
+    ENDIF.
   ENDMETHOD.
 
 
