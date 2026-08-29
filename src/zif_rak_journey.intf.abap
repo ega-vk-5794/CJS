@@ -148,8 +148,14 @@ INTERFACE zif_rak_journey
     tt_kv TYPE STANDARD TABLE OF ty_kv WITH EMPTY KEY.
   TYPES:
     BEGIN OF ty_msg,
-      type TYPE string,
-      text TYPE string,
+      type  TYPE string,
+      text  TYPE string,
+*     Optional. Blank behaves exactly as before - a strip message only. Set
+*     it to a field name and ON_CUSTOM_VALIDATE's own message gets the same
+*     red-border-plus-tooltip treatment every built-in check already gives
+*     itself, instead of leaving the citizen to find the field by reading.
+*     VALIDATE_STEP is what acts on it - see ZCL_RAK_JOURNEY_RULES.
+      field TYPE string,
     END OF ty_msg,
     tt_msg TYPE STANDARD TABLE OF ty_msg WITH EMPTY KEY.
 

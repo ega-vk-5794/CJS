@@ -578,7 +578,18 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
 
     IF mo_e->mo_logic IS BOUND.
       TRY.
-          APPEND LINES OF mo_e->mo_logic->on_custom_validate( io_ctx = mo_e iv_step = iv_step ) TO rt_msg.
+          DATA(lt_custom) = mo_e->mo_logic->on_custom_validate( io_ctx = mo_e iv_step = iv_step ).
+          APPEND LINES OF lt_custom TO rt_msg.
+*         Every built-in check three lines above does both halves - APPEND,
+*         then SET_FIELD_STATE( ) - so its field goes red with the message
+*         as its tooltip. A handler's own message could only do the first,
+*         because ON_CUSTOM_VALIDATE hands it IO_CTX typed as ZIF_RAK_JOURNEY,
+*         which does not expose SET_FIELD_STATE( ). FIELD on TY_MSG is
+*         optional and does no harm left blank - existing handlers that never
+*         set it behave exactly as before.
+          LOOP AT lt_custom INTO DATA(ls_custom) WHERE field IS NOT INITIAL.
+            mo_e->set_field_state( iv_name = ls_custom-field iv_state = 'Error' iv_text = ls_custom-text ).
+          ENDLOOP.
         CATCH cx_root INTO DATA(lx_val).
           APPEND VALUE #( type = 'Error'
             text = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-val_error
