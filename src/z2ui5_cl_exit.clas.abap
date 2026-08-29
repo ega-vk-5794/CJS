@@ -21,6 +21,19 @@ CLASS z2ui5_cl_exit DEFINITION PUBLIC.
     CLASS-DATA context      TYPE z2ui5_if_types=>ty_s_http_context.
 
   PRIVATE SECTION.
+*   The browser tab title for EVERY page this framework renders - the
+*   Studio and every citizen-facing journey alike - used to be the fixed
+*   literal `abap2UI5`, the framework's own name, on every single one of
+*   them. Contextual instead: a citizen's tab now names the journey they
+*   are actually on, the way any other government e-service does.
+    METHODS contextual_title
+      IMPORTING is_context    TYPE z2ui5_if_types=>ty_s_http_context
+      RETURNING VALUE(rv)     TYPE string.
+
+    METHODS param_value
+      IMPORTING it_params     TYPE z2ui5_if_types=>ty_t_name_value
+                iv_name       TYPE string
+      RETURNING VALUE(rv)     TYPE string.
 ENDCLASS.
 
 
@@ -61,7 +74,7 @@ CLASS z2ui5_cl_exit IMPLEMENTATION.
 
   METHOD z2ui5_if_exit~set_config_http_get.
 
-    cs_config-title = `abap2UI5`.
+    cs_config-title = contextual_title( is_context ).
     cs_config-theme = `sap_horizon`.
 
     cs_config-src = `https://sdk.openui5.org/resources/sap-ui-cachebuster/sap-ui-core.js`.
@@ -121,6 +134,43 @@ CLASS z2ui5_cl_exit IMPLEMENTATION.
     context = CORRESPONDING #( http_info ).
     context-app_start = VALUE #( http_info-t_params[ n = `app_start` ]-v OPTIONAL ).
 
+  ENDMETHOD.
+
+
+  METHOD param_value.
+    rv = VALUE #( it_params[ n = iv_name ]-v OPTIONAL ).
+  ENDMETHOD.
+
+
+  METHOD contextual_title.
+    DATA(lv_journey) = to_upper( param_value( it_params = is_context-t_params iv_name = `journey` ) ).
+
+    IF lv_journey IS INITIAL.
+*     No JOURNEY param on this URL - not a citizen-facing journey. Studio
+*     gets its own label; anything else this framework hosts (a demo app,
+*     the startup tutorial) gets the generic one - neither shows the
+*     framework's own name any more.
+      rv = COND #( WHEN to_upper( is_context-app_start ) = `ZCL_RAK_CJS`
+                   THEN `CJS Studio` ELSE `CJS` ).
+      RETURN.
+    ENDIF.
+
+*   Same param name and precedence ZCL_RAK_JOURNEY_ENGINE~READ_PARAMS
+*   itself resolves language by (LANG on the URL, SY-LANGU when absent) -
+*   this hook runs before that engine instance exists, so it re-reads the
+*   same raw query string rather than depending on it.
+    DATA(lv_lang) = to_upper( param_value( it_params = is_context-t_params iv_name = `lang` ) ).
+    IF lv_lang <> `A`.
+      lv_lang = sy-langu.
+    ENDIF.
+
+    SELECT SINGLE title, title_ar FROM zrak_t_jny
+      WHERE journey_id = @lv_journey
+      INTO @DATA(ls_jny).
+
+    rv = COND #( WHEN lv_lang = `A` AND ls_jny-title_ar IS NOT INITIAL THEN ls_jny-title_ar
+                 WHEN ls_jny-title IS NOT INITIAL THEN ls_jny-title
+                 ELSE `CJS` ).
   ENDMETHOD.
 
 ENDCLASS.
