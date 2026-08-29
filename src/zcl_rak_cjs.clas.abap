@@ -1621,25 +1621,28 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       `.rakDsgSel { background:#fdf3f4; border-inline-start:3px solid rgb(196,30,38); ` &&
       `border-radius:6px; padding-inline-start:6px; }` &&
       `.rakLintMsg { flex:1 1 auto; min-width:0; }` &&
-*     Logos at the two edges, text dead-center on the BAR, not just in
-*     whatever gap is left between two differently-sized logos. Flex
-*     space-between pushes the two images (the only normal-flow children
-*     once the text is taken out of flow) to the ends; the text is
-*     positioned independently off left:50% + a -50% transform, so its
-*     own width never throws off its centering the way it would inside a
-*     three-way flex/grid split with unequal siblings.
-*     Kept to ONE short line of text - the hero banner right below this
-*     bar already carries the full "RAK Customer Journey Studio" title
-*     and its own subtitle, so restating that here would just be the
-*     same words twice before the author has scrolled past the toolbar.
-      `.rakBrandBar { position:relative; display:flex; align-items:center; ` &&
-      `justify-content:space-between; padding:0.7rem 1.1rem; background:#fff; ` &&
-      `border-bottom:1px solid #eceff3; box-shadow:0 2px 10px rgba(16,35,62,0.04); }` &&
-      `.rakBrandLogo { height:2.3rem; width:auto; }` &&
-      `.rakBrandText { position:absolute; left:50%; top:50%; ` &&
-      `transform:translate(-50%,-50%); white-space:nowrap; ` &&
+*     A three-column GRID, not flex + absolute positioning - the first
+*     version put the text off left:50% with a -50% transform, meant to
+*     read relative to this bar, and it rendered pinned to the far edge
+*     of the PAGE instead: whatever UI5 control wrapping sap.m.Text sits
+*     inside was not the element POSITION:RELATIVE landed on, so the
+*     percentage resolved against a distant positioned ancestor instead.
+*     Flex itself was never the problem - the very first render already
+*     laid out three items in a row correctly - so GRID keeps that same
+*     mechanism and drops the fragile part. 1fr/auto/1fr forces the two
+*     outer columns to equal width, which is what makes the middle
+*     column - and the text inside it - sit on the bar's true center
+*     regardless of the two logos' different widths, with no transform
+*     trick needed. Transparent background: it sits directly on the
+*     page, not inside its own card.
+      `.rakBrandBar { display:grid; grid-template-columns: 1fr auto 1fr; ` &&
+      `align-items:center; column-gap:1rem; padding:0.35rem 1rem; background:transparent; }` &&
+      `.rakBrandBar > *:first-child { justify-self:start; }` &&
+      `.rakBrandBar > *:last-child { justify-self:end; }` &&
+      `.rakBrandLogo { height:1.6rem; width:auto; }` &&
+      `.rakBrandText { justify-self:center; white-space:nowrap; ` &&
       `color: rgb(196,30,38); font-weight:800; ` &&
-      `font-size:1.1rem; letter-spacing:0.03em; }` &&
+      `font-size:1.05rem; letter-spacing:0.02em; }` &&
 *     Bottom right, not top: the toolbar and the panel headers are what the author
 *     is aiming at, and a banner across the top covers exactly those. z-index 90
 *     sits above the page and below UI5's own dialogs, which start around 1000 -
@@ -1935,18 +1938,21 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       `gM5UQzfShjX+makOhgtdDjDGOaTmGWXQAhXYwMRwf8sOselwrtzRi23ryY4p/k1A1KANWsTaglaxAm8iSEdFFPAQao2Aa5npwwLH4NU+nHQUNKpDigEigDrcKRbz/AscRkEYApTKRGkQSIkToZ0FcpgX+ZmTA6IT24/AARInLsEjqnDkc/RYAMIyhTiauhQIjNjKUMZy` &&
       `eGcJW9uEFYj/C7OYx0zmMpv5zGhOs5rXzOY2u/nNcI6znOdMZy+EAAA7`.
 
+*   DOM order is the layout now (grid auto-placement, column 1/2/3, no
+*   transform trick) - left logo, center text, right logo, in that
+*   order, or the grid puts them in the wrong columns.
     DATA(bar) = io->hbox( alignitems = 'Center' class = 'rakBrandBar' ).
     bar->image( src        = |data:image/jpeg;base64,{ lv_brand_ega }|
-                height     = '2.4rem'
+                height     = '1.6rem'
                 class      = 'rakBrandLogo'
                 decorative = abap_false
                 alt        = 'Electronic Government Authority' ).
+    bar->text( text = 'RAK Digital' class = 'rakBrandText' ).
     bar->image( src        = |data:image/gif;base64,{ lv_brand_rak }|
-                height     = '2.4rem'
+                height     = '1.6rem'
                 class      = 'rakBrandLogo'
                 decorative = abap_false
                 alt        = 'Government of Ras Al Khaimah' ).
-    bar->text( text = 'RAK Digital' class = 'rakBrandText' ).
   ENDMETHOD.
 
 
