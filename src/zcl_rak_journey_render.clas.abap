@@ -1248,8 +1248,17 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                     press = mo_e->btn_evt( 'ASKDEL' ) ).
     ENDIF.
 
+*   MO_E->MV_LANG, not SY-LANGU - the language the engine itself resolved
+*   (from &lang= on the URL, falling back to SY-LANGU only when absent),
+*   the same rule ZCL_RAK_TEXT follows and for the same reason: the ICF
+*   service user's own logon language has nothing to do with which
+*   language the citizen asked for. The title just above this already
+*   goes through PICK( )/MV_LANG via MS_CONFIG-TITLE; this subtitle was
+*   the one text on the same header still keyed off SY-LANGU, so a
+*   citizen could see an English title above an Arabic subtitle or the
+*   reverse whenever the two languages disagreed.
     DATA(lv_sub) = COND string(
-      WHEN sy-langu = 'A' AND mo_e->ms_config-theme-subtitle_ar IS NOT INITIAL
+      WHEN mo_e->mv_lang = 'A' AND mo_e->ms_config-theme-subtitle_ar IS NOT INITIAL
       THEN mo_e->ms_config-theme-subtitle_ar ELSE mo_e->ms_config-theme-subtitle ).
     IF lv_sub IS NOT INITIAL.
       lo_h->text( text = zcl_rak_journey_util=>esc( lv_sub ) class = 'rakSub' ).
