@@ -145,6 +145,17 @@ CLASS zcl_rak_journey_engine DEFINITION
                                       iv_text  TYPE string.
     METHODS clear_field_states.
 
+*   Called from ZCL_RAK_JOURNEY_GRID~RENDER_GRID( ), not only from
+*   CLEAR_FIELD_STATES( )'s round-trip sweep - a row created AFTER that
+*   sweep already ran this same round trip (GRIDADD_, or an ON_INIT/
+*   backend read that populates rows after MAIN( )'s top-of-method
+*   clear) still has its _VS at the type's technical initial value,
+*   blank string, and UI5 rejects a blank VALUESTATE outright. Touches
+*   ONLY a component that is genuinely blank - an 'Error' a handler or
+*   VALIDATE_STEP already set this same round trip is left exactly as
+*   it is, never reset by this pass.
+    METHODS ensure_grid_states IMPORTING is_field TYPE zif_rak_journey=>ty_field.
+
     METHODS handle_next.
     METHODS handle_submit.
 *   WHO OWNS THE DRAFT, AND WHO OWNS THE FILES.
@@ -1676,6 +1687,37 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                          iv_state = 'None'
                          iv_text  = '' ).
       ENDDO.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD ensure_grid_states.
+    IF mo_grid IS NOT BOUND.
+      RETURN.
+    ENDIF.
+
+    FIELD-SYMBOLS <model> TYPE any.
+    ASSIGN mr_model->* TO <model>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    FIELD-SYMBOLS <t> TYPE STANDARD TABLE.
+    ASSIGN <tab> TO <t>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    LOOP AT mo_grid->grid_cols( is_field ) INTO DATA(gc) WHERE ctype = 'NUMBER' OR ctype = 'INPUT'.
+      LOOP AT <t> ASSIGNING FIELD-SYMBOL(<row>).
+        ASSIGN COMPONENT |{ gc-name }_VS| OF STRUCTURE <row> TO FIELD-SYMBOL(<vs>).
+        IF sy-subrc = 0 AND <vs> IS INITIAL.
+          <vs> = 'None'.
+        ENDIF.
+      ENDLOOP.
     ENDLOOP.
   ENDMETHOD.
 

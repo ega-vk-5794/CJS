@@ -993,6 +993,16 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
         select   = mo_e->mo_client->_event( val   = |GRIDSEL_{ is_field-name }|
                                      t_arg = VALUE #( ( `${_UID}` ) ) ) ).
     ENDIF.
+*   Blank-to-'None' safety net, not the round-trip sweep's job here -
+*   a row built after CLEAR_FIELD_STATES( ) already ran this same round
+*   trip (GRIDADD_, or rows an ON_INIT/backend read populates) still has
+*   its _VS at blank, and UI5 rejects a blank VALUESTATE outright the
+*   moment the row renders. Only touches the editable case - a readonly
+*   grid draws cells as TEXT( ) below and never binds VALUESTATE at all.
+    IF lv_ro = abap_false.
+      mo_e->ensure_grid_states( is_field ).
+    ENDIF.
+
     DATA(lt_rx) = grid_react( is_field ).
     LOOP AT lt_gc INTO gc.
       IF gc-hide = abap_true.
