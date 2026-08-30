@@ -60,6 +60,16 @@ CLASS zcl_rak_journey_grid DEFINITION
                                    iv_op     TYPE string
                                    iv_value  TYPE string
                          RETURNING VALUE(rv) TYPE string.
+
+*   Round-6 finding 1. A row that comes to exist OUTSIDE
+*   ENGINE~ENSURE_GRID_STATES( )'s own render-time pass - GRID_ADD( )'s
+*   fresh row, or every row GRID_FROM_JSON( ) rebuilds from a
+*   SET_GRID_DATA( ) payload that only ever carries the configured
+*   columns - has its NUMBER/INPUT _VS at the type's technical initial
+*   value, blank, same crash ENSURE_GRID_STATES( ) exists to prevent.
+*   Same rule: 'None', not blank, and only where genuinely unset.
+    METHODS seed_row_states IMPORTING it_gc  TYPE zif_rak_cjs_types=>tt_gcol
+                            CHANGING  cs_row TYPE any.
 ENDCLASS.
 
 
@@ -104,6 +114,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
         CATCH cx_uuid_error.
       ENDTRY.
     ENDIF.
+    seed_row_states( EXPORTING it_gc = grid_cols( ls_gaf ) CHANGING cs_row = <row> ).
   ENDMETHOD.
 
 
@@ -551,6 +562,12 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       CATCH cx_root.
         RETURN.
     ENDTRY.
+*   Round-6 finding 1. IV_JSON came from SET_GRID_DATA( ), built from
+*   LT_GC - the configured columns and nothing else - so /UI2/CL_JSON's
+*   DESERIALIZE just cleared and rebuilt every row without _VS/_VST ever
+*   in the payload. Same fix as _UID two lines below: reissue what the
+*   payload cannot carry, in the same loop.
+    DATA(lt_gc) = grid_cols( mo_e->safe_field( iv_field ) ).
     LOOP AT <t> ASSIGNING FIELD-SYMBOL(<row>).
       ASSIGN COMPONENT '_UID' OF STRUCTURE <row> TO FIELD-SYMBOL(<uid>).
       IF sy-subrc = 0 AND <uid> IS INITIAL.
@@ -558,6 +575,17 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
             <uid> = cl_system_uuid=>create_uuid_c32_static( ).
           CATCH cx_uuid_error.
         ENDTRY.
+      ENDIF.
+      seed_row_states( EXPORTING it_gc = lt_gc CHANGING cs_row = <row> ).
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD seed_row_states.
+    LOOP AT it_gc INTO DATA(gc) WHERE ctype = 'NUMBER' OR ctype = 'INPUT'.
+      ASSIGN COMPONENT |{ gc-name }_VS| OF STRUCTURE cs_row TO FIELD-SYMBOL(<vs>).
+      IF sy-subrc = 0 AND <vs> IS INITIAL.
+        <vs> = 'None'.
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
