@@ -178,6 +178,10 @@ CLASS zcl_rak_journey_engine DEFINITION
     METHODS set_cell_state IMPORTING iv_name  TYPE string
                                      iv_state TYPE string
                                      iv_text  TYPE string.
+
+*   CLEAR_FIELD_STATES( )'s EDITABLE_TABLE branch - blanks every NUMBER/
+*   INPUT column's _VS/_VST on every existing row, via SET_CELL_STATE( ).
+    METHODS clear_grid_states IMPORTING is_field TYPE zif_rak_journey=>ty_field.
 ENDCLASS.
 
 
@@ -1624,8 +1628,54 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   METHOD clear_field_states.
     LOOP AT ms_config-steps INTO DATA(ls_step).
       LOOP AT ls_step-fields INTO DATA(ls_f).
-        set_field_state( iv_name = ls_f-name iv_state = 'None' iv_text = '' ).
+*       A grid field's own name never has a '#', so routing it through
+*       SET_FIELD_STATE( ) like every other field would only clear a
+*       component that does not exist - the row companions SET_CELL_STATE( )
+*       writes live one level down, inside each row. Round-3's fix could
+*       turn a cell red; without this branch nothing ever turned it back,
+*       reintroducing round-2 finding 1 for cells specifically.
+        IF ls_f-type = 'EDITABLE_TABLE'.
+          clear_grid_states( ls_f ).
+        ELSE.
+          set_field_state( iv_name = ls_f-name iv_state = 'None' iv_text = '' ).
+        ENDIF.
       ENDLOOP.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD clear_grid_states.
+    IF mo_grid IS NOT BOUND.
+      RETURN.
+    ENDIF.
+
+    FIELD-SYMBOLS <model> TYPE any.
+    ASSIGN mr_model->* TO <model>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    FIELD-SYMBOLS <t> TYPE STANDARD TABLE.
+    ASSIGN <tab> TO <t>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_rows) = lines( <t> ).
+*   Same columns SET_CELL_STATE( ) writes into - only NUMBER and INPUT
+*   have the _VS/_VST companions, per BUILD_MODEL( ). One writer for
+*   both directions: SET_CELL_STATE( ) already takes IV_STATE, so this
+*   is the same entry point a handler's own clear would use, not a
+*   second copy of the ASSIGN COMPONENT walk.
+    LOOP AT mo_grid->grid_cols( is_field ) INTO DATA(gc) WHERE ctype = 'NUMBER' OR ctype = 'INPUT'.
+      DO lv_rows TIMES.
+        set_cell_state( iv_name  = |{ is_field-name }.{ gc-name }#{ sy-index }|
+                         iv_state = 'None'
+                         iv_text  = '' ).
+      ENDDO.
     ENDLOOP.
   ENDMETHOD.
 
