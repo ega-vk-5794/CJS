@@ -159,6 +159,7 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
           state        = ls_f-fstate
           hidden       = bool( ls_f-hidden )
           readonly     = bool( ls_f-readonly )
+          closed_list  = bool( ls_f-closed_list )
           validation   = VALUE #(
             required = bool( ls_f-required )
             regex    = ls_f-regex

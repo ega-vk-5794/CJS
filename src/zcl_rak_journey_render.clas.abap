@@ -1351,16 +1351,39 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     CASE is_field-type.
       WHEN 'SELECT'.
         req_label( io_form = io_form is_field = is_field ).
-        DATA(lo_cb) = io_form->combobox( selectedkey    = lv_bind
-                                         editable       = lv_edit
-                                         change         = mo_e->opt_evt( is_field-name )
-                                         valuestate     = lv_vs
-                                         valuestatetext = lv_vst
-                                         width          = lv_w
-                                         class          = mo_e->mo_css->cls( 'COMBO' ) ).
-        LOOP AT lt_opt INTO DATA(ls_o).
-          lo_cb->item( key = ls_o-key text = zcl_rak_journey_util=>opt_text( iv_key = ls_o-key iv_text = ls_o-text ) ).
-        ENDLOOP.
+*       CLOSED_LIST switches this one field to sap.m.Select - not typable,
+*       by design, which is the whole point of a genuinely closed list
+*       (round-5 finding 3): nothing a citizen types into it can ever be
+*       accepted, so the type-ahead ComboBox default only invites pointless
+*       typing and pops a keyboard on a touch device. Blank behaves exactly
+*       as before - ComboBox stays the default so no existing dropdown
+*       loses type-ahead until an author opts it in. sap.m.Select has no
+*       EDITABLE property (it is a picker, not a text field), so LV_EDIT
+*       maps to ENABLED instead - a disabled Select and a non-editable
+*       ComboBox read the same to the citizen either way.
+        IF is_field-closed_list = abap_true.
+          DATA(lo_sel) = io_form->select( selectedkey    = lv_bind
+                                          enabled        = lv_edit
+                                          change         = mo_e->opt_evt( is_field-name )
+                                          valuestate     = lv_vs
+                                          valuestatetext = lv_vst
+                                          width          = lv_w
+                                          class          = mo_e->mo_css->cls( 'COMBO' ) ).
+          LOOP AT lt_opt INTO DATA(ls_os).
+            lo_sel->item( key = ls_os-key text = zcl_rak_journey_util=>opt_text( iv_key = ls_os-key iv_text = ls_os-text ) ).
+          ENDLOOP.
+        ELSE.
+          DATA(lo_cb) = io_form->combobox( selectedkey    = lv_bind
+                                           editable       = lv_edit
+                                           change         = mo_e->opt_evt( is_field-name )
+                                           valuestate     = lv_vs
+                                           valuestatetext = lv_vst
+                                           width          = lv_w
+                                           class          = mo_e->mo_css->cls( 'COMBO' ) ).
+          LOOP AT lt_opt INTO DATA(ls_o).
+            lo_cb->item( key = ls_o-key text = zcl_rak_journey_util=>opt_text( iv_key = ls_o-key iv_text = ls_o-text ) ).
+          ENDLOOP.
+        ENDIF.
 
       WHEN 'MULTISELECT'.
         req_label( io_form = io_form is_field = is_field ).
@@ -1657,14 +1680,43 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
       WHEN 'NUMBER'.
         req_label( io_form = io_form is_field = is_field ).
-*       MAXLENGTH, same COND the TEXTAREA branch above already uses - a
-*       plain count with no formatting to make room for, unlike CURRENCY
-*       below, which deliberately stays submit-time-only (a thousands
-*       separator and a decimal part are characters too, so a digit-count
-*       cap would cut a legitimate amount short as the browser formats it).
+*       MAXLENGTH is passed for the same reason the TEXTAREA branch above
+*       does, but on THIS type it is a no-op, not a fix: TYPE = 'Number'
+*       renders an HTML <input type="number">, which ignores MAXLENGTH by
+*       specification - accepted, disregarded by the browser. A bounded
+*       whole number (digit count actually capped at the keyboard) is
+*       FTYPE 'COUNT' below, not this one; NUMBER stays what it has
+*       always been - unlimited digits, enforced only at VALIDATE_STEP.
+*       Kept here anyway rather than removed, so a config already relying
+*       on it for CSS/analytics reasons keeps behaving byte-identically.
         io_form->input( class          = mo_e->mo_css->cls( 'INPUT' )
                         value          = lv_bind
                         type           = 'Number'
+                        placeholder    = is_field-placeholder
+                        editable       = lv_edit
+                        change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
+                        maxlength      = COND string( WHEN is_field-validation-max_len > 0 THEN |{ is_field-validation-max_len }| ELSE `0` )
+                        valuestate     = lv_vs
+                        valuestatetext = lv_vst
+                        width          = lv_w ).
+
+      WHEN 'COUNT'.
+        req_label( io_form = io_form is_field = is_field ).
+*       A bounded whole number, round-5 finding 2's actual fix - a plain
+*       text input, not TYPE = 'Number', so MAXLENGTH genuinely caps what
+*       can be typed (an <input type="number"> ignores it - see NUMBER
+*       above). TYPE = 'Tel' only for its numeric-leaning mobile keypad;
+*       it renders a normal textual input under the hood, unlike Number,
+*       which is why MAXLENGTH still works here. Digits-only is NOT
+*       enforced client-side - z2ui5's INPUT( ) has no keystroke filter to
+*       reach for - so this still relies on VALIDATE_STEP's server check,
+*       exactly as FTYPE 'INPUT' already does today. The win over INPUT is
+*       real even so: MAXLENGTH plus a number-friendly keypad, in one
+*       FTYPE, instead of a config author choosing which of the two to
+*       give up.
+        io_form->input( class          = mo_e->mo_css->cls( 'INPUT' )
+                        value          = lv_bind
+                        type           = 'Tel'
                         placeholder    = is_field-placeholder
                         editable       = lv_edit
                         change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )

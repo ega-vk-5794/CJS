@@ -38,6 +38,7 @@ CLASS zcl_rak_cjs DEFINITION
         width        TYPE string,
         hidden       TYPE abap_bool,
         readonly     TYPE abap_bool,
+        closed_list  TYPE abap_bool,
         required     TYPE abap_bool,
         regex        TYPE string,
         min_len      TYPE string,
@@ -268,6 +269,7 @@ CLASS zcl_rak_cjs DEFINITION
     DATA fv_width    TYPE string.
     DATA fv_hidden   TYPE abap_bool.
     DATA fv_readonly TYPE abap_bool.
+    DATA fv_closed   TYPE abap_bool.
     DATA fv_req      TYPE abap_bool.
     DATA fv_regex    TYPE string.
     DATA fv_minlen   TYPE string.
@@ -752,7 +754,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         fv_label = ls_dup-label. fv_label_ar = ls_dup-label_ar. fv_place = ls_dup-placeholder. fv_place_ar = ls_dup-place_ar.
         fv_default = ls_dup-default_val. fv_group = ls_dup-fgroup. fv_sect = ls_dup-section. fv_sect_ar = ls_dup-section_ar.
         fv_state = ls_dup-fstate. fv_width = ls_dup-width.
-        fv_hidden = ls_dup-hidden. fv_readonly = ls_dup-readonly. fv_req = ls_dup-required.
+        fv_hidden = ls_dup-hidden. fv_readonly = ls_dup-readonly. fv_closed = ls_dup-closed_list. fv_req = ls_dup-required.
         fv_regex = ls_dup-regex. fv_minlen = ls_dup-min_len. fv_maxlen = ls_dup-max_len.
         fv_minval = ls_dup-min_val. fv_maxval = ls_dup-max_val. fv_msg = ls_dup-msg. fv_msg_ar = ls_dup-msg_ar.
         fv_tech = ls_dup-tech_name. fv_roll = ls_dup-rollname. fv_shlp = ls_dup-shlp. fv_dom = ls_dup-domname.
@@ -782,7 +784,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         fv_label = ls_ef-label. fv_label_ar = ls_ef-label_ar. fv_place = ls_ef-placeholder. fv_place_ar = ls_ef-place_ar.
         fv_default = ls_ef-default_val. fv_group = ls_ef-fgroup. fv_sect = ls_ef-section. fv_sect_ar = ls_ef-section_ar.
         fv_state = ls_ef-fstate. fv_width = ls_ef-width.
-        fv_hidden = ls_ef-hidden. fv_readonly = ls_ef-readonly. fv_req = ls_ef-required.
+        fv_hidden = ls_ef-hidden. fv_readonly = ls_ef-readonly. fv_closed = ls_ef-closed_list. fv_req = ls_ef-required.
         fv_regex = ls_ef-regex. fv_minlen = ls_ef-min_len. fv_maxlen = ls_ef-max_len.
         fv_minval = ls_ef-min_val. fv_maxval = ls_ef-max_val. fv_msg = ls_ef-msg. fv_msg_ar = ls_ef-msg_ar.
         fv_tech = ls_ef-tech_name. fv_roll = ls_ef-rollname. fv_shlp = ls_ef-shlp. fv_dom = ls_ef-domname.
@@ -1264,7 +1266,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       APPEND VALUE #( seqnr = |{ f-seqnr }| step_id = f-step_id field_name = f-field_name ftype = f-ftype
                       label = f-zlabel label_ar = f-zlabel_ar placeholder = f-placeholder place_ar = f-placeholder_ar
                       default_val = f-default_val fgroup = f-fgroup section = f-zsection section_ar = f-zsection_ar fstate = f-fstate width = f-width
-                      hidden = xsdbool( f-hidden = 'X' ) readonly = xsdbool( f-readonly = 'X' ) required = xsdbool( f-required = 'X' )
+                      hidden = xsdbool( f-hidden = 'X' ) readonly = xsdbool( f-readonly = 'X' )
+                      closed_list = xsdbool( f-closed_list = 'X' ) required = xsdbool( f-required = 'X' )
                       regex = f-regex min_len = |{ f-min_len }| max_len = |{ f-max_len }| min_val = f-min_val max_val = f-max_val
                       msg = f-msg msg_ar = f-msg_ar
                       has_attach = xsdbool( f-has_attach = 'X' ) attach_label = f-attach_label att_types = f-attach_types
@@ -1449,9 +1452,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         field_name = f-field_name seqnr = to_int( f-seqnr ) ftype = f-ftype
         zlabel = f-label zlabel_ar = f-label_ar placeholder = f-placeholder placeholder_ar = f-place_ar
         default_val = f-default_val fgroup = f-fgroup zsection = f-section zsection_ar = f-section_ar fstate = f-fstate width = f-width
-        hidden   = COND string( WHEN f-hidden   = abap_true THEN 'X' ELSE ' ' )
-        readonly = COND string( WHEN f-readonly = abap_true THEN 'X' ELSE ' ' )
-        required = COND string( WHEN f-required = abap_true THEN 'X' ELSE ' ' )
+        hidden      = COND string( WHEN f-hidden      = abap_true THEN 'X' ELSE ' ' )
+        readonly    = COND string( WHEN f-readonly    = abap_true THEN 'X' ELSE ' ' )
+        closed_list = COND string( WHEN f-closed_list = abap_true THEN 'X' ELSE ' ' )
+        required    = COND string( WHEN f-required    = abap_true THEN 'X' ELSE ' ' )
         regex = f-regex min_len = to_int( f-min_len ) max_len = to_int( f-max_len )
         min_val = f-min_val max_val = f-max_val msg = f-msg msg_ar = f-msg_ar
         has_attach = COND string( WHEN f-has_attach = abap_true THEN 'X' ELSE ' ' )
@@ -2202,6 +2206,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     fs->item( key = 'Information' text = 'Information' ).
     f->label( 'Hidden by default' ). f->checkbox( selected = mo_client->_bind_edit( fv_hidden ) ).
     f->label( 'Read only' ).  f->checkbox( selected = mo_client->_bind_edit( fv_readonly ) ).
+    f->label( 'Closed list (SELECT only - no free typing)' ). f->checkbox( selected = mo_client->_bind_edit( fv_closed ) ).
 
     f->title( ns = 'core' text = 'Validation' ).
     f->label( 'Required' ).   f->checkbox( selected = mo_client->_bind_edit( fv_req ) ).
@@ -2862,7 +2867,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
   METHOD clear_field_form.
     CLEAR: mt_grid_preview, mv_grid_sel, mv_grid_warn.
     CLEAR: fv_seq, fv_field, fv_type, fv_label, fv_label_ar, fv_place, fv_place_ar, fv_default,
-           fv_group, fv_sect, fv_sect_ar, fv_state, fv_width, fv_hidden, fv_readonly, fv_req, fv_regex,
+           fv_group, fv_sect, fv_sect_ar, fv_state, fv_width, fv_hidden, fv_readonly, fv_closed, fv_req, fv_regex,
            fv_minlen, fv_maxlen, fv_minval, fv_maxval, fv_msg, fv_msg_ar, fv_tech, fv_roll, fv_shlp, fv_dom,
            fv_hasatt, fv_attlabel, fv_atttypes, fv_attmb, fv_attmulti.
   ENDMETHOD.

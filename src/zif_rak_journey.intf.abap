@@ -39,6 +39,13 @@ INTERFACE zif_rak_journey
       tech_name    TYPE string,
       hidden       TYPE abap_bool,
       readonly     TYPE abap_bool,
+*     FTYPE 'SELECT' only. sap.m.ComboBox (the engine's default there) is
+*     typable by design - fine for a long or growing list, pointless on a
+*     genuinely closed one, and a typed keyboard pop-up on a touch device
+*     for nothing a citizen can actually use. 'X' switches that one field
+*     to sap.m.Select instead; blank changes nothing, so no existing
+*     dropdown's type-ahead is affected until an author opts a field in.
+      closed_list  TYPE abap_bool,
       options      TYPE tt_option,
       validation   TYPE ty_validation,
     END OF ty_field,

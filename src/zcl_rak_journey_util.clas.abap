@@ -143,7 +143,7 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
 
   METHOD known_type.
     rv = xsdbool( iv_type = '' OR iv_type = 'INPUT' OR iv_type = 'EMAIL' OR iv_type = 'PHONE'
-      OR iv_type = 'NUMBER' OR iv_type = 'CURRENCY' OR iv_type = 'TEXTAREA' OR iv_type = 'DATE'
+      OR iv_type = 'NUMBER' OR iv_type = 'COUNT' OR iv_type = 'CURRENCY' OR iv_type = 'TEXTAREA' OR iv_type = 'DATE'
       OR iv_type = 'TIME' OR iv_type = 'DATETIME' OR iv_type = 'SELECT' OR iv_type = 'MULTISELECT'
       OR iv_type = 'RADIO' OR iv_type = 'CHECKBOX' OR iv_type = 'SWITCH' OR iv_type = 'SEGMENTED'
       OR iv_type = 'SLIDER' OR iv_type = 'STEPPER' OR iv_type = 'RATING' OR iv_type = 'DISPLAY'

@@ -242,12 +242,16 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
 
 ## Open items
 
-- **Three DDIC changes are in git but not necessarily in SAP**: `ZRAK_T_JNY` gained
+- **Four DDIC changes are in git but not necessarily in SAP**: `ZRAK_T_JNY` gained
   `DRAFT_MODE` / `ATTACH_MODE`, `ZRAK_CJ_LAY` gained `FLOW`, and `ZRAK_T_JNY_FLD` gained
-  `ZSECTION_AR`. All three need activation **and a table adjust** before the code reading them
-  behaves. `ZSECTION_AR` additionally needs its Studio maintenance screen regenerated — the
-  `ZCL_RAK_CJS` field editor already has a "Section (AR)" input wired to it, but the column
-  won't reach a plain SM30/view-cluster screen on `ZRAK_T_JNY_FLD` until that's done.
+  `ZSECTION_AR` and `CLOSED_LIST`. All four need activation **and a table adjust** before the
+  code reading them behaves. `ZSECTION_AR` additionally needs its Studio maintenance screen
+  regenerated — the `ZCL_RAK_CJS` field editor already has a "Section (AR)" input wired to it,
+  but the column won't reach a plain SM30/view-cluster screen on `ZRAK_T_JNY_FLD` until that's
+  done. `CLOSED_LIST` (`FTYPE 'SELECT'` only — `'X'` renders `sap.m.Select` instead of the
+  default typable `sap.m.ComboBox`) is fully wired end to end — DDIC column, `ZCL_RAK_JOURNEY_REPO`
+  mapping, `ZCL_RAK_JOURNEY_RENDER`'s branch, and a "Closed list" checkbox in the Studio field
+  editor — same activation caveat as the other three.
 - `ZRAK_CJ_ATT_PURGE` **has never been run.** Nothing has ever purged `ZRAK_CJ_ATTX`, so every
   file staged against an abandoned journey is still there with its content and its uploader.
   Test run is the default; schedule it once the retention days are agreed.
