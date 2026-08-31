@@ -2680,10 +2680,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     IF mo_lbl_tgt IS BOUND.
       lo_lbl = mo_lbl_tgt.
     ENDIF.
-    lo_lbl->label( text  = zcl_rak_journey_util=>esc( is_field-label )
-                    class = COND string( WHEN lv_req = abap_true
-                                         THEN 'rakReq sapUiFormLabelNoColon'
-                                         ELSE 'sapUiFormLabelNoColon' ) ).
+*   REQUIRED must be set as the sap.m.Label control property, not faked with a
+*   CSS class - that is what actually makes UI5's own renderer draw the marker
+*   (sapMLabelRequired). The CLASS-only 'rakReq'/.rakReq::after approach this
+*   used to rely on never reliably reached the DOM; ZCL_CJ_DEMO_P001 (a plain,
+*   non-CJS abap2UI5 screen) proves the native REQUIRED property is what works.
+    lo_lbl->label( text     = zcl_rak_journey_util=>esc( is_field-label )
+                    class    = 'sapUiFormLabelNoColon'
+                    required = lv_req ).
   ENDMETHOD.
 
 
