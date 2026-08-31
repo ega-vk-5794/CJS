@@ -20,4 +20,5 @@ INCLUDE STRUCTURE ZMV_CJ_LAY.
 DATA: END OF ZMV_CJ_LAY_TOTAL.
 
 *.........table declarations:.................................*
-TABLES: ZRAK_T_JNY                     .
+TABLES: ZRAK_CJ_LAYOUT                 .
+TABLES: ZRAK_T_JNY_STEP                .
