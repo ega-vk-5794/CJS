@@ -98,10 +98,6 @@ private section.
   methods OWN_SEARCH
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY .
-  methods OWN_DELETE
-    importing
-      !IO_CTX type ref to ZIF_RAK_JOURNEY
-      !IV_ID type STRING .
 ENDCLASS.
 
 
@@ -534,25 +530,11 @@ CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
       WHEN c_evt_ownok.
 *       Validate before writing. Closing on an incomplete row and complaining
 *       behind the dialog makes the citizen reopen it and guess what was wrong.
-*       Identification and Shares carry the same rakReq marker as Emirates ID
-*       in RENDER_OWN_POPUP( ) but used to slip through unchecked here.
-        IF io_ctx->get_val( c_own_name )  IS INITIAL
-           OR io_ctx->get_val( c_own_eid )   IS INITIAL
-           OR io_ctx->get_val( c_own_share ) IS INITIAL.
+        IF io_ctx->get_val( c_own_eid ) IS INITIAL.
           io_ctx->add_msg( iv_type = 'Warning'
-                           iv_text = 'Kindly fill required details.' ).
+                           iv_text = 'Owner name and Emirates ID are both needed.' ).
           RETURN.
         ENDIF.
-
-*       784-XXXX-XXXXXXX-X - the same shape as the field's own placeholder.
-        DATA(lv_eid_chk) = condense( io_ctx->get_val( c_own_eid ) ).
-        FIND REGEX '^784-\d{4}-\d{7}-\d$' IN lv_eid_chk.
-        IF sy-subrc <> 0.
-          io_ctx->add_msg( iv_type = 'Warning'
-                           iv_text = 'Emirates ID must be in the format 784-XXXX-XXXXXXX-X.' ).
-          RETURN.
-        ENDIF.
-
         own_form_save( io_ctx ).
         io_ctx->close_popup( ).
         io_ctx->add_msg( iv_type = 'Success'
@@ -562,20 +544,6 @@ CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
         io_ctx->close_popup( ).
       WHEN c_evt_owncx.
         io_ctx->close_popup( ).
-
-      WHEN OTHERS.
-*       Row actions carry their subject in the event id, same as D001's owner
-*       list. These were rendered on every row (RENDER_OWN_LIST) with no
-*       handler at all - Edit and Delete pressed and did nothing.
-        IF iv_event CP 'OWN_EDIT_*'.
-          own_form_load( io_ctx = io_ctx iv_id = substring( val = iv_event off = 9 ) ).
-          io_ctx->open_popup( c_pop_own ).
-          RETURN.
-        ENDIF.
-        IF iv_event CP 'OWN_DEL_*'.
-          own_delete( io_ctx = io_ctx iv_id = substring( val = iv_event off = 8 ) ).
-          RETURN.
-        ENDIF.
     ENDCASE.
 
   ENDMETHOD.
@@ -659,22 +627,13 @@ super->zif_rak_journey_logic~on_render_popup(
     io_ctx->set_val( iv_name = c_own_eid   iv_value = '' ).
     io_ctx->set_val( iv_name = c_own_nat   iv_value = '' ).
     io_ctx->set_val( iv_name = c_own_share iv_value = '' ).
-    io_ctx->set_val( iv_name = 'NAME_POP'      iv_value = '' ).
-    io_ctx->set_val( iv_name = 'TELEPHONE_POP' iv_value = '' ).
-    io_ctx->set_val( iv_name = 'EMAIL_POP'     iv_value = '' ).
 
     IF iv_id IS INITIAL.
 *     New owner. The id is minted NOW and not on save, because the uploaders in
 *     the dialog key their files on it - a file attached before the row exists
-*     still has to belong to the right person. This used to mint the SAME
-*     fixed id ('YFS002') for every new owner, so OWN_FORM_SAVE's "does this
-*     id already exist" check matched the first owner every time and every
-*     later Add overwrote them instead of appending - a timestamp is unique
-*     per press.
-      DATA lv_ts TYPE timestampl.
-      GET TIME STAMP FIELD lv_ts.
+*     still has to belong to the right person.
       io_ctx->set_val( iv_name  = c_own_id
-                       iv_value = |{ lv_ts }| ).
+                       iv_value = 'YFS002' ).
       RETURN.
     ENDIF.
 
@@ -685,9 +644,6 @@ super->zif_rak_journey_logic~on_render_popup(
       io_ctx->set_val( iv_name = c_own_eid   iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
       io_ctx->set_val( iv_name = c_own_nat   iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
       io_ctx->set_val( iv_name = c_own_share iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = 'NAME_POP'      iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = 'TELEPHONE_POP' iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = 'EMAIL_POP'     iv_value = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
       EXIT.
     ENDLOOP.
   endmethod.
@@ -972,17 +928,6 @@ super->zif_rak_journey_logic~on_render_popup(
                   icon  = 'sap-icon://accept'
                   press = io_ctx->event( c_evt_ownok ) ).
     lo_b->button( text = 'Close' press = io_ctx->event( c_evt_owncx ) ).
-  ENDMETHOD.
-
-
-  METHOD own_delete.
-    DATA(ls_g)   = io_ctx->get_grid_data( c_grid ).
-    DATA(ls_new) = VALUE zif_rak_journey=>ty_table( columns = ls_g-columns ).
-    LOOP AT ls_g-rows INTO DATA(lt_r).
-      CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) <> iv_id.
-      APPEND lt_r TO ls_new-rows.
-    ENDLOOP.
-    io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
   ENDMETHOD.
 
 
