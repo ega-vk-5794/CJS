@@ -126,6 +126,27 @@ These raise nothing and render nothing. They account for most of the bugs found 
   back to the literal `OTR:...` string, on screen, rather than going blank — a visible symptom
   instead of a silent one. Existing literal text is unaffected: only a value that starts with
   the four characters `OTR:` is treated this way.
+- **A required label is marked by the `required` property, never by a CSS class.**
+  `label( ... required = abap_true )` is what makes UI5's own renderer draw the asterisk
+  (`sapMLabelRequired`). The old mechanism — a `rakReq` class plus a hand-written
+  `.rakReq::after` rule — never reliably reached the DOM, so every mandatory field on every
+  journey rendered unmarked while `VALIDATE_STEP( )` went on correctly refusing the submit:
+  a form that looks optional and won't submit. The class and the CSS rule behind it are both
+  gone; `.rakReqStar` is a different thing and stays (the required-**checkbox** marker is a
+  sibling control, because a checkbox's text is a whole sentence, not a label).
+  `ZCL_RAK_JOURNEY_RENDER->REQ_LABEL( )` is the engine's one label, but it is **not the only
+  place a label is drawn** — `RENDER_ATTACH( )` and `ZCL_RAK_JOURNEY_LOGIC->DIALOG_FORM( )`
+  draw their own, and a hand-drawn popup that calls `z2ui5_cl_xml_view->label( )` directly
+  bypasses all three. Prefer `DIALOG_FORM( )` for a new popup: it sets `REQUIRED` from each
+  field's own flag, so the marker cannot be forgotten.
+- **A grid row written by hand is positional against the *configured* columns.**
+  `SET_GRID_DATA( )` maps by name, but the `COLUMNS` a handler passes came straight back from
+  `GET_GRID_DATA( )`, so the map is an identity map and cell N lands in configured column N.
+  A cell appended out of order is written to the neighbouring column; one appended past the
+  last configured column is dropped. Neither raises anything. The order lives in
+  `ZRAK_T_JNY_FLD-DEFAULT_VAL` for the grid field — read it before adding or reordering a
+  field in an Add-a-row popup's save. E016/E017/E018 each carry this note at their save method,
+  and their orders legitimately differ from each other because their specs do.
 
 ## Conventions
 
@@ -182,6 +203,7 @@ mistake lands rather than relying on this file being read closely:
 | `session_start.py` | SessionStart | Pulls `main`, reprints the short list of rules below |
 | `block_legacy_writes.py` | PreToolUse (Write/Edit/MultiEdit) | The namespace boundary — denies creating/editing a legacy-namespace object |
 | `check_journey_rules.py` | PreToolUse (Write/Edit/MultiEdit) | `ON_CUSTOM_VALIDATE` redefinitions call `super->` before any `CHECK`; `commit_step( )` is never called from `ON_BEFORE_POST`/`ON_BEFORE_TABLES` |
+| `check_required_label.py` | PreToolUse (Write/Edit/MultiEdit) | The required marker stays the native `required` property — denies a `rakReq` class on a `label( )` call, and denies a `.rakReq` rule reappearing in the theme CSS |
 | `protect_abapgit_config.py` | PreToolUse (Write/Edit/MultiEdit) | Asks for confirmation before touching `.abapgit.xml` / `*.devc.xml` |
 | `check_crlf.py` | PostToolUse (Write/Edit/MultiEdit) | Flags a file under `src/` that gained CRLF line endings, since this repo's git history is LF |
 

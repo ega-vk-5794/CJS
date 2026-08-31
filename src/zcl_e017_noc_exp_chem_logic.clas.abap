@@ -763,6 +763,15 @@ lo_c12->combobox( selectedkey = io_ctx->bind( c_import_pop )
 *   the summary list keeps working. Columns 6-14 are the rest of the
 *   popup's fields, which used to not be saved anywhere at all: OWN_EDIT
 *   could never have recovered them because nothing ever wrote them.
+*
+*   THE APPEND ORDER BELOW IS THE CONFIGURED COLUMN ORDER, not a free choice.
+*   SET_GRID_DATA( ) is handed COLUMNS straight back from GET_GRID_DATA( ), so
+*   its map-by-name is an identity map and cell N lands in configured column N
+*   (ZCL_RAK_JOURNEY_ENGINE:2614). Append a cell out of order and it is written
+*   to the neighbouring column; append past the last configured column and it is
+*   dropped. Neither raises anything. Before adding or reordering a field here,
+*   read the grid spec in ZRAK_T_JNY_FLD-DEFAULT_VAL for this grid field and
+*   match it - the display methods in this class only corroborate the first few.
     DATA(ls_g)  = io_ctx->get_grid_data( c_grid ).
     DATA(ls_new) = VALUE zif_rak_journey=>ty_table( columns = ls_g-columns ).
     DATA lv_found TYPE abap_bool.

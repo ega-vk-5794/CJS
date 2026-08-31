@@ -30,6 +30,12 @@
           },
           {
             "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check_required_label.py\"",
+            "timeout": 10,
+            "statusMessage": "Checking the mandatory-field marker is the native property..."
+          },
+          {
+            "type": "command",
             "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/protect_abapgit_config.py\"",
             "timeout": 10,
             "statusMessage": "Checking abapGit structural config..."
