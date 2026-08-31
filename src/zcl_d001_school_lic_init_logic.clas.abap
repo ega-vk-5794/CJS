@@ -819,78 +819,61 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
   METHOD render_own_popup.
 
-    TYPES:
-      BEGIN OF ty_id_type,
-        key  TYPE string,
-        text TYPE string,
-      END OF ty_id_type.
-    DATA:lt_id_type TYPE TABLE OF ty_id_type,
-         ls_id_type TYPE ty_id_type.
-
-    ls_id_type-key = 1.
-    ls_id_type-text = 'EID'.
-
-    APPEND ls_id_type TO lt_id_type.
-
-*  ONE dialog: the owner's details and their documents. No search, no drill-
-*   down, no second popup - the list is on the step behind and this is the form
-*   that adds one line to it.
+*   ONE dialog: the owner's details and their documents. No drill-down, no
+*   second popup - the list is on the step behind and this is the form that
+*   adds one line to it.
     DATA(lv_id) = io_ctx->get_val( c_own_id ).
 
-    DATA(lo_dlg) = io_popup->dialog( title = 'Owner' contentwidth = '40rem' ).
+    DATA(lo_dlg) = io_popup->dialog( title = 'Owner' contentwidth = '54rem' ).
     DATA(lo_c)   = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
 
-*              )->label( text = 'Emirates ID'
-*              )->input( value = io_ctx->bind( 'EMIRATES_ID' ) width      = `50%`
-*              )->button( text = 'Search' press = io_ctx->event( c_evt_ownsr )  type  = 'Emphasized' icon  = 'sap-icon://search'
-*
-*    ).
+    lo_c->title( text = 'Owner Details' class = 'rakBlkTitle' ).
 
-*   Search sits ON the section title, not under the Emirates ID field, because
-*   it acts on the whole form: type the ID, press Search, and the rest fills in.
-    DATA(lo_hdr) = lo_c->hbox( justifycontent = 'SpaceBetween' alignitems = 'Center' ).
-    lo_hdr->title( text = 'Owner Details' class = 'rakBlkTitle' ).
-    lo_hdr->button( text  = 'Search'
-                    type  = 'Emphasized'
-                    icon  = 'sap-icon://search'
-                    press = io_ctx->event( c_evt_ownsr ) ).
+*   Same two-column SimpleForm/ResponsiveGridLayout combination DIALOG_FORM( )
+*   uses in ZCL_RAK_JOURNEY_LOGIC (it cannot be called directly here - it owns
+*   and closes its own dialog, with no room for the Documents section below -
+*   but its layout is copied so this reads like every other popup). Search
+*   moves off the section header and onto the Emirates ID field's own
+*   value-help icon, the same F4_EVT affordance DIALOG_FORM( ) offers per
+*   field; pressing it or Enter both still fire C_EVT_OWNSR into the
+*   on_popup_event handler below, unchanged.
+    DATA(lo_form) = lo_c->simple_form( editable                = abap_true
+                                       layout                  = 'ResponsiveGridLayout'
+                                       columnsxl               = '2'
+                                       columnsl                = '2'
+                                       columnsm                = '2'
+                                       labelspanxl             = '12'
+                                       labelspanl              = '12'
+                                       labelspanm              = '12'
+                                       adjustlabelspan         = 'false'
+                                       singlecontainerfullsize = abap_false
+      )->content( ns = 'form' ).
 
-
-*   Two per row, the way the legacy dialog laid it out.
-    DATA(lo_r1) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
-    DATA(lo_c1) = lo_r1->vbox( class = 'rakCell' ).
-    lo_c1->label( text = 'Identification' class = 'rakReq' ).
+    lo_form->label( text = 'Identification' class = 'rakReq' ).
 *   Emirates ID is the only option, and OWN_FORM_LOAD now defaults it - so
 *   there is nothing left for the citizen to pick from this dropdown.
-    lo_c1->combobox( selectedkey = io_ctx->bind( c_identity )
-                      editable    = abap_false
-                      placeholder = 'select'
+    lo_form->combobox( selectedkey = io_ctx->bind( c_identity )
+                        editable    = abap_false
+                        placeholder = 'select'
       )->item( key = '1'     text = 'Emirates ID' ).
 *      )->item( key = '2'    text = 'Passport' ).
-    DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
 
-
-
-    lo_c2->label( text = 'Emirates ID' class = 'rakReq' ).
-*   Enter in the ID box does the same as pressing Search. Somebody who has just
+    lo_form->label( text = 'Emirates ID' class = 'rakReq' ).
+*   The search icon and Enter both do the same thing. Somebody who has just
 *   typed fifteen digits should not have to reach for the mouse.
-    lo_c2->input( value       = io_ctx->bind( c_id )
-                  width       = '17rem'
-                  placeholder = '784-xxxx-xxxxxxx-x'
-                  submit      = io_ctx->event( c_evt_ownsr ) ).
-    DATA(lo_r2) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
+    lo_form->input( value            = io_ctx->bind( c_id )
+                    placeholder      = '784-xxxx-xxxxxxx-x'
+                    showvaluehelp    = abap_true
+                    valuehelprequest = io_ctx->event( c_evt_ownsr )
+                    submit           = io_ctx->event( c_evt_ownsr ) ).
 
-* Birth date
-    DATA(lo_c3) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c3->label( text = 'Birth Date' class = 'rakReq' ).
-    lo_c3->date_picker( value         = io_ctx->bind( c_dob )
-                        width         = '17rem'
-                        valueformat   = 'yyyy-MM-dd'
-                        displayformat = 'dd.MM.yyyy' ).
-*  Nationality
-    DATA(lo_c4) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c4->label( text = 'Nationality' class = 'rakReq' ).
-    lo_c4->combobox( selectedkey = io_ctx->bind( c_nat )
+    lo_form->label( text = 'Birth Date' class = 'rakReq' ).
+    lo_form->date_picker( value         = io_ctx->bind( c_dob )
+                          valueformat   = 'yyyy-MM-dd'
+                          displayformat = 'dd.MM.yyyy' ).
+
+    lo_form->label( text = 'Nationality' class = 'rakReq' ).
+    lo_form->combobox( selectedkey = io_ctx->bind( c_nat )
         placeholder = 'select'
         )->item( key = '1'     text = 'Afghanistan'
         )->item( key = '2'     text = 'Antigua/Barbuda'
@@ -1000,10 +983,8 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
         )->item( key = '106'   text = 'Kenya'
         ).
 
-*Shares
-    DATA(lo_c5) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c5->label( text = 'Shares %' class = 'rakReq' ).
-    lo_c5->input( value = io_ctx->bind( c_share ) type = 'Number' width = '17rem' ).
+    lo_form->label( text = 'Shares %' class = 'rakReq' ).
+    lo_form->input( value = io_ctx->bind( c_share ) type = 'Number' ).
 
 *   ---- their documents ------------------------------------------------
 *   iv_key is what makes a repeating list work. Every uploader here is keyed on
