@@ -562,29 +562,36 @@ super->zif_rak_journey_logic~on_render_popup(
 **      render_own_popup( io_ctx = io_ctx io_popup = io_popup ).
 
 
+*       REQUIRED here is the marker only - DIALOG_FORM( ) sets it on the label
+*       and nothing more; a popup's enforcement is the handler's own, in the OK
+*       event below. So this list has to mirror that check exactly: a field
+*       marked here but not checked there promises an asterisk it never
+*       enforces, and a field checked there but not marked here is the bug this
+*       whole exercise is about - a form that looks optional and refuses to
+*       submit. The fields marked are precisely the ones WHEN c_evt_ownok tests.
         dialog_form(
           io_ctx     = io_ctx
           io_popup   = io_popup
           iv_title   = 'Add Chemical'
           it_fields  = VALUE #(
-                                ( name = c_hs_code_pop          label = 'HS Code'  )
+                                ( name = c_hs_code_pop          label = 'HS Code' required = abap_true )
                                 ( name = c_material_name_pop    label = 'Material Name' )
                                 ( name = c_chemical_name_pop    label = 'Chemical Name' )
                                 ( name = c_cas_pop              label = 'CAS Number' maxlen = 20 )
                                 ( name = c_chemical_formula_pop label = 'Chemical Formula' )
-                                ( name = c_packaging_pop        label = 'Packing' )
-                                ( name = c_quantity_pop         label = 'Quantity'  )
-                                ( name = c_gross_weight_pop     label = 'Gross Weight'  )
-                                ( name = c_uom_pop              label = 'UOM' type = 'SELECT'
+                                ( name = c_packaging_pop        label = 'Packing' required = abap_true )
+                                ( name = c_quantity_pop         label = 'Quantity' required = abap_true )
+                                ( name = c_gross_weight_pop     label = 'Gross Weight' required = abap_true )
+                                ( name = c_uom_pop              label = 'UOM' type = 'SELECT' required = abap_true
                                   options = VALUE #( ( key = 'GAL' text = 'Gallon' )
                                                      ( key = 'KG'  text = 'Kilogram' )
                                                      ( key = 'LIT' text = 'Liter' )
                                                      ( key = 'MAT' text = 'Metric Ton' ) ) )
 
-                                ( name = c_invoice_pop          label = 'Invoice Number'  )
-                                ( name = c_origin_pop           label = 'Country of Origin' shlp = 'H_T005'  )
-                                ( name = c_end_user_pop         label = 'Point of Entrance'  )
-                                ( name = c_bol_pop              label = 'Bill of Lading'  )
+                                ( name = c_invoice_pop          label = 'Invoice Number' required = abap_true )
+                                ( name = c_origin_pop           label = 'Country of Origin' shlp = 'H_T005' required = abap_true )
+                                ( name = c_end_user_pop         label = 'Point of Entrance' required = abap_true )
+                                ( name = c_bol_pop              label = 'Bill of Lading' required = abap_true )
 **                                ( name = c_trans_comp           label = 'Transport Company'  )
                               )
           iv_ok_text = 'Add'
@@ -593,28 +600,44 @@ super->zif_rak_journey_logic~on_render_popup(
         RETURN.
       RETURN.
       WHEN C_EVT_DETAILS.
-
-
+*       UNREACHABLE, AND IT CARRIED THE CONSTANT-NAME-AS-STRING BUG.
+*
+*       Unreachable: this CASE is on IV_ID, the popup id, and the only id this
+*       handler ever opens is C_CHEM - WHEN c_evt_details in ON_POPUP_EVENT
+*       calls open_popup( c_chem ), not open_popup( c_evt_details ). So the
+*       branch above is the one citizens see and this one has never run.
+*
+*       The bug: every NAME below was the CONSTANT'S OWN NAME in quotes -
+*       name = 'C_HS_CODE_POP' rather than name = c_hs_code_pop. That binds to
+*       a model component literally called C_HS_CODE_POP, which does not exist,
+*       so all thirteen inputs would read and write nothing and the dialog would
+*       look perfectly normal doing it. Stripping the C_ would not have saved it
+*       either: C_MATERIAL_NAME_POP's VALUE is 'MAT_NAME_POP', not
+*       'MATERIAL_NAME_POP'. The constants are now used, so if this branch is
+*       ever reached it will at least bind.
+*
+*       It is still a stale duplicate of the live branch - it lacks the UOM
+*       option list, the H_T005 help on Country of Origin, the CAS length and
+*       every REQUIRED marker. Deleting it is the right end state; that is a
+*       call for whoever owns E016, so it is flagged rather than removed.
         dialog_form(
           io_ctx     = io_ctx
           io_popup   = io_popup
           iv_title   = 'Add Chemical'
           it_fields  = VALUE #(
-                                ( name = 'C_HS_CODE_POP'        label = 'HS Code'  )
-                                ( name = 'C_MATERIAL_NAME_POP'  label = 'Material Name' )
-                                ( name = 'C_CHEMICAL_NAME_POP'  label = 'Chemical Name' )
-                                ( name = 'C_CAS_POP'            label = 'CAS Number' )
-                                ( name = 'C_CHEMICAL_FORMULA_POP'     label = 'Chemical Formula' )
-                                ( name = 'C_PACKAGING_POP'          label = 'Packing' )
-                                ( name = 'C_QUANTITY_POP'        label = 'Quantity'  )
-                                ( name = 'C_GROSS_WEIGHT_POP'        label = 'Gross Weight'  )
-                                ( name = 'C_UOM_POP'        label = 'UOM'  )
-                                ( name = 'C_INVOICE_POP'        label = 'Invoice Number'  )
-                                ( name = 'C_ORIGIN_POP'        label = 'Country of Origin'  )
-                                ( name = 'C_END_USER_POP'        label = 'Point of Entrance/End User'  )
-                                ( name = 'C_BOL_POP'        label = 'Bill of Lading'  )
-*                                ( name = 'DATE_OF_BIRTH_POP' label = 'Date of Birth' )
-*                                ( name = 'DATE_OF_BIRTH_POP' label = 'Date of Birth' )
+                                ( name = c_hs_code_pop          label = 'HS Code'  )
+                                ( name = c_material_name_pop    label = 'Material Name' )
+                                ( name = c_chemical_name_pop    label = 'Chemical Name' )
+                                ( name = c_cas_pop              label = 'CAS Number' )
+                                ( name = c_chemical_formula_pop label = 'Chemical Formula' )
+                                ( name = c_packaging_pop        label = 'Packing' )
+                                ( name = c_quantity_pop         label = 'Quantity'  )
+                                ( name = c_gross_weight_pop     label = 'Gross Weight'  )
+                                ( name = c_uom_pop              label = 'UOM'  )
+                                ( name = c_invoice_pop          label = 'Invoice Number'  )
+                                ( name = c_origin_pop           label = 'Country of Origin'  )
+                                ( name = c_end_user_pop         label = 'Point of Entrance/End User'  )
+                                ( name = c_bol_pop              label = 'Bill of Lading'  )
                                  )
           iv_ok_text = 'Add'
           iv_ok_evt  = c_own_add ).

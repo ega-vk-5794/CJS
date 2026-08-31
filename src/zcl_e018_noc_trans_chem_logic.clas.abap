@@ -700,30 +700,34 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 *        RETURN.
       WHEN c_chem. "c_evt_details. "c_chem. "c_evt_details. " FOr F4 use this
 
+*       REQUIRED here is the marker only - DIALOG_FORM( ) sets it on the label
+*       and enforces nothing; a popup's enforcement is the handler's own, in the
+*       OK event. So this list mirrors WHEN c_evt_ownok exactly: the ten fields
+*       it tests are marked, the four it does not are left alone.
         dialog_form(
           io_ctx     = io_ctx
           io_popup   = io_popup
           iv_title   = 'Add Chemical'
           it_fields  = VALUE #(
-                                ( name = c_hs_code_pop          label = 'HS Code'  )
+                                ( name = c_hs_code_pop          label = 'HS Code' required = abap_true )
                                 ( name = c_material_name_pop    label = 'Material Name' )
                                 ( name = c_chemical_name_pop    label = 'Chemical Name' )
                                 ( name = c_cas_pop              label = 'CAS Number' maxlen = 20 )
                                 ( name = c_chemical_formula_pop label = 'Chemical Formula' )
-                                ( name = c_packaging_pop        label = 'Packing' )
-                                ( name = c_quantity_pop         label = 'Quantity'  )
-                                ( name = c_gross_weight_pop     label = 'Gross Weight'  )
-                                ( name = c_uom_pop              label = 'UOM' type = 'SELECT'
+                                ( name = c_packaging_pop        label = 'Packing' required = abap_true )
+                                ( name = c_quantity_pop         label = 'Quantity' required = abap_true )
+                                ( name = c_gross_weight_pop     label = 'Gross Weight' required = abap_true )
+                                ( name = c_uom_pop              label = 'UOM' type = 'SELECT' required = abap_true
                                   options = VALUE #( ( key = 'GAL' text = 'Gallon' )
                                                      ( key = 'KG'  text = 'Kilogram' )
                                                      ( key = 'LIT' text = 'Liter' )
                                                      ( key = 'MAT' text = 'Metric Ton' ) ) )
 
-                                ( name = c_invoice_pop          label = 'Invoice Number'  )
-                                ( name = c_origin_pop           label = 'Country of Origin' shlp = 'H_T005'  )
-                                ( name = c_end_user_pop         label = 'Point of Entrance'  )
-                                ( name = c_bol_pop              label = 'Bill of Lading'  )
-                                ( name = c_trans_comp           label = 'Transport Company'  )
+                                ( name = c_invoice_pop          label = 'Invoice Number' required = abap_true )
+                                ( name = c_origin_pop           label = 'Country of Origin' shlp = 'H_T005' required = abap_true )
+                                ( name = c_end_user_pop         label = 'Point of Entrance' required = abap_true )
+                                ( name = c_bol_pop              label = 'Bill of Lading' required = abap_true )
+                                ( name = c_trans_comp           label = 'Transport Company' required = abap_true )
                               )
           iv_ok_text = 'Add'
           iv_ok_evt  = c_evt_ownok

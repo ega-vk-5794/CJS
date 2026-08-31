@@ -67,7 +67,9 @@ private section.
   methods VALIDATE_INPUT
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY
-      !IV_ID type STRING optional .
+      !IV_ID type STRING optional
+    returning
+      value(RV_OK) type ABAP_BOOL .
   methods RENDER_OWN_POPUP
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY
@@ -251,7 +253,12 @@ CLASS ZCL_E017_NOC_EXP_CHEM_LOGIC IMPLEMENTATION.
 
 *     "Trigger on click of ADD button in POP-UP Screen
       WHEN c_evt_ownok.
-        validate_input( io_ctx ).
+*       The save and the close are now BOTH behind the verdict. Leaving the
+*       popup open on a failed check is the point: the citizen keeps what they
+*       typed and can see which fields the warning is about.
+        IF validate_input( io_ctx ) = abap_false.
+          RETURN.
+        ENDIF.
 
         populate_grid( io_ctx ).
 
@@ -387,15 +394,21 @@ CLASS ZCL_E017_NOC_EXP_CHEM_LOGIC IMPLEMENTATION.
 *        render_own_popup( io_ctx = io_ctx io_popup = io_popup ).
 *        RETURN.
 
+*       REQUIRED here is the marker only - DIALOG_FORM( ) sets it on the label
+*       and enforces nothing; a popup's enforcement is the handler's, in
+*       VALIDATE_INPUT( ). So this list mirrors that method exactly. Only four
+*       fields are checked there - the rest of this dialog is genuinely
+*       optional, and the ten commented-out lines in VALIDATE_INPUT( ) are the
+*       decision to be made before any more asterisks go on here.
         dialog_form(
           io_ctx     = io_ctx
           io_popup   = io_popup
           iv_title   = 'Add Chemical'
           it_fields  = VALUE #(
-                                ( name = c_hs_pop           label = 'HS Code'  )
-                                ( name = c_mat_pop          label = 'Material Name' )
-                                ( name = c_chem_pop         label = 'Chemical Name' )
-                                ( name = c_cas_no_pop       label = 'CAS Number' maxlen = 20 )
+                                ( name = c_hs_pop           label = 'HS Code' required = abap_true )
+                                ( name = c_mat_pop          label = 'Material Name' required = abap_true )
+                                ( name = c_chem_pop         label = 'Chemical Name' required = abap_true )
+                                ( name = c_cas_no_pop       label = 'CAS Number' maxlen = 20 required = abap_true )
                                 ( name = c_chem_form_pop    label = 'Chemical Formula' )
                                 ( name = c_packaging_pop    label = 'Packing' )
                                 ( name = c_quantity_pop     label = 'Quantity'  )
@@ -734,8 +747,15 @@ lo_c12->combobox( selectedkey = io_ctx->bind( c_import_pop )
 
       io_ctx->add_msg( iv_type = 'Warning'
                        iv_text = 'Kindly fill required details.' ).
+*     RV_OK stays FALSE. This used to return nothing at all, and ON_POPUP_EVENT
+*     called POPULATE_GRID( ) and CLOSE_POPUP( ) straight afterwards whatever
+*     happened here - so a blank row was added to the grid and the dialog shut,
+*     with only a warning toast to say otherwise. The verdict has to reach the
+*     caller for the message to mean anything.
       RETURN.
     ENDIF.
+
+    rv_ok = abap_true.
 
   ENDMETHOD.
 
