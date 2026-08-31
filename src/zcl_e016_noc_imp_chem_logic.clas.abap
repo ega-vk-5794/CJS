@@ -232,7 +232,7 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
 *   Two per row, the way the legacy dialog laid it out.
     DATA(lo_r1) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
     DATA(lo_c1) = lo_r1->vbox( class = 'rakCell' ).
-    lo_c1->label( text = 'HS Code' class = 'rakReq' ).
+    lo_c1->label( text = 'HS Code' required = abap_true ).
     lo_c1->input( value = io_ctx->bind( C_HS_CODE_POP ) width = '17rem' ).
      DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
     lo_c2->label( text = 'Material Name' ).
@@ -249,28 +249,28 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
     lo_c5->label( text = 'Chemical formula' ).
     lo_c5->input( value = io_ctx->bind( C_CHEMICAL_FORMULA_POP ) width = '17rem' ).
     DATA(lo_c6) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c6->label( text = 'Packing' class = 'rakReq' ).
+    lo_c6->label( text = 'Packing' required = abap_true ).
     lo_c6->input( value = io_ctx->bind( C_PACKAGING_POP ) width = '17rem' ).
     DATA(lo_c7) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c7->label( text = 'Quantity' class = 'rakReq' ).
+    lo_c7->label( text = 'Quantity' required = abap_true ).
     lo_c7->input( value = io_ctx->bind( C_QUANTITY_POP ) type = 'Number' width = '17rem' ).
     DATA(lo_c8) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c8->label( text = 'Gross Weight' class = 'rakReq' ).
+    lo_c8->label( text = 'Gross Weight' required = abap_true ).
     lo_c8->input( value = io_ctx->bind( C_GROSS_WEIGHT_POP ) type = 'Number' width = '17rem' ).
     DATA(lo_c9) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c9->label( text = 'UOM' class = 'rakReq' ).
+    lo_c9->label( text = 'UOM' required = abap_true ).
     lo_c9->input( value = io_ctx->bind( C_UOM_POP ) type = 'SELECT' width = '17rem' ).
     DATA(lo_c10) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c10->label( text = 'Invoice Number' class = 'rakReq' ).
+    lo_c10->label( text = 'Invoice Number' required = abap_true ).
     lo_c10->input( value = io_ctx->bind( C_INVOICE_POP ) width = '17rem' ).
     DATA(lo_c11) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c11->label( text = 'Country of Origin' class = 'rakReq' ).
+    lo_c11->label( text = 'Country of Origin' required = abap_true ).
     lo_c11->input( value = io_ctx->bind( C_ORIGIN_POP ) width = '17rem' ).
     DATA(lo_c12) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c12->label( text = 'Point of Entrance/End User' class = 'rakReq' ).
+    lo_c12->label( text = 'Point of Entrance/End User' required = abap_true ).
     lo_c12->input( value = io_ctx->bind( C_END_USER_POP ) width = '17rem' ).
     DATA(lo_c13) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c13->label( text = 'Bill of Lading' class = 'rakReq' ).
+    lo_c13->label( text = 'Bill of Lading' required = abap_true ).
     lo_c13->input( value = io_ctx->bind( C_BOL_POP ) width = '17rem' ).
 
 *   ---- their documents ------------------------------------------------

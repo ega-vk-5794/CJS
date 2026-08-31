@@ -879,7 +879,7 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
                                        singlecontainerfullsize = abap_false
       )->content( ns = 'form' ).
 
-    lo_form->label( text = 'Identification' class = 'rakReq' ).
+    lo_form->label( text = 'Identification' required = abap_true ).
 *   Emirates ID is the only option, and OWN_FORM_LOAD now defaults it - so
 *   there is nothing left for the citizen to pick from this dropdown.
     lo_form->combobox( selectedkey = io_ctx->bind( c_identity )
@@ -888,7 +888,7 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       )->item( key = '1'     text = 'Emirates ID' ).
 *      )->item( key = '2'    text = 'Passport' ).
 
-    lo_form->label( text = 'Emirates ID' class = 'rakReq' ).
+    lo_form->label( text = 'Emirates ID' required = abap_true ).
 *   The search icon and Enter both do the same thing. Somebody who has just
 *   typed fifteen digits should not have to reach for the mouse.
     lo_form->input( value            = io_ctx->bind( c_id )
@@ -898,12 +898,12 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
                     submit           = io_ctx->event( c_evt_ownsr ) ).
             lo_form->button( text = 'Check' press = io_ctx->event( c_evt_ownsr ) ).
 
-    lo_form->label( text = 'Birth Date' class = 'rakReq' ).
+    lo_form->label( text = 'Birth Date' required = abap_true ).
     lo_form->date_picker( value         = io_ctx->bind( c_dob )
                           valueformat   = 'yyyy-MM-dd'
                           displayformat = 'dd.MM.yyyy' ).
 
-    lo_form->label( text = 'Nationality' class = 'rakReq' ).
+    lo_form->label( text = 'Nationality' required = abap_true ).
     DATA(lo_nat) = lo_form->combobox( selectedkey = io_ctx->bind( c_nat )
                                       placeholder = 'select' ).
 *   T005T, not a hand-typed list. The 106-item literal this replaced stopped
@@ -927,7 +927,7 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       lo_nat->item( key = ls_nat-key text = ls_nat-text ).
     ENDLOOP.
 
-    lo_form->label( text = 'Shares %' class = 'rakReq' ).
+    lo_form->label( text = 'Shares %' required = abap_true ).
     lo_form->input( value = io_ctx->bind( c_share ) type = 'Number' ).
 
 *   ---- their documents ------------------------------------------------

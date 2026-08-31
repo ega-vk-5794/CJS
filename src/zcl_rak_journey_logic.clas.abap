@@ -316,8 +316,11 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 
     LOOP AT it_fields INTO DATA(ls).
 
-      lo_form->label( text  = ls-label
-                      class = COND string( WHEN ls-required = abap_true THEN 'rakReq' ) ).
+*     REQUIRED is the sap.m.Label property, not a CSS class - see
+*     ZCL_RAK_JOURNEY_RENDER->REQ_LABEL( ). Every hand-drawn popup that still
+*     wants a marker should come through here rather than draw its own label.
+      lo_form->label( text     = ls-label
+                      required = ls-required ).
 
 *     Explicit list wins outright; otherwise ask the resolver, which applies its
 *     own documented precedence across the three names.

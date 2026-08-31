@@ -437,7 +437,7 @@ CLASS ZCL_E017_NOC_EXP_CHEM_LOGIC IMPLEMENTATION.
 *    DATA(lo_r1) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
     DATA(lo_r2) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
     DATA(lo_c1) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c1->label( text = 'HS Code' class = 'rakReq' ).
+    lo_c1->label( text = 'HS Code' required = abap_true ).
     lo_c1->input( value = io_ctx->bind( c_hs_pop )  ).
 *   lo_c1->combobox( selectedkey = io_ctx->bind(  c_hs_pop ).
 

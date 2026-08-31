@@ -441,12 +441,15 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
 
   METHOD render_attach.
+*   An attachment label is drawn here, not through REQ_LABEL( ), so it kept the
+*   CSS-class marker after REQ_LABEL( ) moved to the native property - and the
+*   class alone draws nothing. Same REQUIRED property, same result.
+    DATA(lv_req) = mo_e->mo_rules->is_required( is_field ).
     io_form->label(
-      text  = zcl_rak_journey_util=>esc( COND #( WHEN is_field-attach_label IS NOT INITIAL
-                           THEN is_field-attach_label ELSE |{ is_field-label } - attachment| ) )
-      class = COND string( WHEN mo_e->mo_rules->is_required( is_field ) = abap_true
-                           THEN 'rakReq sapUiFormLabelNoColon'
-                           ELSE 'sapUiFormLabelNoColon' ) ).
+      text     = zcl_rak_journey_util=>esc( COND #( WHEN is_field-attach_label IS NOT INITIAL
+                              THEN is_field-attach_label ELSE |{ is_field-label } - attachment| ) )
+      class    = 'sapUiFormLabelNoColon'
+      required = lv_req ).
     DATA(lo_box) = io_form->vbox( ).
 
     DATA(lv_count) = render_chips( io_box = lo_box iv_field = is_field-name ).
@@ -1648,8 +1651,8 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       WHEN 'CHECKBOX'.
         DATA(lo_cbx) = io_form->hbox( alignitems = 'Start' width = '100%' ).
 *       THE MARKER LEADS THE STATEMENT, unlike every other field, where
-*       REQ_LABEL puts it after the label via .rakReq::after - which is what
-*       sap.m.Label does for required and what the rest of the form should keep.
+*       REQ_LABEL sets the native sap.m.Label REQUIRED property and UI5 puts the
+*       marker after the text - which is what the rest of the form should keep.
 *
 *       A checkbox is not a label. Its text is a whole consent sentence, and the
 *       star is a SIBLING in the hbox rather than part of the text, so trailing
