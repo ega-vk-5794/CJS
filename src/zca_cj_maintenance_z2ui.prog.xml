@@ -90,8 +90,8 @@
    </DYNPROS>
    <CUA>
     <ADM>
-     <ACTCODE>000001</ACTCODE>
-     <PFKCODE>000001</PFKCODE>
+     <ACTCODE>000002</ACTCODE>
+     <PFKCODE>000002</PFKCODE>
     </ADM>
     <STA>
      <RSMPE_STAT>
@@ -102,8 +102,34 @@
       <BUTCODE>0001</BUTCODE>
       <INT_NOTE>Main</INT_NOTE>
      </RSMPE_STAT>
+     <RSMPE_STAT>
+      <CODE>SCREENS</CODE>
+      <MODAL>D</MODAL>
+      <ACTCODE>000002</ACTCODE>
+      <PFKCODE>000002</PFKCODE>
+      <BUTCODE>0001</BUTCODE>
+      <INT_NOTE>Screens</INT_NOTE>
+     </RSMPE_STAT>
     </STA>
     <FUN>
+     <RSMPE_FUNT>
+      <CODE>CREA</CODE>
+      <TEXTNO>001</TEXTNO>
+      <TEXT_TYPE>S</TEXT_TYPE>
+      <TEXT_NAME>ICON_CREATE</TEXT_NAME>
+      <ICON_ID>@0Y@</ICON_ID>
+      <FUN_TEXT>Create/Edit Screens</FUN_TEXT>
+      <ICON_TEXT>Create/Edit Screens</ICON_TEXT>
+      <INFO_TEXT>Create/Edit Screens</INFO_TEXT>
+     </RSMPE_FUNT>
+     <RSMPE_FUNT>
+      <CODE>EXEC</CODE>
+      <TEXTNO>001</TEXTNO>
+      <TEXT_TYPE>S</TEXT_TYPE>
+      <TEXT_NAME>ICON_EXECUTE_OBJECT</TEXT_NAME>
+      <ICON_ID>@15@</ICON_ID>
+      <FUN_TEXT>Execute</FUN_TEXT>
+     </RSMPE_FUNT>
      <RSMPE_FUNT>
       <CODE>EXIT</CODE>
       <TEXTNO>001</TEXTNO>
@@ -133,6 +159,20 @@
       <FUN_TEXT>Save</FUN_TEXT>
      </RSMPE_FUNT>
     </FUN>
+    <BUT>
+     <RSMPE_BUT>
+      <PFK_CODE>000002</PFK_CODE>
+      <CODE>0001</CODE>
+      <NO>01</NO>
+      <PFNO>08</PFNO>
+     </RSMPE_BUT>
+     <RSMPE_BUT>
+      <PFK_CODE>000002</PFK_CODE>
+      <CODE>0001</CODE>
+      <NO>02</NO>
+      <PFNO>05</PFNO>
+     </RSMPE_BUT>
+    </BUT>
     <PFK>
      <RSMPE_PFK>
       <CODE>000001</CODE>
@@ -158,6 +198,36 @@
       <FUNCODE>EXIT</FUNCODE>
       <FUNNO>002</FUNNO>
      </RSMPE_PFK>
+     <RSMPE_PFK>
+      <CODE>000002</CODE>
+      <PFNO>03</PFNO>
+      <FUNCODE>EXIT</FUNCODE>
+      <FUNNO>001</FUNNO>
+     </RSMPE_PFK>
+     <RSMPE_PFK>
+      <CODE>000002</CODE>
+      <PFNO>05</PFNO>
+      <FUNCODE>CREA</FUNCODE>
+      <FUNNO>001</FUNNO>
+     </RSMPE_PFK>
+     <RSMPE_PFK>
+      <CODE>000002</CODE>
+      <PFNO>08</PFNO>
+      <FUNCODE>EXEC</FUNCODE>
+      <FUNNO>001</FUNNO>
+     </RSMPE_PFK>
+     <RSMPE_PFK>
+      <CODE>000002</CODE>
+      <PFNO>12</PFNO>
+      <FUNCODE>EXIT</FUNCODE>
+      <FUNNO>003</FUNNO>
+     </RSMPE_PFK>
+     <RSMPE_PFK>
+      <CODE>000002</CODE>
+      <PFNO>15</PFNO>
+      <FUNCODE>EXIT</FUNCODE>
+      <FUNNO>002</FUNNO>
+     </RSMPE_PFK>
     </PFK>
     <SET>
      <RSMPE_STAF>
@@ -167,6 +237,18 @@
      <RSMPE_STAF>
       <STATUS>MAIN</STATUS>
       <FUNCTION>SAVE</FUNCTION>
+     </RSMPE_STAF>
+     <RSMPE_STAF>
+      <STATUS>SCREENS</STATUS>
+      <FUNCTION>CREA</FUNCTION>
+     </RSMPE_STAF>
+     <RSMPE_STAF>
+      <STATUS>SCREENS</STATUS>
+      <FUNCTION>EXEC</FUNCTION>
+     </RSMPE_STAF>
+     <RSMPE_STAF>
+      <STATUS>SCREENS</STATUS>
+      <FUNCTION>EXIT</FUNCTION>
      </RSMPE_STAF>
     </SET>
     <DOC>
@@ -189,11 +271,34 @@
       <MODAL>D</MODAL>
       <INT_NOTE>Main</INT_NOTE>
      </RSMPE_ATRT>
+     <RSMPE_ATRT>
+      <OBJ_TYPE>A</OBJ_TYPE>
+      <OBJ_CODE>000002</OBJ_CODE>
+      <MODAL>D</MODAL>
+      <INT_NOTE>Screens</INT_NOTE>
+     </RSMPE_ATRT>
+     <RSMPE_ATRT>
+      <OBJ_TYPE>P</OBJ_TYPE>
+      <OBJ_CODE>000002</OBJ_CODE>
+      <MODAL>D</MODAL>
+      <INT_NOTE>Screens</INT_NOTE>
+     </RSMPE_ATRT>
+     <RSMPE_ATRT>
+      <OBJ_TYPE>B</OBJ_TYPE>
+      <OBJ_CODE>000002</OBJ_CODE>
+      <SUB_CODE>0001</SUB_CODE>
+      <MODAL>D</MODAL>
+      <INT_NOTE>Screens</INT_NOTE>
+     </RSMPE_ATRT>
     </DOC>
     <TIT>
      <RSMPE_TITT>
       <CODE>MAIN</CODE>
-      <TEXT>ABAP2UI5 Editor</TEXT>
+      <TEXT>ABAP2UI5 Editor &amp; &amp;</TEXT>
+     </RSMPE_TITT>
+     <RSMPE_TITT>
+      <CODE>SCREENS</CODE>
+      <TEXT>Screens</TEXT>
      </RSMPE_TITT>
     </TIT>
    </CUA>

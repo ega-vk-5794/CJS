@@ -50,4 +50,11 @@ CLASS lcl_event_receiver IMPLEMENTATION.
       CALL METHOD drag_drop_object->abort.
     ENDIF.
   ENDMETHOD.
+  METHOD handle_hotspot_click.
+    READ TABLE gt_screens INTO DATA(ls_screen) INDEX es_row_no-row_id.
+    IF sy-subrc EQ 0.
+      gv_screen = ls_screen-screen.
+      CALL SCREEN 100.
+    ENDIF.
+  ENDMETHOD.
 ENDCLASS.

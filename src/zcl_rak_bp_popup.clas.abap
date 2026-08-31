@@ -93,6 +93,16 @@ CLASS zcl_rak_bp_popup DEFINITION
       RETURNING VALUE(rv) TYPE string.
 
   PROTECTED SECTION.
+*   Short alias for ZCL_RAK_TEXT=>GET( ) so every label below fits one line.
+*   This popup is shared across journeys, so its own wording belongs in the
+*   framework catalogue (ZCL_RAK_TEXT), not hardcoded here - a bare literal
+*   is what left the whole dialog untranslated on an Arabic run.
+    METHODS t
+      IMPORTING iv_no       TYPE symsgno
+                iv_default  TYPE string
+                iv_v1       TYPE string OPTIONAL
+      RETURNING VALUE(rv)   TYPE string.
+
     METHODS fld
       IMPORTING iv_suffix TYPE string
       RETURNING VALUE(rv) TYPE string.
@@ -199,7 +209,8 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
   METHOD constructor.
     mo_ctx     = io_ctx.
     mv_subject = to_upper( iv_subject ).
-    mv_title   = COND #( WHEN iv_title IS NOT INITIAL THEN iv_title ELSE 'Partner Search' ).
+    mv_title   = COND #( WHEN iv_title IS NOT INITIAL THEN iv_title
+                         ELSE t( iv_no = zcl_rak_text=>c_no-bpp_title iv_default = 'Partner Search' ) ).
     ms_search  = is_search.
   ENDMETHOD.
 
@@ -233,6 +244,11 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 
   METHOD fld.
     rv = |{ mv_subject }_{ iv_suffix }|.
+  ENDMETHOD.
+
+
+  METHOD t.
+    rv = zcl_rak_text=>get( iv_no = iv_no iv_default = iv_default iv_v1 = iv_v1 ).
   ENDMETHOD.
 
 
@@ -336,49 +352,75 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
       DATA(lo_body) = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
       lo_body->title( text  = zcl_rak_journey_util=>esc( mo_ctx->get_val( fld( 'NAME' ) ) )
                       level = 'H4' ).
-      lo_body->object_status( text  = |Partner { partner( ) }|
-                              state = 'Success'
-                              class = 'sapUiTinyMarginBottom' ).
+      lo_body->object_status(
+        text  = t( iv_no = zcl_rak_text=>c_no-bpp_partner_no iv_default = 'Partner &1' iv_v1 = partner( ) )
+        state = 'Success'
+        class = 'sapUiTinyMarginBottom' ).
 
-      section( io_box = lo_body iv_title = 'General Info' ).
+      section( io_box = lo_body iv_title = t( iv_no = zcl_rak_text=>c_no-bpp_general iv_default = 'General Info' ) ).
       DATA(lo_res) = form_of( lo_body ).
-      pair( io_form = lo_res iv_label = 'First Name'               iv_suffix = 'FIRSTNAME' ).
-      pair( io_form = lo_res iv_label = 'Father Name'              iv_suffix = 'FATHERNAME' ).
-      pair( io_form = lo_res iv_label = 'Grandfather Name'         iv_suffix = 'GRANDNAME' ).
-      pair( io_form = lo_res iv_label = 'Fourth Name'              iv_suffix = 'FOURTHNAME' ).
-      pair( io_form = lo_res iv_label = 'Last Name'                iv_suffix = 'LASTNAME' ).
-      pair( io_form = lo_res iv_label = 'Gender'                   iv_suffix = 'GENDER' ).
-      pair( io_form = lo_res iv_label = 'ID Number'                iv_suffix = 'IDNO' ).
-      pair( io_form = lo_res iv_label = 'ID Expiry date'           iv_suffix = 'IDEXP' ).
-      pair( io_form = lo_res iv_label = 'Unified Number'           iv_suffix = 'UNIFIED' ).
-      pair( io_form = lo_res iv_label = 'Passport Number'          iv_suffix = 'PPNO' ).
-      pair( io_form = lo_res iv_label = 'Date of passport Issue'   iv_suffix = 'PPFROM' ).
-      pair( io_form = lo_res iv_label = 'Country of passport Issue' iv_suffix = 'PPPLACE' ).
-      pair( io_form = lo_res iv_label = 'Passport Expiry Date'     iv_suffix = 'PPTO' ).
-      pair( io_form = lo_res iv_label = 'Nationality'              iv_suffix = 'NAT' ).
-      pair( io_form = lo_res iv_label = 'Occupation'               iv_suffix = 'OCC' ).
-      pair( io_form = lo_res iv_label = 'Date of Birth'            iv_suffix = 'DOBV' ).
+      pair( io_form = lo_res iv_suffix = 'FIRSTNAME'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_first_name  iv_default = 'First Name' ) ).
+      pair( io_form = lo_res iv_suffix = 'FATHERNAME'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_father_name iv_default = 'Father Name' ) ).
+      pair( io_form = lo_res iv_suffix = 'GRANDNAME'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_grand_name  iv_default = 'Grandfather Name' ) ).
+      pair( io_form = lo_res iv_suffix = 'FOURTHNAME'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_fourth_name iv_default = 'Fourth Name' ) ).
+      pair( io_form = lo_res iv_suffix = 'LASTNAME'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_last_name   iv_default = 'Last Name' ) ).
+      pair( io_form = lo_res iv_suffix = 'GENDER'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_gender      iv_default = 'Gender' ) ).
+      pair( io_form = lo_res iv_suffix = 'IDNO'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_id_no       iv_default = 'ID Number' ) ).
+      pair( io_form = lo_res iv_suffix = 'IDEXP'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_id_exp      iv_default = 'ID Expiry date' ) ).
+      pair( io_form = lo_res iv_suffix = 'UNIFIED'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_unified_num iv_default = 'Unified Number' ) ).
+      pair( io_form = lo_res iv_suffix = 'PPNO'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_passport_no iv_default = 'Passport Number' ) ).
+      pair( io_form = lo_res iv_suffix = 'PPFROM'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_pp_issue    iv_default = 'Date of passport Issue' ) ).
+      pair( io_form = lo_res iv_suffix = 'PPPLACE'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_pp_country  iv_default = 'Country of passport Issue' ) ).
+      pair( io_form = lo_res iv_suffix = 'PPTO'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_pp_exp      iv_default = 'Passport Expiry Date' ) ).
+      pair( io_form = lo_res iv_suffix = 'NAT'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_nat         iv_default = 'Nationality' ) ).
+      pair( io_form = lo_res iv_suffix = 'OCC'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_occupation  iv_default = 'Occupation' ) ).
+      pair( io_form = lo_res iv_suffix = 'DOBV'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_dob         iv_default = 'Date of Birth' ) ).
 
-      section( io_box = lo_body iv_title = 'Contact Info' ).
+      section( io_box = lo_body iv_title = t( iv_no = zcl_rak_text=>c_no-bpp_contact iv_default = 'Contact Info' ) ).
       DATA(lo_con) = form_of( lo_body ).
-      pair( io_form = lo_con iv_label = 'Mobile Number' iv_suffix = 'PHONE' ).
-      pair( io_form = lo_con iv_label = 'Email'         iv_suffix = 'EMAIL' ).
-      pair( io_form = lo_con iv_label = 'Telephone'     iv_suffix = 'TEL' ).
+      pair( io_form = lo_con iv_suffix = 'PHONE'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_mobile    iv_default = 'Mobile Number' ) ).
+      pair( io_form = lo_con iv_suffix = 'EMAIL'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_email     iv_default = 'Email' ) ).
+      pair( io_form = lo_con iv_suffix = 'TEL'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_telephone iv_default = 'Telephone' ) ).
 
-      section( io_box = lo_body iv_title = 'Address Info' ).
+      section( io_box = lo_body iv_title = t( iv_no = zcl_rak_text=>c_no-bpp_address iv_default = 'Address Info' ) ).
       DATA(lo_adr) = form_of( lo_body ).
-      pair( io_form = lo_adr iv_label = 'Country Of Living' iv_suffix = 'COUNTRY' ).
-      pair( io_form = lo_adr iv_label = 'Region'            iv_suffix = 'REGION' ).
-      pair( io_form = lo_adr iv_label = 'City'              iv_suffix = 'CITY' ).
-      pair( io_form = lo_adr iv_label = 'Street Name'       iv_suffix = 'STREET' ).
-      pair( io_form = lo_adr iv_label = 'Home Number'       iv_suffix = 'HOUSE' ).
-      pair( io_form = lo_adr iv_label = 'PO Box'            iv_suffix = 'POBOX' ).
+      pair( io_form = lo_adr iv_suffix = 'COUNTRY'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_country  iv_default = 'Country Of Living' ) ).
+      pair( io_form = lo_adr iv_suffix = 'REGION'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_region   iv_default = 'Region' ) ).
+      pair( io_form = lo_adr iv_suffix = 'CITY'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_city     iv_default = 'City' ) ).
+      pair( io_form = lo_adr iv_suffix = 'STREET'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_street   iv_default = 'Street Name' ) ).
+      pair( io_form = lo_adr iv_suffix = 'HOUSE'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_house_no iv_default = 'Home Number' ) ).
+      pair( io_form = lo_adr iv_suffix = 'POBOX'
+            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_pobox    iv_default = 'PO Box' ) ).
 
       DATA(lo_rb) = lo_dlg->buttons( ).
-      lo_rb->button( text  = 'Resume Search'
+      lo_rb->button( text  = t( iv_no = zcl_rak_text=>c_no-bpp_resume iv_default = 'Resume Search' )
                      icon  = 'sap-icon://synchronize'
                      press = mo_ctx->event( c_ev_new ) ).
-      lo_rb->button( text  = 'Use this partner'
+      lo_rb->button( text  = t( iv_no = zcl_rak_text=>c_no-bpp_use_partner iv_default = 'Use this partner' )
                      type  = 'Emphasized'
                      icon  = 'sap-icon://accept'
                      press = mo_ctx->event( c_ev_cxl ) ).
@@ -394,18 +436,22 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
                       columnsxl = '2' columnsl = '2' columnsm = '1'
       )->content( ns = 'form' ).
 
-    lo_form->label( 'Search By' ).
+    lo_form->label( t( iv_no = zcl_rak_text=>c_no-bpp_search_by iv_default = 'Search By' ) ).
     DATA(lo_by) = lo_form->combobox( selectedkey = mo_ctx->bind( fld( 'SEARCHBY' ) )
                                      change      = mo_ctx->event( c_ev_go ) ).
-    lo_by->item( key = c_eid  text = 'Emirates ID' ).
-    lo_by->item( key = c_pass text = 'Passport (Non EID Holder only)' ).
-    lo_by->item( key = c_unif text = 'Unified ID (Non EID Holder only)' ).
-    lo_by->item( key = c_tlic text = 'Trade License Number' ).
+    lo_by->item( key = c_eid  text = t( iv_no = zcl_rak_text=>c_no-bpp_eid iv_default = 'Emirates ID' ) ).
+    lo_by->item( key = c_pass
+      text = t( iv_no = zcl_rak_text=>c_no-bpp_passport_ne iv_default = 'Passport (Non EID Holder only)' ) ).
+    lo_by->item( key = c_unif
+      text = t( iv_no = zcl_rak_text=>c_no-bpp_unified_ne iv_default = 'Unified ID (Non EID Holder only)' ) ).
+    lo_by->item( key = c_tlic
+      text = t( iv_no = zcl_rak_text=>c_no-bpp_trade_lic iv_default = 'Trade License Number' ) ).
 
 *   Nothing else until a type is chosen. The live screen asks one question first
 *   for a reason: the answer decides what the rest of the form even is.
     IF lv_by IS INITIAL.
-      lo_dlg->buttons( )->button( text = 'Close' press = mo_ctx->event( c_ev_cxl ) ).
+      lo_dlg->buttons( )->button( text = t( iv_no = zcl_rak_text=>c_no-close iv_default = 'Close' )
+                                  press = mo_ctx->event( c_ev_cxl ) ).
       RETURN.
     ENDIF.
 
@@ -413,16 +459,16 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *   second input per type would be four model members holding one answer, and
 *   then a question about which of them the backend should believe.
     lo_form->label( SWITCH string( lv_by
-                     WHEN c_eid  THEN 'Emirates ID'
-                     WHEN c_pass THEN 'Passport Number'
-                     WHEN c_unif THEN 'Unified ID'
-                     ELSE             'Trade License Number' ) ).
+      WHEN c_eid  THEN t( iv_no = zcl_rak_text=>c_no-bpp_eid         iv_default = 'Emirates ID' )
+      WHEN c_pass THEN t( iv_no = zcl_rak_text=>c_no-bpp_passport_no iv_default = 'Passport Number' )
+      WHEN c_unif THEN t( iv_no = zcl_rak_text=>c_no-bpp_unified_id  iv_default = 'Unified ID' )
+      ELSE             t( iv_no = zcl_rak_text=>c_no-bpp_trade_lic   iv_default = 'Trade License Number' ) ) ).
     lo_form->input( value = mo_ctx->bind( fld( 'IDNUM' ) ) ).
 
 *   A trade licence is a company. It has no date of birth and no nationality, and
 *   asking for them is how a form gets abandoned.
     IF lv_by <> c_tlic.
-      lo_form->label( 'Date of Birth' ).
+      lo_form->label( t( iv_no = zcl_rak_text=>c_no-bpp_dob iv_default = 'Date of Birth' ) ).
 *     DDMMYYYY on screen, YYYYMMDD in the value. The MOI cross-check compares the
 *     date sent against the date the BP holds as strings, so a display format
 *     reaching the request would fail every comparison and read as a data
@@ -431,7 +477,7 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
                             displayformat = 'dd/MM/yyyy'
                             valueformat   = 'yyyyMMdd' ).
 
-      lo_form->label( 'Nationality' ).
+      lo_form->label( t( iv_no = zcl_rak_text=>c_no-bpp_nat iv_default = 'Nationality' ) ).
       DATA(lo_nat) = lo_form->combobox( selectedkey = mo_ctx->bind( fld( 'NAT' ) ) ).
       LOOP AT nationalities( ) INTO DATA(ls_n).
         lo_nat->item( key = ls_n-key text = ls_n-text ).
@@ -441,7 +487,7 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *   Passport type only for a passport. The domain has ten values and nine of them
 *   are meaningless against any other ID.
     IF lv_by = c_pass.
-      lo_form->label( 'Passport Type' ).
+      lo_form->label( t( iv_no = zcl_rak_text=>c_no-bpp_pass_type iv_default = 'Passport Type' ) ).
       DATA(lo_pt) = lo_form->combobox( selectedkey = mo_ctx->bind( fld( 'PPTYPE' ) ) ).
       LOOP AT doc_types( ) INTO DATA(ls_p).
         lo_pt->item( key = ls_p-key text = ls_p-text ).
@@ -449,11 +495,12 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
     ENDIF.
 
     DATA(lo_btns) = lo_dlg->buttons( ).
-    lo_btns->button( text  = 'Search'
+    lo_btns->button( text  = t( iv_no = zcl_rak_text=>c_no-search iv_default = 'Search' )
                      type  = 'Emphasized'
                      icon  = 'sap-icon://search'
                      press = mo_ctx->event( c_ev_go ) ).
-    lo_btns->button( text = 'Close' press = mo_ctx->event( c_ev_cxl ) ).
+    lo_btns->button( text  = t( iv_no = zcl_rak_text=>c_no-close iv_default = 'Close' )
+                     press = mo_ctx->event( c_ev_cxl ) ).
   ENDMETHOD.
 
 

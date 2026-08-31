@@ -55,9 +55,17 @@ public section.
 
   methods ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
     redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
+    redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
     redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
+    redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
     redefinition .
 protected section.
   PRIVATE SECTION.
@@ -230,5 +238,52 @@ CLASS ZCL_E128_RENEW_BERTH_LOGIC IMPLEMENTATION.
 *      io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
 
       ENDIF.
+  endmethod.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES.
+    CALL METHOD super->zif_rak_journey_logic~on_before_tables
+      EXPORTING
+        io_ctx    = io_ctx
+      CHANGING
+        ct_tables = ct_tables.
+    DATA(lv_sel) = io_ctx->get_val( 'LIC_SEL' ).
+    CHECK lv_sel IS NOT INITIAL.
+    LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<t>) WHERE ui_table_name = 'LICENSES' AND ui_table_column1 = lv_sel..
+      IF <t>-ui_table_column1 = lv_sel.
+        <t>-ui_table_column29 = 'S'.
+      ENDIF.
+    ENDLOOP.
+  endmethod.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
+*  EXPORTING
+*    IO_CTX  =
+*    IV_STEP =
+*  RECEIVING
+*    RT      =
+*    .
+  endmethod.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
+*  EXPORTING
+*    IO_CTX   =
+*    IV_FIELD =
+*    .
+  endmethod.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
+*  EXPORTING
+*    IO_CTX   =
+*    IV_FIELD =
+*  RECEIVING
+*    RT       =
+*    .
   endmethod.
 ENDCLASS.
