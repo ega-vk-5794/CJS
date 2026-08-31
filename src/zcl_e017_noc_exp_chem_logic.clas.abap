@@ -420,6 +420,14 @@ CLASS ZCL_E017_NOC_EXP_CHEM_LOGIC IMPLEMENTATION.
 
 
   METHOD render_own_popup.
+*   DEAD CODE - nothing calls this. ON_RENDER_POPUP( ) renders the Add
+*   Chemical dialog via DIALOG_FORM( ) instead, which resolves Importing
+*   Country through SHLP = 'H_T005' rather than the hardcoded list a few
+*   lines down - that list stops alphabetically at "Kenya" and never had
+*   United Arab Emirates in it (the same bug D001's Nationality dropdown
+*   had), but since this method never runs it never reaches a citizen.
+*   Left as found rather than fixed, since fixing dead code changes nothing
+*   a citizen will ever see; flagging it so nobody mistakes it for live.
 
 *"Title of dialog box
     DATA(lo_dlg) = io_popup->dialog( title = 'Chemical Details' contentwidth = '40rem' ).
@@ -742,53 +750,82 @@ lo_c12->combobox( selectedkey = io_ctx->bind( c_import_pop )
 
   METHOD populate_grid.
 *  "Populate Chemicals Details grid with data
-
+*
+*   Every row used to be a straight APPEND with no check for an existing
+*   HS Code - pressing Add after Edit did not update the row it came from,
+*   it duplicated it. HS Code is the row's key (RENDER_OWN_LIST and
+*   OWN_DELETE already match on column 1 by it), so this now finds that
+*   row and overwrites it in place, the same as every other Add-a-row
+*   popup in this codebase.
+*
+*   Columns 1-5 are exactly what RENDER_OWN_LIST already reads (HS Code,
+*   Material Name, Chemical Name, CAS Number, Gross Weight) - unchanged so
+*   the summary list keeps working. Columns 6-14 are the rest of the
+*   popup's fields, which used to not be saved anywhere at all: OWN_EDIT
+*   could never have recovered them because nothing ever wrote them.
     DATA(ls_g)  = io_ctx->get_grid_data( c_grid ).
     DATA(ls_new) = VALUE zif_rak_journey=>ty_table( columns = ls_g-columns ).
     DATA lv_found TYPE abap_bool.
     DATA lt_row   TYPE zif_rak_journey=>tt_string.
 
-*    "Check if grid has data
-    IF ls_g-rows IS NOT INITIAL.
-*      "If yes then pass it to output grid table
-      LOOP AT ls_g-rows INTO DATA(lt_r).
-        CLEAR lt_row.
-        APPEND VALUE string( lt_r[ 1 ] OPTIONAL )   TO lt_row. " HS Code
-        APPEND VALUE string( lt_r[ 2 ] OPTIONAL )   TO lt_row. " Material Name
-        APPEND VALUE string( lt_r[ 3 ] OPTIONAL )   TO lt_row. " Chemical Name
-        APPEND VALUE string( lt_r[ 4 ] OPTIONAL )   TO lt_row. " Cas No
-        APPEND VALUE string( lt_r[ 7 ] OPTIONAL )   TO lt_row. " Gross weight
-        APPEND lt_row TO ls_new-rows.
-      ENDLOOP.
-    ENDIF.
-
 *"get currently filled data in pop-up screen
-    DATA(lv_hs_code) = condense( io_ctx->get_val( 'HS_CODE' ) ).
-    DATA(lv_m_name) = condense( io_ctx->get_val( 'MATERIAL_NAME' ) ).
-    DATA(lv_c_name) = condense( io_ctx->get_val( 'CHEMINAL_NAME' ) ).
-    DATA(lv_cas) = condense( io_ctx->get_val( 'CAS_NO' ) ).
-    DATA(lv_chem_form) = condense( io_ctx->get_val( 'CHEMICAL_FORMULA' ) ).
-    DATA(lv_pack) = condense( io_ctx->get_val( 'PACKAGING' ) ).
-    DATA(lv_qty) = condense( io_ctx->get_val( 'QUANTITY' ) ).
-    DATA(lv_gw8t) = condense( io_ctx->get_val( 'GROSS_WEIGHT' ) ).
-    DATA(lv_unit) = condense( io_ctx->get_val( 'UNIT' ) ).
-    DATA(lv_inv) = condense( io_ctx->get_val( 'INVOICE_NO' ) ).
-    DATA(lv_icoun)  = condense( io_ctx->get_val( 'IMP_CONT_POP' ) ).
-    DATA(lv_exit) = condense( io_ctx->get_val( 'EXIT_POP' ) ).
-    DATA(lv_bol) = condense( io_ctx->get_val( 'C_BOL_POP' ) ).
-    DATA(lv_tport) = condense( io_ctx->get_val( 'TPORT_POP' ) ).
+    DATA(lv_hs_code) = condense( io_ctx->get_val( c_hs_pop ) ).
+    DATA(lv_m_name) = condense( io_ctx->get_val( c_mat_pop ) ).
+    DATA(lv_c_name) = condense( io_ctx->get_val( c_chem_pop ) ).
+    DATA(lv_cas) = condense( io_ctx->get_val( c_cas_no_pop ) ).
+    DATA(lv_chem_form) = condense( io_ctx->get_val( c_chem_form_pop ) ).
+    DATA(lv_pack) = condense( io_ctx->get_val( c_packaging_pop ) ).
+    DATA(lv_qty) = condense( io_ctx->get_val( c_quantity_pop ) ).
+    DATA(lv_gw8t) = condense( io_ctx->get_val( c_gross_weight_pop ) ).
+    DATA(lv_unit) = condense( io_ctx->get_val( c_unit_pop ) ).
+    DATA(lv_inv) = condense( io_ctx->get_val( c_invoice_pop ) ).
+    DATA(lv_icoun)  = condense( io_ctx->get_val( c_import_pop ) ).
+    DATA(lv_exit) = condense( io_ctx->get_val( c_exit_port_pop ) ).
+    DATA(lv_bol) = condense( io_ctx->get_val( c_bol_pop ) ).
+    DATA(lv_tport) = condense( io_ctx->get_val( c_tport_pop ) ).
 
-    CLEAR lt_row.
+    LOOP AT ls_g-rows INTO DATA(lt_r).
+      IF VALUE string( lt_r[ 1 ] OPTIONAL ) = lv_hs_code.
+        lv_found = abap_true.
+        CLEAR lt_row.
+        APPEND lv_hs_code   TO lt_row.
+        APPEND lv_m_name    TO lt_row.
+        APPEND lv_c_name    TO lt_row.
+        APPEND lv_cas       TO lt_row.
+        APPEND lv_gw8t      TO lt_row.
+        APPEND lv_chem_form TO lt_row.
+        APPEND lv_pack      TO lt_row.
+        APPEND lv_qty       TO lt_row.
+        APPEND lv_unit      TO lt_row.
+        APPEND lv_inv       TO lt_row.
+        APPEND lv_icoun     TO lt_row.
+        APPEND lv_exit      TO lt_row.
+        APPEND lv_bol       TO lt_row.
+        APPEND lv_tport     TO lt_row.
+        APPEND lt_row TO ls_new-rows.
+      ELSE.
+        APPEND lt_r TO ls_new-rows.
+      ENDIF.
+    ENDLOOP.
 
-    APPEND lv_hs_code TO lt_row.
-    APPEND lv_m_name TO lt_row.
-    APPEND lv_c_name TO lt_row.
-    APPEND lv_cas  TO lt_row.
-*    concatenate lv_gw8t lv_unit into data(lv_weight).
-*    APPEND lv_weight TO lt_row.
-    APPEND lv_gw8t TO lt_row.
-
-    APPEND lt_row TO ls_new-rows.
+    IF lv_found = abap_false.
+      CLEAR lt_row.
+      APPEND lv_hs_code   TO lt_row.
+      APPEND lv_m_name    TO lt_row.
+      APPEND lv_c_name    TO lt_row.
+      APPEND lv_cas       TO lt_row.
+      APPEND lv_gw8t      TO lt_row.
+      APPEND lv_chem_form TO lt_row.
+      APPEND lv_pack      TO lt_row.
+      APPEND lv_qty       TO lt_row.
+      APPEND lv_unit      TO lt_row.
+      APPEND lv_inv       TO lt_row.
+      APPEND lv_icoun     TO lt_row.
+      APPEND lv_exit      TO lt_row.
+      APPEND lv_bol       TO lt_row.
+      APPEND lv_tport     TO lt_row.
+      APPEND lt_row TO ls_new-rows.
+    ENDIF.
 
     io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
 
@@ -813,10 +850,31 @@ lo_c12->combobox( selectedkey = io_ctx->bind( c_import_pop )
   METHOD own_edit.
 *    "When user click on edit pencil for OWNER ROW they should be able
 *    "to see existing details and edit it
-
+*
+*    This never checked IV_ID against the row, so it looped every row and
+*    left C_HS_POP holding whichever one came last - the edit popup opened
+*    with the wrong chemical's HS Code and everything else blank, whatever
+*    row's pencil was actually pressed. Row layout matches what
+*    POPULATE_GRID( ) now writes: 1 HS Code, 2 Material, 3 Chemical Name,
+*    4 CAS, 5 Gross Weight, 6 Formula, 7 Packaging, 8 Quantity, 9 Unit,
+*    10 Invoice, 11 Importing Country, 12 Exit Port, 13 BOL, 14 Transport.
     LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
-
-      io_ctx->set_val( iv_name = c_hs_pop iv_value = VALUE #( lt_r[ 1 ] OPTIONAL ) ).
+      CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) = iv_id.
+      io_ctx->set_val( iv_name = c_hs_pop           iv_value = VALUE #( lt_r[ 1 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_mat_pop          iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_chem_pop         iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_cas_no_pop       iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_gross_weight_pop iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_chem_form_pop    iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_packaging_pop    iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_quantity_pop     iv_value = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_unit_pop         iv_value = VALUE #( lt_r[ 9 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_invoice_pop      iv_value = VALUE #( lt_r[ 10 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_import_pop       iv_value = VALUE #( lt_r[ 11 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_exit_port_pop    iv_value = VALUE #( lt_r[ 12 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_bol_pop          iv_value = VALUE #( lt_r[ 13 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_tport_pop        iv_value = VALUE #( lt_r[ 14 ] OPTIONAL ) ).
+      EXIT.
     ENDLOOP.
   ENDMETHOD.
 ENDCLASS.

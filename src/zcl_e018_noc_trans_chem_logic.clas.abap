@@ -626,6 +626,26 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
         io_ctx->open_popup( c_chem ).
 
       WHEN c_evt_ownok. "'OWNER_ADD'. "
+*       RENDER_OWN_POPUP( ) marks HS Code, Packing, Quantity, Gross Weight,
+*       UOM, Invoice Number, Country of Origin, Point of Entrance/End User,
+*       Bill of Lading and Transport Company rakReq, but nothing here ever
+*       checked any of them - Add saved whatever was typed, blank fields
+*       included.
+        IF io_ctx->get_val( c_hs_code_pop )          IS INITIAL
+           OR io_ctx->get_val( c_packaging_pop )     IS INITIAL
+           OR io_ctx->get_val( c_quantity_pop )      IS INITIAL
+           OR io_ctx->get_val( c_gross_weight_pop )  IS INITIAL
+           OR io_ctx->get_val( c_uom_pop )           IS INITIAL
+           OR io_ctx->get_val( c_invoice_pop )       IS INITIAL
+           OR io_ctx->get_val( c_origin_pop )        IS INITIAL
+           OR io_ctx->get_val( c_end_user_pop )      IS INITIAL
+           OR io_ctx->get_val( c_bol_pop )           IS INITIAL
+           OR io_ctx->get_val( c_trans_comp )        IS INITIAL.
+          io_ctx->add_msg( iv_type = 'Warning'
+                           iv_text = 'Kindly fill required details.' ).
+          RETURN.
+        ENDIF.
+
         own_form_save( io_ctx ).
         io_ctx->close_popup( ). "Close pop-up screen after adding data
 
@@ -831,38 +851,22 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 
 
   METHOD own_form_save.
-    CONSTANTS c_own_id TYPE string VALUE 'OWN_ID' ##NO_TEXT.
+*   This used to copy every existing row through unchanged and then always
+*   APPEND a new one - there was no check anywhere for "does a row with
+*   this HS Code already exist". Every Add after an Edit duplicated the
+*   row it came from instead of updating it, leaving the stale original
+*   still in the grid. HS Code is the row's key (RENDER_CHEM_DETAILS and
+*   OWN_DELETE already match on column 1 by it), so this now finds that
+*   row and overwrites it in place, the same as every other Add-a-row
+*   popup in this codebase.
     DATA(ls_g)  = io_ctx->get_grid_data( c_grid ).
-    DATA(lv_id) = io_ctx->get_val( c_own_id ).
 
     DATA(ls_new) = VALUE zif_rak_journey=>ty_table( columns = ls_g-columns ).
     DATA lv_found TYPE abap_bool.
     DATA lt_row   TYPE zif_rak_journey=>tt_string.
 
-    LOOP AT ls_g-rows INTO DATA(lt_r).
-      CLEAR lt_row.
-      APPEND VALUE string( lt_r[ 1 ] OPTIONAL )   TO lt_row. " HS Code
-      APPEND VALUE string( lt_r[ 2 ] OPTIONAL )   TO lt_row. " Material Name
-      APPEND VALUE string( lt_r[ 3 ] OPTIONAL )   TO lt_row. " Chemical Name
-      APPEND VALUE string( lt_r[ 4 ] OPTIONAL )   TO lt_row. " Cas No
-      APPEND VALUE string( lt_r[ 5 ] OPTIONAL )   TO lt_row. " Chemical Formulae
-      APPEND VALUE string( lt_r[ 6 ] OPTIONAL )   TO lt_row. " Packaging
-      APPEND VALUE string( lt_r[ 7 ] OPTIONAL )   TO lt_row. " Gross weight
-      APPEND VALUE string( lt_r[ 8 ] OPTIONAL )   TO lt_row. " Unit
-      APPEND VALUE string( lt_r[ 9 ] OPTIONAL )   TO lt_row. " Quantity
-      APPEND VALUE string( lt_r[ 10 ] OPTIONAL )  TO lt_row. " Invoice No
-      APPEND VALUE string( lt_r[ 11 ] OPTIONAL )  TO lt_row. " Country of origin
-      APPEND VALUE string( lt_r[ 12 ] OPTIONAL )  TO lt_row. " Point of entrance
-      APPEND VALUE string( lt_r[ 13 ] OPTIONAL )  TO lt_row. " Bill of Landing
-      APPEND VALUE string( lt_r[ 14 ] OPTIONAL )  TO lt_row. " Transport Company
-
-      APPEND lt_row TO ls_new-rows.
-    ENDLOOP.
-
     DATA(lv_hs_code)    = condense( io_ctx->get_val( C_HS_CODE_POP ) ).
     DATA(lv_mat_name)   = condense( io_ctx->get_val( C_MATERIAL_NAME_POP ) ).
-*    DATA(lv_mat_name)   = condense( io_ctx->get_val( C_MATERIAL_NAME_POP ) ).
-
     DATA(lv_chem_name)  = condense( io_ctx->get_val( C_CHEMICAL_NAME_POP ) ).
     DATA(lv_cas)        = condense( io_ctx->get_val( C_CAS_POP ) ).
     DATA(lv_chem_form)  = condense( io_ctx->get_val( C_CHEMICAL_FORMULA_POP ) ).
@@ -876,30 +880,50 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
     DATA(lv_bol)        = condense( io_ctx->get_val( C_BOL_POP ) ).
     DATA(lv_trans_comp) = condense( io_ctx->get_val( C_TRANS_COMP ) ).
 
+    LOOP AT ls_g-rows INTO DATA(lt_r).
+      IF VALUE string( lt_r[ 1 ] OPTIONAL ) = lv_hs_code.
+        lv_found = abap_true.
+        CLEAR lt_row.
+        APPEND lv_hs_code     TO lt_row. " HS Code
+        APPEND lv_mat_name    TO lt_row. " Material name
+        APPEND lv_chem_name   TO lt_row. " Chemical Name
+        APPEND lv_cas         TO lt_row. " CAS No
+        APPEND lv_chem_form   TO lt_row. " Chemical Formulae
+        APPEND lv_packaging   TO lt_row. " Packaging
+        APPEND lv_qty         TO lt_row. " Quantity
+        APPEND lv_gr_wt       TO lt_row. " Gross weight
+        APPEND lv_uom         TO lt_row. " Unit
+        APPEND lv_inv_no      TO lt_row. " Invoice No
+        APPEND lv_orig_ctry   TO lt_row. " Ctry of origin
+        APPEND lv_entrance    TO lt_row. " Point of entrance
+        APPEND lv_bol         TO lt_row. " Bill of lading
+        APPEND lv_trans_comp  TO lt_row. " Transport Company
+        APPEND lt_row TO ls_new-rows.
+      ELSE.
+        APPEND lt_r TO ls_new-rows.
+      ENDIF.
+    ENDLOOP.
 
-    CLEAR lt_row.
-    APPEND lv_hs_code     TO lt_row. " HS Code
-    APPEND lv_mat_name    TO lt_row. " Material name
-    APPEND lv_chem_name   TO lt_row. " Chemical Name
-    APPEND lv_cas         TO lt_row. " CAS No
-    APPEND lv_chem_form   TO lt_row. " Chemical Formulae
-    APPEND lv_packaging   TO lt_row. " Packaging
-    APPEND lv_qty         TO lt_row. " Quantity
-    APPEND lv_gr_wt       TO lt_row. " Gross weight
-    APPEND lv_uom         TO lt_row. " Unit
-    APPEND lv_inv_no      TO lt_row. " Invoice No
-    APPEND lv_orig_ctry   TO lt_row. " Ctry of origin
-    APPEND lv_entrance    TO lt_row. " Point of entrance
-    APPEND lv_bol         TO lt_row. " Bill of lading
-    APPEND lv_trans_comp  TO lt_row. " Transport Company
-
-    APPEND lt_row TO ls_new-rows.
+    IF lv_found = abap_false.
+      CLEAR lt_row.
+      APPEND lv_hs_code     TO lt_row. " HS Code
+      APPEND lv_mat_name    TO lt_row. " Material name
+      APPEND lv_chem_name   TO lt_row. " Chemical Name
+      APPEND lv_cas         TO lt_row. " CAS No
+      APPEND lv_chem_form   TO lt_row. " Chemical Formulae
+      APPEND lv_packaging   TO lt_row. " Packaging
+      APPEND lv_qty         TO lt_row. " Quantity
+      APPEND lv_gr_wt       TO lt_row. " Gross weight
+      APPEND lv_uom         TO lt_row. " Unit
+      APPEND lv_inv_no      TO lt_row. " Invoice No
+      APPEND lv_orig_ctry   TO lt_row. " Ctry of origin
+      APPEND lv_entrance    TO lt_row. " Point of entrance
+      APPEND lv_bol         TO lt_row. " Bill of lading
+      APPEND lv_trans_comp  TO lt_row. " Transport Company
+      APPEND lt_row TO ls_new-rows.
+    ENDIF.
 
     io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
-
-
-
-
   ENDMETHOD.
 
 
@@ -920,16 +944,31 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 
 
   METHOD own_edit.
-
+*   Every field but HS Code was commented out here, so Edit opened with
+*   the row's own HS Code and thirteen blank fields regardless of what had
+*   actually been saved - it looked like a fresh Add, not an edit. Row
+*   layout is the one OWN_FORM_SAVE( ) writes: 1 HS Code, 2 Material,
+*   3 Chemical Name, 4 CAS, 5 Formula, 6 Packaging, 7 Quantity,
+*   8 Gross Weight, 9 UOM, 10 Invoice, 11 Origin, 12 End User, 13 BOL,
+*   14 Transport Company.
     LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
 
       CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) = iv_id.
-      io_ctx->set_val( iv_name = c_hs_code_pop         iv_value  = VALUE #( lt_r[ 1 ] OPTIONAL ) ).
-*      io_ctx->set_val( iv_name = c_material_name_pop   iv_value  = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
-*      io_ctx->set_val( iv_name = c_chemical_name_pop   iv_value  = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
-*      io_ctx->set_val( iv_name = c_cas_pop             iv_value  = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
-*      io_ctx->set_val( iv_name = c_gross_weight_pop    iv_value  = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
-
+      io_ctx->set_val( iv_name = c_hs_code_pop          iv_value = VALUE #( lt_r[ 1 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_material_name_pop    iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_chemical_name_pop    iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_cas_pop              iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_chemical_formula_pop iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_packaging_pop        iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_quantity_pop         iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_gross_weight_pop     iv_value = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_uom_pop              iv_value = VALUE #( lt_r[ 9 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_invoice_pop          iv_value = VALUE #( lt_r[ 10 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_origin_pop           iv_value = VALUE #( lt_r[ 11 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_end_user_pop         iv_value = VALUE #( lt_r[ 12 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_bol_pop              iv_value = VALUE #( lt_r[ 13 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_trans_comp           iv_value = VALUE #( lt_r[ 14 ] OPTIONAL ) ).
+      EXIT.
     ENDLOOP.
 
   ENDMETHOD.

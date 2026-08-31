@@ -104,21 +104,28 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
     ENDIF.
 
 **    io_ctx->set_val( iv_name = c_own_id iv_value = iv_id ).
+*   Row layout is the one FORM_SAVE( ) actually writes: 1 HS code (the row
+*   key), 2 material, 3 chemical name, 4 CAS, 5 formula, 6 packaging,
+*   7 gross weight, 8 UOM, 9 quantity, 10 invoice, 11 origin, 12 end user,
+*   13 BOL. Reading from column 2 (an off-by-one against every field) and
+*   with gross weight/UOM/quantity in FORM_SAVE's write order rather than
+*   this popup's own field order put every field on Edit one or two boxes
+*   away from where it was saved.
     LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
       CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) = iv_id.
-      io_ctx->set_val( iv_name = c_HS_CODE_POP          iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_MATERIAL_NAME_POP    iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_CHEMICAL_NAME_POP    iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_CAS_POP              iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_CHEMICAL_FORMULA_POP iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_PACKAGING_POP        iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_QUANTITY_POP         iv_value = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_GROSS_WEIGHT_POP     iv_value = VALUE #( lt_r[ 9 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_UOM_POP              iv_value = VALUE #( lt_r[ 10 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_INVOICE_POP          iv_value = VALUE #( lt_r[ 11 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_ORIGIN_POP           iv_value = VALUE #( lt_r[ 12 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_END_USER_POP         iv_value = VALUE #( lt_r[ 13 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_BOL_POP              iv_value = VALUE #( lt_r[ 14 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_HS_CODE_POP          iv_value = VALUE #( lt_r[ 1 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_MATERIAL_NAME_POP    iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_CHEMICAL_NAME_POP    iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_CAS_POP              iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_CHEMICAL_FORMULA_POP iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_PACKAGING_POP        iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_GROSS_WEIGHT_POP     iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_UOM_POP              iv_value = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_QUANTITY_POP         iv_value = VALUE #( lt_r[ 9 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_INVOICE_POP          iv_value = VALUE #( lt_r[ 10 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_ORIGIN_POP           iv_value = VALUE #( lt_r[ 11 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_END_USER_POP         iv_value = VALUE #( lt_r[ 12 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_BOL_POP              iv_value = VALUE #( lt_r[ 13 ] OPTIONAL ) ).
       EXIT.
     ENDLOOP.
 
@@ -482,6 +489,24 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
         io_ctx->close_popup( ).
 
       WHEN c_evt_ownok.
+*       RENDER_OWN_POPUP( ) marks HS Code, Packing, Quantity, Gross Weight,
+*       UOM, Invoice Number, Country of Origin, Point of Entrance/End User
+*       and Bill of Lading rakReq, but nothing here ever checked any of
+*       them - Add saved whatever was typed, blank fields included.
+        IF io_ctx->get_val( c_hs_code_pop )      IS INITIAL
+           OR io_ctx->get_val( c_packaging_pop )     IS INITIAL
+           OR io_ctx->get_val( c_quantity_pop )      IS INITIAL
+           OR io_ctx->get_val( c_gross_weight_pop )  IS INITIAL
+           OR io_ctx->get_val( c_uom_pop )           IS INITIAL
+           OR io_ctx->get_val( c_invoice_pop )       IS INITIAL
+           OR io_ctx->get_val( c_origin_pop )        IS INITIAL
+           OR io_ctx->get_val( c_end_user_pop )      IS INITIAL
+           OR io_ctx->get_val( c_bol_pop )           IS INITIAL.
+          io_ctx->add_msg( iv_type = 'Warning'
+                           iv_text = 'Kindly fill required details.' ).
+          RETURN.
+        ENDIF.
+
         form_save( io_ctx ).
         io_ctx->close_popup( ).
 
