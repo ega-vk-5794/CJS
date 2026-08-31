@@ -79,28 +79,40 @@ START-OF-SELECTION.
 * character limit; a longer name is truncated to 18 characters plus a four-digit
 * fingerprint of the whole key, so two names sharing a prefix cannot collapse
 * onto one component, and ZCL_RAK_CJS_XCHECK warns at save time as well.
-* An earlier reading of this - that an over-length name produced a component
-* that was never created, leaving the field permanently "is required" and never
-* red - was taken from branch MAIN of the engine repository, which is frozen and
-* is not a sync target. FEATURE/DEV, which is, has always handled it. Five
-* fields were renamed under that wrong belief; the names are kept because they
-* read better, not because they had to change.
 *
-* FTYPE 'INPUT' + READONLY = 'X' rather than FTYPE 'READONLY', on the three
-* fields that are starred but never typed into (CONTRACT_PLACE,
-* DIVORCEE_PARTNER, DIVORCER_PARTNER). Both render the same non-editable input,
-* and as of feature/dev both are now enforced: MISSING_REQUIRED dropped its
-* WHERE READONLY = ABAP_FALSE filter, and 'READONLY' has since been taken off
-* its excluded-FTYPE list as well. So this is no longer about enforcement.
-* What still separates them is the highlight. RENDER_ONE's 'READONLY' branch
-* binds no VALUESTATE, so such a field can be blocked but can never turn red;
-* the branch an INPUT field falls into binds both VALUESTATE and VALUESTATETEXT.
-* The extra class the 'READONLY' branch passes, CLS( 'INPUT' ), resolves to
-* blank in every shipped theme - CLS_SET is empty even in the LEGACY preset - so
-* nothing is lost by not taking that branch. If the engine ever binds VALUESTATE
-* on 'READONLY' too, the two become equivalent and this can go back.
-* The other READONLY fields are left as they are: none of them is REQUIRED, so
-* neither enforcement nor a highlight has anything to act on.
+* FTYPE 'INPUT' + MAX_LEN carries the four counts on HIST - two digits each, one
+* for the wives count, whose backend column ZZAFLD0000V3 is CHAR(1) and would
+* keep only the first character of a longer value.
+*
+* NOT FTYPE 'NUMBER', which is the obvious choice and does not work. That branch
+* renders sap.m.Input with TYPE = 'Number', and an HTML number input ignores
+* MAXLENGTH - it is a browser rule, not an engine one, so the cap silently did
+* nothing and eleven digits reached VALIDATE_STEP's server-side re-check. On a
+* plain INPUT the cap holds at the keyboard, which is what the citizen needs.
+* The cost is that letters can be typed, so ZCL_C022_KHULA_CERTI_LOGIC's
+* COUNT_CHECK still owns "digits only" - the half MAX_LEN cannot express either
+* way. One rule at the keyboard, one on the step, neither duplicating the other.
+*
+* CLOSED_LIST is deliberately NOT set, though every field here is a closed list
+* and the flag would stop the pointless typing a ComboBox invites. It is held
+* back because sap.m.Select carries FORCESELECTION, which defaults to true and
+* which the engine does not currently pass: a field whose value is still blank
+* therefore renders showing the FIRST option while the model holds nothing.
+* The screen then disagrees with the data - rules keyed on the field do not
+* fire, and a mandatory check refuses a field the citizen can see filled in.
+* A typable dropdown is a much smaller problem than a screen that lies.
+* Reinstate this once the engine passes FORCESELECTION = ABAP_FALSE; the change
+* here is one column on the fourteen FTYPE 'SELECT' rows below. When it goes
+* back, note that sap.m.Select has no EDITABLE property, so the READONLY /
+* EDITABLE rules map to ENABLED - MARR_CONSUMMATED and ISOLATION, toggled by
+* rules R16 / R17, are the two to watch.
+*
+* FTYPE 'READONLY' carries CONTRACT_PLACE, DIVORCEE_PARTNER and
+* DIVORCER_PARTNER, which are starred but written by a popup or by ON_INIT,
+* never typed. MISSING_REQUIRED enforces their REQUIRED flag and the 'READONLY'
+* render branch binds VALUESTATE, so they block the step and turn red like any
+* other field. Their MSG / MSG_AR name the party, which the engine's generic
+* required text cannot do for a field the citizen cannot click.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
 *   STEP MARR ------------------------------------------------------
   ( mandt = sy-mandt journey_id = c_jid step_id = 'MARR' field_name = 'COURT' seqnr = 10 ftype = 'READONLY'
@@ -110,7 +122,7 @@ START-OF-SELECTION.
   ftype = 'READONLY' readonly = 'X' zlabel = 'Emirate' zlabel_ar = |الإمارة| fgroup = 'ROW:M1'
   tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UG' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'MARR' field_name = 'CONTRACT_PLACE' seqnr = 30
-  ftype = 'INPUT' required = 'X' readonly = 'X' zlabel = 'Contract Place' zlabel_ar = |مكان الإصدار|
+  ftype = 'READONLY' required = 'X' readonly = 'X' zlabel = 'Contract Place' zlabel_ar = |مكان الإصدار|
   fgroup = 'ROW:M2' tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00004D'
   msg = 'Contract place is required' msg_ar = |مكان الإصدار مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'MARR' field_name = 'MARR_CONTRACT_NO' seqnr = 40
@@ -196,16 +208,16 @@ START-OF-SELECTION.
   msg = 'Isolation is required' msg_ar = |تمت الخلوة مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'CHILDREN_COUNT' seqnr = 60
   ftype = 'INPUT' zlabel = 'No. of children' zlabel_ar = |عدد الابناء| fgroup = 'ROW:H3'
-  tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008M' )
+  max_len = 2 tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008M' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'MARR_PROVING_DATE' seqnr = 70
   ftype = 'DATE' zlabel = 'Marriage proving date' zlabel_ar = |تاريخ الدخول| fgroup = 'ROW:H4'
   tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008N' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'CHILDREN_UNDER_21' seqnr = 80
   ftype = 'INPUT' zlabel = 'Children under 21' zlabel_ar = |عدد الأولاد أقل من 21 سنة| fgroup = 'ROW:H4'
-  tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UL' )
+  max_len = 2 tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UL' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'WIVES_COUNT_HUSBAND' seqnr = 90
   ftype = 'INPUT' required = 'X' zlabel = 'Number of waives for husband' zlabel_ar = |عدد الزوجات في عصمة الزوج|
-  fgroup = 'ROW:H5' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000V3'
+  fgroup = 'ROW:H5' max_len = 1 tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000V3'
   msg = 'Number of waives for husband is required' msg_ar = |عدد الزوجات في عصمة الزوج مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'EARLIER_MARRIAGES' seqnr = 100
   ftype = 'SELECT' required = 'X' zlabel = 'Earlier marriages' zlabel_ar = |هل تم الزواج من قبل بين الطرفين|
@@ -218,7 +230,7 @@ START-OF-SELECTION.
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'PREV_DIVORCES_COUNT' seqnr = 110
   ftype = 'INPUT' zlabel = 'The number of previous divorces'
   zlabel_ar = |عدد حالات الطلاق السابقة بين الطرفين| fgroup = 'ROW:H6'
-  tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UM'
+  max_len = 2 tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UM'
   msg = 'The number of previous divorces is required' msg_ar = |عدد حالات الطلاق السابقة بين الطرفين مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'LAST_DIV_DATE' seqnr = 120
   ftype = 'DATE' zlabel = 'Last divorce date' zlabel_ar = |تاريخ الطلاق السابق| fgroup = 'ROW:H7'
@@ -229,14 +241,14 @@ START-OF-SELECTION.
   ftype = 'EDITABLE_TABLE' required = 'X' zlabel = 'Personal information' zlabel_ar = |البيانات الشخصية للاطراف|
   default_val = 'FIX|RX:ZZAFLD0000TT,ZZAFLD0000TW' tech_name = 'PERS_INFO' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCEE_PARTNER' seqnr = 20
-  ftype = 'INPUT' required = 'X' readonly = 'X' zlabel = 'Divorcee' zlabel_ar = |المطلقة| fgroup = 'ROW:P1'
+  ftype = 'READONLY' required = 'X' readonly = 'X' zlabel = 'Divorcee' zlabel_ar = |المطلقة| fgroup = 'ROW:P1'
   max_len = 10 tech_name = 'NO_PARTIES_INVOLVED2-DIVORCEE_BP'
   msg = 'The divorcee is required' msg_ar = |يجب إضافة المطلقة| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCEE_NAME' seqnr = 30
   ftype = 'READONLY' readonly = 'X' zlabel = 'Divorcee name' zlabel_ar = |اسم المطلقة| fgroup = 'ROW:P1'
   max_len = 35 tech_name = 'NO_PARTIES_INVOLVED2-DIVORCEE_NAME' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCER_PARTNER' seqnr = 40
-  ftype = 'INPUT' required = 'X' readonly = 'X' zlabel = 'Divorcer' zlabel_ar = |المطلق| fgroup = 'ROW:P2'
+  ftype = 'READONLY' required = 'X' readonly = 'X' zlabel = 'Divorcer' zlabel_ar = |المطلق| fgroup = 'ROW:P2'
   max_len = 10 tech_name = 'NO_PARTIES_INVOLVED2-DIVORCER_BP'
   msg = 'The divorcer is required' msg_ar = |يجب إضافة المطلق| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCER_NAME' seqnr = 50
@@ -349,7 +361,7 @@ START-OF-SELECTION.
 *    type slot; in this table the real type goes in CTRL and HIDDEN carries the
 *    flag, so a hidden column can be turned back on without losing its type.
 *
-* REQUIRED is set on the three columns the WD screen stars: ZZAFLD0000V0
+* REQUIRED is set on the three columns the WD screen stars: ZZAFLD0000V2
 * (Partner type), ZZAFLD0000TT (Residence status), ZZAFLD0000TW (Job status).
 * MISSING_REQUIRED checks a required column against every row that already
 * exists and blocks the step on the first blank cell; RENDER_GRID appends ' *'
@@ -361,7 +373,7 @@ START-OF-SELECTION.
 * scalar value check.
   INSERT zrak_t_jny_col FROM TABLE @( VALUE #(
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'PERS_INFO'
-  col_name = 'PARTY_TYPE_TXT' seqnr = 10 ctrl = 'TEXT' required = 'X'
+  col_name = 'ZZAFLD0000V2' seqnr = 10 ctrl = 'SELECT' readonly = 'X' required = 'X'
   zlabel = 'Partner type' zlabel_ar = |نوع الطرف| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'PERS_INFO'
   col_name = 'ZZAFLD0000V0' seqnr = 15 ctrl = 'INPUT' hidden = 'X' )
@@ -405,9 +417,6 @@ START-OF-SELECTION.
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'PERS_INFO'
   col_name = 'ZZAFLD0000UZ' seqnr = 160 ctrl = 'INPUT' hidden = 'X'
   zlabel = 'Partner' zlabel_ar = |الطرف| )
-  ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'PERS_INFO'
-  col_name = 'ZZAFLD0000V2' seqnr = 170 ctrl = 'INPUT' hidden = 'X'
-  zlabel = 'Partner function' zlabel_ar = |نوع الطرف| )
   ) ).
   IF sy-subrc <> 0. ROLLBACK WORK. MESSAGE 'Grid column insert failed' TYPE 'E'. ENDIF.
 
@@ -502,5 +511,18 @@ START-OF-SELECTION.
   ENDIF.
 
   COMMIT WORK AND WAIT.
+
+* ---- Make the engine notice ------------------------------------------
+* ZCL_RAK_CJ_CFG_CACHE holds a journey's configuration for 300 seconds and
+* only reloads early when the counter in ZRAK_CJ_CFG_VER moves. Committing
+* the tables is therefore not enough: without this call a session already
+* open keeps serving the previous configuration until the TTL expires, and
+* so does every other work process, which is why a re-run could look like it
+* had done nothing. INVALIDATE( ) bumps the counter for everyone and clears
+* this process's own copy.
+* Passing the journey narrows it to ours - other journeys keep their entries.
+  zcl_rak_cj_cfg_cache=>invalidate( CONV string( c_jid ) ).
+
   WRITE: / 'Seeded', c_jid, '— launch tile', c_tile, 'under group', c_main.
+  WRITE: / 'Configuration cache invalidated — the next request reloads.'.
   WRITE: / 'Handler required and must be active:', c_hcls.

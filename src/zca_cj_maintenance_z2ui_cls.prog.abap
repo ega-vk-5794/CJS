@@ -16,87 +16,25 @@ CLASS lcl_event_receiver DEFINITION.
         IMPORTING sender node_key drag_drop_object.
 
 ENDCLASS.
-CLASS lcl_loader DEFINITION.
-  PUBLIC SECTION.
-    INTERFACES if_abap_parallel.
-    METHODS constructor IMPORTING iv_data  TYPE wwwparams-objid
-                                  iv_table TYPE STANDARD TABLE.
-    METHODS get_output RETURNING VALUE(rv_result) TYPE REF TO data.
-  PRIVATE SECTION.
-    DATA: mv_input  TYPE wwwparams-objid,
-          mt_table  TYPE REF TO data,
-          mv_result TYPE REF TO data.
-ENDCLASS.
 CLASS lcl_editor DEFINITION.
 
   PUBLIC SECTION.
-    TYPES: BEGIN OF ty_aggregation,
-             id        TYPE lvc_nkey,
-             text      TYPE string,
-             fullname  TYPE string,
-             sapmethod TYPE fieldname,
-             library   TYPE string,
-           END OF ty_aggregation,
-           tt_aggregation TYPE STANDARD TABLE OF ty_aggregation WITH DEFAULT KEY,
-           BEGIN OF ty_controls,
-             id           TYPE lvc_nkey,
-             text         TYPE string,
-             fullname     TYPE string,
-             sapmethod    TYPE fieldname,
-             aggregations TYPE tt_aggregation,
-           END OF ty_controls,
-           tt_controls TYPE STANDARD TABLE OF ty_controls WITH DEFAULT KEY,
-           BEGIN OF ty_libraries ,
-             id       TYPE lvc_nkey,
-             library  TYPE string,
-             controls TYPE tt_controls,
-           END OF ty_libraries,
-           tt_libraries TYPE STANDARD TABLE OF ty_libraries WITH DEFAULT KEY,
-           BEGIN OF ty_category,
-             id        TYPE lvc_nkey,
-             category  TYPE string,
-             text      TYPE string,
-             controls  TYPE tt_controls,
-             libraries TYPE tt_libraries,
-           END OF ty_category,
-           tt_category TYPE STANDARD TABLE OF ty_category WITH DEFAULT KEY,
-           BEGIN OF ty_search_category,
-             id        TYPE lvc_nkey,
-             text      TYPE string,
-             fullname  TYPE string,
-             sapmethod TYPE fieldname,
-           END OF ty_search_category,
-           tt_search_category TYPE STANDARD TABLE OF ty_search_category WITH DEFAULT KEY.
-
     TYPES:
-      BEGIN OF ty_properties,
-        name          TYPE string,
-        type          TYPE string,
-        inheritedfrom TYPE string,
-        description   TYPE string,
-        sapname       TYPE string,
-        cardinality   TYPE string,
-      END OF ty_properties,
-      tt_properties TYPE STANDARD TABLE OF ty_properties WITH DEFAULT KEY,
-      BEGIN OF ty_control,
-        control      TYPE string,
-        entend       TYPE string,
-        library      TYPE string,
-        properties   TYPE tt_properties,
-        aggregations TYPE tt_properties,
-        associations TYPE tt_properties,
-        events       TYPE tt_properties,
-        deprecated   TYPE flag,
-      END OF ty_control,
-      tt_control TYPE STANDARD TABLE OF ty_control WITH DEFAULT KEY.
+      BEGIN OF ty_search_category,
+        id        TYPE lvc_nkey,
+        text      TYPE string,
+        fullname  TYPE string,
+        sapmethod TYPE fieldname,
+      END OF ty_search_category,
+      tt_search_category TYPE STANDARD TABLE OF ty_search_category WITH DEFAULT KEY.
 
     DATA: lo_controls           TYPE REF TO cl_gui_alv_tree,
           lo_editor             TYPE REF TO cl_gui_alv_tree,
           lo_category_container TYPE REF TO cl_gui_docking_container,
           lo_editor_container   TYPE REF TO cl_gui_docking_container,
           lo_property_container TYPE REF TO cl_gui_docking_container,
-          lt_category           TYPE tt_category,
-          lt_controls           TYPE tt_control,
+          lt_category           TYPE zcj_z2ui5_categoty_tb, "tt_category,
+          lt_controls           TYPE zcj_z2ui5_controls_tb, "tt_control,
           lt_search_category    TYPE tt_search_category,
           lt_editor             TYPE tt_search_category,
           lc_event_receiver     TYPE REF TO lcl_event_receiver,
@@ -106,8 +44,7 @@ CLASS lcl_editor DEFINITION.
     METHODS:
       constructor,
       init_screens,
-      load_json IMPORTING name TYPE wwwparams-objid
-                CHANGING  data TYPE any,
+      on_load_json_end IMPORTING p_task TYPE clike,
       load_controls,
       load_editor,
       add_editor_node IMPORTING VALUE(relat_node_key) TYPE lvc_nkey
@@ -120,25 +57,32 @@ CLASS lcl_editor DEFINITION.
 ENDCLASS.
 CLASS lcl_editor IMPLEMENTATION.
   METHOD constructor.
-    DATA: lt_loaders TYPE cl_abap_parallel=>t_in_inst_tab,
-          lo_loader  TYPE REF TO lcl_loader.
-
-    " Create worker instances for parallel execution
-    CREATE OBJECT lo_loader EXPORTING iv_data = 'Z2UI5_CATEGORIES' iv_table = me->lt_controls[].
-    INSERT lo_loader INTO TABLE lt_loaders.
-
-    " Run tasks in parallel using available dialog work processes
-    DATA(lo_manager) = NEW cl_abap_parallel( ).
-    lo_manager->run_inst(
+    CALL FUNCTION 'ZCJ_JSON_LOADER_TAB'
+      STARTING NEW TASK 'CATG'
+      CALLING me->on_load_json_end ON END OF TASK
       EXPORTING
-      p_in_tab = lt_loaders
-    ).
+        iv_name = 'Z2UI5_CATEGORIES'.
 
-    " Retrieve results
-    LOOP AT lt_loaders INTO DATA(ls_loader).
-      lo_loader ?= ls_loader.
-      DATA(lo_data) = lo_loader->get_output( ).
-    ENDLOOP.
+    CALL FUNCTION 'ZCJ_JSON_LOADER_TAB'
+      STARTING NEW TASK 'CONT'
+      CALLING me->on_load_json_end ON END OF TASK
+      EXPORTING
+        iv_name = 'Z2UI5_COTNTROLS'.
+
+  ENDMETHOD.
+  METHOD on_load_json_end.
+    DATA: lt_category TYPE zcj_z2ui5_categoty_tb,
+          lt_controls TYPE zcj_z2ui5_controls_tb.
+    RECEIVE RESULTS FROM FUNCTION 'ZCJ_JSON_LOADER_TAB'
+  IMPORTING
+    et_category = lt_category
+    et_controls = lt_controls.
+    CASE p_task.
+      WHEN 'CATG'.
+        me->lt_category = lt_category.
+      WHEN 'CONT'.
+        me->lt_controls = lt_controls.
+    ENDCASE.
 
   ENDMETHOD.
   METHOD init_screens.
@@ -437,59 +381,5 @@ CLASS lcl_editor IMPLEMENTATION.
 *
 *    ENDDO.
 
-  ENDMETHOD.
-  METHOD load_json.
-
-    DATA: lv_size_txt TYPE soli-line,
-          ls_key      TYPE wwwdatatab,
-          lv_len      TYPE i,
-          lt_file     TYPE w3html_tab,
-          lv_json     TYPE string.
-
-    CALL FUNCTION 'WWWPARAMS_READ'
-      EXPORTING
-        relid            = 'HT'
-        objid            = name
-        name             = 'filesize'
-      IMPORTING
-        value            = lv_size_txt
-      EXCEPTIONS
-        entry_not_exists = 1
-        OTHERS           = 2.
-    IF sy-subrc EQ 0.
-      ls_key-relid = 'HT'.
-      ls_key-objid = name.
-      CALL FUNCTION 'WWWDATA_IMPORT'
-        EXPORTING
-          key               = ls_key
-        TABLES
-          html              = lt_file
-        EXCEPTIONS
-          wrong_object_type = 1
-          import_error      = 2
-          OTHERS            = 3.
-      lv_len = lines( lt_file ) * 255.
-      CALL FUNCTION 'SCMS_FTEXT_TO_STRING'
-        EXPORTING
-          length    = lv_len
-        IMPORTING
-          ftext     = lv_json
-        TABLES
-          ftext_tab = lt_file.
-
-      CALL METHOD /ui2/cl_json=>deserialize
-        EXPORTING
-          json = lv_json
-*         jsonx            =
-*         pretty_name      = PRETTY_MODE-NONE
-*         assoc_arrays     = C_BOOL-FALSE
-*         assoc_arrays_opt = C_BOOL-FALSE
-*         name_mappings    =
-*         conversion_exits = C_BOOL-FALSE
-*         hex_as_base64    = C_BOOL-TRUE
-        CHANGING
-          data = data.
-
-    ENDIF.
   ENDMETHOD.
 ENDCLASS.

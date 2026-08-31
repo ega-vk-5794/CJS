@@ -7,6 +7,8 @@ public section.
 
   methods ZIF_RAK_JOURNEY_LOGIC~GET_TABLE
     redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_FIELDS
+    redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_POST
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
@@ -17,7 +19,7 @@ public section.
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
     redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_FIELDS
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
     redefinition .
 protected section.
 private section.
@@ -402,4 +404,13 @@ ENDMETHOD.
 *    	WHEN OTHERS.
     ENDCASE.
   ENDMETHOD.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
+*  EXPORTING
+*    IO_CTX   =
+*    IV_FIELD =
+*    .
+  endmethod.
 ENDCLASS.

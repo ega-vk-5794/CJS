@@ -5,8 +5,10 @@
 CLASS lcl_editor DEFINITION DEFERRED.
 CLASS lcl_editor DEFINITION LOAD.
 CLASS lcl_event_receiver DEFINITION DEFERRED.
-CLASS lcl_loader DEFINITION DEFERRED.
 CLASS lcl_dragdropobj DEFINITION LOAD.
+
+TABLES: sscrfields.
+SELECTION-SCREEN FUNCTION KEY 1.
 
 DATA: ok_code   TYPE sy-ucomm,
       go_editor TYPE REF TO lcl_editor,

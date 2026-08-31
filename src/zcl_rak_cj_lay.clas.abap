@@ -112,23 +112,24 @@ CLASS zcl_rak_cj_lay DEFINITION
                 iv_step    TYPE ty_key
                 iv_block   TYPE ty_key.
 
+protected section.
   PRIVATE SECTION.
 
     CLASS-DATA go_inst TYPE REF TO zcl_rak_cj_lay.
 
     DATA mv_journey TYPE ty_key.
     DATA mv_loaded  TYPE abap_bool.
-    DATA mt_lay     TYPE STANDARD TABLE OF zrak_cj_lay WITH EMPTY KEY.
+    DATA mt_lay     TYPE STANDARD TABLE OF ZRAK_CJ_LAYOUT WITH EMPTY KEY.
 
     METHODS load
       IMPORTING iv_journey TYPE ty_key.
 
     METHODS score
-      IMPORTING is_row          TYPE zrak_cj_lay
+      IMPORTING is_row          TYPE ZRAK_CJ_LAYOUT
       RETURNING VALUE(rv_score) TYPE i.
 
     METHODS merge
-      IMPORTING is_row  TYPE zrak_cj_lay
+      IMPORTING is_row  TYPE ZRAK_CJ_LAYOUT
       CHANGING  cs_attr TYPE ty_attr.
 
 ENDCLASS.
@@ -193,7 +194,7 @@ CLASS ZCL_RAK_CJ_LAY IMPLEMENTATION.
       RETURN.
     ENDIF.
     CLEAR mt_lay.
-    SELECT * FROM zrak_cj_lay
+    SELECT * FROM ZRAK_CJ_LAYOUT
       WHERE journey = @iv_journey
          OR journey = @c_any
       INTO TABLE @mt_lay.
@@ -250,7 +251,7 @@ CLASS ZCL_RAK_CJ_LAY IMPLEMENTATION.
 
   METHOD persist.
 
-    DATA ls_db TYPE zrak_cj_lay.
+    DATA ls_db TYPE ZRAK_CJ_LAYOUT.
 
     ls_db-journey    = iv_journey.
     ls_db-step_id    = iv_step.
@@ -270,7 +271,7 @@ CLASS ZCL_RAK_CJ_LAY IMPLEMENTATION.
     ls_db-changed_by = sy-uname.
     GET TIME STAMP FIELD ls_db-changed_at.
 
-    MODIFY zrak_cj_lay FROM ls_db.
+    MODIFY ZRAK_CJ_LAYOUT FROM ls_db.
     COMMIT WORK AND WAIT.
 
     invalidate( ).
@@ -334,7 +335,7 @@ CLASS ZCL_RAK_CJ_LAY IMPLEMENTATION.
 
   METHOD reset_block.
 
-    DELETE FROM zrak_cj_lay
+    DELETE FROM ZRAK_CJ_LAYOUT
       WHERE journey  = @iv_journey
         AND step_id  = @iv_step
         AND block_id = @iv_block.
@@ -350,7 +351,7 @@ CLASS ZCL_RAK_CJ_LAY IMPLEMENTATION.
 
     TYPES: BEGIN OF ty_scored,
              score TYPE i,
-             row   TYPE zrak_cj_lay,
+             row   TYPE ZRAK_CJ_LAYOUT,
            END OF ty_scored.
 
     DATA lt_scored TYPE STANDARD TABLE OF ty_scored WITH EMPTY KEY.

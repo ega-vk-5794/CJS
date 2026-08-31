@@ -56,10 +56,37 @@ public section.
       IMPORTING iv_domain TYPE ddobjname
       RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
 
-    " One rule for all four count fields on HIST: digits only, at most two of
-    " them. The backend types disagree with each other (NUMC 2, CHAR 1, CHAR 60)
-    " and none of them is what the screen should offer, so the front end states
-    " the rule once and the backend keeps whatever width it has.
+    " The two partner functions PERS_INFO's fixed rows carry, in the logon
+    " language. No domain behind them: the WD hardcoded the pair too. Used both
+    " as ZZAFLD0000V2's value help - which is what RENDER_GRID resolves its
+    " read-only cells through - and to name a row in a per-row message.
+    METHODS party_type_opts
+      RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
+
+    " A count as the backend should receive it: trimmed, and with leading zeros
+    " dropped so a narrow column cannot keep the wrong character. '09' -> '9',
+    " '00' -> '0', anything non-numeric returned untouched for the caller's own
+    " check to deal with.
+    METHODS digits_only
+      IMPORTING iv_value TYPE string
+      RETURNING VALUE(rv) TYPE string.
+
+    " One error row, naming the field it is about. VALIDATE_STEP calls
+    " SET_FIELD_STATE( ) for every returned row whose FIELD is filled, so our
+    " own failures get the red border and tooltip the engine's built-in checks
+    " already give themselves. Exists only to keep each call site to one line.
+    METHODS field_error
+      IMPORTING iv_field  TYPE string
+                iv_text   TYPE string
+      RETURNING VALUE(rs) TYPE zif_rak_journey=>ty_msg.
+
+    " Digits only, on the four count fields on HIST. Length is NOT checked here:
+    " MAX_LEN on ZRAK_T_JNY_FLD reaches the control's MAXLENGTH as well as
+    " VALIDATE_STEP's server-side re-check, so the citizen is stopped at the
+    " keyboard and a crafted request is refused - one rule, one owner. What
+    " MAX_LEN cannot express is that the characters must be digits, and the
+    " FTYPE that could ('NUMBER') is the one MAXLENGTH does not work on - see
+    " the note in ZRAK_C022_LOAD. So the two halves are split on purpose.
     " IV_NAN_TXT carries the WD's own OTR wording where one exists; blank falls
     " back to a literal naming the field, because GET_OTR_TEXT_FOR_ALIAS returns
     " BLANK on NO_ENTRY_FOUND and an empty error strip blocks the step with
@@ -587,6 +614,11 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD field_error.
+    rs = VALUE #( type = 'Error' text = iv_text field = iv_field ).
+  ENDMETHOD.
+
+
   METHOD count_check.
     DATA(lv_val) = condense( io_ctx->get_val( iv_field ) ).
     IF lv_val IS INITIAL.
@@ -594,27 +626,35 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     ENDIF.
     DATA(lv_lbl) = COND string( WHEN sy-langu = 'A' THEN iv_lbl_ar ELSE iv_lbl_en ).
 
-*   Digits first, and RETURN on failure. A non-numeric value has no length worth
-*   reporting, and two error lines about one field read as two problems.
     IF lv_val CN '0123456789'.
-      APPEND VALUE #( type = 'Error'
-      text = COND string(
+      APPEND field_error( iv_field = iv_field
+      iv_text = COND string(
       WHEN iv_nan_txt IS NOT INITIAL THEN iv_nan_txt
       WHEN sy-langu = 'A' THEN |الرجاء ادخال ارقام فقط في حقل { lv_lbl }|
       ELSE |Please enter numbers only for { lv_lbl }| ) ) TO rt.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD digits_only.
+    rv = condense( iv_value ).
+    IF rv IS INITIAL OR rv CN '0123456789'.
       RETURN.
     ENDIF.
+    SHIFT rv LEFT DELETING LEADING '0'.
+    IF rv IS INITIAL.
+      rv = '0'.
+    ENDIF.
+  ENDMETHOD.
 
-*   Two digits, stated as digits rather than characters. MAX_LEN would say the
-*   same thing server-side, but its message comes from T100 with &1 / &2 and the
-*   text behind that number in this system is the unattributed "The value
-*   entered is too long" - it never names the field, and with four count fields
-*   on one screen that is unusable. MAX_LEN is therefore not set on any of them.
-    IF strlen( lv_val ) > 2.
-      APPEND VALUE #( type = 'Error'
-      text = COND string(
-      WHEN sy-langu = 'A' THEN |لا يمكن أن يزيد { lv_lbl } عن رقمين|
-      ELSE |{ lv_lbl } cannot be more than 2 digits| ) ) TO rt.
+
+  METHOD party_type_opts.
+    IF sy-langu = 'A'.
+      rt = VALUE #( ( key = `1` text = |المطلق| )
+                    ( key = `2` text = |المطلقة| ) ).
+    ELSE.
+      rt = VALUE #( ( key = `1` text = |Divorcer| )
+                    ( key = `2` text = |Divorcee| ) ).
     ENDIF.
   ENDMETHOD.
 
@@ -883,8 +923,8 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         "   marriage-contract date (8K) must not be in the future. (AS3 has no
         DATA(lv_contr_dat) = conv_date_internal( io_ctx->get_val( 'MARR_CONTRACT_DATE' ) ).
         IF lv_contr_dat IS NOT INITIAL AND lv_contr_dat > lv_today.
-          APPEND VALUE #( type = 'Error'
-          text = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZWDC_COURT_ATT_VALIDATE_FUTURE_DATE' ) ) TO rt.
+          APPEND field_error( iv_field = 'MARR_CONTRACT_DATE'
+          iv_text = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZWDC_COURT_ATT_VALIDATE_FUTURE_DATE' ) ) TO rt.
         ENDIF.
 
       WHEN c_step_divo.
@@ -900,7 +940,11 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
           " "Please check date value for last marriage contract" - which names
           " neither field in the comparison. The contract date is owned by MARR,
           " a step back from here, so its value goes in the message too.
-          APPEND VALUE #( type = 'Error' text = date_order_msg(
+          "   Marked on DIV_KHULA_DATE, not on the contract date: MARR owns that
+          " one and it is a step back, so a red border there is out of sight.
+          " The rule is always marked on the field the CURRENT step owns.
+          APPEND field_error( iv_field = 'DIV_KHULA_DATE'
+          iv_text = date_order_msg(
           iv_a_en = 'Marriage contract date' iv_a_ar = |تاريخ عقد الزواج| iv_a_val = lv_marr_dat
           iv_before = abap_false
           iv_b_en = 'Date of divorce or khula' iv_b_ar = |تاريخ الطلاق أو الخلع أو التطليق|
@@ -908,14 +952,13 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         ENDIF.
 
       WHEN c_step_hist.
-        "   All four counts on this step take the same rule - digits only, two
-        " of them at most - through COUNT_CHECK. They used to be four separate
-        " digit tests with four differently-worded messages and no length test
-        " at all, MAX_LEN having been left to the engine; the engine's length
-        " message comes from T100 and does not name the field, which with four
-        " count fields side by side said nothing useful. The labels passed here
-        " are the ZLABEL / ZLABEL_AR the loader gives each field, so a message
-        " always names the field by the same words that sit above it on screen.
+        "   All four counts on this step take the same rule - digits only -
+        " through COUNT_CHECK. Their LENGTH is configuration: MAX_LEN on
+        " ZRAK_T_JNY_FLD, two digits each and one for the wives count, which
+        " the engine caps at the keyboard and re-checks on submit. The labels
+        " passed here are the ZLABEL / ZLABEL_AR the loader gives each field, so
+        " a message always names the field by the same words that sit above it
+        " on screen.
         "   Only the wives count has a WD message of its own to honour
         " (VALIDATE_NUMERIC read ZZAFLD0000V3 and nothing else), so only it
         " passes IV_NAN_TXT. The other three are ours by choice: the WD imposes
@@ -935,21 +978,24 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         DATA(lv_wives)    = condense( io_ctx->get_val( 'WIVES_COUNT_HUSBAND' ) ).
         DATA(lv_prev_div) = condense( io_ctx->get_val( 'PREV_DIVORCES_COUNT' ) ).
 
-        "   Nine, on top of the two-digit rule, because ZZAFLD0000V3 behind this
-        " field is CHAR(1): 12 wives would reach the backend as 1. Nested rather
-        " than ANDed with a digit test - CONV i( ) on a non-numeric string raises
-        " CX_SY_CONVERSION_NO_NUMBER, and the guard has to be certain.
-        "   MAX_VAL = 9 now WOULD reach an FTYPE 'INPUT' field - VALIDATE_STEP's
-        " gate is NUMBER, CURRENCY or INPUT on feature/dev - but it is still not
-        " used, for the message rather than the check. The range message falls
-        " back to the field's own MSG column when one is set, and that column
-        " already carries the mandatory wording ("...is required"), so a value
-        " of 12 would be refused with the wrong sentence. One column cannot say
-        " both, so the range stays here.
+        "   Unreachable while MAX_LEN on this field is 1 - a single digit cannot
+        " exceed 9 - and kept anyway, because it is the invariant the backend
+        " column needs rather than a restatement of the configured length:
+        " ZZAFLD0000V3 is CHAR(1) and would keep only the first character, so
+        " 12 wives would post as 1. Raise MAX_LEN and this is what still stops
+        " that. Nested rather than ANDed with a digit test - CONV i( ) on a
+        " non-numeric string raises CX_SY_CONVERSION_NO_NUMBER, and the guard
+        " has to be certain.
+        "   MAX_VAL = 9 would express this in configuration - VALIDATE_STEP's
+        " numeric gate covers FTYPE 'INPUT' - but not its message. The range
+        " message falls back to the field's own MSG column when one is set, and
+        " that column already carries the mandatory wording ("...is required"),
+        " so a value of 12 would be refused with the wrong sentence. One column
+        " cannot say both, so the range stays here.
         IF lv_wives IS NOT INITIAL AND lv_wives CO '0123456789'.
           IF CONV i( lv_wives ) > 9.
-            APPEND VALUE #( type = 'Error'
-            text = COND string(
+            APPEND field_error( iv_field = 'WIVES_COUNT_HUSBAND'
+            iv_text = COND string(
             WHEN sy-langu = 'A'
             THEN |لا يمكن أن يكون عدد الزوجات في عصمة الزوج أكثر من 9|
             ELSE |Number of waives for husband cannot be more than 9| ) ) TO rt.
@@ -973,35 +1019,40 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         " violation produced two messages. It is asserted once here.
         IF lv_fst_marr IS NOT INITIAL AND lv_khula_dat IS NOT INITIAL
         AND lv_fst_marr > lv_khula_dat.
-          APPEND VALUE #( type = 'Error' text = date_order_msg(
+          APPEND field_error( iv_field = 'FIRST_MARR_CTR_DT'
+          iv_text = date_order_msg(
           iv_a_en = 'First marriage contract date' iv_a_ar = |تاريخ عقد الزواج الأول بين الطرفين| iv_a_val = lv_fst_marr
           iv_before = abap_false
           iv_b_en = 'Date of divorce or khula' iv_b_ar = |تاريخ الطلاق أو الخلع أو التطليق| iv_b_val = lv_khula_dat ) ) TO rt.
         ENDIF.
         IF lv_fst_marr IS NOT INITIAL AND lv_ctr_dat IS NOT INITIAL
         AND lv_fst_marr > lv_ctr_dat.
-          APPEND VALUE #( type = 'Error' text = date_order_msg(
+          APPEND field_error( iv_field = 'FIRST_MARR_CTR_DT'
+          iv_text = date_order_msg(
           iv_a_en = 'First marriage contract date' iv_a_ar = |تاريخ عقد الزواج الأول بين الطرفين| iv_a_val = lv_fst_marr
           iv_before = abap_false
           iv_b_en = 'Marriage contract date' iv_b_ar = |تاريخ عقد الزواج| iv_b_val = lv_ctr_dat ) ) TO rt.
         ENDIF.
         IF lv_fst_marr IS NOT INITIAL AND lv_lst_div IS NOT INITIAL
         AND lv_fst_marr > lv_lst_div.
-          APPEND VALUE #( type = 'Error' text = date_order_msg(
+          APPEND field_error( iv_field = 'FIRST_MARR_CTR_DT'
+          iv_text = date_order_msg(
           iv_a_en = 'First marriage contract date' iv_a_ar = |تاريخ عقد الزواج الأول بين الطرفين| iv_a_val = lv_fst_marr
           iv_before = abap_false
           iv_b_en = 'Last divorce date' iv_b_ar = |تاريخ الطلاق السابق| iv_b_val = lv_lst_div ) ) TO rt.
         ENDIF.
         IF lv_lst_div IS NOT INITIAL AND lv_khula_dat IS NOT INITIAL
         AND lv_lst_div > lv_khula_dat.
-          APPEND VALUE #( type = 'Error' text = date_order_msg(
+          APPEND field_error( iv_field = 'LAST_DIV_DATE'
+          iv_text = date_order_msg(
           iv_a_en = 'Last divorce date' iv_a_ar = |تاريخ الطلاق السابق| iv_a_val = lv_lst_div
           iv_before = abap_false
           iv_b_en = 'Date of divorce or khula' iv_b_ar = |تاريخ الطلاق أو الخلع أو التطليق| iv_b_val = lv_khula_dat ) ) TO rt.
         ENDIF.
         IF lv_lst_div IS NOT INITIAL AND lv_ctr_dat IS NOT INITIAL
         AND lv_lst_div > lv_ctr_dat.
-          APPEND VALUE #( type = 'Error' text = date_order_msg(
+          APPEND field_error( iv_field = 'LAST_DIV_DATE'
+          iv_text = date_order_msg(
           iv_a_en = 'Last divorce date' iv_a_ar = |تاريخ الطلاق السابق| iv_a_val = lv_lst_div
           iv_before = abap_false
           iv_b_en = 'Marriage contract date' iv_b_ar = |تاريخ عقد الزواج| iv_b_val = lv_ctr_dat ) ) TO rt.
@@ -1030,27 +1081,23 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
             THEN |لا يمكن لعدد حالات الطلاق السابقة بين الطرفين أن يساوي صفر|
             ELSE |Number of divorces can't be Zero| ).
           ENDIF.
-          APPEND VALUE #( type = 'Error' text = lv_zero_msg ) TO rt.
+          APPEND field_error( iv_field = 'PREV_DIVORCES_COUNT'
+          iv_text = lv_zero_msg ) TO rt.
         ENDIF.
         DATA(lv_prov_dat) = conv_date_internal( io_ctx->get_val( 'MARR_PROVING_DATE' ) ).
         IF lv_prov_dat IS NOT INITIAL AND lv_prov_dat > lv_today.
-          APPEND VALUE #( type = 'Error'
-          text = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZWDC_COURT_ATT_VALIDATE_FUTURE_DATE' ) ) TO rt.
+          APPEND field_error( iv_field = 'MARR_PROVING_DATE'
+          iv_text = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZWDC_COURT_ATT_VALIDATE_FUTURE_DATE' ) ) TO rt.
         ENDIF.
 
       WHEN c_step_prty.
         "   PRTY — Parties. Both witnesses filled or both empty, and no BP
         "   repeated across the four roles (Origin: VALIDATE_WITNESS /
-        "   No divorcee check here any more. The engine enforces REQUIRED on
-        "   this field itself now, and the hand-written guard that used to sit
-        "   here produced a second error line saying the same thing. What it
-        "   really contributed was the WORDING - the engine's own default names
-        "   the field, but the T100 text behind it in this system is the
-        "   unattributed "This field is required", which on a greyed-out field
-        "   tells the citizen nothing. So the wording moved into configuration:
-        "   ZRAK_C022_LOAD sets MSG / MSG_AR on DIVORCEE_PARTNER, and
-        "   MISSING_REQUIRED prefers a field's own MSG over the generic text.
-        "   One message, and it is ours.
+        "   No divorcee check here. The engine enforces REQUIRED on the field
+        "   itself, so a hand-written one would only add a second error line
+        "   saying the same thing. The wording is configuration instead:
+        "   ZRAK_C022_LOAD sets MSG / MSG_AR on DIVORCEE_PARTNER, which
+        "   MISSING_REQUIRED prefers over its generic text.
         "   Village number holds digits in the backend, so refuse anything else
         " before it gets there. The engine re-checks a grid column's REQUIRED
         " and MAXLEN per row now, but it has no per-column type or pattern, so
@@ -1059,11 +1106,12 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         " from ZRAK_T_JNY_COL in the configured order, so LINE_INDEX finds the
         " cell wherever the column is moved to, and the <COL>_TXT companions the
         " engine now builds for SELECT columns stay invisible to it. Both rows
-        " are reported, named by their PARTY_TYPE_TXT cell, because fixing one
-        " and being told about the other on the next click is a wasted round.
+        " are reported, named by their party, because fixing one and being told
+        " about the other on the next click is a wasted round.
         DATA(ls_pers) = io_ctx->get_grid_data( 'PERS_INFO' ).
         DATA(lv_vn_i) = line_index( ls_pers-columns[ table_line = 'ZZAFLD0000TU' ] ).
-        DATA(lv_pt_i) = line_index( ls_pers-columns[ table_line = 'PARTY_TYPE_TXT' ] ).
+        DATA(lv_pt_i) = line_index( ls_pers-columns[ table_line = 'ZZAFLD0000V2' ] ).
+        DATA(lt_popt) = party_type_opts( ).
         IF lv_vn_i > 0.
           LOOP AT ls_pers-rows INTO DATA(lt_prow).
 *           Captured here, not read at the APPEND below: a table expression is
@@ -1077,11 +1125,29 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
             IF lv_vnum IS INITIAL OR lv_vnum CO '0123456789'.
               CONTINUE.
             ENDIF.
-            DATA(lv_party) = COND string(
-            WHEN lv_pt_i > 0 AND lines( lt_prow ) >= lv_pt_i THEN lt_prow[ lv_pt_i ]
-            ELSE |{ lv_rowno }| ).
-            APPEND VALUE #( type = 'Error'
-            text = COND string(
+*           The cell holds the partner-function CODE, so it is resolved through
+*           the same option list the read-only column is rendered from. The
+*           <COL>_TXT companion RENDER_GRID resolves into is not reachable here:
+*           GET_GRID_DATA builds its columns from ZRAK_T_JNY_COL, which the
+*           companion is not part of.
+            DATA(lv_party) = |{ lv_rowno }|.
+            IF lv_pt_i > 0 AND lines( lt_prow ) >= lv_pt_i.
+              DATA(lv_pkey) = lt_prow[ lv_pt_i ].
+              READ TABLE lt_popt INTO DATA(ls_popt) WITH KEY key = lv_pkey.
+              IF sy-subrc = 0.
+                lv_party = ls_popt-text.
+              ENDIF.
+            ENDIF.
+*           A CELL, not a scalar field, so FIELD carries the compound
+*           '<grid>.<col>#<row>' the engine parses in SET_CELL_STATE( ) - the
+*           same shape ON_CHANGE already hands us for a grid change. LV_ROWNO is
+*           the 1-based table index it expects, not the row's _UID.
+*           The party stays in the message text as well as the border: the strip
+*           is read on its own, above the grid, and "enter numbers only" without
+*           saying whose row is no more use there than it ever was.
+            APPEND field_error(
+            iv_field = |PERS_INFO.ZZAFLD0000TU#{ lv_rowno }|
+            iv_text = COND string(
             WHEN sy-langu = 'A'
             THEN |الرجاء ادخال ارقام فقط في حقل رقم البلدة ({ lv_party })|
             ELSE |Please enter numbers only for Village number ({ lv_party })| ) ) TO rt.
@@ -1091,20 +1157,57 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         DATA(lv_wit2_bp) = io_ctx->get_val( 'WITNESS2_PARTNER' ).
         IF NOT ( ( lv_wit1_bp IS NOT INITIAL AND lv_wit2_bp IS NOT INITIAL )
         OR ( lv_wit1_bp IS INITIAL     AND lv_wit2_bp IS INITIAL ) ).
-          APPEND VALUE #( type = 'Error'
-          text = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/CIVIL_COURT_WITNESS_ERROR_MSG' ) ) TO rt.
+          "   Marked on whichever witness is the missing one - the rule is "both
+          " or neither", so the filled one is not the problem.
+          APPEND field_error(
+          iv_field = COND string( WHEN lv_wit1_bp IS INITIAL THEN 'WITNESS1_PARTNER'
+                                  ELSE 'WITNESS2_PARTNER' )
+          iv_text = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/CIVIL_COURT_WITNESS_ERROR_MSG' ) ) TO rt.
         ENDIF.
-        DATA(lt_bp) = VALUE zif_rak_journey=>tt_string(
-              ( io_ctx->get_val( 'DIVORCEE_PARTNER' ) )
-              ( io_ctx->get_val( 'DIVORCER_PARTNER' ) )
-              ( io_ctx->get_val( 'WITNESS1_PARTNER' ) )
-              ( io_ctx->get_val( 'WITNESS2_PARTNER' ) ) ).
-        DELETE lt_bp WHERE table_line IS INITIAL.
-        DATA(lt_bp_u) = lt_bp.
-        SORT lt_bp_u. DELETE ADJACENT DUPLICATES FROM lt_bp_u.
-        IF lines( lt_bp_u ) <> lines( lt_bp ).
-          APPEND VALUE #( type = 'Error'
-          text = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZWDC_COURT_ATT_DUPLICATE_PARTIES_INV' ) ) TO rt.
+        "   Was a sort-and-count on the values alone, which answered "is one of
+        " these repeated" but not "which one". The roles are carried alongside
+        " the values now, so the message can name a field and turn it red
+        " instead of leaving the citizen to compare four numbers by eye. The
+        " blanks are skipped rather than deleted: an entry has to keep its
+        " position for LT_ROLE to still line up with it.
+*       Backquotes, not apostrophes. TT_STRING's line type is STRING and a
+*       VALUE constructor for an elementary line type wants a COMPATIBLE value,
+*       not merely a convertible one - a '...' literal is type C and is
+*       rejected outright. The values this table used to be built from were
+*       GET_VAL( ) results, already STRING, which is why the shape only started
+*       failing when the role names replaced them.
+        DATA(lt_role) = VALUE zif_rak_journey=>tt_string(
+              ( `DIVORCEE_PARTNER` ) ( `DIVORCER_PARTNER` )
+              ( `WITNESS1_PARTNER` ) ( `WITNESS2_PARTNER` ) ).
+        DATA lt_bp TYPE zif_rak_journey=>tt_string.
+        CLEAR lt_bp.
+        LOOP AT lt_role INTO DATA(lv_role).
+          APPEND io_ctx->get_val( lv_role ) TO lt_bp.
+        ENDLOOP.
+
+*       One row per message, so the field named is the FIRST role holding a
+*       repeated BP - the other end of the clash is one of the three fields
+*       beside it. Marking both ends would need a second row carrying the same
+*       sentence, and two identical lines in the strip read as two problems.
+        DATA(lv_dup_fld) = ``.
+        LOOP AT lt_bp INTO DATA(lv_bp).
+*         Captured before the inner LOOP, which resets SY-TABIX.
+          DATA(lv_bp_i) = sy-tabix.
+          IF lv_bp IS INITIAL.
+            CONTINUE.
+          ENDIF.
+          DATA(lv_seen) = 0.
+          LOOP AT lt_bp TRANSPORTING NO FIELDS WHERE table_line = lv_bp.
+            lv_seen = lv_seen + 1.
+          ENDLOOP.
+          IF lv_seen > 1.
+            lv_dup_fld = lt_role[ lv_bp_i ].
+            EXIT.
+          ENDIF.
+        ENDLOOP.
+        IF lv_dup_fld IS NOT INITIAL.
+          APPEND field_error( iv_field = lv_dup_fld
+          iv_text = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZWDC_COURT_ATT_DUPLICATE_PARTIES_INV' ) ) TO rt.
         ENDIF.
 
       WHEN c_step_docs.
@@ -1150,20 +1253,16 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
 *&      flag on ZRAK_T_JNY_FLD directly. ATTACHMENT rides its HAS_ATTACH
 *&      branch, which also accepts a document already filed in the backend so
 *&      resuming a draft is not a dead end.
-*&    - 3 grid columns (PARTY_TYPE_TXT / TT / TW): REQUIRED on ZRAK_T_JNY_COL.
+*&    - 3 grid columns (ZZAFLD0000V2 / TT / TW): REQUIRED on ZRAK_T_JNY_COL.
 *&      PERS_INFO itself also carries REQUIRED = 'X' and that is a
 *&      prerequisite, not decoration: MISSING_REQUIRED skips a field whose own
 *&      IS_REQUIRED is false before it reaches the per-column loop.
 *&    - CONTRACT_PLACE / DIVORCEE_PARTNER / DIVORCER_PARTNER are filled by a
-*&      popup or by ON_INIT, never typed. MISSING_REQUIRED reads their REQUIRED
-*&      flag like any other field now: it no longer filters on the READONLY
-*&      flag, and 'READONLY' is no longer on its excluded-FTYPE list either.
-*&      They carry READONLY = 'X' on FTYPE 'INPUT' for the highlight rather than
-*&      the enforcement - see the note in ZRAK_C022_LOAD. Only DIVORCEE_PARTNER
-*&      was ever a real gap - the other two are seeded in ON_INIT - and the
-*&      hand-written guard in ON_CUSTOM_VALIDATE is now a transitional duplicate
-*&      of the engine's own check, to be removed once the engine is confirmed
-*&      active in SAP.
+*&      popup or by ON_INIT, never typed. FTYPE 'READONLY', and MISSING_REQUIRED
+*&      reads their REQUIRED flag like any other field's. Only DIVORCEE_PARTNER
+*&      can actually be left blank; the other two are seeded in ON_INIT. Their
+*&      MSG / MSG_AR give the citizen a sentence naming the party rather than
+*&      the engine's generic one.
 *&   Deliberately NOT required: FIRST_MARR_CTR_DT and PREV_DIVORCES_COUNT
 *&   are made mandatory by rules R02 / R04 when EARLIER_MARRIAGES = 1;
 *&   CHILDREN_UNDER_21 stays optional: its control G_TAKEOFF_ZZAFLD0000UL
@@ -1195,20 +1294,16 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
 *&   STC_DIV_MARR_TAKEOFF_1, which AS3 sets to 0.
 *&   ON_CHANGE still clears the dependents on every trigger change; only the
 *&   EDITABLE / READONLY / REQUIRE toggles are declarative.
-*&  MESSAGE TEXTS — the required-field messages are the ENGINE's, not this
-*&   class's and not the WD's: ZCL_RAK_TEXT msgno 013 ('&1 is required' /
-*&   '&1 مطلوب') and 051 ('&1: attachment is required' / '&1: المرفق مطلوب'),
-*&   with &1 replaced by the field's ZLABEL or ZLABEL_AR, overridable per
-*&   journey through ZRAK_T_CJ_TXT. This class sets no MSG on any field.
-*&   The date / witness / duplicate-party errors below ARE the WD's, resolved
-*&   from its own OTR aliases. The divorcee message is the one text written
-*&   here, as a literal by sy-langu: the WD had no message for it, and
-*&   GET_OTR_TEXT_FOR_ALIAS returns BLANK on no_entry_found, which would block
-*&   the step with an empty strip.
-*&   KNOWN GAP: the grid-column message is built inline in MISSING_REQUIRED as
-*&   |<column> is required on every row of <grid>| with no Arabic twin, so
-*&   those three columns report in English even on an Arabic journey. Engine
-*&   side, not fixable from here.
+*&  MESSAGE TEXTS — three sources, in the order MISSING_REQUIRED consults them.
+*&   A field's own MSG / MSG_AR on ZRAK_T_JNY_FLD wins where the loader sets
+*&   one, which it does wherever the WD had a specific sentence to honour or
+*&   where a generic one would name nothing (the parties, the divorcee).
+*&   Otherwise the ENGINE's own text: ZCL_RAK_TEXT msgno 013 ('&1 is required')
+*&   and 051 ('&1: attachment is required'), &1 replaced by the field's ZLABEL
+*&   or ZLABEL_AR, overridable per journey through ZRAK_T_CJ_TXT.
+*&   The date / witness / duplicate-party errors are the WD's, resolved from
+*&   its own OTR aliases. The count-field and grid-cell rules below are worded
+*&   here, because neither the WD nor the engine has a sentence for them.
 *&  CONFIRMATIONS (defaults in place):
 *&   - step codes MARR/DIVO/HIST/PRTY/DOCS (ZRAK_T_JNY_STEP.STEP_ID); no PAY step.
 *&   - DOCUMENT_TYPE filter iv_attach='AD01' — fixed value, no mapping.
@@ -1242,10 +1337,9 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
 *&     dummies fire only when SKIP_WITNESS = 'X'. AS3 is WITH_WITNESS = 'X'
 *&     (skip blank), so it does not fire.
 *&
-*& HONEST STATUS: fully ported and grounded in the WD source + engine
-*& accessors, with the mandatory fields now on and cross-checked against the
-*& live WD's blank-Submit error list. Nothing in this class has been compiled
-*& or run by its author — activation and a live pass are the reader's.
+*& STATUS: ported from the WD source, activated, and walked end to end on the
+*& live journey - the mandatory set cross-checked against the WD's own
+*& blank-Submit error list, and every validation below seen to fire.
 *&---------------------------------------------------------------------*
 *& ON_INIT — journey open: seed SERVICE_TYPE, header/help, texts, card
 *& Folds: e_get_help_url, get_header_title, get_new_header_title,
@@ -1308,16 +1402,14 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     " and does nothing.
 
     "   Origin: (fill_dropdown_all row-build) — PERS_INFO is a fixed 2-row
-    " EDITABLE_TABLE. The WD seeds the two rows with the partner-function CODE
-    DATA(ls_seed) = io_ctx->get_grid_data( 'PERS_INFO' ).   " columns; rows empty at load
+    " EDITABLE_TABLE seeded with the partner-function code, as the WD does.
+    " GET_GRID_DATA returns the configured columns with no rows at load.
+    DATA(ls_seed) = io_ctx->get_grid_data( 'PERS_INFO' ).
     IF ls_seed-rows IS INITIAL.
       DATA(lv_v2_i) = line_index( ls_seed-columns[ table_line = 'ZZAFLD0000V2' ] ).
-      DATA(lv_txt_i) = line_index( ls_seed-columns[ table_line = 'PARTY_TYPE_TXT' ] ).
       DATA lt_r1 TYPE zif_rak_journey=>tt_string.
       DATA lt_r2 TYPE zif_rak_journey=>tt_string.
       DATA lv_ncols TYPE i.
-      DATA lv_t_divorcer TYPE string.
-      DATA lv_t_divorcee TYPE string.
       CLEAR: lt_r1, lt_r2.
       lv_ncols = lines( ls_seed-columns ).
       DO lv_ncols TIMES.
@@ -1325,32 +1417,16 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         APPEND `` TO lt_r2.
       ENDDO.
       " exactly two rows, fixed: row 1 = Divorcer, row 2 = Divorcee. V2 carries
-      " the partner-function CODE, exactly as the WD sends it. The visible
-      " "Partner type" column is PARTY_TYPE_TXT, which is NOT a component of
-      " ZST_EGA_COURT_SERVICE_STR_TAB1, so the ON_SUBMIT column loop skips it
-      " and it never reaches the backend - the same trick the <COL>_EN gates
-      " use. It exists because the engine cannot render the WD's read-only
-      " dropdown: a readonly SELECT cell shows the stored KEY, not the option
-      " text (one cell template serves every row, so there is nowhere to
-      " resolve a key per row), and the engine's own guidance is to store the
-      " label beside the key. ZZAFLD0000V0 is left untouched and hidden, which
-      " is what the WD does with it (set_visible( visibility_none ), never
-      " written) - it used to carry this label and was posting a value the
-      " legacy screen never sent.
+      " the partner-function CODE, exactly as the WD sends it, and is also the
+      " visible "Partner type" column - a read-only SELECT, which RENDER_GRID
+      " resolves to its option label per row through ON_VALUE_HELP. Only the
+      " code is seeded; nothing here writes the label.
+      " ZZAFLD0000V0 is left untouched and hidden, which is what the WD does
+      " with it (set_visible( visibility_none ), never written) - it used to
+      " carry the label and was posting a value the legacy screen never sent.
       IF lv_v2_i > 0.
         lt_r1[ lv_v2_i ] = '1'.   " Divorcer
         lt_r2[ lv_v2_i ] = '2'.   " Divorcee
-      ENDIF.
-      IF sy-langu = 'A'.
-        lv_t_divorcer = 'المطلق'.
-        lv_t_divorcee = 'المطلقة'.
-      ELSE.
-        lv_t_divorcer = 'Divorcer'.
-        lv_t_divorcee = 'Divorcee'.
-      ENDIF.
-      IF lv_txt_i > 0.
-        lt_r1[ lv_txt_i ] = lv_t_divorcer.
-        lt_r2[ lv_txt_i ] = lv_t_divorcee.
       ENDIF.
       APPEND lt_r1 TO ls_seed-rows.
       APPEND lt_r2 TO ls_seed-rows.
@@ -1566,7 +1642,11 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     ls_header_ext-zzafld0000uv = io_ctx->get_val( 'CASE_UPON_DIVORCE' ).
     ls_header_ext-zzafld0000uw = io_ctx->get_val( 'MARR_CONSUMMATED' ).
     ls_header_ext-zzafld0000ux = io_ctx->get_val( 'ISOLATION' ).
-    ls_header_ext-zzafld0000v3 = io_ctx->get_val( 'WIVES_COUNT_HUSBAND' ). " NUMC
+*   Leading zeros stripped before the assignment. ZZAFLD0000V3 is CHAR(1), so
+*   it keeps the FIRST character of whatever it is given: '09' arrived in the
+*   backend as '0'. COUNT_CHECK already refuses a second digit on the step, so
+*   this is the backstop for a value that reached ON_SUBMIT another way.
+    ls_header_ext-zzafld0000v3 = digits_only( io_ctx->get_val( 'WIVES_COUNT_HUSBAND' ) ).
     ls_header_ext-zzafld0000um = io_ctx->get_val( 'PREV_DIVORCES_COUNT' ). " NUMC
     ls_header_ext-zzafld0000uy = io_ctx->get_val( 'EARLIER_MARRIAGES' ).
     ls_header_ext-zzafld0000ub = conv_date_internal( io_ctx->get_val( 'DIV_KHULA_DATE' ) ).
@@ -1775,6 +1855,10 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         rt = options_from_domain( 'ZADTEL0001S6' ).              " Main profession
       WHEN 'PERS_INFO.ZZAFLD0000TZ'.
         rt = options_from_domain( 'ZADTEL0001S8' ).              " Employer Emirate
+      WHEN 'PERS_INFO.ZZAFLD0000V2'.
+*       Read-only, so this is never a dropdown the citizen opens: RENDER_GRID
+*       asks for the options to resolve each row's stored key to its label.
+        rt = party_type_opts( ).                                 " Partner type
 
       WHEN OTHERS.
     ENDCASE.

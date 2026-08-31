@@ -19,11 +19,31 @@
        <TYP>WWWPARAMS-OBJID</TYP>
       </RSIMP>
      </IMPORT>
+     <EXPORT>
+      <RSEXP>
+       <PARAMETER>ET_CATEGORY</PARAMETER>
+       <TYP>ZCJ_Z2UI5_CATEGOTY_TB</TYP>
+      </RSEXP>
+      <RSEXP>
+       <PARAMETER>ET_CONTROLS</PARAMETER>
+       <TYP>ZCJ_Z2UI5_CONTROLS_TB</TYP>
+      </RSEXP>
+     </EXPORT>
      <DOCUMENTATION>
       <RSFDO>
        <PARAMETER>IV_NAME</PARAMETER>
        <KIND>P</KIND>
        <STEXT>SAP WWW Gateway Object Name</STEXT>
+      </RSFDO>
+      <RSFDO>
+       <PARAMETER>ET_CATEGORY</PARAMETER>
+       <KIND>P</KIND>
+       <STEXT>Category</STEXT>
+      </RSFDO>
+      <RSFDO>
+       <PARAMETER>ET_CONTROLS</PARAMETER>
+       <KIND>P</KIND>
+       <STEXT>Controls</STEXT>
       </RSFDO>
      </DOCUMENTATION>
     </item>

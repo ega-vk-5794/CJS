@@ -1,8 +1,8 @@
-CLASS zcl_e128_renew_berth_logic DEFINITION
-  PUBLIC
-  INHERITING FROM zcl_rak_journey_logic
-  FINAL
-  CREATE PUBLIC.
+class ZCL_E128_RENEW_BERTH_LOGIC definition
+  public
+  inheriting from ZCL_RAK_JOURNEY_LOGIC
+  final
+  create public .
 
 *   Handler for E128 - Renew Berth Contract
 *   (legacy NE128_1_*, seeded by ZRAK_E128_LOAD).
@@ -51,13 +51,45 @@ CLASS zcl_e128_renew_berth_logic DEFINITION
 *   to that rule - it would silently take the decision away from it. That
 *   is the exact mistake that had E015 and E027 showing the owner lookup
 *   backwards.
-  PUBLIC SECTION.
-    METHODS zif_rak_journey_logic~on_change     REDEFINITION.
-    METHODS zif_rak_journey_logic~on_after_read REDEFINITION.
+public section.
 
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+protected section.
   PRIVATE SECTION.
     CONSTANTS c_applicant_type TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
     CONSTANTS c_validity       TYPE string VALUE 'VALIDITY_YEAR1'  ##NO_TEXT.
+    CONSTANTS c_step_lease     TYPE i      VALUE 1.
+    CONSTANTS c_partner_owner_1 TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
+    CONSTANTS c_permit_yes TYPE string VALUE 'PERMIT_YES' ##NO_TEXT.
+    CONSTANTS c_min_search_len TYPE i      VALUE 3.
+    CONSTANTS c_default_idtype TYPE string VALUE 'YFS002'.
+    CONSTANTS c_owner_bp       TYPE string VALUE 'OWNER_BP'.
+    CONSTANTS c_permit_no      TYPE string VALUE 'PERMIT_NUMBER'.
+    CONSTANTS c_permit_detail  TYPE string VALUE 'PERMIT_DETAIL'.
+    CONSTANTS c_app_name       TYPE string VALUE 'APP_NAME'.
+    CONSTANTS c_app_id         TYPE string VALUE 'APP_ID'.
+    CONSTANTS c_app_mobile     TYPE string VALUE 'APP_MOBILE'.
+    CONSTANTS c_app_email      TYPE string VALUE 'APP_EMAIL'.
+    CONSTANTS c_login_bp       TYPE string VALUE 'LOGIN_BP'.
+    CONSTANTS c_lang_en        TYPE string VALUE 'E' ##NO_TEXT.
+    CONSTANTS c_app_role       TYPE string VALUE 'APP_ROLE'.
+    CONSTANTS c_permit_mode    TYPE string VALUE 'PERMIT_MODE'.
+    CONSTANTS c_permit_number  TYPE string VALUE 'PERMIT_NUMBER'.
+
+    CONSTANTS c_owner_bp_idtype  TYPE string VALUE 'OWNER_BP_IDTYPE'.
+    CONSTANTS c_owner_name  TYPE string VALUE 'OWNER_NAME'.
+    CONSTANTS c_owner_mobile  TYPE string VALUE 'OWNER_MOBILE'.
+    CONSTANTS c_owner_email  TYPE string VALUE 'OWNER_EMAIL'.
+    CONSTANTS c_owner_dob  TYPE string VALUE 'OWNER_DOB'.
+    CONSTANTS c_owner_nationality  TYPE string VALUE 'OWNER_NATIONALITY'.
+    CONSTANTS c_owner_seg  TYPE string VALUE 'APP_ROLE'.
+    CONSTANTS c_owner  TYPE string VALUE 'OWNER'.
+    CONSTANTS c_rep  TYPE string VALUE 'REP'.
 
 *   Write EVERY flag in a group on every change, not only the chosen one.
 *   The citizen who picks Representative after picking Owner must leave
@@ -149,4 +181,54 @@ CLASS ZCL_E128_RENEW_BERTH_LOGIC IMPLEMENTATION.
       WHEN OTHERS.
     ENDCASE.
   ENDMETHOD.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_INIT.
+      DATA: lv_loginbp TYPE bu_partner.
+      lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+      DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+      DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
+
+      IF lv_loginbp IS INITIAL AND syst-sysid = 'E10'.
+        lv_loginbp = '1000116563'.
+      ENDIF.
+
+      IF lv_loginbp IS NOT INITIAL.
+        NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+          EXPORTING
+            iv_bp_id      = lv_loginbp
+          IMPORTING
+            es_bp_details = DATA(ls_bp) ).
+
+        io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+
+        IF sy-langu = c_lang_en.
+          io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name ) ).
+        ELSE.
+          io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+        ENDIF.
+
+        io_ctx->set_val( iv_name = c_app_id     iv_value = CONV #( ls_bp-emirates_id ) ).
+        io_ctx->set_val( iv_name = c_app_mobile iv_value = CONV #( ls_bp-mobile_number ) ).
+        io_ctx->set_val( iv_name = c_app_email  iv_value = CONV #( ls_bp-email_address ) ).
+*      io_ctx->set_val( iv_name = c_app_role iv_value = |{ lv_role }| ).
+        io_ctx->set_val( iv_name = c_app_role iv_value = |{ c_rep }| ).
+
+
+      ELSE.
+
+
+*      io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '3000180559' ). "'1000116563' )
+*      io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '1000116563' ). "'1000116563' ).
+*
+**    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
+*      io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
+**    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
+*      io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
+*
+**    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+*      io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
+
+      ENDIF.
+  endmethod.
 ENDCLASS.
