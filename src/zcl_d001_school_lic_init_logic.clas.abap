@@ -277,16 +277,29 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       WHEN c_evt_ownok.
 *       Validate before writing. Closing on an incomplete row and complaining
 *       behind the dialog makes the citizen reopen it and guess what was wrong.
+*       Nationality and Shares used to be able to slip through unfilled - the
+*       Nationality branch didn't exist and the Shares branch never RETURNed.
         IF io_ctx->get_val( c_identity )  IS INITIAL
            OR io_ctx->get_val( c_id ) IS INITIAL
-           OR io_ctx->get_val( c_dob ) IS INITIAL.
+           OR io_ctx->get_val( c_dob ) IS INITIAL
+           OR io_ctx->get_val( c_nat ) IS INITIAL.
 
           io_ctx->add_msg( iv_type = 'Warning'
                            iv_text = 'Kindly fill required details.' ).
           RETURN.
-        ELSEIF  io_ctx->get_val( c_share ) IS INITIAL.
+        ELSEIF io_ctx->get_val( c_share ) IS INITIAL.
           io_ctx->add_msg( iv_type = 'Warning'
                            iv_text = 'Kindly enter shares as 100' ).
+          RETURN.
+        ENDIF.
+
+*       784-XXXX-XXXXXXX-X - the same shape as the field's own placeholder.
+        DATA(lv_eid_chk) = condense( io_ctx->get_val( c_id ) ).
+        FIND REGEX '^784-\d{4}-\d{7}-\d$' IN lv_eid_chk.
+        IF sy-subrc <> 0.
+          io_ctx->add_msg( iv_type = 'Warning'
+                           iv_text = 'Emirates ID must be in the format 784-XXXX-XXXXXXX-X.' ).
+          RETURN.
         ENDIF.
 
         own_form_save( io_ctx ).
@@ -621,32 +634,27 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
   METHOD own_form_load.
 *"Whenever ADD OWNER is clicked pop-up should not have any values.
-    io_ctx->set_val( iv_name = c_identity iv_value = '' ).
+    io_ctx->set_val( iv_name = c_identity iv_value = '1' ).    " only option (EID) - nothing to pick
     io_ctx->set_val( iv_name = c_id iv_value = '' ).
     io_ctx->set_val( iv_name = c_nat iv_value = '' ).
     io_ctx->set_val( iv_name = C_DOB iv_value = '' ).
     io_ctx->set_val( iv_name = c_share iv_value = '' ).
 
-
-*    IF iv_id IS INITIAL.
-**     New owner. The id is minted NOW and not on save, because the uploaders in
-**     the dialog key their files on it - a file attached before the row exists
-**     still has to belong to the right person.
-*      io_ctx->set_val( iv_name  = c_own_id
-*                       iv_value = 'YFS002' ).
-*      RETURN.
-*    ENDIF.
+    IF iv_id IS INITIAL.
+*     New owner. The id is minted NOW and not on save, because the uploaders in
+*     the dialog key their files on it - a file attached before the row exists
+*     still has to belong to the right person. This used to mint the SAME
+*     fixed id for every new owner, so OWN_FORM_SAVE's "does this id already
+*     exist" check matched the first owner every time and every later Add
+*     overwrote them instead of appending - a timestamp is unique per press.
+      DATA lv_ts TYPE timestampl.
+      GET TIME STAMP FIELD lv_ts.
+      io_ctx->set_val( iv_name  = c_own_id
+                       iv_value = |{ lv_ts }| ).
+      RETURN.
+    ENDIF.
 
     io_ctx->set_val( iv_name = c_own_id iv_value = iv_id ).
-*    LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
-*      CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) = iv_id.
-*      io_ctx->set_val( iv_name = c_identity  iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
-*      io_ctx->set_val( iv_name = c_id   iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
-*      io_ctx->set_val( iv_name = c_nat   iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
-*      io_ctx->set_val( iv_name = c_share iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
-*      EXIT.
-*    ENDLOOP.
-
   ENDMETHOD.
 
 
@@ -755,10 +763,11 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       DATA(lv_no) = VALUE string( lt_r[ 3 ] OPTIONAL ).
       DATA(lv_eadd)  = VALUE string( lt_r[ 4 ] OPTIONAL ).
       DATA(lv_shr) = VALUE string( lt_r[ 5 ] OPTIONAL ).
-     " DATA(lv_id_typ)  = VALUE string( lt_r[ 6 ] OPTIONAL ).
-      DATA(lv_eid) = VALUE string( lt_r[ 6 ] OPTIONAL ).
-      "DATA(lv_pass)  = VALUE string( lt_r[ 8 ] OPTIONAL ).
-      DATA(lv_nat) = VALUE string( lt_r[ 7 ] OPTIONAL ).
+*     Row layout is the one OWN_FORM_SAVE writes: 6 id type, 7 Emirates ID,
+*     8 passport, 9 nationality - reading 6/7 here showed the id type under
+*     the name and the Emirates ID in the Nationality column.
+      DATA(lv_eid) = VALUE string( lt_r[ 7 ] OPTIONAL ).
+      DATA(lv_nat) = VALUE string( lt_r[ 9 ] OPTIONAL ).
 
 **     How many files this owner has. Counting them here is the only way the
 **     citizen can see, from the list, whose documents are still missing.
@@ -850,10 +859,12 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *   Two per row, the way the legacy dialog laid it out.
     DATA(lo_r1) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
     DATA(lo_c1) = lo_r1->vbox( class = 'rakCell' ).
-    lo_c1->label( text = 'Identificatoin' class = 'rakReq' ).
-*    lo_c1->select( value = io_ctx->bind( c_identity ) width = '17rem' ).
-    lo_c1->combobox( selectedkey = io_ctx->bind(  c_identity )
-   placeholder = 'select'
+    lo_c1->label( text = 'Identification' class = 'rakReq' ).
+*   Emirates ID is the only option, and OWN_FORM_LOAD now defaults it - so
+*   there is nothing left for the citizen to pick from this dropdown.
+    lo_c1->combobox( selectedkey = io_ctx->bind( c_identity )
+                      editable    = abap_false
+                      placeholder = 'select'
       )->item( key = '1'     text = 'Emirates ID' ).
 *      )->item( key = '2'    text = 'Passport' ).
     DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
@@ -871,12 +882,14 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
 * Birth date
     DATA(lo_c3) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c3->label( text = 'Birth Date' ).
-    lo_c3->input( value = io_ctx->bind( c_dob ) width = '17rem' ).
-*  Ntionality
+    lo_c3->label( text = 'Birth Date' class = 'rakReq' ).
+    lo_c3->date_picker( value         = io_ctx->bind( c_dob )
+                        width         = '17rem'
+                        valueformat   = 'yyyy-MM-dd'
+                        displayformat = 'dd.MM.yyyy' ).
+*  Nationality
     DATA(lo_c4) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c4->label( text = 'Nationality' ).
-*    lo_c4->input( value = io_ctx->bind( c_nat ) width = '17rem' ).
+    lo_c4->label( text = 'Nationality' class = 'rakReq' ).
     lo_c4->combobox( selectedkey = io_ctx->bind( c_nat )
         placeholder = 'select'
         )->item( key = '1'     text = 'Afghanistan'
@@ -1002,18 +1015,31 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *   to tell them apart, and the delete button beside a chip would remove
 *   somebody else's document.
     lo_c->title( text = 'Documents' class = 'rakBlkTitle sapUiSmallMarginTop' ).
-    lo_c->label( text = 'Emirates ID Copy' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'MAIN_DOC' iv_key = lv_id ).
-    lo_c->label( text = 'Passport Copy' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'PASS' iv_key = lv_id ).
-    lo_c->label( text = 'Introductory Statement' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'INTRO' iv_key = lv_id ).
-    lo_c->label( text = 'Criminal Clearance certificate' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'CRIMCC' iv_key = lv_id ).
-    lo_c->label( text = 'Curriculum Vitae' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'CURR' iv_key = lv_id ).
-    lo_c->label( text = 'Family Book' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'FBOOK' iv_key = lv_id ).
+
+*   Two per row, the same rakRow/rakCell layout as the fields above.
+    DATA(lo_dr1) = lo_c->hbox( class = 'rakRow' ).
+    DATA(lo_d1)  = lo_dr1->vbox( class = 'rakCell' ).
+    lo_d1->label( text = 'Emirates ID Copy' ).
+    io_ctx->render_upload( io_view = lo_d1 iv_field = 'MAIN_DOC' iv_key = lv_id ).
+    DATA(lo_d2)  = lo_dr1->vbox( class = 'rakCell' ).
+    lo_d2->label( text = 'Passport Copy' ).
+    io_ctx->render_upload( io_view = lo_d2 iv_field = 'PASS' iv_key = lv_id ).
+
+    DATA(lo_dr2) = lo_c->hbox( class = 'rakRow' ).
+    DATA(lo_d3)  = lo_dr2->vbox( class = 'rakCell' ).
+    lo_d3->label( text = 'Introductory Statement' ).
+    io_ctx->render_upload( io_view = lo_d3 iv_field = 'INTRO' iv_key = lv_id ).
+    DATA(lo_d4)  = lo_dr2->vbox( class = 'rakCell' ).
+    lo_d4->label( text = 'Criminal Clearance certificate' ).
+    io_ctx->render_upload( io_view = lo_d4 iv_field = 'CRIMCC' iv_key = lv_id ).
+
+    DATA(lo_dr3) = lo_c->hbox( class = 'rakRow' ).
+    DATA(lo_d5)  = lo_dr3->vbox( class = 'rakCell' ).
+    lo_d5->label( text = 'Curriculum Vitae' ).
+    io_ctx->render_upload( io_view = lo_d5 iv_field = 'CURR' iv_key = lv_id ).
+    DATA(lo_d6)  = lo_dr3->vbox( class = 'rakCell' ).
+    lo_d6->label( text = 'Family Book' ).
+    io_ctx->render_upload( io_view = lo_d6 iv_field = 'FBOOK' iv_key = lv_id ).
 
 
 * Add button on pop-up
@@ -1060,9 +1086,16 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     "to see existing details and edit it
     LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
       CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) = iv_id.
-      io_ctx->set_val( iv_name = c_identity  iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = c_id   iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = c_nat   iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
+*     Keep the row's own key so OWN_FORM_SAVE updates this row on Add rather
+*     than appending a duplicate.
+      io_ctx->set_val( iv_name = c_own_id  iv_value = iv_id ).
+*     Row layout is the one OWN_FORM_SAVE writes: 6 id type, 7 Emirates ID,
+*     8 passport, 9 nationality. Reading columns 2-4 (name/mobile/email) put
+*     the mobile number into the Emirates ID field and left Identification
+*     matching nothing in the dropdown, so it rendered blank.
+      io_ctx->set_val( iv_name = c_identity  iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_id   iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_nat   iv_value = VALUE #( lt_r[ 9 ] OPTIONAL ) ).
       io_ctx->set_val( iv_name = c_share iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
       EXIT.
     ENDLOOP.
