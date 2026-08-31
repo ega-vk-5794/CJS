@@ -873,115 +873,28 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
                           displayformat = 'dd.MM.yyyy' ).
 
     lo_form->label( text = 'Nationality' class = 'rakReq' ).
-    lo_form->combobox( selectedkey = io_ctx->bind( c_nat )
-        placeholder = 'select'
-        )->item( key = '1'     text = 'Afghanistan'
-        )->item( key = '2'     text = 'Antigua/Barbuda'
-        )->item( key = '3'     text = 'Anguilla'
-        )->item( key = '4'     text = 'Armenia'
-        )->item( key = '5'     text = 'Dutch Antilles'
-        )->item( key = '6'     text = 'Angola'
-        )->item( key = '7'     text = 'Antarctica'
-        )->item( key = '8'     text = 'Argentina'
-        )->item( key = '9'     text = 'Samoa, America'
-        )->item( key = '10'   text = 'Austria'
-        )->item( key = '11'    text = 'Australia'
-        )->item( key = '12'   text = 'Aruba'
-        )->item( key = '13'    text = 'Azerbaijan'
-        )->item( key = '14'    text = 'Bosnia-Herz'
-        )->item( key = '15'    text = 'Barbados'
-        )->item( key = '16'    text = 'Bangladesh'
-        )->item( key = '17'    text = 'Belgium'
-        )->item( key = '18'    text = 'Burkina Faso'
-        )->item( key = '19'    text = 'Bahrain'
-        )->item( key = '20'   text = 'Burundi'
-        )->item( key = '21'    text = 'Benin'
-        )->item( key = '22'   text = 'Blue'
-        )->item( key = '23'    text = 'Bermuda'
-        )->item( key = '24'    text = 'Bulgaria'
-        )->item( key = '25'    text = 'Brunei Daruss'
-        )->item( key = '26'    text = 'Bolivia'
-        )->item( key = '27'    text = 'Brazil'
-        )->item( key = '28'    text = 'Bahamas'
-        )->item( key = '29'    text = 'Bhutan'
-        )->item( key = '30'    text = 'Bouvet Islands'
-        )->item( key = '31'    text = 'Botswana'
-        )->item( key = '32'    text = 'Belize'
-        )->item( key = '33'    text = 'Canada'
-        )->item( key = '34'    text = 'Coconut Islands'
-        )->item( key = '35'    text = 'Dem. Rep. Congo'
-        )->item( key = '36'    text = 'CAR'
-        )->item( key = '37'    text = 'Rep.of Congo'
-        )->item( key = '38'    text = 'Switzerland'
-        )->item( key = '39'    text = 'Cote dlvoire'
-        )->item( key = '40'    text = 'Cook Islands'
-        )->item( key = '41'    text = 'Chile'
-        )->item( key = '42'    text = 'Cameroon'
-        )->item( key = '43'    text = 'China'
-        )->item( key = '44'    text = 'Colombia'
-        )->item( key = '45'    text = 'Costa Rica'
-        )->item( key = '46'    text = 'Serbia/Monten'
-        )->item( key = '47'    text = 'Cuba'
-        )->item( key = '48'    text = 'Cape Verde'
-        )->item( key = '49'    text = 'Christmas island'
-        )->item( key = '50'    text = 'Cyprus'
-        )->item( key = '51'    text = 'Czech Replublic'
-        )->item( key = '52'    text = 'Germany'
-        )->item( key = '53'    text = 'Djibouti'
-        )->item( key = '54'    text = 'Denmark'
-        )->item( key = '55'    text = 'Dominican Rep.'
-        )->item( key = '56'    text = 'Algeria'
-        )->item( key = '57'    text = 'Ecuador'
-        )->item( key = '58'    text = 'Estonia'
-        )->item( key = '59'    text = 'Egypt'
-        )->item( key = '60'    text = 'West Sahara'
-        )->item( key = '61'    text = 'Eritrea'
-        )->item( key = '62'    text = 'Spain'
-        )->item( key = '63'    text = 'Ethiopia'
-        )->item( key = '64'    text = 'European union'
-        )->item( key = '65'    text = 'Finland'
-        )->item( key = '66'    text = 'Fiji'
-        )->item( key = '67'    text = 'Falkland Islnds'
-        )->item( key = '68'    text = 'Micronesia'
-        )->item( key = '69'    text = 'Faroe islands'
-        )->item( key = '70'    text = 'France'
-        )->item( key = '71'    text = 'Gabon'
-        )->item( key = '72'    text = 'United Kingdom'
-        )->item( key = '73'    text = 'Grenada'
-        )->item( key = '74'    text = 'Georgia'
-        )->item( key = '75'    text = 'French Guayana'
-        )->item( key = '76'    text = 'Ghana'
-        )->item( key = '77'    text = 'Gibraltar'
-        )->item( key = '78'    text = 'Greenland'
-        )->item( key = '79'    text = 'Gambia'
-        )->item( key = '80'    text = 'Guinea'
-        )->item( key = '81'    text = 'Guadeloupe'
-        )->item( key = '82'    text = 'Equatorial Guin'
-        )->item( key = '83'    text = 'Greece'
-        )->item( key = '84'    text = 'S. Sandwich Ins'
-        )->item( key = '85'    text = 'Guantemala'
-        )->item( key = '86'    text = 'Guam'
-        )->item( key = '87'    text = 'Guinea-Bissau'
-        )->item( key = '88'    text = 'Guyana'
-        )->item( key = '89'    text = 'Hong Kong'
-        )->item( key = '90'    text = 'Heard/McDon.Isl'
-        )->item( key = '91'    text = 'Honduras'
-        )->item( key = '92'    text = 'Croatia'
-        )->item( key = '93'    text = 'Hailti'
-        )->item( key = '94'    text = 'Hungary'
-        )->item( key = '95'    text = 'Indonesia'
-        )->item( key = '96'    text = 'Ireland'
-        )->item( key = '97'    text = 'India'
-        )->item( key = '98'    text = 'Brit.Ind.Oc.Ter'
-        )->item( key = '99'    text = 'Iraq'
-        )->item( key = '100'   text = 'Iran'
-        )->item( key = '101'   text = 'Iceland'
-        )->item( key = '102'   text = 'Italy'
-        )->item( key = '103'   text = 'Jamaica'
-        )->item( key = '104'   text = 'Jordan'
-        )->item( key = '105'   text = 'Japan'
-        )->item( key = '106'   text = 'Kenya'
-        ).
+    DATA(lo_nat) = lo_form->combobox( selectedkey = io_ctx->bind( c_nat )
+                                      placeholder = 'select' ).
+*   T005T, not a hand-typed list. The 106-item literal this replaced stopped
+*   at "Kenya" and never had United Arab Emirates in it at all - or anything
+*   else L through Z. Same source ZCL_RAK_BP_POPUP already reads for its own
+*   nationality dropdown, so a country missing here can't happen again the
+*   same way, and it comes back correctly per language for free.
+    SELECT land1 AS key, landx50 AS text
+      FROM t005t
+      WHERE spras = @sy-langu
+      ORDER BY land1 ASCENDING
+      INTO TABLE @DATA(lt_nat).
+    IF lt_nat IS INITIAL AND sy-langu <> 'E'.
+      SELECT land1 AS key, landx50 AS text
+        FROM t005t
+        WHERE spras = 'E'
+        ORDER BY land1 ASCENDING
+        INTO TABLE @lt_nat.
+    ENDIF.
+    LOOP AT lt_nat INTO DATA(ls_nat).
+      lo_nat->item( key = ls_nat-key text = ls_nat-text ).
+    ENDLOOP.
 
     lo_form->label( text = 'Shares %' class = 'rakReq' ).
     lo_form->input( value = io_ctx->bind( c_share ) type = 'Number' ).

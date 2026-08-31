@@ -138,6 +138,49 @@ CLASS zcl_rak_text DEFINITION
 *       does not exist until the request is approved is the normal case, and
 *       an empty viewer reads as one still loading.
         pdf_none      TYPE symsgno VALUE '075',
+*       ZCL_RAK_BP_POPUP - the reusable Partner Search dialog. Framework text
+*       because the popup itself is shared infrastructure, not one journey's
+*       wording - every field label and section title in it used to be a bare
+*       ABAP literal, so it rendered in English even on an Arabic run.
+        bpp_title       TYPE symsgno VALUE '076',
+        bpp_search_by   TYPE symsgno VALUE '077',
+        bpp_eid         TYPE symsgno VALUE '078',
+        bpp_passport_ne TYPE symsgno VALUE '079',
+        bpp_unified_ne  TYPE symsgno VALUE '080',
+        bpp_trade_lic   TYPE symsgno VALUE '081',
+        bpp_passport_no TYPE symsgno VALUE '082',
+        bpp_unified_id  TYPE symsgno VALUE '083',
+        bpp_dob         TYPE symsgno VALUE '084',
+        bpp_nat         TYPE symsgno VALUE '085',
+        bpp_pass_type   TYPE symsgno VALUE '086',
+        bpp_general     TYPE symsgno VALUE '087',
+        bpp_contact     TYPE symsgno VALUE '088',
+        bpp_address     TYPE symsgno VALUE '089',
+        bpp_first_name  TYPE symsgno VALUE '090',
+        bpp_father_name TYPE symsgno VALUE '091',
+        bpp_grand_name  TYPE symsgno VALUE '092',
+        bpp_fourth_name TYPE symsgno VALUE '093',
+        bpp_last_name   TYPE symsgno VALUE '094',
+        bpp_gender      TYPE symsgno VALUE '095',
+        bpp_id_no       TYPE symsgno VALUE '096',
+        bpp_id_exp      TYPE symsgno VALUE '097',
+        bpp_unified_num TYPE symsgno VALUE '098',
+        bpp_pp_issue    TYPE symsgno VALUE '099',
+        bpp_pp_country  TYPE symsgno VALUE '100',
+        bpp_pp_exp      TYPE symsgno VALUE '101',
+        bpp_occupation  TYPE symsgno VALUE '102',
+        bpp_mobile      TYPE symsgno VALUE '103',
+        bpp_email       TYPE symsgno VALUE '104',
+        bpp_telephone   TYPE symsgno VALUE '105',
+        bpp_country     TYPE symsgno VALUE '106',
+        bpp_region      TYPE symsgno VALUE '107',
+        bpp_city        TYPE symsgno VALUE '108',
+        bpp_street      TYPE symsgno VALUE '109',
+        bpp_house_no    TYPE symsgno VALUE '110',
+        bpp_pobox       TYPE symsgno VALUE '111',
+        bpp_resume      TYPE symsgno VALUE '112',
+        bpp_use_partner TYPE symsgno VALUE '113',
+        bpp_partner_no  TYPE symsgno VALUE '114',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -366,7 +409,52 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
         ar = `يجب إتمام عملية الدفع قبل الإرسال.` )
       ( msgno = c_no-pdf_none
         en = `No document to display yet.`
-        ar = `لا يوجد مستند للعرض حتى الآن.` ) ).
+        ar = `لا يوجد مستند للعرض حتى الآن.` )
+      ( msgno = c_no-bpp_title       en = `Partner Search`              ar = `البحث عن الشريك` )
+      ( msgno = c_no-bpp_search_by   en = `Search By`                   ar = `البحث بواسطة` )
+      ( msgno = c_no-bpp_eid         en = `Emirates ID`                 ar = `الهوية الإماراتية` )
+      ( msgno = c_no-bpp_passport_ne
+        en = `Passport (Non EID Holder only)`
+        ar = `جواز السفر (لغير حاملي الهوية الإماراتية فقط)` )
+      ( msgno = c_no-bpp_unified_ne
+        en = `Unified ID (Non EID Holder only)`
+        ar = `الرقم الموحد (لغير حاملي الهوية الإماراتية فقط)` )
+      ( msgno = c_no-bpp_trade_lic   en = `Trade License Number`        ar = `رقم الرخصة التجارية` )
+      ( msgno = c_no-bpp_passport_no en = `Passport Number`             ar = `رقم جواز السفر` )
+      ( msgno = c_no-bpp_unified_id  en = `Unified ID`                  ar = `الرقم الموحد` )
+      ( msgno = c_no-bpp_dob         en = `Date of Birth`               ar = `تاريخ الميلاد` )
+      ( msgno = c_no-bpp_nat         en = `Nationality`                 ar = `الجنسية` )
+      ( msgno = c_no-bpp_pass_type   en = `Passport Type`               ar = `نوع جواز السفر` )
+      ( msgno = c_no-bpp_general     en = `General Info`                ar = `معلومات عامة` )
+      ( msgno = c_no-bpp_contact     en = `Contact Info`                ar = `معلومات الاتصال` )
+      ( msgno = c_no-bpp_address     en = `Address Info`                ar = `معلومات العنوان` )
+      ( msgno = c_no-bpp_first_name  en = `First Name`                  ar = `الاسم الأول` )
+      ( msgno = c_no-bpp_father_name en = `Father Name`                 ar = `اسم الأب` )
+      ( msgno = c_no-bpp_grand_name  en = `Grandfather Name`            ar = `اسم الجد` )
+      ( msgno = c_no-bpp_fourth_name en = `Fourth Name`                 ar = `الاسم الرابع` )
+      ( msgno = c_no-bpp_last_name   en = `Last Name`                   ar = `اسم العائلة` )
+      ( msgno = c_no-bpp_gender      en = `Gender`                      ar = `الجنس` )
+      ( msgno = c_no-bpp_id_no       en = `ID Number`                   ar = `رقم الهوية` )
+      ( msgno = c_no-bpp_id_exp      en = `ID Expiry date`              ar = `تاريخ انتهاء الهوية` )
+      ( msgno = c_no-bpp_unified_num en = `Unified Number`              ar = `الرقم الموحد` )
+      ( msgno = c_no-bpp_pp_issue    en = `Date of passport Issue`      ar = `تاريخ إصدار جواز السفر` )
+      ( msgno = c_no-bpp_pp_country
+        en = `Country of passport Issue`
+        ar = `بلد إصدار جواز السفر` )
+      ( msgno = c_no-bpp_pp_exp      en = `Passport Expiry Date`        ar = `تاريخ انتهاء جواز السفر` )
+      ( msgno = c_no-bpp_occupation  en = `Occupation`                  ar = `المهنة` )
+      ( msgno = c_no-bpp_mobile      en = `Mobile Number`               ar = `رقم الهاتف المتحرك` )
+      ( msgno = c_no-bpp_email       en = `Email`                       ar = `البريد الإلكتروني` )
+      ( msgno = c_no-bpp_telephone   en = `Telephone`                   ar = `الهاتف` )
+      ( msgno = c_no-bpp_country     en = `Country Of Living`           ar = `بلد الإقامة` )
+      ( msgno = c_no-bpp_region      en = `Region`                      ar = `المنطقة` )
+      ( msgno = c_no-bpp_city        en = `City`                        ar = `المدينة` )
+      ( msgno = c_no-bpp_street      en = `Street Name`                 ar = `اسم الشارع` )
+      ( msgno = c_no-bpp_house_no    en = `Home Number`                 ar = `رقم المنزل` )
+      ( msgno = c_no-bpp_pobox       en = `PO Box`                      ar = `صندوق البريد` )
+      ( msgno = c_no-bpp_resume      en = `Resume Search`               ar = `استئناف البحث` )
+      ( msgno = c_no-bpp_use_partner en = `Use this partner`            ar = `استخدام هذا الشريك` )
+      ( msgno = c_no-bpp_partner_no  en = `Partner &1`                  ar = `الشريك &1` ) ).
   ENDMETHOD.
 
 
