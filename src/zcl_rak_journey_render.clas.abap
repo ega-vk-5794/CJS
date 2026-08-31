@@ -120,6 +120,13 @@ CLASS zcl_rak_journey_render DEFINITION
     DATA mo_lbl_tgt   TYPE REF TO z2ui5_cl_xml_view.
     METHODS pay_field IMPORTING iv_index       TYPE i
                       RETURNING VALUE(rv_name) TYPE string.
+*   {FIELDNAME} in a resolved LONG_TEXT( ) - e.g. a declaration reading
+*   "I, {APPLICANTNAME}, certify..." - substituted with that field's
+*   current value. Only ever touches text that actually contains braces,
+*   so a journey with no placeholders renders exactly as it did before
+*   this existed. This is what D001 and E026 both left an unimplemented
+*   "REVIEW: substitute {APPLICANT_NAME}" comment waiting on.
+    METHODS subst_fields CHANGING cv_text TYPE string.
     METHODS status_state IMPORTING iv_value     TYPE string
                                    iv_map       TYPE string OPTIONAL
                          RETURNING VALUE(rv_st) TYPE string.
@@ -2601,6 +2608,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       rv_text = zcl_rak_text=>long( iv_journey = mo_e->ms_config-journey_id
                                     iv_field   = is_field-name
                                     iv_default = is_field-label ).
+      subst_fields( CHANGING cv_text = rv_text ).
       RETURN.
     ENDIF.
 
@@ -2615,6 +2623,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *     so an Arabic reader sees whatever was configured here. Use the @ form
 *     when that matters.
       rv_text = lv_body.
+      subst_fields( CHANGING cv_text = rv_text ).
       RETURN.
     ENDIF.
 
@@ -2631,6 +2640,33 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       CATCH cx_root.
         rv_text = is_field-label.
     ENDTRY.
+    subst_fields( CHANGING cv_text = rv_text ).
+  ENDMETHOD.
+
+
+  METHOD subst_fields.
+    IF cv_text NS '{'.
+      RETURN.
+    ENDIF.
+
+    DATA lt_match TYPE match_result_tab.
+    FIND ALL OCCURRENCES OF REGEX '\{([A-Za-z_][A-Za-z0-9_]*)\}' IN cv_text
+         RESULTS lt_match.
+
+*   Backwards, so an earlier replacement's length change never shifts the
+*   offset a later one still needs. FIND ALL OCCURRENCES returns matches
+*   left to right, so working from the last index down to the first walks
+*   the string right to left.
+    DATA(lv_ix) = lines( lt_match ).
+    WHILE lv_ix > 0.
+      READ TABLE lt_match INTO DATA(ls_match) INDEX lv_ix.
+      DATA(lv_field) = to_upper( substring( val = cv_text
+                                            off = ls_match-submatches[ 1 ]-offset
+                                            len = ls_match-submatches[ 1 ]-length ) ).
+      REPLACE SECTION OFFSET ls_match-offset LENGTH ls_match-length OF cv_text
+              WITH mo_e->zif_rak_journey~get_val( lv_field ).
+      lv_ix = lv_ix - 1.
+    ENDWHILE.
   ENDMETHOD.
 
 

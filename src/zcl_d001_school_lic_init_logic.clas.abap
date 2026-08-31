@@ -195,8 +195,9 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     DELETE ct_kv WHERE key = 'DECLARE'.
     DELETE ct_kv WHERE key = 'ACCEPTTERMS'.
 
-    " REVIEW: substitute {APPLICANT_NAME} in the DECLARE field's rendered
-    " text once the source field for the applicant/owner name is confirmed.
+    " {APPLICANT_NAME} in the DECLARE field's rendered text is now
+    " substituted live by ZCL_RAK_JOURNEY_RENDER->LONG_TEXT( ), from the
+    " APPLICANT_NAME/APPLICANTNAME values ON_INIT sets - see there.
   ENDMETHOD.
 
 
@@ -475,10 +476,19 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
           es_bp_details = DATA(ls_bp) ).
 
 *      "Applicant Name
+*      Set under both spellings: the DECLARE field's config text carries
+*      the placeholder as {APPLICANT_NAME} (with the underscore, per the
+*      REVIEW comment on ON_BEFORE_POST), while this journey's own model
+*      field has always been APPLICANTNAME (without it). RENDER_LONG_TEXT's
+*      new {FIELDNAME} substitution reads whichever name is actually in
+*      the text, so both need a value or the declaration renders with the
+*      applicant's name blank instead of the placeholder text itself.
       IF sy-langu = 'E'.
-        io_ctx->set_val( iv_name = 'APPLICANTNAME' iv_value = CONV #( ls_bp-bp_name ) ).
+        io_ctx->set_val( iv_name = 'APPLICANTNAME'  iv_value = CONV #( ls_bp-bp_name ) ).
+        io_ctx->set_val( iv_name = 'APPLICANT_NAME' iv_value = CONV #( ls_bp-bp_name ) ).
       ELSE.
-        io_ctx->set_val( iv_name = 'APPLICANTNAME' iv_value = CONV #( ls_bp-bp_name_ar ) ).
+        io_ctx->set_val( iv_name = 'APPLICANTNAME'  iv_value = CONV #( ls_bp-bp_name_ar ) ).
+        io_ctx->set_val( iv_name = 'APPLICANT_NAME' iv_value = CONV #( ls_bp-bp_name_ar ) ).
       ENDIF.
 
 *      "Emirates Id/Applicant ID
