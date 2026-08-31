@@ -223,9 +223,22 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
     CASE iv_step.
       WHEN 1.   " step 2 "Partners"
-*       DATA(lv_owners) = io_ctx->get_val( 'OWNERS_SEARCH' ).
 
-*        DATA(lv_owners) = io_ctx->get_val( 'GS_DATA-OWNERS[]' ).
+        DATA(ls_g)  = io_ctx->get_grid_data( c_grid ).
+
+        LOOP AT ls_g-rows INTO DATA(lt_r).
+          DATA(lv_id)  = VALUE string( lt_r[ 1 ] OPTIONAL ).
+          DATA(lv_nam)  = VALUE string( lt_r[ 2 ] OPTIONAL ).
+          DATA(lv_no) = VALUE string( lt_r[ 3 ] OPTIONAL ).
+          DATA(lv_eadd)  = VALUE string( lt_r[ 4 ] OPTIONAL ).
+          DATA(lv_shr) = VALUE string( lt_r[ 5 ] OPTIONAL ).
+
+          IF lv_id IS INITIAL OR lv_nam IS INITIAL OR lv_eadd IS INITIAL OR lv_shr IS INITIAL.
+            rt = VALUE #( ( type = 'Error' text = 'Add at least one owner before continuing.' ) ).
+            Return.
+          ENDIF.
+        ENDLOOP.
+
 *
 *        IF lv_owners IS INITIAL.
 *          rt = VALUE #( ( type = 'Error' text = 'Add at least one owner before continuing.' ) ).
@@ -471,8 +484,15 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *      "Emirates Id/Applicant ID
       io_ctx->set_val( iv_name = 'APPLICANT_ID' iv_value = CONV #( ls_bp-emirates_id ) ).
 
+*      "Applicant Type
+      io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = CONV #( 'Investor' ) ).
+
+
 *      "Login BP
       io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
+
+*      "Nationality
+       io_ctx->set_val( iv_name = 'NATIONALITY'  iv_value = CONV #( ls_bp-NATIONALITY_TX ) ).
 
     ENDIF.
 
@@ -531,18 +551,6 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
         render_own_popup( io_ctx = io_ctx io_popup = io_popup ).
         RETURN.
 
-*        A DIALOG_FORM( ) call was tried here directly and reverted - it broke
-*        the Add flow. IT_FIELDS-NAME needs the model field NAME (a string
-*        like 'ID_TYPE'), not the ABAP CONSTANT'S NAME as a literal - 'c_identity'
-*        is not a field on this journey, so binding to it silently does
-*        nothing (see CLAUDE.md's "field name not on the journey" trap), and
-*        every mandatory check below reads the REAL constant and always saw
-*        it blank. DIALOG_FORM( ) also has no 'SEARCH' or 'UPLOAD' field type
-*        - both fall through to a plain text input - and it can only hold one
-*        upload field where the owner needs six. RENDER_OWN_POPUP( ) already
-*        gives the same two-column layout DIALOG_FORM( ) uses, with a working
-*        search icon on the Emirates ID field and working attachments -
-*        see that method for the up to date implementation.
 *        dialog_form(
 *          io_ctx     = io_ctx
 *          io_popup   = io_popup
@@ -878,6 +886,7 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
                     showvaluehelp    = abap_true
                     valuehelprequest = io_ctx->event( c_evt_ownsr )
                     submit           = io_ctx->event( c_evt_ownsr ) ).
+            lo_form->button( text = 'Check' press = io_ctx->event( c_evt_ownsr ) ).
 
     lo_form->label( text = 'Birth Date' class = 'rakReq' ).
     lo_form->date_picker( value         = io_ctx->bind( c_dob )
