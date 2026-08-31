@@ -277,16 +277,29 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       WHEN c_evt_ownok.
 *       Validate before writing. Closing on an incomplete row and complaining
 *       behind the dialog makes the citizen reopen it and guess what was wrong.
+*       Nationality and Shares used to be able to slip through unfilled - the
+*       Nationality branch didn't exist and the Shares branch never RETURNed.
         IF io_ctx->get_val( c_identity )  IS INITIAL
            OR io_ctx->get_val( c_id ) IS INITIAL
-           OR io_ctx->get_val( c_dob ) IS INITIAL.
+           OR io_ctx->get_val( c_dob ) IS INITIAL
+           OR io_ctx->get_val( c_nat ) IS INITIAL.
 
           io_ctx->add_msg( iv_type = 'Warning'
                            iv_text = 'Kindly fill required details.' ).
           RETURN.
-        ELSEIF  io_ctx->get_val( c_share ) IS INITIAL.
+        ELSEIF io_ctx->get_val( c_share ) IS INITIAL.
           io_ctx->add_msg( iv_type = 'Warning'
                            iv_text = 'Kindly enter shares as 100' ).
+          RETURN.
+        ENDIF.
+
+*       784-XXXX-XXXXXXX-X - the same shape as the field's own placeholder.
+        DATA(lv_eid_chk) = condense( io_ctx->get_val( c_id ) ).
+        FIND REGEX '^784-\d{4}-\d{7}-\d$' IN lv_eid_chk.
+        IF sy-subrc <> 0.
+          io_ctx->add_msg( iv_type = 'Warning'
+                           iv_text = 'Emirates ID must be in the format 784-XXXX-XXXXXXX-X.' ).
+          RETURN.
         ENDIF.
 
         own_form_save( io_ctx ).
@@ -515,28 +528,49 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     CASE iv_id.
       WHEN c_trigger_popup.  " On click of 'Add Owner' button on second page"
 *        "Not using Dialog form here as i need search button as well.
-*        render_own_popup( io_ctx = io_ctx io_popup = io_popup ).
-*        RETURN.
-
-        dialog_form(
-          io_ctx     = io_ctx
-          io_popup   = io_popup
-          iv_title   = 'Owner Details'
-          it_fields  = VALUE #(
-                                ( name = 'OWNERS_SEARCH'        label = 'Detail' type = 'SEARCH' )
-                                ( name = 'c_identity'  label = 'Identification'  placeholder = 'Emirates ID' )
-                                ( name = 'c_id'     label = 'Emirates Id' )
-                                ( name = 'c_dob'   label = 'Date of Birth' type = 'DATE' )
-                                ( name = 'c_nat'     label = 'Nationality'  shlp = 'H_T005' )
-                                ( name = 'c_share'          label = 'Shares' placeholder = '%' )
-                                ( name = 'EMI_COPY_POP'        label = 'Emirates ID copy' type = 'UPLOAD' )
-
-                              )
-          iv_ok_text = 'Add'
-          iv_ok_evt  = c_evt_ownok
-          iv_cxl_evt = c_evt_owncx ).
-
+        render_own_popup( io_ctx = io_ctx io_popup = io_popup ).
         RETURN.
+
+*        A DIALOG_FORM( ) call was tried here directly and reverted - it broke
+*        the Add flow. IT_FIELDS-NAME needs the model field NAME (a string
+*        like 'ID_TYPE'), not the ABAP CONSTANT'S NAME as a literal - 'c_identity'
+*        is not a field on this journey, so binding to it silently does
+*        nothing (see CLAUDE.md's "field name not on the journey" trap), and
+*        every mandatory check below reads the REAL constant and always saw
+*        it blank. DIALOG_FORM( ) also has no 'SEARCH' or 'UPLOAD' field type
+*        - both fall through to a plain text input - and it can only hold one
+*        upload field where the owner needs six. RENDER_OWN_POPUP( ) already
+*        gives the same two-column layout DIALOG_FORM( ) uses, with a working
+*        search icon on the Emirates ID field and working attachments -
+*        see that method for the up to date implementation.
+*        dialog_form(
+*          io_ctx     = io_ctx
+*          io_popup   = io_popup
+*          iv_title   = 'Owner Details'
+*          it_fields  = VALUE #(
+*                                ( name = c_hs_pop           label = 'HS Code'  )
+*                                ( name = c_mat_pop          label = 'Material Name' )
+*                                ( name = c_chem_pop         label = 'Chemical Name' )
+*                                ( name = c_cas_no_pop       label = 'CAS Number' maxlen = 20 )
+*                                ( name = c_chem_form_pop    label = 'Chemical Formula' )
+*                                ( name = c_packaging_pop    label = 'Packing' )
+*                                ( name = c_quantity_pop     label = 'Quantity'  )
+*                                ( name = c_gross_weight_pop label = 'Gross Weight'  type = 'Number' )
+*                                ( name = c_unit_pop         label = 'Unit' "rollname = 'MEINS' )
+*                                type = 'SELECT'
+*                                options = VALUE #( ( key = 'GAL' text = 'Gallon' )
+*                                                     ( key = 'KG'  text = 'Kilogram' )
+*                                                     ( key = 'LIT' text = 'Liter' )
+*                                                     ( key = 'MAT' text = 'Metric Ton' ) ) )
+*                                ( name = c_invoice_pop      label = 'Invoice Number'  )
+*                                ( name = c_import_pop       label = 'Importing Country' shlp = 'H_T005'  )
+*                                ( name = c_exit_port_pop    label = 'Exit Port'  )
+*                                ( name = c_bol_pop          label = 'Bill of Lading'  )
+*                                ( name = c_tport_pop        label = 'Transport Details'  )
+*                              )
+*          iv_ok_text = 'Add'
+*          iv_ok_evt  = c_evt_ownok
+*          iv_cxl_evt = c_evt_owncx ).
 
       WHEN OTHERS.
     ENDCASE.
@@ -612,32 +646,27 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
   METHOD own_form_load.
 *"Whenever ADD OWNER is clicked pop-up should not have any values.
-    io_ctx->set_val( iv_name = c_identity iv_value = '' ).
+    io_ctx->set_val( iv_name = c_identity iv_value = '1' ).    " only option (EID) - nothing to pick
     io_ctx->set_val( iv_name = c_id iv_value = '' ).
     io_ctx->set_val( iv_name = c_nat iv_value = '' ).
     io_ctx->set_val( iv_name = C_DOB iv_value = '' ).
     io_ctx->set_val( iv_name = c_share iv_value = '' ).
 
-
-*    IF iv_id IS INITIAL.
-**     New owner. The id is minted NOW and not on save, because the uploaders in
-**     the dialog key their files on it - a file attached before the row exists
-**     still has to belong to the right person.
-*      io_ctx->set_val( iv_name  = c_own_id
-*                       iv_value = 'YFS002' ).
-*      RETURN.
-*    ENDIF.
+    IF iv_id IS INITIAL.
+*     New owner. The id is minted NOW and not on save, because the uploaders in
+*     the dialog key their files on it - a file attached before the row exists
+*     still has to belong to the right person. This used to mint the SAME
+*     fixed id for every new owner, so OWN_FORM_SAVE's "does this id already
+*     exist" check matched the first owner every time and every later Add
+*     overwrote them instead of appending - a timestamp is unique per press.
+      DATA lv_ts TYPE timestampl.
+      GET TIME STAMP FIELD lv_ts.
+      io_ctx->set_val( iv_name  = c_own_id
+                       iv_value = |{ lv_ts }| ).
+      RETURN.
+    ENDIF.
 
     io_ctx->set_val( iv_name = c_own_id iv_value = iv_id ).
-*    LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
-*      CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) = iv_id.
-*      io_ctx->set_val( iv_name = c_identity  iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
-*      io_ctx->set_val( iv_name = c_id   iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
-*      io_ctx->set_val( iv_name = c_nat   iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
-*      io_ctx->set_val( iv_name = c_share iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
-*      EXIT.
-*    ENDLOOP.
-
   ENDMETHOD.
 
 
@@ -746,10 +775,11 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       DATA(lv_no) = VALUE string( lt_r[ 3 ] OPTIONAL ).
       DATA(lv_eadd)  = VALUE string( lt_r[ 4 ] OPTIONAL ).
       DATA(lv_shr) = VALUE string( lt_r[ 5 ] OPTIONAL ).
-     " DATA(lv_id_typ)  = VALUE string( lt_r[ 6 ] OPTIONAL ).
-      DATA(lv_eid) = VALUE string( lt_r[ 6 ] OPTIONAL ).
-      "DATA(lv_pass)  = VALUE string( lt_r[ 8 ] OPTIONAL ).
-      DATA(lv_nat) = VALUE string( lt_r[ 7 ] OPTIONAL ).
+*     Row layout is the one OWN_FORM_SAVE writes: 6 id type, 7 Emirates ID,
+*     8 passport, 9 nationality - reading 6/7 here showed the id type under
+*     the name and the Emirates ID in the Nationality column.
+      DATA(lv_eid) = VALUE string( lt_r[ 7 ] OPTIONAL ).
+      DATA(lv_nat) = VALUE string( lt_r[ 9 ] OPTIONAL ).
 
 **     How many files this owner has. Counting them here is the only way the
 **     citizen can see, from the list, whose documents are still missing.
@@ -801,187 +831,85 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
   METHOD render_own_popup.
 
-    TYPES:
-      BEGIN OF ty_id_type,
-        key  TYPE string,
-        text TYPE string,
-      END OF ty_id_type.
-    DATA:lt_id_type TYPE TABLE OF ty_id_type,
-         ls_id_type TYPE ty_id_type.
-
-    ls_id_type-key = 1.
-    ls_id_type-text = 'EID'.
-
-    APPEND ls_id_type TO lt_id_type.
-
-*  ONE dialog: the owner's details and their documents. No search, no drill-
-*   down, no second popup - the list is on the step behind and this is the form
-*   that adds one line to it.
+*   ONE dialog: the owner's details and their documents. No drill-down, no
+*   second popup - the list is on the step behind and this is the form that
+*   adds one line to it.
     DATA(lv_id) = io_ctx->get_val( c_own_id ).
 
-    DATA(lo_dlg) = io_popup->dialog( title = 'Owner' contentwidth = '40rem' ).
+    DATA(lo_dlg) = io_popup->dialog( title = 'Owner' contentwidth = '54rem' ).
     DATA(lo_c)   = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
 
-*              )->label( text = 'Emirates ID'
-*              )->input( value = io_ctx->bind( 'EMIRATES_ID' ) width      = `50%`
-*              )->button( text = 'Search' press = io_ctx->event( c_evt_ownsr )  type  = 'Emphasized' icon  = 'sap-icon://search'
-*
-*    ).
+    lo_c->title( text = 'Owner Details' class = 'rakBlkTitle' ).
 
-*   Search sits ON the section title, not under the Emirates ID field, because
-*   it acts on the whole form: type the ID, press Search, and the rest fills in.
-    DATA(lo_hdr) = lo_c->hbox( justifycontent = 'SpaceBetween' alignitems = 'Center' ).
-    lo_hdr->title( text = 'Owner Details' class = 'rakBlkTitle' ).
-    lo_hdr->button( text  = 'Search'
-                    type  = 'Emphasized'
-                    icon  = 'sap-icon://search'
-                    press = io_ctx->event( c_evt_ownsr ) ).
+*   Same two-column SimpleForm/ResponsiveGridLayout combination DIALOG_FORM( )
+*   uses in ZCL_RAK_JOURNEY_LOGIC (it cannot be called directly here - it owns
+*   and closes its own dialog, with no room for the Documents section below -
+*   but its layout is copied so this reads like every other popup). Search
+*   moves off the section header and onto the Emirates ID field's own
+*   value-help icon, the same F4_EVT affordance DIALOG_FORM( ) offers per
+*   field; pressing it or Enter both still fire C_EVT_OWNSR into the
+*   on_popup_event handler below, unchanged.
+    DATA(lo_form) = lo_c->simple_form( editable                = abap_true
+                                       layout                  = 'ResponsiveGridLayout'
+                                       columnsxl               = '2'
+                                       columnsl                = '2'
+                                       columnsm                = '2'
+                                       labelspanxl             = '12'
+                                       labelspanl              = '12'
+                                       labelspanm              = '12'
+                                       adjustlabelspan         = 'false'
+                                       singlecontainerfullsize = abap_false
+      )->content( ns = 'form' ).
 
-
-*   Two per row, the way the legacy dialog laid it out.
-    DATA(lo_r1) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
-    DATA(lo_c1) = lo_r1->vbox( class = 'rakCell' ).
-    lo_c1->label( text = 'Identificatoin' class = 'rakReq' ).
-*    lo_c1->select( value = io_ctx->bind( c_identity ) width = '17rem' ).
-    lo_c1->combobox( selectedkey = io_ctx->bind(  c_identity )
-   placeholder = 'select'
+    lo_form->label( text = 'Identification' class = 'rakReq' ).
+*   Emirates ID is the only option, and OWN_FORM_LOAD now defaults it - so
+*   there is nothing left for the citizen to pick from this dropdown.
+    lo_form->combobox( selectedkey = io_ctx->bind( c_identity )
+                        editable    = abap_false
+                        placeholder = 'select'
       )->item( key = '1'     text = 'Emirates ID' ).
 *      )->item( key = '2'    text = 'Passport' ).
-    DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
 
-
-
-    lo_c2->label( text = 'Emirates ID' class = 'rakReq' ).
-*   Enter in the ID box does the same as pressing Search. Somebody who has just
+    lo_form->label( text = 'Emirates ID' class = 'rakReq' ).
+*   The search icon and Enter both do the same thing. Somebody who has just
 *   typed fifteen digits should not have to reach for the mouse.
-    lo_c2->input( value       = io_ctx->bind( c_id )
-                  width       = '17rem'
-                  placeholder = '784-xxxx-xxxxxxx-x'
-                  submit      = io_ctx->event( c_evt_ownsr ) ).
-    DATA(lo_r2) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
+    lo_form->input( value            = io_ctx->bind( c_id )
+                    placeholder      = '784-xxxx-xxxxxxx-x'
+                    showvaluehelp    = abap_true
+                    valuehelprequest = io_ctx->event( c_evt_ownsr )
+                    submit           = io_ctx->event( c_evt_ownsr ) ).
 
-* Birth date
-    DATA(lo_c3) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c3->label( text = 'Birth Date' ).
-    lo_c3->input( value = io_ctx->bind( c_dob ) width = '17rem' ).
-*  Ntionality
-    DATA(lo_c4) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c4->label( text = 'Nationality' ).
-*    lo_c4->input( value = io_ctx->bind( c_nat ) width = '17rem' ).
-    lo_c4->combobox( selectedkey = io_ctx->bind( c_nat )
-        placeholder = 'select'
-        )->item( key = '1'     text = 'Afghanistan'
-        )->item( key = '2'     text = 'Antigua/Barbuda'
-        )->item( key = '3'     text = 'Anguilla'
-        )->item( key = '4'     text = 'Armenia'
-        )->item( key = '5'     text = 'Dutch Antilles'
-        )->item( key = '6'     text = 'Angola'
-        )->item( key = '7'     text = 'Antarctica'
-        )->item( key = '8'     text = 'Argentina'
-        )->item( key = '9'     text = 'Samoa, America'
-        )->item( key = '10'   text = 'Austria'
-        )->item( key = '11'    text = 'Australia'
-        )->item( key = '12'   text = 'Aruba'
-        )->item( key = '13'    text = 'Azerbaijan'
-        )->item( key = '14'    text = 'Bosnia-Herz'
-        )->item( key = '15'    text = 'Barbados'
-        )->item( key = '16'    text = 'Bangladesh'
-        )->item( key = '17'    text = 'Belgium'
-        )->item( key = '18'    text = 'Burkina Faso'
-        )->item( key = '19'    text = 'Bahrain'
-        )->item( key = '20'   text = 'Burundi'
-        )->item( key = '21'    text = 'Benin'
-        )->item( key = '22'   text = 'Blue'
-        )->item( key = '23'    text = 'Bermuda'
-        )->item( key = '24'    text = 'Bulgaria'
-        )->item( key = '25'    text = 'Brunei Daruss'
-        )->item( key = '26'    text = 'Bolivia'
-        )->item( key = '27'    text = 'Brazil'
-        )->item( key = '28'    text = 'Bahamas'
-        )->item( key = '29'    text = 'Bhutan'
-        )->item( key = '30'    text = 'Bouvet Islands'
-        )->item( key = '31'    text = 'Botswana'
-        )->item( key = '32'    text = 'Belize'
-        )->item( key = '33'    text = 'Canada'
-        )->item( key = '34'    text = 'Coconut Islands'
-        )->item( key = '35'    text = 'Dem. Rep. Congo'
-        )->item( key = '36'    text = 'CAR'
-        )->item( key = '37'    text = 'Rep.of Congo'
-        )->item( key = '38'    text = 'Switzerland'
-        )->item( key = '39'    text = 'Cote dlvoire'
-        )->item( key = '40'    text = 'Cook Islands'
-        )->item( key = '41'    text = 'Chile'
-        )->item( key = '42'    text = 'Cameroon'
-        )->item( key = '43'    text = 'China'
-        )->item( key = '44'    text = 'Colombia'
-        )->item( key = '45'    text = 'Costa Rica'
-        )->item( key = '46'    text = 'Serbia/Monten'
-        )->item( key = '47'    text = 'Cuba'
-        )->item( key = '48'    text = 'Cape Verde'
-        )->item( key = '49'    text = 'Christmas island'
-        )->item( key = '50'    text = 'Cyprus'
-        )->item( key = '51'    text = 'Czech Replublic'
-        )->item( key = '52'    text = 'Germany'
-        )->item( key = '53'    text = 'Djibouti'
-        )->item( key = '54'    text = 'Denmark'
-        )->item( key = '55'    text = 'Dominican Rep.'
-        )->item( key = '56'    text = 'Algeria'
-        )->item( key = '57'    text = 'Ecuador'
-        )->item( key = '58'    text = 'Estonia'
-        )->item( key = '59'    text = 'Egypt'
-        )->item( key = '60'    text = 'West Sahara'
-        )->item( key = '61'    text = 'Eritrea'
-        )->item( key = '62'    text = 'Spain'
-        )->item( key = '63'    text = 'Ethiopia'
-        )->item( key = '64'    text = 'European union'
-        )->item( key = '65'    text = 'Finland'
-        )->item( key = '66'    text = 'Fiji'
-        )->item( key = '67'    text = 'Falkland Islnds'
-        )->item( key = '68'    text = 'Micronesia'
-        )->item( key = '69'    text = 'Faroe islands'
-        )->item( key = '70'    text = 'France'
-        )->item( key = '71'    text = 'Gabon'
-        )->item( key = '72'    text = 'United Kingdom'
-        )->item( key = '73'    text = 'Grenada'
-        )->item( key = '74'    text = 'Georgia'
-        )->item( key = '75'    text = 'French Guayana'
-        )->item( key = '76'    text = 'Ghana'
-        )->item( key = '77'    text = 'Gibraltar'
-        )->item( key = '78'    text = 'Greenland'
-        )->item( key = '79'    text = 'Gambia'
-        )->item( key = '80'    text = 'Guinea'
-        )->item( key = '81'    text = 'Guadeloupe'
-        )->item( key = '82'    text = 'Equatorial Guin'
-        )->item( key = '83'    text = 'Greece'
-        )->item( key = '84'    text = 'S. Sandwich Ins'
-        )->item( key = '85'    text = 'Guantemala'
-        )->item( key = '86'    text = 'Guam'
-        )->item( key = '87'    text = 'Guinea-Bissau'
-        )->item( key = '88'    text = 'Guyana'
-        )->item( key = '89'    text = 'Hong Kong'
-        )->item( key = '90'    text = 'Heard/McDon.Isl'
-        )->item( key = '91'    text = 'Honduras'
-        )->item( key = '92'    text = 'Croatia'
-        )->item( key = '93'    text = 'Hailti'
-        )->item( key = '94'    text = 'Hungary'
-        )->item( key = '95'    text = 'Indonesia'
-        )->item( key = '96'    text = 'Ireland'
-        )->item( key = '97'    text = 'India'
-        )->item( key = '98'    text = 'Brit.Ind.Oc.Ter'
-        )->item( key = '99'    text = 'Iraq'
-        )->item( key = '100'   text = 'Iran'
-        )->item( key = '101'   text = 'Iceland'
-        )->item( key = '102'   text = 'Italy'
-        )->item( key = '103'   text = 'Jamaica'
-        )->item( key = '104'   text = 'Jordan'
-        )->item( key = '105'   text = 'Japan'
-        )->item( key = '106'   text = 'Kenya'
-        ).
+    lo_form->label( text = 'Birth Date' class = 'rakReq' ).
+    lo_form->date_picker( value         = io_ctx->bind( c_dob )
+                          valueformat   = 'yyyy-MM-dd'
+                          displayformat = 'dd.MM.yyyy' ).
 
-*Shares
-    DATA(lo_c5) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c5->label( text = 'Shares %' class = 'rakReq' ).
-    lo_c5->input( value = io_ctx->bind( c_share ) type = 'Number' width = '17rem' ).
+    lo_form->label( text = 'Nationality' class = 'rakReq' ).
+    DATA(lo_nat) = lo_form->combobox( selectedkey = io_ctx->bind( c_nat )
+                                      placeholder = 'select' ).
+*   T005T, not a hand-typed list. The 106-item literal this replaced stopped
+*   at "Kenya" and never had United Arab Emirates in it at all - or anything
+*   else L through Z. Same source ZCL_RAK_BP_POPUP already reads for its own
+*   nationality dropdown, so a country missing here can't happen again the
+*   same way, and it comes back correctly per language for free.
+    SELECT land1 AS key, landx50 AS text
+      FROM t005t
+      WHERE spras = @sy-langu
+      ORDER BY land1 ASCENDING
+      INTO TABLE @DATA(lt_nat).
+    IF lt_nat IS INITIAL AND sy-langu <> 'E'.
+      SELECT land1 AS key, landx50 AS text
+        FROM t005t
+        WHERE spras = 'E'
+        ORDER BY land1 ASCENDING
+        INTO TABLE @lt_nat.
+    ENDIF.
+    LOOP AT lt_nat INTO DATA(ls_nat).
+      lo_nat->item( key = ls_nat-key text = ls_nat-text ).
+    ENDLOOP.
+
+    lo_form->label( text = 'Shares %' class = 'rakReq' ).
+    lo_form->input( value = io_ctx->bind( c_share ) type = 'Number' ).
 
 *   ---- their documents ------------------------------------------------
 *   iv_key is what makes a repeating list work. Every uploader here is keyed on
@@ -993,18 +921,31 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *   to tell them apart, and the delete button beside a chip would remove
 *   somebody else's document.
     lo_c->title( text = 'Documents' class = 'rakBlkTitle sapUiSmallMarginTop' ).
-    lo_c->label( text = 'Emirates ID Copy' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'MAIN_DOC' iv_key = lv_id ).
-    lo_c->label( text = 'Passport Copy' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'PASS' iv_key = lv_id ).
-    lo_c->label( text = 'Introductory Statement' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'INTRO' iv_key = lv_id ).
-    lo_c->label( text = 'Criminal Clearance certificate' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'CRIMCC' iv_key = lv_id ).
-    lo_c->label( text = 'Curriculum Vitae' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'CURR' iv_key = lv_id ).
-    lo_c->label( text = 'Family Book' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'FBOOK' iv_key = lv_id ).
+
+*   Two per row, the same rakRow/rakCell layout as the fields above.
+    DATA(lo_dr1) = lo_c->hbox( class = 'rakRow' ).
+    DATA(lo_d1)  = lo_dr1->vbox( class = 'rakCell' ).
+    lo_d1->label( text = 'Emirates ID Copy' ).
+    io_ctx->render_upload( io_view = lo_d1 iv_field = 'MAIN_DOC' iv_key = lv_id ).
+    DATA(lo_d2)  = lo_dr1->vbox( class = 'rakCell' ).
+    lo_d2->label( text = 'Passport Copy' ).
+    io_ctx->render_upload( io_view = lo_d2 iv_field = 'PASS' iv_key = lv_id ).
+
+    DATA(lo_dr2) = lo_c->hbox( class = 'rakRow' ).
+    DATA(lo_d3)  = lo_dr2->vbox( class = 'rakCell' ).
+    lo_d3->label( text = 'Introductory Statement' ).
+    io_ctx->render_upload( io_view = lo_d3 iv_field = 'INTRO' iv_key = lv_id ).
+    DATA(lo_d4)  = lo_dr2->vbox( class = 'rakCell' ).
+    lo_d4->label( text = 'Criminal Clearance certificate' ).
+    io_ctx->render_upload( io_view = lo_d4 iv_field = 'CRIMCC' iv_key = lv_id ).
+
+    DATA(lo_dr3) = lo_c->hbox( class = 'rakRow' ).
+    DATA(lo_d5)  = lo_dr3->vbox( class = 'rakCell' ).
+    lo_d5->label( text = 'Curriculum Vitae' ).
+    io_ctx->render_upload( io_view = lo_d5 iv_field = 'CURR' iv_key = lv_id ).
+    DATA(lo_d6)  = lo_dr3->vbox( class = 'rakCell' ).
+    lo_d6->label( text = 'Family Book' ).
+    io_ctx->render_upload( io_view = lo_d6 iv_field = 'FBOOK' iv_key = lv_id ).
 
 
 * Add button on pop-up
@@ -1051,9 +992,16 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     "to see existing details and edit it
     LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
       CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) = iv_id.
-      io_ctx->set_val( iv_name = c_identity  iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = c_id   iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = c_nat   iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
+*     Keep the row's own key so OWN_FORM_SAVE updates this row on Add rather
+*     than appending a duplicate.
+      io_ctx->set_val( iv_name = c_own_id  iv_value = iv_id ).
+*     Row layout is the one OWN_FORM_SAVE writes: 6 id type, 7 Emirates ID,
+*     8 passport, 9 nationality. Reading columns 2-4 (name/mobile/email) put
+*     the mobile number into the Emirates ID field and left Identification
+*     matching nothing in the dropdown, so it rendered blank.
+      io_ctx->set_val( iv_name = c_identity  iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_id   iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_nat   iv_value = VALUE #( lt_r[ 9 ] OPTIONAL ) ).
       io_ctx->set_val( iv_name = c_share iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
       EXIT.
     ENDLOOP.

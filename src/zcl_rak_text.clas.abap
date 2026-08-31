@@ -181,6 +181,14 @@ CLASS zcl_rak_text DEFINITION
         bpp_resume      TYPE symsgno VALUE '112',
         bpp_use_partner TYPE symsgno VALUE '113',
         bpp_partner_no  TYPE symsgno VALUE '114',
+*       ZCL_C022_KHULA_CERTI_LOGIC's own Partner Search popup - a separate,
+*       hand-drawn copy of ZCL_RAK_BP_POPUP's, not a call into it, so it
+*       needed its own pass through this catalogue. Two labels here are
+*       worded differently than their ZCL_RAK_BP_POPUP twin (Partner vs
+*       Partner &1, Phone Number vs Mobile Number) so they get their own
+*       entries rather than reusing bpp_partner_no / bpp_mobile.
+        bpp_partner     TYPE symsgno VALUE '115',
+        bpp_phone       TYPE symsgno VALUE '116',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -454,7 +462,9 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
       ( msgno = c_no-bpp_pobox       en = `PO Box`                      ar = `صندوق البريد` )
       ( msgno = c_no-bpp_resume      en = `Resume Search`               ar = `استئناف البحث` )
       ( msgno = c_no-bpp_use_partner en = `Use this partner`            ar = `استخدام هذا الشريك` )
-      ( msgno = c_no-bpp_partner_no  en = `Partner &1`                  ar = `الشريك &1` ) ).
+      ( msgno = c_no-bpp_partner_no  en = `Partner &1`                  ar = `الشريك &1` )
+      ( msgno = c_no-bpp_partner     en = `Partner`                     ar = `الشريك` )
+      ( msgno = c_no-bpp_phone       en = `Phone Number`                ar = `رقم الهاتف` ) ).
   ENDMETHOD.
 
 
