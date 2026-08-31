@@ -134,6 +134,15 @@ public section.
       IMPORTING io_ctx   TYPE REF TO zif_rak_journey
                 iv_field TYPE string.
     " ---- partner-search popup (drawn here; search via ZCL_RAK_BP_SEARCH) ----
+    " Short alias for ZCL_RAK_TEXT=>GET( ), the framework's EN/AR catalogue.
+    " This popup is a separate hand-drawn copy of ZCL_RAK_BP_POPUP's - not a
+    " call into that class - so its own labels were bare ABAP literals and
+    " never went through EN/AR resolution, unlike everything else on this
+    " journey's own config-driven steps.
+    METHODS bp_t
+      IMPORTING iv_no      TYPE symsgno
+                iv_default TYPE string
+      RETURNING VALUE(rv)  TYPE string.
     METHODS bp_fld
       IMPORTING iv_subject TYPE string
                 iv_suffix  TYPE string
@@ -220,6 +229,11 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD BP_T.
+    rv = zcl_rak_text=>get( iv_no = iv_no iv_default = iv_default ).
+  ENDMETHOD.
+
+
   METHOD BP_HANDLE.
     CASE iv_event.
       WHEN c_ev_bp_go.
@@ -278,7 +292,9 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
 
 
   METHOD BP_RENDER.
-    DATA(lo_dlg) = io_popup->dialog( title = 'Partner Search' contentwidth = '46rem' ).
+    DATA(lo_dlg) = io_popup->dialog(
+      title = bp_t( iv_no = zcl_rak_text=>c_no-bpp_title iv_default = 'Partner Search' )
+      contentwidth = '46rem' ).
 
     " ---- already found: show it, do not ask again ----------------------
     DATA(lv_partner) = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'PARTNER' ) ).
@@ -289,23 +305,23 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
             )->content( ns = 'form' ).
       lo_res->title( zcl_rak_journey_util=>esc(
       io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'NAME' ) ) ) ).
-      lo_res->label( 'Partner' ).
+      lo_res->label( bp_t( iv_no = zcl_rak_text=>c_no-bpp_partner iv_default = 'Partner' ) ).
       lo_res->text( zcl_rak_journey_util=>esc( lv_partner ) ).
-      lo_res->label( 'Nationality' ).
+      lo_res->label( bp_t( iv_no = zcl_rak_text=>c_no-bpp_nat iv_default = 'Nationality' ) ).
       lo_res->text( zcl_rak_journey_util=>esc(
       io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'NAT' ) ) ) ).
-      lo_res->label( 'Phone Number' ).
+      lo_res->label( bp_t( iv_no = zcl_rak_text=>c_no-bpp_phone iv_default = 'Phone Number' ) ).
       lo_res->text( zcl_rak_journey_util=>esc(
       io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'PHONE' ) ) ) ).
-      lo_res->label( 'Email' ).
+      lo_res->label( bp_t( iv_no = zcl_rak_text=>c_no-bpp_email iv_default = 'Email' ) ).
       lo_res->text( zcl_rak_journey_util=>esc(
       io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'EMAIL' ) ) ) ).
 
       DATA(lo_rb) = lo_dlg->buttons( ).
-      lo_rb->button( text  = 'Resume Search'
+      lo_rb->button( text  = bp_t( iv_no = zcl_rak_text=>c_no-bpp_resume iv_default = 'Resume Search' )
       icon  = 'sap-icon://synchronize'
       press = io_ctx->event( c_ev_bp_new ) ).
-      lo_rb->button( text  = 'Use this partner'
+      lo_rb->button( text  = bp_t( iv_no = zcl_rak_text=>c_no-bpp_use_partner iv_default = 'Use this partner' )
       type  = 'Emphasized'
       icon  = 'sap-icon://accept'
       press = io_ctx->event( c_ev_bp_cxl ) ).
@@ -319,38 +335,42 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
           columnsxl = '2' columnsl = '2' columnsm = '1'
           )->content( ns = 'form' ).
 
-    lo_form->label( 'Search By' ).
+    lo_form->label( bp_t( iv_no = zcl_rak_text=>c_no-bpp_search_by iv_default = 'Search By' ) ).
     DATA(lo_by) = lo_form->combobox(
           selectedkey = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'SEARCHBY' ) )
           change      = io_ctx->event( c_ev_bp_go ) ).
-    lo_by->item( key = c_bp_eid  text = 'Emirates ID' ).
-    lo_by->item( key = c_bp_pass text = 'Passport (Non EID Holder only)' ).
-    lo_by->item( key = c_bp_unif text = 'Unified ID (Non EID Holder only)' ).
-    lo_by->item( key = c_bp_tlic text = 'Trade License Number' ).
+    lo_by->item( key = c_bp_eid  text = bp_t( iv_no = zcl_rak_text=>c_no-bpp_eid iv_default = 'Emirates ID' ) ).
+    lo_by->item( key = c_bp_pass
+      text = bp_t( iv_no = zcl_rak_text=>c_no-bpp_passport_ne iv_default = 'Passport (Non EID Holder only)' ) ).
+    lo_by->item( key = c_bp_unif
+      text = bp_t( iv_no = zcl_rak_text=>c_no-bpp_unified_ne iv_default = 'Unified ID (Non EID Holder only)' ) ).
+    lo_by->item( key = c_bp_tlic
+      text = bp_t( iv_no = zcl_rak_text=>c_no-bpp_trade_lic iv_default = 'Trade License Number' ) ).
 
     " Nothing else until a type is chosen: the answer decides what the rest of the
     " form even is.
     IF lv_by IS INITIAL.
-      lo_dlg->buttons( )->button( text = 'Close' press = io_ctx->event( c_ev_bp_cxl ) ).
+      lo_dlg->buttons( )->button( text = bp_t( iv_no = zcl_rak_text=>c_no-close iv_default = 'Close' )
+                                  press = io_ctx->event( c_ev_bp_cxl ) ).
       RETURN.
     ENDIF.
 
     lo_form->label( SWITCH string( lv_by
-    WHEN c_bp_eid  THEN 'Emirates ID'
-    WHEN c_bp_pass THEN 'Passport Number'
-    WHEN c_bp_unif THEN 'Unified ID'
-    ELSE                'Trade License Number' ) ).
+    WHEN c_bp_eid  THEN bp_t( iv_no = zcl_rak_text=>c_no-bpp_eid         iv_default = 'Emirates ID' )
+    WHEN c_bp_pass THEN bp_t( iv_no = zcl_rak_text=>c_no-bpp_passport_no iv_default = 'Passport Number' )
+    WHEN c_bp_unif THEN bp_t( iv_no = zcl_rak_text=>c_no-bpp_unified_id  iv_default = 'Unified ID' )
+    ELSE                bp_t( iv_no = zcl_rak_text=>c_no-bpp_trade_lic   iv_default = 'Trade License Number' ) ) ).
     lo_form->input( value = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'IDNUM' ) ) ).
 
     " A trade licence is a company: no date of birth, no nationality.
     IF lv_by <> c_bp_tlic.
-      lo_form->label( 'Date of Birth' ).
+      lo_form->label( bp_t( iv_no = zcl_rak_text=>c_no-bpp_dob iv_default = 'Date of Birth' ) ).
       " DDMMYYYY on screen, YYYYMMDD in the value — the MOI cross-check compares
       " the dates as strings, so a display format would fail every comparison.
       lo_form->date_picker( value         = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'DOB' ) )
       displayformat = 'dd/MM/yyyy'
       valueformat   = 'yyyyMMdd' ).
-      lo_form->label( 'Nationality' ).
+      lo_form->label( bp_t( iv_no = zcl_rak_text=>c_no-bpp_nat iv_default = 'Nationality' ) ).
       DATA(lo_nat) = lo_form->combobox(
             selectedkey = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'NAT' ) ) ).
       LOOP AT bp_nationalities( ) INTO DATA(ls_n).
@@ -359,7 +379,7 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     ENDIF.
 
     IF lv_by = c_bp_pass.
-      lo_form->label( 'Passport Type' ).
+      lo_form->label( bp_t( iv_no = zcl_rak_text=>c_no-bpp_pass_type iv_default = 'Passport Type' ) ).
       DATA(lo_pt) = lo_form->combobox(
             selectedkey = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'PPTYPE' ) ) ).
       LOOP AT bp_doc_types( ) INTO DATA(ls_p).
@@ -368,11 +388,12 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     ENDIF.
 
     DATA(lo_btns) = lo_dlg->buttons( ).
-    lo_btns->button( text  = 'Search'
+    lo_btns->button( text  = bp_t( iv_no = zcl_rak_text=>c_no-search iv_default = 'Search' )
     type  = 'Emphasized'
     icon  = 'sap-icon://search'
     press = io_ctx->event( c_ev_bp_go ) ).
-    lo_btns->button( text = 'Close' press = io_ctx->event( c_ev_bp_cxl ) ).
+    lo_btns->button( text = bp_t( iv_no = zcl_rak_text=>c_no-close iv_default = 'Close' )
+                     press = io_ctx->event( c_ev_bp_cxl ) ).
   ENDMETHOD.
 
 
