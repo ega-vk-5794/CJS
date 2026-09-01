@@ -731,6 +731,24 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       ( ftype = 'SELECT'    api = 'VALUEHELP' eset = 'ValueHelpSet'
         domain = 'ZDE_EGA_ENTITY' )
 
+*     M028's building dialog is ONE control with five dropdowns inside it,
+*     not five configurable fields - so the five domains belong to the
+*     wrapper that draws it, not to this table. Recorded here so they are
+*     not re-derived, and they go in as constants when ZCL_RAK_VALUEHELP_API
+*     is written:
+*
+*       ZCJ_CTYPE  construction types  TIVBDAROBJTYPET aotype IN 10BU/10SB/50PF
+*       ZCJ_FTYPE  foundation types    TIVBDCHARACTT   005301/005302/005303
+*       ZCJ_BTYPE  building types      TIVBDARFUNCT    aotype = DomainFilter '10BU'
+*       ZCJ_BSYS   system types        TIVBDCHARACTT   003100..003104
+*       ZCJ_MUSGT  structure types     TIVBDCHARACTT   >= MU00 AND < MU25
+*
+*     None of the five is a domain: VALUEHELPSET_GET_ENTITYSET finds no
+*     fixed values, falls through to FILL_CUSTOM_DOMAIN( ) and selects from
+*     the real-estate tables. ZCJ_BTYPE is the only one that consults
+*     DomainFilter; the rest accept one and ignore it.
+      ( ftype = 'BUILDINGS' api = 'VALUEHELP' eset = 'ValueHelpSet' )
+
 *     ---- EPDA composites on journeys already migrated -----------------
 *     ChemicalHistorySet returns the citizen's PREVIOUS declarations for a
 *     permit and trade licence. E016/E017/E018 hand-built the dialog and

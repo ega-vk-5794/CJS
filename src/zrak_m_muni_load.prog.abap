@@ -67,9 +67,13 @@ REPORT zrak_m_muni_load.
 *&    part-way through the flow. Confirm the missing screens are genuinely
 *&    shared with NNTC and not simply absent from the export.
 *&
-*& 5. NRGR_1 EXISTS UNDER TWO CATEGORIES, GRANTS and PHD. EXTRACT_ROWS( )
-*&    filters on one category, so the PHD rows are silently dropped.
-*&    They are few, but "few" is not "none".
+*& 5. NRGR_1 EXISTS UNDER TWO CATEGORIES, GRANTS and PHD - SETTLED, no
+*&    action. EXTRACT_ROWS( ) filters on one category, so migrating M020
+*&    under GRANTS drops the PHD rows. The first live test run measured
+*&    that gap at exactly 2 rows (274 against the export's combined 276),
+*&    and the service owner has confirmed PHD is out of scope here. Left
+*&    as it is deliberately - do not "fix" it by widening the category
+*&    filter, which would pull PHD rows into a Municipality journey.
 *&
 *& 6. TWELVE OF THE FIFTEEN CARRY RAKPAY. The migrator DROPS PAYFEE and
 *&    counts it, because without HANDLER_CLASS the engine renders a red
