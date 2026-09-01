@@ -127,6 +127,9 @@ CLASS zcl_rak_journey_render DEFINITION
 *   this existed. This is what D001 and E026 both left an unimplemented
 *   "REVIEW: substitute {APPLICANT_NAME}" comment waiting on.
     METHODS subst_fields CHANGING cv_text TYPE string.
+*   The one place the finished view leaves the engine. See MV_VIEW_SIG on
+*   ZCL_RAK_JOURNEY_ENGINE for why it is not always VIEW_DISPLAY( ).
+    METHODS send_view IMPORTING iv_xml TYPE string.
     METHODS status_state IMPORTING iv_value     TYPE string
                                    iv_map       TYPE string OPTIONAL
                          RETURNING VALUE(rv_st) TYPE string.
@@ -343,7 +346,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       LOOP AT mo_e->mt_msg INTO DATA(ls_e).
         page->message_strip( text = zcl_rak_journey_util=>esc( ls_e-text ) type = ls_e-type showicon = abap_true class = 'sapUiSmallMargin' ).
       ENDLOOP.
-      mo_e->mo_client->view_display( view->stringify( ) ).
+      send_view( view->stringify( ) ).
       RETURN.
     ENDIF.
 
@@ -385,7 +388,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     IF mo_e->mv_submitted = abap_true OR mo_e->mv_closed = abap_true.
       render_result( io_parent = page is_field = VALUE #( name = '' type = 'RESULT' ) ).
       render_feedback( page ).
-      mo_e->mo_client->view_display( view->stringify( ) ).
+      send_view( view->stringify( ) ).
       render_popup( ).
       RETURN.
     ENDIF.
@@ -419,7 +422,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       ENDLOOP.
     ENDIF.
 
-    mo_e->mo_client->view_display( view->stringify( ) ).
+    send_view( view->stringify( ) ).
 
     render_popup( ).
   ENDMETHOD.
@@ -2670,6 +2673,52 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
               WITH mo_e->zif_rak_journey~get_val( lv_field ).
       lv_ix = lv_ix - 1.
     ENDWHILE.
+  ENDMETHOD.
+
+
+  METHOD send_view.
+*   WHY THIS EXISTS: VIEW_DISPLAY( ) replaces the whole XML view, so UI5 destroys
+*   and rebuilds the page. On a step that is only reacting to a dropdown that is
+*   a full repaint for no visual difference - the flicker, plus the lost scroll
+*   position and focus that come with it. VIEW_MODEL_UPDATE( ) instead sets
+*   CHECK_UPDATE_MODEL, which refreshes the bound values without touching the
+*   control tree, so anything ON_CHANGE( ) wrote server-side still reaches the
+*   screen. The side effects are not skipped - only the repaint is.
+*
+*   THE TEST IS THE MARKUP ITSELF, not a list of things that might have moved.
+*   If the stringified view is byte-identical to the one already on screen, a
+*   repaint would produce an identical DOM by definition, so there is nothing to
+*   lose by skipping it. Anything that genuinely changes the page - a rule
+*   flipping VISIBLE or REQUIRED, a dependent dropdown's options, a message
+*   strip, a step change - changes the markup and takes the full path.
+*
+*   Two guards keep the quiet path narrow. MV_VIEW_SIG must already hold
+*   something, so the first render of a session is always a real view; and
+*   MV_QUIET_EVT is set only for a CHANGE_ round trip, so navigation, submit and
+*   popup events always repaint even when the markup happens to match.
+    DATA lv_sig TYPE string.
+    TRY.
+        cl_abap_message_digest=>calculate_hash_for_char(
+          EXPORTING
+            if_algorithm  = 'SHA1'
+            if_data       = iv_xml
+          IMPORTING
+            ef_hashstring = lv_sig ).
+      CATCH cx_root.
+*       No hash means no safe comparison, so take the path that is always
+*       correct rather than the one that is usually faster.
+        CLEAR lv_sig.
+    ENDTRY.
+
+    IF lv_sig IS NOT INITIAL
+       AND lv_sig = mo_e->mv_view_sig
+       AND mo_e->mv_quiet_evt = abap_true.
+      mo_e->mo_client->view_model_update( ).
+      RETURN.
+    ENDIF.
+
+    mo_e->mv_view_sig = lv_sig.
+    mo_e->mo_client->view_display( iv_xml ).
   ENDMETHOD.
 
 
