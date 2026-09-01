@@ -7,6 +7,21 @@ posts it. ABAP is for what configuration cannot express.
 Full detail is in [README.md](README.md). This file is the short version plus the rules that
 have already cost time when broken.
 
+## Reference notes
+
+Facts about the systems CJS wraps live in [`doc/`](doc/README.md) so they are not
+re-derived from uploads every session. Read them before asking for a DPC, an MPC
+or a control's source — most of it is already written down:
+
+| | |
+| --- | --- |
+| [`doc/services/odata-services.md`](doc/services/odata-services.md) | every service, method by method — which entity sets are real, which are stubs, which function module sits behind each |
+| [`doc/services/request-context.md`](doc/services/request-context.md) | calling a Gateway DPC with no Gateway |
+| [`doc/controls/shapeit-census.md`](doc/controls/shapeit-census.md) | all 110 control types against what the migrator does with each |
+| [`doc/controls/shapeit-reads.md`](doc/controls/shapeit-reads.md) | what each composite control reads, and with which filters |
+| [`doc/gaps/open-questions.md`](doc/gaps/open-questions.md) | what is still missing, and which of it is blocked on access |
+| [`doc/gaps/abapgit-operations.md`](doc/gaps/abapgit-operations.md) | pull and stage hazards, with the evidence |
+
 ## Namespace boundary
 
 **Never modify anything in the legacy namespace.** It is the legacy backend CJS is replacing, and
