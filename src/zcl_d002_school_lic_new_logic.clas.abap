@@ -383,13 +383,14 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
       io_ctx->set_val( iv_name = 'MANAGER_EMAIL'     iv_value = ' ' ).
 *    io_ctx->set_val( iv_name = 'NEWMGRDOB'         iv_value = ' ' ).
       io_ctx->set_val( iv_name = 'MANAGER_NATION'    iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'MANAGER_DOB'    iv_value = ' ' ).
 
 
-      io_ctx->set_val( iv_name = 'MANAGER_EID'     iv_value = |{ lv_eid }| ).
+      io_ctx->set_val( iv_name = 'MANAGER_EID'       iv_value = |{ lv_eid }| ).
       io_ctx->set_val( iv_name = 'NEWMGRNAME'        iv_value = |{ ev_name }| ).
       io_ctx->set_val( iv_name = 'MANAGER_MOBILE'    iv_value = |{ ev_phone }| ).
       io_ctx->set_val( iv_name = 'MANAGER_EMAIL'     iv_value = |{ ev_email }| ).
-*    io_ctx->set_val( iv_name = 'NEWMGRDOB'         iv_value = |{ ev_date_of_birth }| ).
+      io_ctx->set_val( iv_name = 'MANAGER_DOB'       iv_value = |{ ev_date_of_birth DATE = USER }| ).
       io_ctx->set_val( iv_name = 'MANAGER_NATION'    iv_value = |{ ev_nationality }| ).
 
     ENDIF.
