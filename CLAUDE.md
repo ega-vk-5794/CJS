@@ -343,6 +343,36 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
 
 ## Open items
 
+- **The ShapeIt wrapper layer has started: `ZCL_RAK_CJ_API` + `ZCL_RAK_FEES_API`.** CJS
+  replaces ShapeIt's OData-backed UI5 composites with ABAP class APIs, the way
+  `ZCL_RAK_BP_SEARCH` already wraps `BP_QUERY`. `ZCL_RAK_CJ_API` **inherits**
+  `ZCL_ZEGA_CJ_DPC_EXT` because the `<Set>_GET_ENTITYSET` methods are protected —
+  a subclass may call them and only a subclass may. Two constraints are written into
+  its header and must not be re-derived: several DPC methods **dereference
+  `IO_TECH_REQUEST_CONTEXT` unguarded** despite it being OPTIONAL (`PropertiesSet`,
+  `LeaseContractSet`, `PartnerSet`, `OccupantSet`, `UserSet` — `FeesSet`, `TrackerSet`
+  and `ProjectSet` do not, which is why those three came first); and **CJS cannot
+  impersonate the portal session**, because `GET_BP( )` resolves the caller by
+  AES-decrypting a `ZEGA_T_CJ_US_LOG` row keyed on an `x-custom1` header. Identity
+  therefore travels in `MS_CTX` and goes out as **filters**, never inferred by the DPC.
+- **Whether a Gateway DPC can be called outside its runtime context is unproven.**
+  It is the one assumption that invalidates the whole layer, which is why the first
+  two classes are read-only and touch no context. Activate them and run one journey
+  before anything else is built on top.
+- **E016/E017/E018 rebuilt a control that has a backing service.** The legacy
+  `CHEMICALS_DETAILS` control reads `ChemicalHistorySet` (`zega_fw_fnd_srv`, filtered
+  by `IvPermit`/`IvTradeLicense`/`IvRegisteredEmirates`/`IvImpExpType`) to offer the
+  citizen their previous chemical declarations. `ZCL_RAK_MIGRATOR->CLASSIFY( )` has no
+  branch for it, so it fell to `WHEN OTHERS` and became a text box; the three handlers
+  then hand-built ~2,700 lines of dialog with exactly that entity set's fields
+  (`CHEMICAL_NAME_POP`, `MATERIAL_NAME_POP`, `CAS_POP`, `HS_CODE_POP`, `PACKAGING_POP`)
+  and **no history lookup**. No CJS class references `ChemicalHistorySet`. The known
+  E016/E017/E018 defects below all sit in that replacement.
+- **`ACCOMODATIONS` (E030/E130) is the same shape** — `WHEN OTHERS` in the migrator,
+  and its real source is `PortAccommodationSet` + `WorkersListSet` on a fifth service,
+  `ZEGA_EPDA_MAPLET_I_SRV`, which is in no repository here. `RAK_BOATCONTROL`
+  (NE001/NE002, not yet migrated) is also unclassified.
+
 - **The fifteen Municipality journeys (M011..M035) are staged in `ZRAK_M_MUNI_LOAD`,
   not yet run.** An M-code is not a legacy screen name: the Municipality screens are
   named by mnemonic (`NSUBDIVISION`, `NMERGE`, `NCBR`, `NOG`, `NNTC`...) and the M-code
