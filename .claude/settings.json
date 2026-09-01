@@ -30,6 +30,12 @@
           },
           {
             "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check_empty_redefinition.py\"",
+            "timeout": 10,
+            "statusMessage": "Checking no hook redefinition is emptied out..."
+          },
+          {
+            "type": "command",
             "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check_required_label.py\"",
             "timeout": 10,
             "statusMessage": "Checking the mandatory-field marker is the native property..."

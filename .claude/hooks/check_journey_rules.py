@@ -16,6 +16,7 @@ best-effort catch, not a guarantee:
    both hooks already run INSIDE the post that commit_step( ) triggers, so
    calling it there re-enters the post it's already inside of.
 """
+import os
 import re
 import sys
 from _common import read_input, changed_text, file_path, deny
@@ -26,6 +27,12 @@ path = file_path(ti)
 text = changed_text(ti)
 
 if not path.lower().endswith(".clas.abap"):
+    sys.exit(0)
+
+# ZCL_RAK_JOURNEY_LOGIC *is* the base. Its own ON_CUSTOM_VALIDATE is the PAID
+# gate rather than a caller of one, so the super-> rule cannot apply to it -
+# without this guard the hook blocks every edit to the class it protects.
+if os.path.basename(path).lower().startswith("zcl_rak_journey_logic"):
     sys.exit(0)
 
 method_re = re.compile(

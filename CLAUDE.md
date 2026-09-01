@@ -139,6 +139,35 @@ These raise nothing and render nothing. They account for most of the bugs found 
   draw their own, and a hand-drawn popup that calls `z2ui5_cl_xml_view->label( )` directly
   bypasses all three. Prefer `DIALOG_FORM( )` for a new popup: it sets `REQUIRED` from each
   field's own flag, so the marker cannot be forgotten.
+- **An empty redefinition is a DELETION, not a no-op.** Handlers INHERIT from
+  `ZCL_RAK_JOURNEY_LOGIC`, so redefining a hook REPLACES its base body. Most of the
+  interface is genuinely empty and overriding it costs nothing - but four hooks are not:
+  `ON_CUSTOM_VALIDATE` is the PAID gate, `RENDER_FIELD` is the payment card,
+  `ON_POPUP_EVENT` is the BP and attachment machinery, `WANTS_FEEDBACK` returns true.
+  Emptying one removes that silently. This is not hypothetical: **E128 lost its PAID
+  gate and could be submitted unpaid, D020 lost its fee card, E014 and E027 lost the
+  payload strip** - all four with a commented-out `CALL METHOD SUPER->` template sitting
+  in the body, which is what SE24's "redefine" button generates and which reads exactly
+  like the call has been made. Either chain (`rt = super->...( )`, extending with
+  `VALUE #( BASE rt ... )`) or delete the redefinition so the base runs. `ON_BEFORE_POST`
+  and `ON_BEFORE_FIELDS` are the deliberate exception - their base strips `PAY_*`/`PAYFEE`,
+  which is wrong for a fee-bearing journey, so D001, D025 and E027 skip it on purpose.
+- **A popup's `REQUIRED` is a marker; the handler is the enforcement, and the two drift.**
+  `DIALOG_FORM( )` sets `REQUIRED` on the label and nothing else - `VALIDATE_STEP( )` never
+  sees popup fields, so the OK event has to check them itself. The two lists must mirror
+  each other: a field marked but not checked promises an asterisk it never enforces, and a
+  field checked but not marked is the looks-optional-and-won't-submit bug. E016/E017/E018
+  had *no* markers against 9/4/10 enforced fields until this was fixed.
+- **Validation that only adds a message does not block anything.** E017's `VALIDATE_INPUT( )`
+  returned nothing and the caller ran `POPULATE_GRID( )` and `CLOSE_POPUP( )` regardless, so
+  a blank chemical row was saved and the dialog shut with a warning toast as the only sign.
+  A popup check has to return a verdict and the caller has to gate the save AND the close on
+  it - leaving the dialog open is the point, so the citizen keeps what they typed.
+- **Check whether a method is reachable before believing what it renders.** Several handlers
+  keep a hand-drawn `RENDER_OWN_POPUP( )` whose only call site is commented out, sitting
+  beside the live `DIALOG_FORM( )` path. Nothing marks it dead. Twenty of thirty-one label
+  fixes in one session landed in exactly that kind of code and changed nothing on screen.
+  `grep` for the call site, not just the method.
 - **Every round trip used to repaint the whole page, and that is what "flickering" is.**
   `VIEW_DISPLAY( )` hands the client a fresh XML view, so UI5 tears the control tree down
   and rebuilds it - taking the scroll position and the focus with it. Picking from a
@@ -218,6 +247,7 @@ mistake lands rather than relying on this file being read closely:
 | `session_start.py` | SessionStart | Pulls `main`, reprints the short list of rules below |
 | `block_legacy_writes.py` | PreToolUse (Write/Edit/MultiEdit) | The namespace boundary — denies creating/editing a legacy-namespace object |
 | `check_journey_rules.py` | PreToolUse (Write/Edit/MultiEdit) | `ON_CUSTOM_VALIDATE` redefinitions call `super->` before any `CHECK`; `commit_step( )` is never called from `ON_BEFORE_POST`/`ON_BEFORE_TABLES` |
+| `check_empty_redefinition.py` | PreToolUse (Write/Edit/MultiEdit) | Denies emptying a hook whose base does real work — reads which those are from `ZCL_RAK_JOURNEY_LOGIC` itself, exempts `ON_BEFORE_POST`/`ON_BEFORE_FIELDS` |
 | `check_required_label.py` | PreToolUse (Write/Edit/MultiEdit) | The required marker stays the native `required` property — denies a `rakReq` class on a `label( )` call, and denies a `.rakReq` rule reappearing in the theme CSS |
 | `protect_abapgit_config.py` | PreToolUse (Write/Edit/MultiEdit) | Asks for confirmation before touching `.abapgit.xml` / `*.devc.xml` |
 | `check_crlf.py` | PostToolUse (Write/Edit/MultiEdit) | Flags a file under `src/` that gained CRLF line endings, since this repo's git history is LF |
@@ -272,12 +302,34 @@ This has already reverted fixes across five classes. In the pull dialog the Stat
 | `M_` | **SAP has changes git does not** | ticking discards them |
 | `MM` | both changed | conflict — diff before choosing |
 
+**This is not a hypothetical: it happened again during the last review session.** The
+E128 PAID-gate fix was pushed to git, E128 showed `M_` in the pull dialog, the row was
+not ticked, and the next Stage pushed SAP's older copy back over it - the gate was gone
+a second time and had to be re-applied. If a fix you know you made is missing, check the
+stage history before re-diagnosing the code.
+
 **The pull dialog pre-ticks only Add local object rows.** Every `Overwrite local object` row arrives
 **unticked**, and the ticks reset every time the dialog opens - so an existing object is skipped
 unless you tick it by hand, on every pull. abapGit still reports success, which is why this reads as
 "the pull is broken" rather than "that row was not selected".
 
 ## Open items
+
+- **E128 needs pulling and activating.** Its PAID gate fix is in git and was reverted
+  once by a stage-without-pull; until the `Overwrite local object` row is ticked and the
+  class activated, that journey can still be submitted unpaid.
+- **Whether E014, E016, E017 and E018 should strip `PAY_*`/`PAYFEE` on post is unresolved.**
+  They redefine `ON_BEFORE_POST` without chaining and without stripping, which is correct
+  for a fee-bearing journey and wrong otherwise. Deciding it needs the `ZRAK_T_JNY_FLD`
+  rows for those journeys - config, not git.
+- **E017's dead `RENDER_OWN_POPUP( )` types CAS Number as `type = 'Number'`**, which would
+  render blank for a value like `7732-18-5`. Unreachable today, so flagged not fixed.
+- **E016 carries a stale duplicate of its Add Chemical dialog** under `WHEN C_EVT_DETAILS`,
+  unreachable because popups always open with `C_CHEM`. Its bindings were corrected but it
+  should be deleted; that is E016's owner's call.
+- **~30 handler classes have only been pattern-scanned, not read.** The scans cover the
+  traps in this file; a logic error unique to one journey (E017's non-blocking validation
+  was exactly that) only surfaces on a real read.
 
 - **Four DDIC changes are in git but not necessarily in SAP**: `ZRAK_T_JNY` gained
   `DRAFT_MODE` / `ATTACH_MODE`, `ZRAK_CJ_LAY` gained `FLOW`, and `ZRAK_T_JNY_FLD` gained
