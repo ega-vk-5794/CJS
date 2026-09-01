@@ -1659,6 +1659,7 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     DATA lv_shlp_cnt TYPE i.
     DATA lv_grid_cnt TYPE i.
     DATA lv_bind_cnt TYPE i.
+    DATA lv_comp_drp TYPE i.
     DATA lv_grid_drp TYPE i.
     DATA lv_pick_cnt TYPE i.
     DATA lv_pay_drp  TYPE i.
@@ -1810,6 +1811,17 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 
       DATA(lv_rt) = render_ftype( r-ftype ).
       IF lv_rt IS INITIAL.
+*       COUNTED SEPARATELY WHEN IT IS A COMPOSITE. The four below are real
+*       controls CLASSIFY( ) recognised and this gate still drops, because
+*       nothing draws them yet - SIGN, and the three EPDA composites. Lumping
+*       them into DISCARDED hides them among the logos and breadcrumbs, and
+*       the whole reason the last round went wrong is that a dropped control
+*       looks exactly like a screen that never had one. They show in the run
+*       log instead, by name, so the gap is a number somebody can act on.
+        CASE to_upper( r-ftype ).
+          WHEN 'SIGN' OR 'CHEMICALS' OR 'ACCOM' OR 'BOATS'.
+            lv_comp_drp = lv_comp_drp + 1.
+        ENDCASE.
         <rep>-discarded = <rep>-discarded + 1. CONTINUE.
       ENDIF.
 
@@ -1988,6 +2000,11 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
                          |through DEFAULT_VAL 'API:...' - those post through their own | &&
                          |service, not through ct_item_data, so a blank TECH_NAME on them | &&
                          |is correct.|.
+    ENDIF.
+    IF lv_comp_drp > 0.
+      ev_msg = ev_msg && | { lv_comp_drp } composite control(s) DROPPED - signature, | &&
+                         |chemicals, accommodation or boats. Recognised but not drawn by | &&
+                         |any renderer branch yet, so the step is missing that control.|.
     ENDIF.
     IF lv_pick_cnt > 0.
       ev_msg = ev_msg && | { lv_pick_cnt } of those are pick lists (DATA3 select mode): | &&
@@ -2189,6 +2206,27 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       WHEN 'INPUT' OR 'EMAIL' OR 'PHONE' OR 'NUMBER' OR 'TEXTAREA' OR 'DATE' OR 'TIME'
         OR 'SELECT' OR 'CHECKBOX' OR 'RADIO' OR 'STEPPER' OR 'SEGMENTED'
         OR 'UPLOAD' OR 'SEARCH' OR 'DISPLAY' OR 'LINK' OR 'STATUS'.
+        rv = to_upper( iv_ftype ).
+*     THE API-BACKED COMPOSITES PASS THROUGH UNCHANGED, and until they did,
+*     nothing else in this file mattered. This method is a WHITELIST and its
+*     WHEN OTHERS clears RV; the caller reads a cleared RV as "discard the
+*     row". So every RAKPARCELSELECTOR, RAK_PROPERTIES, RAK_TITLEDEED,
+*     RAK_FLOORUNIT, RAK_CONTRACTS and RAK_BUILDINGCONTROL that CLASSIFY( )
+*     had just correctly identified was thrown away one gate later - and
+*     because the row was gone, API_BIND( ) never saw it either, so no
+*     DEFAULT_VAL directive was ever written for any of them.
+*
+*     What reached the screen was the control's CAPTION, which is a separate
+*     display row and survives on its own: the grey "Parcel Selection:" box
+*     on M011 step 1 is a label with its control deleted out from under it.
+*     That is why the journey looked empty rather than broken.
+*
+*     They are here now because they RENDER: ZCL_RAK_JOURNEY_RENDER draws all
+*     six through the SELECT branch, fed by ZCL_RAK_CJ_OPTS off the directive.
+*     The TABLE/PAYFEE reasoning above does not apply - those are dropped
+*     because they would render WRONGLY without a handler, and these do not.
+      WHEN 'PARCEL' OR 'PROPERTY' OR 'TITLEDEED'
+        OR 'FLOORUNIT' OR 'CONTRACT' OR 'BUILDINGS'.
         rv = to_upper( iv_ftype ).
       WHEN 'DATERANGE' OR 'CALENDAR'.
         rv = 'DATE'.
