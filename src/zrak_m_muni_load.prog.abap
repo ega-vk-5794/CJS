@@ -363,7 +363,8 @@ START-OF-SELECTION.
   ULINE.
   WRITE: / 'Then, per journey:'.
   WRITE: / '  1. ZRAK_CJS_XCHECK - a migrated journey has no ZSECTION, no'.
-  WRITE: / '     placeholders, no length/range checks and no REVIEW step.'.
+  WRITE: / '     placeholders and no length/range checks. It DOES now get a'.
+  WRITE: / '     REVIEW step - the migrator appends one after the last screen.'.
   WRITE: / '  2. TITLE_AR and the tile Arabic text from ZEGA_T_CJ_IDT.'.
   WRITE: / '  3. Check every TABLE column against its /QNV/SB_UI_DEFIN'.
   WRITE: / '     LIST_SEQUENCE - cell order is positional at both ends and'.
