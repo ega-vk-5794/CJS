@@ -56,6 +56,15 @@ CLASS zcl_rak_cj_opts DEFINITION
       EXPORTING et_opt   TYPE zif_rak_journey=>tt_option
                 ev_note  TYPE string.
 
+*   Port accommodation. Takes IO_CTX rather than the built context because
+*   its filters are a PORT and a CASE, neither of which is journey identity -
+*   the port is a field the citizen fills on the step itself.
+    CLASS-METHODS accom_opts
+      IMPORTING is_dir   TYPE zcl_rak_cj_api=>ty_dir
+                io_ctx   TYPE REF TO zif_rak_journey
+      EXPORTING et_opt   TYPE zif_rak_journey=>tt_option
+                ev_note  TYPE string.
+
 *   'Type=Parcel' -> 'Parcel'. The directive's filter slot is one
 *   name=value pair today; anything richer belongs in the API, not in a
 *   string this class has to parse.
@@ -123,12 +132,66 @@ CLASS zcl_rak_cj_opts IMPLEMENTATION.
                        IMPORTING et_opt  = et_opt
                                  ev_note = ev_note ).
 
+      WHEN 'MAPLET'.
+        accom_opts( EXPORTING is_dir  = ls_dir
+                              io_ctx  = io_ctx
+                    IMPORTING et_opt  = et_opt
+                              ev_note = ev_note ).
+
       WHEN OTHERS.
 *       Named, not silent. The list is empty because nothing serves this
 *       binding yet, and that is a different thing from a citizen who owns
 *       no parcels.
         ev_note = |{ is_field-name }: { ls_dir-api }/{ ls_dir-eset } has no wrapper API yet|.
     ENDCASE.
+  ENDMETHOD.
+
+
+  METHOD accom_opts.
+    CLEAR: et_opt, ev_note.
+
+*   Only the accommodation list is offered as options. Rooms and beds come
+*   back from the SAME call and are reachable through
+*   ZCL_RAK_ACCOM_API->CHILDREN_OF( ), but a cascading three-level picker is
+*   a control, not an option list, and belongs in a handler.
+    IF to_upper( is_dir-eset ) <> 'PORTACCOMMODATIONSET'.
+      ev_note = |{ is_dir-eset } is not served by the accommodation API|.
+      RETURN.
+    ENDIF.
+
+*   THE PORT IS A FIELD, NOT IDENTITY. E030 collects it on the step, so the
+*   journey's own value is read first; a launch parameter is the fallback
+*   for a journey started from a port context. The case is the engine's,
+*   because a reservation belongs to the application being filled in.
+    DATA(lv_port) = io_ctx->get_val( `PORT` ).
+    IF lv_port IS INITIAL.
+      lv_port = io_ctx->get_param( 'PORT' ).
+    ENDIF.
+
+*   CASE_NUMBER, NOT GET_CASE( ). The function module's IV_CASE is an
+*   SCMG_EXT_KEY - the case's external number - while GET_CASE( ) returns
+*   the engine's live case/draft GUID, which is a different identifier for
+*   the same application. Passing the guid would not error: it would filter
+*   to nothing and render an empty accommodation list on a port that is
+*   full. Blank is the safer miss, because the port alone still lists what
+*   the port holds. The engine writes CASE_NUMBER into the model itself
+*   when the backend returns one, so this is its own value, not a guess.
+    DATA(lo_api) = NEW zcl_rak_accom_api( ).
+    DATA(ls_res) = lo_api->objects( VALUE #( port = lv_port
+                                             case = io_ctx->get_val( `CASE_NUMBER` ) ) ).
+
+    IF ls_res-msg IS NOT INITIAL.
+      ev_note = first_msg( ls_res-msg ).
+      RETURN.
+    ENDIF.
+
+    et_opt = lo_api->as_options( ls_res-buildings ).
+
+    IF et_opt IS INITIAL.
+      ev_note = COND string( WHEN sy-langu = 'E'
+                             THEN 'This port has no accommodation registered'
+                             ELSE 'لا يوجد سكن مسجل في هذا الميناء' ).
+    ENDIF.
   ENDMETHOD.
 
 

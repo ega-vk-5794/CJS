@@ -1431,7 +1431,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *     them finds one. A journey that wants the list closed sets
 *     CLOSED_LIST on the field like any other select.
       WHEN 'SELECT' OR 'PARCEL' OR 'PROPERTY' OR 'TITLEDEED'
-        OR 'CONTRACT' OR 'FLOORUNIT' OR 'BUILDINGS'.
+        OR 'CONTRACT' OR 'FLOORUNIT' OR 'BUILDINGS' OR 'ACCOM'.
         req_label( io_form = io_form is_field = is_field ).
 *       CLOSED_LIST switches this one field to sap.m.Select - not typable,
 *       by design, which is the whole point of a genuinely closed list

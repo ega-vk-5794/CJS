@@ -1819,7 +1819,11 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 *       looks exactly like a screen that never had one. They show in the run
 *       log instead, by name, so the gap is a number somebody can act on.
         CASE to_upper( r-ftype ).
-          WHEN 'SIGN' OR 'CHEMICALS' OR 'ACCOM' OR 'BOATS'.
+*         ACCOM has come off this list - it renders now. CHEMICALS stays on
+*         it deliberately: E016/E017/E018 draw that dialog themselves from
+*         ON_RENDER_END( ), so a field for it would be a second, empty
+*         control beside the real one.
+          WHEN 'SIGN' OR 'CHEMICALS' OR 'BOATS'.
             lv_comp_drp = lv_comp_drp + 1.
         ENDCASE.
         <rep>-discarded = <rep>-discarded + 1. CONTINUE.
@@ -2003,8 +2007,8 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     ENDIF.
     IF lv_comp_drp > 0.
       ev_msg = ev_msg && | { lv_comp_drp } composite control(s) DROPPED - signature, | &&
-                         |chemicals, accommodation or boats. Recognised but not drawn by | &&
-                         |any renderer branch yet, so the step is missing that control.|.
+                         |chemicals or boats. Recognised but not drawn by any renderer | &&
+                         |branch yet, so the step is missing that control.|.
     ENDIF.
     IF lv_pick_cnt > 0.
       ev_msg = ev_msg && | { lv_pick_cnt } of those are pick lists (DATA3 select mode): | &&
@@ -2226,7 +2230,11 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 *     The TABLE/PAYFEE reasoning above does not apply - those are dropped
 *     because they would render WRONGLY without a handler, and these do not.
       WHEN 'PARCEL' OR 'PROPERTY' OR 'TITLEDEED'
-        OR 'FLOORUNIT' OR 'CONTRACT' OR 'BUILDINGS'.
+        OR 'FLOORUNIT' OR 'CONTRACT' OR 'BUILDINGS'
+*       ACCOM joins them now that ZCL_RAK_ACCOM_API serves it. It was in the
+*       counted-drop list below while nothing could answer a port
+*       accommodation query; ZEGA_CJ_EPDA_PORT_OBJECTS answers it.
+        OR 'ACCOM'.
         rv = to_upper( iv_ftype ).
       WHEN 'DATERANGE' OR 'CALENDAR'.
         rv = 'DATE'.
