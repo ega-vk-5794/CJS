@@ -255,7 +255,11 @@ START-OF-SELECTION.
       lv_bad = lv_bad + 1.
     ENDIF.
     WRITE: / |{ lv_pfx }{ ls_p-id }|, 16 ls_p-cat, 24 ls_p-pfx,
-           42 ls_p-screens, 47 ls_p-rows, 54 lv_note.
+*          An untyped integer WRITEs eleven characters wide, so `42 screens`
+*          spans columns 42-52 and the next field at 47 lands inside it. The
+*          counts came out unreadable on the first live test run. Formatted to
+*          a string first, which writes exactly as long as it is.
+           42 |{ ls_p-screens }|, 47 |{ ls_p-rows }|, 54 lv_note.
   ENDLOOP.
   ULINE.
   WRITE: / |{ lines( lt_plan ) } journeys planned, { lv_bad } with no rows in this client|.
