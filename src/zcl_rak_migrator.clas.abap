@@ -342,6 +342,41 @@ CLASS zcl_rak_migrator DEFINITION
     METHODS step_title
       IMPORTING it_rows   TYPE tt_row iv_screen TYPE /qnv/sb_ui_defin-screen_name iv_no TYPE i
       EXPORTING ev_en     TYPE string ev_ar TYPE string.
+*   ---- composite control -> wrapper API binding ----------------------
+*   A ShapeIt composite does NOT post through the QNV item pipeline. Its
+*   TECHNICAL_NAME is blank in /QNV/SB_UI_DEFIN on purpose, because the
+*   control writes through its own OData service rather than through
+*   ct_item_data. So the field needs to say WHICH service instead - which
+*   is what this binding is, and why no TECH_NAME is invented for it.
+*
+*   It rides DEFAULT_VAL behind an API: prefix, the same way TEXT:, OTR:
+*   and SEL: already do. No DDIC column, no activation, no table adjust.
+*
+*       API:<api>:<entityset>[:<domain>[:<filter>]]
+*
+*   <api>       the CJS wrapper - PROPERTY, TENANCY, FEES, SIGN, VALUEHELP
+*   <entityset> what it reads, so the wrapper needs no per-field CASE
+*   <domain>    ValueHelp DomainName, where ValueHelp is the source
+*   <filter>    ValueHelp DomainFilter - only ZCJ_BTYPE uses one ('10BU')
+    TYPES: BEGIN OF ty_bind,
+             ftype   TYPE string,
+             api     TYPE string,
+             eset    TYPE string,
+             domain  TYPE string,
+             dfilter TYPE string,
+           END OF ty_bind.
+    TYPES tt_bind TYPE STANDARD TABLE OF ty_bind WITH EMPTY KEY.
+
+    METHODS bind_table
+      RETURNING VALUE(rt) TYPE tt_bind.
+
+*   The API: directive for one field, or blank when the ftype is not a
+*   composite. Blank is the overwhelmingly common answer.
+    METHODS api_bind
+      IMPORTING iv_ftype  TYPE string
+                iv_field  TYPE string OPTIONAL
+      RETURNING VALUE(rv) TYPE string.
+
     METHODS combobox_options
       IMPORTING is_row    TYPE ty_row
       RETURNING VALUE(rt) TYPE tt_kv.
@@ -664,6 +699,101 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD bind_table.
+*   Every row verified against the serving DPC, not inferred from a name.
+*   CUSTOMERJOURNEY unless marked otherwise.
+    rt = VALUE #(
+*     ---- parcels and property: ZCL_RAK_PROPERTY_API -------------------
+*     FindParcel and Properties are BOTH expanded reads - they have no
+*     standalone _GET_ENTITYSET method and are dispatched on iv_entity_name
+*     inside GET_EXPANDED_ENTITYSET. Floor and Unit exist ONLY as expanded
+*     children of Properties, which is why FLOORUNIT names Properties.
+      ( ftype = 'PARCEL'    api = 'PROPERTY' eset = 'FindParcelSet' )
+      ( ftype = 'PROPERTY'  api = 'PROPERTY' eset = 'PropertiesSet' )
+      ( ftype = 'FLOORUNIT' api = 'PROPERTY' eset = 'PropertiesSet' )
+      ( ftype = 'TITLEDEED' api = 'PROPERTY' eset = 'get_owner_prop_docs' )
+
+*     ---- tenancy: ZCL_RAK_TENANCY_API ---------------------------------
+      ( ftype = 'CONTRACT'  api = 'TENANCY'  eset = 'LeaseContractSet' )
+
+*     ---- signing: ZCL_RAK_SIGN_API, on ZUAEPASS_SRV -------------------
+*     Keyed on Intreno throughout. The flow state is NOT in the entity set -
+*     it is in SAPscript text CJ01/CJ20/CJ22/CJ23 - so the wrapper owns it,
+*     not the config.
+      ( ftype = 'SIGN'      api = 'SIGN'     eset = 'SignMethodSet' )
+
+*     ---- value help: ZCL_RAK_VALUEHELP_API, on zega_fw_fnd_srv --------
+*     DOMAIN is NOT derivable from /QNV/SB_UI_DEFIN - it lives in the
+*     ShapeIt control's own JS - so it is carried here, the same way
+*     ZRAK_M_MUNI_LOAD carries the M-code map. ZDE_EGA_ENTITY additionally
+*     depends on FILTER_DOMAIN( ), which moves index 22 to the front and
+*     drops value '29'; the wrapper reproduces that, not this table.
+      ( ftype = 'SELECT'    api = 'VALUEHELP' eset = 'ValueHelpSet'
+        domain = 'ZDE_EGA_ENTITY' )
+
+*     M028's building dialog is ONE control with five dropdowns inside it,
+*     not five configurable fields - so the five domains belong to the
+*     wrapper that draws it, not to this table. Recorded here so they are
+*     not re-derived, and they go in as constants when ZCL_RAK_VALUEHELP_API
+*     is written:
+*
+*       ZCJ_CTYPE  construction types  TIVBDAROBJTYPET aotype IN 10BU/10SB/50PF
+*       ZCJ_FTYPE  foundation types    TIVBDCHARACTT   005301/005302/005303
+*       ZCJ_BTYPE  building types      TIVBDARFUNCT    aotype = DomainFilter '10BU'
+*       ZCJ_BSYS   system types        TIVBDCHARACTT   003100..003104
+*       ZCJ_MUSGT  structure types     TIVBDCHARACTT   >= MU00 AND < MU25
+*
+*     None of the five is a domain: VALUEHELPSET_GET_ENTITYSET finds no
+*     fixed values, falls through to FILL_CUSTOM_DOMAIN( ) and selects from
+*     the real-estate tables. ZCJ_BTYPE is the only one that consults
+*     DomainFilter; the rest accept one and ignore it.
+      ( ftype = 'BUILDINGS' api = 'VALUEHELP' eset = 'ValueHelpSet' )
+
+*     ---- EPDA composites on journeys already migrated -----------------
+*     ChemicalHistorySet returns the citizen's PREVIOUS declarations for a
+*     permit and trade licence. E016/E017/E018 hand-built the dialog and
+*     none of them carries this lookup.
+*     ChemicalHistorySet is on zega_fw_fnd_srv, NOT on CUSTOMERJOURNEY -
+*     its row type is ZCL_ZEGA_FW_FND_MPC=>TS_CHEMICALHISTORY. Naming the
+*     wrong service here would send the column derivation to the wrong MPC.
+      ( ftype = 'CHEMICALS' api = 'FND'      eset = 'ChemicalHistorySet' )
+*     PortAccommodationSet and WorkersListSet are on a FIFTH service,
+*     ZEGA_EPDA_MAPLET_I_SRV, which is in no repository read so far. The
+*     binding is written so the field is not silently blank; the wrapper
+*     behind it does not exist yet and must report that rather than
+*     returning no rows.
+      ( ftype = 'ACCOM'     api = 'MAPLET'   eset = 'PortAccommodationSet' ) ).
+  ENDMETHOD.
+
+
+  METHOD api_bind.
+    DATA(lv_ft) = to_upper( iv_ftype ).
+
+*   SELECT is the one ftype that is usually NOT a composite - most selects
+*   are a search help or a domain and resolve through the engine's own F4.
+*   Only the handful named here are ValueHelp-backed, so a bare SELECT must
+*   fall through rather than pick up the ZDE_EGA_ENTITY row by its ftype.
+    IF lv_ft = 'SELECT'.
+      IF to_upper( iv_field ) NS 'ENTITY'.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+    READ TABLE bind_table( ) INTO DATA(ls_b) WITH KEY ftype = lv_ft.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    rv = |API:{ ls_b-api }:{ ls_b-eset }|.
+    IF ls_b-domain IS NOT INITIAL.
+      rv = |{ rv }:{ ls_b-domain }|.
+      IF ls_b-dfilter IS NOT INITIAL.
+        rv = |{ rv }:{ ls_b-dfilter }|.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
   METHOD classify.
     DATA(ct) = to_upper( cs_row-control_type ).
 
@@ -728,6 +858,79 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       WHEN 'GENERIC_CSS' OR 'HSEPARATOR'. cs_row-ftype = ''. cs_row-role = c_decor.
       WHEN 'SCRIPT'.  cs_row-ftype = 'SCRIPT'.  cs_row-role = c_backend.
       WHEN ''.        cs_row-ftype = 'BACKEND'. cs_row-role = c_backend.
+
+*     ---- ShapeIt composite controls ------------------------------------
+*     Every control below fell through to WHEN OTHERS until now, which
+*     turned a parcel selector into a text box and a signature pad into a
+*     label - and left DEFAULTED set, so the count said "reviewed" when
+*     nothing had been.
+*
+*     NONE of them may be mapped to 'TABLE', however grid-like they look.
+*     The grid pipeline at the end of MIGRATE( ) keys off ftype 'TABLE',
+*     calls GRID_SPEC( ) for the LEVEL_CON='T' descendants, and DROPS a
+*     table that yields no usable columns. Checked against the export:
+*     CHEMICALS_DETAILS, ACCOMODATIONS, RAK_BUILDINGCONTROL,
+*     RAKPARCELSELECTOR, RAK_PARCELS, RAK_PROPERTIES and RAK_CONTRACTS
+*     have ZERO 'T' children between them, because their rows come from an
+*     entity set rather than from the legacy screen definition. Calling
+*     them TABLE would delete them.
+*
+*     An ftype the engine does not draw yet is safe: ZCL_RAK_JOURNEY_RENDER
+*     ends its field CASE on an input, which is exactly what WHEN OTHERS
+*     produced before. So naming them here is never worse than the default,
+*     and the config stops being wrong - the renderer branch and the domain
+*     API can be added later WITHOUT re-migrating the journey.
+      WHEN 'RAKPARCELSELECTOR' OR 'RAK_PARCELS' OR 'ADDPARCELS'.
+        cs_row-ftype = 'PARCEL'.    cs_row-role = c_interact.
+      WHEN 'RAK_PROPERTIES'.
+        cs_row-ftype = 'PROPERTY'.  cs_row-role = c_interact.
+      WHEN 'RAK_FLOORUNIT'.
+        cs_row-ftype = 'FLOORUNIT'. cs_row-role = c_interact.
+      WHEN 'RAK_TITLEDEED'.
+        cs_row-ftype = 'TITLEDEED'. cs_row-role = c_interact.
+      WHEN 'RAK_FINDCONTRACT' OR 'RAK_CONTRACTS'.
+        cs_row-ftype = 'CONTRACT'.  cs_row-role = c_interact.
+      WHEN 'RAK_SIGNCONTRACT' OR 'RAK_SIGNATURE' OR 'SIGNATURE' OR 'SIGN_CONTRACT'.
+        cs_row-ftype = 'SIGN'.      cs_row-role = c_interact.
+      WHEN 'RAK_BUILDINGCONTROL'.
+        cs_row-ftype = 'BUILDINGS'. cs_row-role = c_interact.
+
+*     A dropdown whose options ShapeIt decides client-side. It is still a
+*     select here; the dependent behaviour belongs in a rule or on_change.
+      WHEN 'RAKSELECTUSAGETYPE' OR 'RAK_PROJECTLIST' OR 'ENTITY_SELECT'.
+        cs_row-ftype = 'SELECT'.    cs_row-role = c_interact.
+
+*     THE ONE GROUP THAT WORKS ON FIRST MIGRATION. All five are the same
+*     business-partner search - person and company alike, which is what
+*     BusinessPartnerSet is - and the engine already draws WHEN 'BP',
+*     fed by ZCL_RAK_BP_SEARCH. No new renderer branch, no new API.
+      WHEN 'RAK_SINGLEID' OR 'RAK_MULTIID' OR 'CUSTOMER_IDENTIFICATION'
+        OR 'RAK_VALIDATE_RB' OR 'RAK_CONTRACTORCONTROL'.
+        cs_row-ftype = 'BP'.        cs_row-role = c_interact.
+
+*     The journey's own progress, which the engine draws as the stage bar
+*     already. Chrome, not a field the citizen fills.
+      WHEN 'TRACKER'.
+        cs_row-ftype = 'STAGE'.     cs_row-role = c_stage.
+
+*     ---- composites on journeys ALREADY migrated -----------------------
+*     CHEMICALS_DETAILS is backed by ChemicalHistorySet, which returns the
+*     citizen's previous declarations for a permit and trade licence.
+*     E016/E017/E018 hand-built its dialog because this branch did not
+*     exist, and none of them carries the lookup. ACCOMODATIONS is the same
+*     shape on E030/E130 (PortAccommodationSet + WorkersListSet), and
+*     RAK_BOATCONTROL the same on NE001/NE002, not yet migrated.
+      WHEN 'CHEMICALS_DETAILS'.
+        cs_row-ftype = 'CHEMICALS'. cs_row-role = c_interact.
+      WHEN 'ACCOMODATIONS'.
+        cs_row-ftype = 'ACCOM'.     cs_row-role = c_interact.
+      WHEN 'RAK_BOATCONTROL'.
+        cs_row-ftype = 'BOATS'.     cs_row-role = c_interact.
+*     DATA3 = 'X' is the multiple-files flag; ZRAK_E015_LOAD found this by
+*     hand and mapped it to UPLOAD + ATTACH_MULTI. Same answer here.
+      WHEN 'MASS_UPLOADER'.
+        cs_row-ftype = 'UPLOAD'.    cs_row-role = c_interact.
+
       WHEN OTHERS.
         IF cs_row-technical_name IS NOT INITIAL OR cs_row-tosave = 'X'.
           cs_row-ftype = 'INPUT'.   cs_row-role = c_interact.
@@ -1325,6 +1528,40 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       APPEND VALUE #( screen = lv_scr step_id = sid title = lv_ten ) TO et_report.
     ENDLOOP.
 
+*   ---- REVIEW step ----------------------------------------------------
+*   Listed as "not derivable" in this class's own header since v6, and it
+*   is not derivable - the legacy screens have no review page, because
+*   ShapeIt never had one. But the engine does: ftype REVIEW walks
+*   MS_CONFIG-STEPS itself and renders every OTHER step's filled fields,
+*   skipping the display-only types and anything a rule has hidden. So the
+*   step needs exactly one field and no configuration at all - no labels,
+*   no column spec, nothing to maintain.
+*
+*   It is appended AFTER the screen loop so it is always last, and it
+*   carries NO BKND_SCREEN: there is no legacy screen behind it, so it must
+*   never post. A step with a blank bknd_screen renders and validates and
+*   creates nothing, which everywhere else in CJS is a bug - here it is the
+*   whole point, and it is written down so nobody "fixes" it by filling the
+*   column in.
+    lv_stepno = lv_stepno + 1.
+    DATA(lv_rvsid) = |STP{ lv_stepno }|.
+
+    INSERT zrak_t_jny_step FROM @( VALUE #(
+      mandt = sy-mandt journey_id = jid step_id = lv_rvsid seqnr = lv_stepno * 10
+      title    = 'Review and submit'
+      title_ar = 'مراجعة وإرسال'
+      icon     = 'sap-icon://survey'
+      columns  = 0
+      bknd_screen = '' ) ).
+
+    INSERT zrak_t_jny_fld FROM @( VALUE #(
+      mandt = sy-mandt journey_id = jid step_id = lv_rvsid
+      field_name = 'REVIEW' seqnr = 10
+      ftype = 'REVIEW' ) ).
+
+    APPEND VALUE #( screen = '' step_id = lv_rvsid title = 'Review and submit' )
+           TO et_report.
+
     " ---- rules: DATA4/DATA5 container visibility + UI_FIELD_LOGICS ------
     CLEAR mt_hidden.
     DATA lt_raw_rules TYPE tt_rule.
@@ -1382,6 +1619,7 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     DATA lv_oseq TYPE i.
     DATA lv_shlp_cnt TYPE i.
     DATA lv_grid_cnt TYPE i.
+    DATA lv_bind_cnt TYPE i.
     DATA lv_grid_drp TYPE i.
     DATA lv_pick_cnt TYPE i.
     DATA lv_pay_drp  TYPE i.
@@ -1622,6 +1860,11 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 
       DATA(is_hidden) = xsdbool( line_exists( mt_hidden[ table_line = fname ] ) ).
 
+      DATA(lv_dir) = api_bind( iv_ftype = lv_ftype iv_field = CONV #( r-field_name ) ).
+      IF lv_dir IS NOT INITIAL.
+        lv_bind_cnt = lv_bind_cnt + 1.
+      ENDIF.
+
       INSERT zrak_t_jny_fld FROM @( VALUE #(
         mandt = sy-mandt journey_id = jid step_id = step
         field_name = fname seqnr = lv_fseq * 10
@@ -1647,6 +1890,11 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 *       froze each one at the old floor and left an author to edit them one by
 *       one - which nobody ever did.
         attach_maxmb = 0
+*       A ShapeIt composite carries no TECHNICAL_NAME because it does not
+*       post through ct_item_data - it writes through its own service. So
+*       nothing is invented here; the DEFAULT_VAL directive says which
+*       service instead, and the run log counts the fields that got one.
+        default_val = lv_dir
         tech_name = tech ) ).
 
       " SELECT: static JSON options in DATA1 (else engine uses shlp/rollname)
@@ -1696,6 +1944,12 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
              |{ lines( lt_rules ) } rules, { lv_shlp_cnt } shlp-F4, { tb } backend, | &&
              |{ td } defaulted-REVIEW (attach maxMB 2 - raise per field where a | &&
              |screen notice says more); { lines( lt ) } rows staged in ZRAK_T_MIG_RAW|.
+    IF lv_bind_cnt > 0.
+      ev_msg = ev_msg && | { lv_bind_cnt } composite field(s) bound to a wrapper API | &&
+                         |through DEFAULT_VAL 'API:...' - those post through their own | &&
+                         |service, not through ct_item_data, so a blank TECH_NAME on them | &&
+                         |is correct.|.
+    ENDIF.
     IF lv_pick_cnt > 0.
       ev_msg = ev_msg && | { lv_pick_cnt } of those are pick lists (DATA3 select mode): | &&
                          |READONLY, with a SEL: column and a _PICK target field each.|.

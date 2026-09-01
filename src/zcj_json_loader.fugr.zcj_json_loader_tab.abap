@@ -63,6 +63,7 @@ FUNCTION zcj_json_loader_tab.
             json = lv_json
           CHANGING
             data = et_controls.
+        SORT et_controls BY fullname.
     ENDCASE.
 
   ENDIF.
