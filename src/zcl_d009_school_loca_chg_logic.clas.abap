@@ -1,8 +1,8 @@
-CLASS zcl_d009_school_loca_chg_logic DEFINITION
-  PUBLIC
-  INHERITING FROM zcl_rak_journey_logic
-  FINAL
-  CREATE PUBLIC.
+class ZCL_D009_SCHOOL_LOCA_CHG_LOGIC definition
+  public
+  inheriting from ZCL_RAK_JOURNEY_LOGIC
+  final
+  create public .
 
 *   Handler for D009 - Changing the school's Location
 *   (legacy ND009_1_*, seeded by ZRAK_D009_LOAD).
@@ -61,9 +61,14 @@ CLASS zcl_d009_school_loca_chg_logic DEFINITION
 *
 *   What remains is on_init, and one line of it is the whole open question
 *   on this journey - see the REVIEW-STUB note below.
-  PUBLIC SECTION.
-    METHODS zif_rak_journey_logic~on_init        REDEFINITION.
-    METHODS zif_rak_journey_logic~on_before_post REDEFINITION.
+public section.
+
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_POST
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
+    redefinition .
 protected section.
 private section.
 
@@ -180,5 +185,22 @@ CLASS ZCL_D009_SCHOOL_LOCA_CHG_LOGIC IMPLEMENTATION.
 *   declaration rows on STP3 are DISPLAY text with no binding - confirmed
 *   absent from the export as controls, not omitted by oversight - so
 *   there is no acknowledgement flag reaching the payload.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_before_tables.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
+*  EXPORTING
+*    IO_CTX    =
+*  CHANGING
+*    CT_TABLES =
+*    .
+    DATA(lv_sel) = io_ctx->get_val( 'LIC_SELECT' ).
+    CHECK lv_sel IS NOT INITIAL.
+    LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<t>) WHERE ui_table_name = 'LICENSES' AND ui_table_column1 = lv_sel..
+      IF <t>-ui_table_column1 = lv_sel.
+        <t>-ui_table_column29 = 'S'.
+      ENDIF.
+    ENDLOOP.
   ENDMETHOD.
 ENDCLASS.
