@@ -258,15 +258,13 @@ CLASS ZCL_E128_RENEW_BERTH_LOGIC IMPLEMENTATION.
 
 
   method ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE.
-*   THIS REDEFINITION ADDS NOTHING, and an empty one is not harmless: it
-*   REPLACES the base implementation, which is the PAID gate - the check that
-*   refuses a submit while PAYFEE <> 'PAID'. Leaving the body empty silently
-*   removed payment protection from this journey. Calling super-> and returning
-*   its result makes the redefinition behave exactly as if it were not here.
-*   Any E128-specific validation goes AFTER this call, extending RT with
-*   VALUE #( BASE rt ... ) rather than assigning over it.
-    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
-                                                         iv_step = iv_step ).
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
+*  EXPORTING
+*    IO_CTX  =
+*    IV_STEP =
+*  RECEIVING
+*    RT      =
+*    .
   endmethod.
 
 
