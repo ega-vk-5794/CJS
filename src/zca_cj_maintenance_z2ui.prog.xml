@@ -26,6 +26,19 @@
        <TYPE>SCREEN</TYPE>
        <NAME>SCREEN</NAME>
       </RPY_DYCATT>
+      <RPY_DYCATT>
+       <TYPE>SUBSCREEN</TYPE>
+       <NAME>PARAMS</NAME>
+       <ELEMENT_OF>SCREEN</ELEMENT_OF>
+       <LINE>001</LINE>
+       <COLUMN>001</COLUMN>
+       <LENGTH>255</LENGTH>
+       <HEIGHT>200</HEIGHT>
+       <C_RESIZE_V>X</C_RESIZE_V>
+       <C_RESIZE_H>X</C_RESIZE_H>
+       <C_LINE_MIN>005</C_LINE_MIN>
+       <C_COLN_MIN>005</C_COLN_MIN>
+      </RPY_DYCATT>
      </CONTAINERS>
      <FIELDS>
       <RPY_DYFATC>
@@ -33,6 +46,64 @@
        <CONT_NAME>SCREEN</CONT_NAME>
        <TYPE>OKCODE</TYPE>
        <NAME>OK_CODE</NAME>
+       <TEXT>____________________</TEXT>
+       <LENGTH>020</LENGTH>
+       <VISLENGTH>020</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <INPUT_FLD>X</INPUT_FLD>
+      </RPY_DYFATC>
+     </FIELDS>
+    </item>
+    <item>
+     <HEADER>
+      <PROGRAM>ZCA_CJ_MAINTENANCE_Z2UI</PROGRAM>
+      <SCREEN>0101</SCREEN>
+      <LANGUAGE>E</LANGUAGE>
+      <DESCRIPT>Params</DESCRIPT>
+      <TYPE>I</TYPE>
+      <NEXTSCREEN>0101</NEXTSCREEN>
+      <LINES>200</LINES>
+      <COLUMNS>255</COLUMNS>
+     </HEADER>
+     <CONTAINERS>
+      <RPY_DYCATT>
+       <TYPE>SCREEN</TYPE>
+       <NAME>SCREEN</NAME>
+      </RPY_DYCATT>
+      <RPY_DYCATT>
+       <TYPE>SUBSCREEN</TYPE>
+       <NAME>PROP</NAME>
+       <ELEMENT_OF>SCREEN</ELEMENT_OF>
+       <LINE>007</LINE>
+       <COLUMN>001</COLUMN>
+       <LENGTH>255</LENGTH>
+       <HEIGHT>194</HEIGHT>
+       <C_RESIZE_V>X</C_RESIZE_V>
+       <C_RESIZE_H>X</C_RESIZE_H>
+       <C_LINE_MIN>005</C_LINE_MIN>
+       <C_COLN_MIN>005</C_COLN_MIN>
+      </RPY_DYCATT>
+     </CONTAINERS>
+     <FIELDS>
+      <RPY_DYFATC>
+       <CONT_TYPE>SCREEN</CONT_TYPE>
+       <CONT_NAME>SCREEN</CONT_NAME>
+       <TYPE>TEXT</TYPE>
+       <NAME>%#AUTOTEXT001</NAME>
+       <TEXT>dgffdgfdg#####################</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>004</COLUMN>
+       <LENGTH>030</LENGTH>
+       <VISLENGTH>030</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <REQU_ENTRY>N</REQU_ENTRY>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>SCREEN</CONT_TYPE>
+       <CONT_NAME>SCREEN</CONT_NAME>
+       <TYPE>OKCODE</TYPE>
        <TEXT>____________________</TEXT>
        <LENGTH>020</LENGTH>
        <VISLENGTH>020</VISLENGTH>

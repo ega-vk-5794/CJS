@@ -779,6 +779,7 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
     DATA(lo_t)  = io_view->table( alternaterowcolors = abap_true ).
     DATA(lo_cl) = lo_t->columns( ).
+*    lo_cl->column( )->text( 'BP' ).
     lo_cl->column( )->text( 'Owner Name' ).
     lo_cl->column( )->text( 'Mobile Number' ).
     lo_cl->column( )->text( 'Email Address' ).
@@ -789,6 +790,7 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     DATA(lo_it) = lo_t->items( ).
     LOOP AT ls_g-rows INTO DATA(lt_r).
       DATA(lv_id)  = VALUE string( lt_r[ 1 ] OPTIONAL ).
+* DATA(lv_id)  = VALUE string( ' ' ).
       DATA(lv_nam)  = VALUE string( lt_r[ 2 ] OPTIONAL ).
       DATA(lv_no) = VALUE string( lt_r[ 3 ] OPTIONAL ).
       DATA(lv_eadd)  = VALUE string( lt_r[ 4 ] OPTIONAL ).
@@ -796,8 +798,8 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *     Row layout is the one OWN_FORM_SAVE writes: 6 id type, 7 Emirates ID,
 *     8 passport, 9 nationality - reading 6/7 here showed the id type under
 *     the name and the Emirates ID in the Nationality column.
-      DATA(lv_eid) = VALUE string( lt_r[ 7 ] OPTIONAL ).
-      DATA(lv_nat) = VALUE string( lt_r[ 9 ] OPTIONAL ).
+*      DATA(lv_eid) = VALUE string( lt_r[ 7 ] OPTIONAL ).
+      DATA(lv_nat) = VALUE string( lt_r[ 6 ] OPTIONAL ).
 
 **     How many files this owner has. Counting them here is the only way the
 **     citizen can see, from the list, whose documents are still missing.
@@ -813,7 +815,7 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *     Name over Emirates ID, as the legacy screen had it.
       DATA(lo_nm) = lo_cells->vbox( ).
       lo_nm->text( text = lv_nam ).
-      lo_nm->text( text = lv_eid class = 'rakRecMeta' ).
+*      lo_nm->text( text = lv_eid class = 'rakRecMeta' ).
       lo_cells->text( lv_no ).
       lo_cells->text( lv_eadd ).
       lo_cells->text( lv_shr ).
@@ -830,11 +832,11 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       lo_act->button( icon    = 'sap-icon://edit'
                       type    = 'Transparent'
                       tooltip = 'Edit owner details'
-                      press   = io_ctx->event( |OWN_EDIT_{ lv_id }| ) ).
+                      press   = io_ctx->event( |OWN_EDIT_{ lv_nam }| ) ).
       lo_act->button( icon    = 'sap-icon://delete'
                       type    = 'Transparent'
                       tooltip = 'Delete'
-                      press   = io_ctx->event( |OWN_DEL_{ lv_id }| ) ).
+                      press   = io_ctx->event( |OWN_DEL_{ lv_nam }| ) ).
     ENDLOOP.
 
     IF ls_g-rows IS INITIAL.
@@ -1018,7 +1020,7 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *     8 passport, 9 nationality. Reading columns 2-4 (name/mobile/email) put
 *     the mobile number into the Emirates ID field and left Identification
 *     matching nothing in the dropdown, so it rendered blank.
-      io_ctx->set_val( iv_name = c_identity  iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_identity  iv_value = '1' ).
       io_ctx->set_val( iv_name = c_id   iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
       io_ctx->set_val( iv_name = c_nat   iv_value = VALUE #( lt_r[ 9 ] OPTIONAL ) ).
       io_ctx->set_val( iv_name = c_share iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).

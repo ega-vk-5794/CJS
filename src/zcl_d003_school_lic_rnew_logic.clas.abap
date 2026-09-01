@@ -20,9 +20,23 @@ public section.
   methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
     redefinition .
 protected section.
-  PRIVATE SECTION.
-    CONSTANTS c_min_search_len TYPE i      VALUE 3.
-    CONSTANTS c_default_idtype TYPE string VALUE 'YFS002'.
+private section.
+
+  constants C_MIN_SEARCH_LEN type I value 3 ##NO_TEXT.
+  constants C_DEFAULT_IDTYPE type STRING value 'YFS002' ##NO_TEXT.
+  constants C_OWNER_BP type STRING value 'OWNER_BP' ##NO_TEXT.
+  constants C_APP_NAME type STRING value 'APPLICANTNAME' ##NO_TEXT.
+  constants C_APP_ID type STRING value 'APPLICANT_ID' ##NO_TEXT.
+  constants C_APP_MOBILE type STRING value 'APP_MOBILE' ##NO_TEXT.
+  constants C_APP_EMAIL type STRING value 'APP_EMAIL' ##NO_TEXT.
+   constants C_APP_TYPE type STRING value 'APPLICANTTYPE' ##NO_TEXT.
+  constants C_LOGIN_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
+  constants C_LANG_EN type STRING value 'E' ##NO_TEXT.
+  constants C_APP_ROLE type STRING value 'APP_ROLE' ##NO_TEXT.
+  constants C_OWNER_BP_IDTYPE type STRING value 'OWNER_BP_IDTYPE' ##NO_TEXT.
+  constants C_OWNER_NAME type STRING value 'OWNER_NAME' ##NO_TEXT.
+  constants C_OWNER_MOBILE type STRING value 'OWNER_MOBILE' ##NO_TEXT.
+  constants C_OWNER_EMAIL type STRING value 'OWNER_EMAIL' ##NO_TEXT.
 ENDCLASS.
 
 
@@ -304,30 +318,78 @@ CLASS ZCL_D003_SCHOOL_LIC_RNEW_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_init.
+*    CALL METHOD super->zif_rak_journey_logic~on_init
+*      EXPORTING
+*        io_ctx = io_ctx.
+**
+*    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
+**
+*    zcl_ega_cj_utility=>get_bp(
+*      EXPORTING
+*        qv_key  = user_data
+*      IMPORTING
+*        loginbp = DATA(loginbp)
+*        rolebp  = DATA(rolebp)
+*        role    = DATA(role)
+*    ).
+**
+**    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = CONV string( loginbp ) ).
+*      io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = CONV string( '3000000049' ) ). "'3000000049' ).
+**    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
+*    io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) )..
+**    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
+*    io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
+*
+**    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+*    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
+
     CALL METHOD super->zif_rak_journey_logic~on_init
       EXPORTING
         io_ctx = io_ctx.
-*
-    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
-*
-    zcl_ega_cj_utility=>get_bp(
-      EXPORTING
-        qv_key  = user_data
-      IMPORTING
-        loginbp = DATA(loginbp)
-        rolebp  = DATA(rolebp)
-        role    = DATA(role)
-    ).
-*
-*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = CONV string( loginbp ) ).
-      io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = CONV string( '3000000049' ) ). "'3000000049' ).
-*    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
-    io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) )..
-*    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
-    io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
 
-*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
-    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
+    DATA: lv_loginbp TYPE bu_partner.
+
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role.
+
+    IF lv_loginbp IS NOT INITIAL.
+      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+        EXPORTING
+          iv_bp_id      = lv_loginbp
+        IMPORTING
+          es_bp_details = DATA(ls_bp) ).
+
+*      "Applicant Name
+*      Set under both spellings: the DECLARE field's config text carries
+*      the placeholder as {APPLICANT_NAME} (with the underscore, per the
+*      REVIEW comment on ON_BEFORE_POST), while this journey's own model
+*      field has always been APPLICANTNAME (without it). RENDER_LONG_TEXT's
+*      new {FIELDNAME} substitution reads whichever name is actually in
+*      the text, so both need a value or the declaration renders with the
+*      applicant's name blank instead of the placeholder text itself.
+      IF sy-langu = 'E'.
+        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name ) ).
+      ELSE.
+        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+      ENDIF.
+
+*      "Emirates Id/Applicant ID
+      io_ctx->set_val( iv_name = c_app_id  iv_value = CONV #( ls_bp-emirates_id ) ).
+
+*      "Applicant Type
+      io_ctx->set_val( iv_name = c_app_type  iv_value = CONV #( 'Owner' ) ).
+
+
+*      "Login BP
+      io_ctx->set_val( iv_name = c_login_bp  iv_value = |{ lv_loginbp }| ).
+
+*      "Nationality
+      io_ctx->set_val( iv_name = 'NATIONALITY'  iv_value = CONV #( ls_bp-nationality_tx ) ).
+
+    ENDIF.
+
+
   ENDMETHOD.
 
 

@@ -258,30 +258,82 @@ CLASS ZCL_E128_RENEW_BERTH_LOGIC IMPLEMENTATION.
 
 
   method ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE.
-*   THIS REDEFINITION ADDS NOTHING, and an empty one is not harmless: it
-*   REPLACES the base implementation, which is the PAID gate - the check that
-*   refuses a submit while PAYFEE <> 'PAID'. Leaving the body empty silently
-*   removed payment protection from this journey. Calling super-> and returning
-*   its result makes the redefinition behave exactly as if it were not here.
-*   Any E128-specific validation goes AFTER this call, extending RT with
-*   VALUE #( BASE rt ... ) rather than assigning over it.
-*
-*   RE-APPLIED. This fix was already made once and was lost when the object was
-*   staged from SAP without being pulled first, which pushed the older SAP copy
-*   over it. If it disappears again that is the same cause, not a new bug:
-*   pull E128 (tick its 'Overwrite local object' row - they arrive unticked)
-*   BEFORE staging it.
-    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
-                                                         iv_step = iv_step ).
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
+*  EXPORTING
+*    IO_CTX  =
+*    IV_STEP =
+*  RECEIVING
+*    RT      =
+*    .
   endmethod.
 
 
   method ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH.
-*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
-*  EXPORTING
-*    IO_CTX   =
-*    IV_FIELD =
-*    .
+
+    IF iv_field = c_owner_bp.
+
+
+      CHECK to_upper( iv_field ) = c_owner_bp."'OWNER_BP'.
+
+      DATA(lv_eid) = condense( io_ctx->get_val( c_owner_bp ) ).
+
+      DATA(lv_idtype) = io_ctx->get_val( c_owner_bp_idtype ).
+      IF lv_idtype IS INITIAL.
+        lv_idtype = c_default_idtype.
+      ENDIF.
+
+      DATA: lv_eid_no   TYPE bu_id_number,
+            lv_eid_type TYPE bu_id_type.
+
+      lv_eid_no = lv_eid.
+      lv_eid_type = lv_idtype.
+
+
+      DATA ev_partner         TYPE partner.
+      DATA ev_id_number       TYPE bu_id_number.
+      DATA ev_passport        TYPE bu_id_number.
+      DATA ev_name            TYPE bu_name1tx.
+      DATA ev_phone           TYPE farp_mobile.
+      DATA ev_email           TYPE ad_smtpadr.
+      DATA ev_nationality     TYPE natio50.
+      DATA ev_nationality_key TYPE bu_natio.
+      DATA ev_date_of_birth   TYPE bu_birthdt.
+      DATA ev_message         TYPE bapiret2-message.
+
+      CALL FUNCTION 'ZFE_CJ_SEARCH_BP_BY_ID'
+        EXPORTING
+          iv_type            = lv_eid_type
+          iv_idnumber        = lv_eid_no
+*         IV_APP             = IV_APP
+        IMPORTING
+          ev_partner         = ev_partner
+          ev_id_number       = ev_id_number
+          ev_passport        = ev_passport
+          ev_name            = ev_name
+          ev_phone           = ev_phone
+          ev_email           = ev_email
+          ev_nationality     = ev_nationality
+          ev_nationality_key = ev_nationality_key
+          ev_date_of_birth   = ev_date_of_birth
+          ev_message         = ev_message.
+
+      io_ctx->set_val( iv_name = c_owner_name        iv_value = ' ' ).
+      io_ctx->set_val( iv_name = c_owner_mobile      iv_value = ' ' ).
+      io_ctx->set_val( iv_name = c_owner_email       iv_value = ' ' ).
+      io_ctx->set_val( iv_name = c_owner_dob         iv_value = ' ' ).
+      io_ctx->set_val( iv_name = c_owner_nationality iv_value = ' ' ).
+
+
+      io_ctx->set_val( iv_name = c_owner_bp          iv_value = |{ lv_eid }| ).
+      io_ctx->set_val( iv_name = c_owner_name        iv_value = |{ ev_name }| ).
+      io_ctx->set_val( iv_name = c_owner_mobile      iv_value = |{ ev_phone }| ).
+      io_ctx->set_val( iv_name = c_owner_email       iv_value = |{ ev_email }| ).
+      io_ctx->set_val( iv_name = c_owner_dob         iv_value = |{ ev_date_of_birth }| ).
+      io_ctx->set_val( iv_name = c_owner_nationality iv_value = |{ ev_nationality }| ).
+
+    ENDIF.
+
+
   endmethod.
 
 

@@ -23,23 +23,63 @@ public section.
   methods ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
     redefinition .
 protected section.
-  PRIVATE SECTION.
-    TYPES: BEGIN OF ty_stage,
+private section.
+
+*    CONSTANTS c_applicant_type TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
+    CONSTANTS c_validity       TYPE string VALUE 'VALIDITY_YEAR1'  ##NO_TEXT.
+    CONSTANTS c_step_lease     TYPE i      VALUE 1.
+    CONSTANTS c_partner_owner_1 TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
+    CONSTANTS c_permit_yes TYPE string VALUE 'PERMIT_YES' ##NO_TEXT.
+    CONSTANTS c_min_search_len TYPE i      VALUE 3.
+    CONSTANTS c_default_idtype TYPE string VALUE 'YFS002'.
+    CONSTANTS c_owner_bp       TYPE string VALUE 'OWNER_BP'.
+    CONSTANTS c_permit_no      TYPE string VALUE 'PERMIT_NUMBER'.
+    CONSTANTS c_permit_detail  TYPE string VALUE 'PERMIT_DETAIL'.
+    CONSTANTS c_app_name       TYPE string VALUE 'APP_NAME'.
+    CONSTANTS c_app_id         TYPE string VALUE 'APP_ID'.
+    CONSTANTS c_app_mobile     TYPE string VALUE 'APP_MOBILE'.
+    CONSTANTS c_app_email      TYPE string VALUE 'APP_EMAIL'.
+    CONSTANTS c_login_bp       TYPE string VALUE 'LOGIN_BP'.
+    CONSTANTS c_lang_en        TYPE string VALUE 'E' ##NO_TEXT.
+    CONSTANTS c_app_role       TYPE string VALUE 'APP_ROLE'.
+    CONSTANTS c_permit_mode    TYPE string VALUE 'PERMIT_MODE'.
+    CONSTANTS c_permit_number  TYPE string VALUE 'PERMIT_NUMBER'.
+
+    CONSTANTS c_owner_bp_idtype  TYPE string VALUE 'OWNER_BP_IDTYPE'.
+    CONSTANTS c_owner_name  TYPE string VALUE 'OWNER_NAME'.
+    CONSTANTS c_owner_mobile  TYPE string VALUE 'OWNER_MOBILE'.
+    CONSTANTS c_owner_email  TYPE string VALUE 'OWNER_EMAIL'.
+    CONSTANTS c_owner_dob  TYPE string VALUE 'OWNER_DOB'.
+    CONSTANTS c_owner_nationality  TYPE string VALUE 'OWNER_NATIONALITY'.
+    CONSTANTS c_owner_seg  TYPE string VALUE 'APP_ROLE'.
+    CONSTANTS c_owner  TYPE string VALUE 'OWNER'.
+    CONSTANTS c_partner_name  TYPE string VALUE 'APP_NAME' .
+    CONSTANTS c_partner_id  TYPE string VALUE 'APP_ID' .
+    CONSTANTS c_applicant_type  TYPE string VALUE 'APP_TYPE'.
+  types:
+    BEGIN OF ty_stage,
              flag  TYPE string,
              label TYPE string,
              keys  TYPE string,
-           END OF ty_stage.
-    TYPES tt_stage TYPE STANDARD TABLE OF ty_stage WITH EMPTY KEY.
+           END OF ty_stage .
+  types:
+    tt_stage TYPE STANDARD TABLE OF ty_stage WITH EMPTY KEY .
 
-    METHODS stages RETURNING VALUE(rt) TYPE tt_stage.
 
-    METHODS stage_has_fee IMPORTING io_ctx       TYPE REF TO zif_rak_journey
-                                    iv_keys      TYPE string
-                          RETURNING VALUE(rv_ok) TYPE abap_bool.
 
-    METHODS clear_stage_fees IMPORTING io_ctx  TYPE REF TO zif_rak_journey
-                                       iv_keys TYPE string.
-
+  methods STAGES
+    returning
+      value(RT) type TT_STAGE .
+  methods STAGE_HAS_FEE
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IV_KEYS type STRING
+    returning
+      value(RV_OK) type ABAP_BOOL .
+  methods CLEAR_STAGE_FEES
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IV_KEYS type STRING .
 ENDCLASS.
 
 
@@ -252,38 +292,17 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-  method ZIF_RAK_JOURNEY_LOGIC~ON_INIT.
-*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
-*  EXPORTING
-*    IO_CTX =
-*    .
-    CALL METHOD super->zif_rak_journey_logic~on_init
-      EXPORTING
-        io_ctx = io_ctx.
-*
-    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
-*
-    zcl_ega_cj_utility=>get_bp(
-      EXPORTING
-        qv_key  = user_data
-      IMPORTING
-        loginbp = DATA(loginbp)
-        rolebp  = DATA(rolebp)
-        role    = DATA(role)
-    ).
-*
-    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '1000116563' ).
-    io_ctx->set_val( iv_name = 'OWNER_BP' iv_value = '1000116563' ).
+  METHOD zif_rak_journey_logic~on_init.
 
-*    gs_data-partner = '3000000049'.
-*    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
-    io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
-*    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
-    io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
+    DATA: lv_loginbp TYPE bu_partner.
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
 
-*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
-    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
-  endmethod.
+    io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+    io_ctx->set_val( iv_name = c_owner_bp iv_value = |{ lv_loginbp }| ).
+
+  ENDMETHOD.
 
 
   METHOD zif_rak_journey_logic~on_render_end.
