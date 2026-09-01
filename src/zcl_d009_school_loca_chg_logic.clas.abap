@@ -180,7 +180,8 @@ CLASS ZCL_D009_SCHOOL_LOCA_CHG_LOGIC IMPLEMENTATION.
 *   the DOKSL backend and would arrive as unrecognised fields.
     DELETE ct_kv WHERE key CP 'PAY_*'.
     DELETE ct_kv WHERE key = 'PAYFEE'.
-
+    " UI-only scratch key with no backend meaning.
+    DELETE ct_kv WHERE key = 'LICENSE_SEL'.
 *   NOTE: no DECLARE / ACCEPT_TERMS checkbox to strip here. The three
 *   declaration rows on STP3 are DISPLAY text with no binding - confirmed
 *   absent from the export as controls, not omitted by oversight - so
@@ -197,7 +198,7 @@ CLASS ZCL_D009_SCHOOL_LOCA_CHG_LOGIC IMPLEMENTATION.
 *    .
     DATA(lv_sel) = io_ctx->get_val( 'LIC_SELECT' ).
     CHECK lv_sel IS NOT INITIAL.
-    LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<t>) WHERE ui_table_name = 'LICENSES' AND ui_table_column1 = lv_sel..
+    LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<t>) WHERE ui_table_name = 'LICENSES' AND ui_table_column1 = lv_sel.
       IF <t>-ui_table_column1 = lv_sel.
         <t>-ui_table_column29 = 'S'.
       ENDIF.
