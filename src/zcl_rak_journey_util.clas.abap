@@ -209,7 +209,18 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
       OR iv_type = 'LINK' OR iv_type = 'SEARCH' OR iv_type = 'TABLE' OR iv_type = 'UPLOAD'
       OR iv_type = 'PAYFEE' OR iv_type = 'EDITABLE_TABLE' OR iv_type = 'CHECKGROUP'
       OR iv_type = 'REVIEW' OR iv_type = 'RO_PANEL' OR iv_type = 'RECORDCARD'
-      OR iv_type = 'REQPANEL' ).
+      OR iv_type = 'REQPANEL'
+*     The composite ftypes ZCL_RAK_MIGRATOR->CLASSIFY( ) assigns to the
+*     ShapeIt controls that are not plain fields. They render through the
+*     SELECT branch, off an API: binding in DEFAULT_VAL - see
+*     ZCL_RAK_CJ_OPTS. Listed here so the engine's own unknown-type warning
+*     stops firing on every migrated Municipality journey; a genuinely
+*     unserved one still reports itself, on the field, through the note
+*     ZCL_RAK_CJ_OPTS returns.
+      OR iv_type = 'PARCEL' OR iv_type = 'PROPERTY' OR iv_type = 'TITLEDEED'
+      OR iv_type = 'FLOORUNIT' OR iv_type = 'CONTRACT' OR iv_type = 'BUILDINGS'
+      OR iv_type = 'SIGN' OR iv_type = 'CHEMICALS'
+      OR iv_type = 'ACCOM' OR iv_type = 'BOATS' ).
   ENDMETHOD.
 
 
