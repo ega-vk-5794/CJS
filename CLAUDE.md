@@ -343,6 +343,27 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
 
 ## Open items
 
+- **The fifteen Municipality journeys (M011..M035) are staged in `ZRAK_M_MUNI_LOAD`,
+  not yet run.** An M-code is not a legacy screen name: the Municipality screens are
+  named by mnemonic (`NSUBDIVISION`, `NMERGE`, `NCBR`, `NOG`, `NNTC`...) and the M-code
+  appears only as the `VALUE` of each screen's `JOURNEYTYPE` row, so the code-to-family
+  mapping is carried in that report's table rather than derived. Each service exists
+  three times — `<FAM>_n` desktop, `M<FAM>_n` mobile, `N<FAM>_n` current — and `N` is the
+  one to migrate, as E023/E028/E029 already did. `IV_SCREEN_PREFIX` is always passed:
+  `NSUBDIVISION_1_*` and `NSUBDIVISION_2_*` both derive to `SUBDIVISION` through
+  `JOURNEY_OF_SCREEN( )`, and they are two separate services (apply-and-pay-initial-fee,
+  then the later stage), not two halves of one wizard. Three things in that report are
+  **unresolved and flagged in its header**: the six TEN journeys are mapped by mnemonic
+  because their `JOURNEYTYPE` rows are wrong (NMTC says M032, NCTC/NPOA/NCPA all say
+  M030); M029 has three DML families and only `NACO_1` is taken; and M016's title says
+  "Building Regulations/Change of Land Use" while the code resolves to CBR alone — CLU
+  is M015, a service not on the list.
+- **Twelve of those fifteen carry `RAKPAY`, which the migrator drops.** The report sets
+  `HANDLER_CLASS = ZCL_RAK_JOURNEY_LOGIC` on them — it is `CREATE PUBLIC` and concrete,
+  so it supplies the payment card and the PAID gate with no subclass — but the `PAYFEE`
+  **field** is still gone and has to be re-added per journey in the Studio. Until then
+  those steps have no pay control at all.
+
 - **E128 needs pulling and activating.** Its PAID gate fix is in git and was reverted
   once by a stage-without-pull; until the `Overwrite local object` row is ticked and the
   class activated, that journey can still be submitted unpaid.
