@@ -1,0 +1,1453 @@
+class ZCL_ZEGA_FW_FND_DPC_EXT definition
+  public
+  inheriting from ZCL_ZEGA_FW_FND_DPC
+  create public .
+
+public section.
+
+  methods /IWBEP/IF_MGW_APPL_SRV_RUNTIME~CHANGESET_BEGIN
+    redefinition .
+  methods /IWBEP/IF_MGW_APPL_SRV_RUNTIME~CREATE_STREAM
+    redefinition .
+  methods /IWBEP/IF_MGW_APPL_SRV_RUNTIME~EXECUTE_ACTION
+    redefinition .
+  methods /IWBEP/IF_MGW_APPL_SRV_RUNTIME~GET_STREAM
+    redefinition .
+  methods IF_SADL_GW_QUERY_CONTROL~SET_QUERY_OPTIONS
+    redefinition .
+protected section.
+
+  methods ATTACHMENTSET_DELETE_ENTITY
+    redefinition .
+  methods ATTACHMENTSET_GET_ENTITYSET
+    redefinition .
+  methods ATTACHMENTV2SET_GET_ENTITYSET
+    redefinition .
+  methods DEVICEREGISTRATI_CREATE_ENTITY
+    redefinition .
+  methods DEVICEREGISTRATI_DELETE_ENTITY
+    redefinition .
+  methods DOCUMENTSET_GET_ENTITYSET
+    redefinition .
+  methods DOCUMENTV2SET_GET_ENTITYSET
+    redefinition .
+  methods VALUEHELPSET_GET_ENTITYSET
+    redefinition .
+  methods ATTACHMENTV2SET_DELETE_ENTITY
+    redefinition .
+private section.
+
+  methods FILL_CUSTOM_DOMAIN
+    importing
+      !IV_DOMAIN_NAME type DDOBJNAME
+      !IV_FILTER type STRING
+      !IV_LANG type SY-LANGU
+    exporting
+      !ET_ENTITYSET type ZCL_ZEGA_FW_FND_MPC=>TT_VALUEHELP .
+  methods FILTER_DOMAIN
+    importing
+      !IV_DOMAIN type DDOBJNAME
+    changing
+      !CT_ENTITYSET type ZCL_ZEGA_FW_FND_MPC=>TT_VALUEHELP .
+  methods READ_TITLE_DEED
+    importing
+      value(GENKEY) type ZST_ATT_GEN_SRV-GEN_KEY optional
+    exporting
+      value(ATTACH_DATA) type ZDT_EGA_ATT_SRV .
+ENDCLASS.
+
+
+
+CLASS ZCL_ZEGA_FW_FND_DPC_EXT IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_ZEGA_FW_FND_DPC_EXT->/IWBEP/IF_MGW_APPL_SRV_RUNTIME~CHANGESET_BEGIN
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_OPERATION_INFO              TYPE        /IWBEP/T_MGW_OPERATION_INFO
+* | [<-->] CV_DEFER_MODE                  TYPE        XSDBOOLEAN(optional)
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD /iwbep/if_mgw_appl_srv_runtime~changeset_begin.
+    cv_defer_mode = abap_false.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_ZEGA_FW_FND_DPC_EXT->/IWBEP/IF_MGW_APPL_SRV_RUNTIME~CREATE_STREAM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING(optional)
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING(optional)
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING(optional)
+* | [--->] IS_MEDIA_RESOURCE              TYPE        TY_S_MEDIA_RESOURCE
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR(optional)
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH(optional)
+* | [--->] IV_SLUG                        TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITY_C(optional)
+* | [<---] ER_ENTITY                      TYPE REF TO DATA
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD /iwbep/if_mgw_appl_srv_runtime~create_stream.
+
+  DATA: lv_language     TYPE sy-langu,
+        lv_exerr        TYPE bapi_msg,
+        lv_error        TYPE string,
+        lv_filename     TYPE string,
+        lv_filenameext  TYPE string,
+        lo_filterval    TYPE REF TO zcl_gw_mgw_req,
+        lo_tech_request TYPE REF TO /iwbep/cl_mgw_request.
+
+  DATA: ls_filedata   TYPE zdt_ega_att_srv,
+        lt_headers    TYPE tihttpnvp,
+        lt_seloptions TYPE /iwbep/t_mgw_select_option.
+
+  FIELD-SYMBOLS: <fs_params> TYPE /iwbep/s_mgw_name_value_pair,
+                 <fs_filter> TYPE /iwbep/s_mgw_select_option,
+                 <fs_opt>    TYPE /iwbep/s_cod_select_option,
+                 <fs_key>    TYPE /iwbep/s_mgw_name_value_pair.
+
+  DATA: lv_sap_object   TYPE toaom-sap_object,
+        lv_root_key_str TYPE string,
+        lv_task_key     TYPE string,            "NEW
+        lv_ar_object    TYPE toaom-ar_object,
+        lv_archiv_id    TYPE toav0-archiv_id,
+        lv_doc_type     TYPE toadv-doc_type,
+        lv_arc_doc_id   TYPE toav0-arc_doc_id,
+        lv_object_id    TYPE sapb-sapobjid,
+        lv_length       TYPE sapb-length,
+        lt_binarchivdoc TYPE TABLE OF tbl1024,
+        ls_error_msg    TYPE bapiret2.
+
+  ls_filedata-file_descr      = iv_slug.
+  ls_filedata-file_data       = is_media_resource-value.
+  ls_filedata-file_mime_type  = is_media_resource-mime_type.
+  ls_filedata-creation_date   = sy-datum.
+  ls_filedata-creation_time   = sy-uzeit.
+  ls_filedata-user_name       = sy-uname.
+
+  lt_headers = /iwbep/if_mgw_conv_srv_runtime~get_dp_facade( )->get_request_header( ).
+
+  READ TABLE lt_headers ASSIGNING <fs_key> WITH KEY name = 'doc_key'.
+  IF sy-subrc = 0.
+    ls_filedata-doc_key = <fs_key>-value.
+  ENDIF.
+
+  READ TABLE lt_headers ASSIGNING <fs_key> WITH KEY name = 'root_key'.
+  IF sy-subrc = 0.
+    ls_filedata-root_key = <fs_key>-value.
+    lv_root_key_str = <fs_key>-value.
+  ENDIF.
+
+  READ TABLE lt_headers ASSIGNING <fs_key> WITH KEY name = 'task_key'.
+  IF sy-subrc = 0.
+    lv_task_key = <fs_key>-value.
+  ENDIF.
+
+  IF ls_filedata IS NOT INITIAL.
+    IF lv_root_key_str CP 'CASE*'.
+      lv_sap_object = 'SCASE'.
+    ELSEIF lv_root_key_str CP 'SNOT*'.
+      lv_sap_object = 'BUS2080'.
+    ELSEIF lv_root_key_str CP 'TASK*'.
+      lv_sap_object = 'QMSM'.
+    ENDIF.
+
+    IF lv_sap_object IS INITIAL.
+      INSERT INTO zdt_ega_att_srv VALUES ls_filedata .
+      IF sy-subrc <> 0.
+        ls_filedata-user_name = sy-uname.
+        SPLIT  ls_filedata-file_descr AT '.' INTO lv_filename lv_filenameext.
+        CONCATENATE lv_filename sy-datum sy-uzeit INTO lv_filename.
+        CONCATENATE lv_filename lv_filenameext INTO ls_filedata-file_descr SEPARATED BY '.'.
+        INSERT INTO zdt_ega_att_srv VALUES ls_filedata .
+      ENDIF.
+
+      CLEAR: ls_filedata-file_data.
+
+      copy_data_to_ref( EXPORTING is_data = ls_filedata
+              CHANGING  cr_data = er_entity ).
+    ENDIF.
+
+    IF lv_sap_object = 'SCASE'
+    OR lv_sap_object = 'BUS2080'
+    OR lv_sap_object = 'QMSM'.
+
+      DATA:
+        lv_file_extension TYPE zde_ega_attach_file_extension,
+        lv_file_descr     TYPE c LENGTH 100.
+
+      lv_file_extension = ls_filedata-file_descr.
+
+      CALL FUNCTION 'TRINT_FILE_GET_EXTENSION'
+        EXPORTING
+          filename  = ls_filedata-file_descr
+        IMPORTING
+          extension = lv_file_extension.
+
+      TRANSLATE lv_file_extension TO UPPER CASE.
+      lv_doc_type = lv_file_extension.
+
+      CASE sy-sysid.
+        WHEN 'E30'. lv_archiv_id = 'P4'.
+        WHEN 'E20'. lv_archiv_id = 'Q4'.
+        WHEN OTHERS. lv_archiv_id = 'D4'.
+      ENDCASE.
+
+      IF lv_sap_object = 'SCASE'.
+        CASE lv_file_extension.
+          WHEN 'BMP'.  lv_ar_object = 'ZCASEBMP'.
+          WHEN 'DOC'.  lv_ar_object = 'ZCASEDOC'.
+          WHEN 'DOCX'. lv_ar_object = 'ZCASEDOCX'.
+          WHEN 'DWG'.  lv_ar_object = 'ZCASEDWG'.
+          WHEN 'JPEG'. lv_ar_object = 'ZCASEJPEG'.
+          WHEN 'JPG'.  lv_ar_object = 'ZCASEJPG'.
+          WHEN 'MP4'.  lv_ar_object = 'ZCASEMP4'.
+          WHEN 'PDF'.  lv_ar_object = 'ZCASEPDF'.
+          WHEN 'PNG'.  lv_ar_object = 'ZCASEPNG'.
+          WHEN 'PPT'.  lv_ar_object = 'ZCASEPPT'.
+          WHEN 'RAR'.  lv_ar_object = 'ZCASERAR'.
+          WHEN 'TIF'.  lv_ar_object = 'ZCASETIF'.
+          WHEN 'TIFF'. lv_ar_object = 'ZCASETIFF'.
+          WHEN 'XLS'.  lv_ar_object = 'ZCASEXLS'.
+          WHEN 'XLSX'. lv_ar_object = 'ZCASEXLSX'.
+          WHEN 'ZIP'.  lv_ar_object = 'ZCASEZIP'.
+        ENDCASE.
+
+      ELSEIF lv_sap_object = 'BUS2080'.
+        CASE lv_file_extension.
+          WHEN 'BMP'.  lv_ar_object = 'ZSNBMP'.
+          WHEN 'DOC'.  lv_ar_object = 'ZSNDOC'.
+          WHEN 'DOCX'. lv_ar_object = 'ZSNDOCX'.
+          WHEN 'DWG'.  lv_ar_object = 'ZSNDWG'.
+          WHEN 'GIF'.  lv_ar_object = 'ZSNGIF'.
+          WHEN 'JPEG'. lv_ar_object = 'ZSNJPEG'.
+          WHEN 'JPG'.  lv_ar_object = 'ZSNJPG'.
+          WHEN 'PDF'.  lv_ar_object = 'ZSNPDF'.
+          WHEN 'PNG'.  lv_ar_object = 'ZSNPNG'.
+          WHEN 'PPT'.  lv_ar_object = 'ZSNPPT'.
+          WHEN 'TIF'.  lv_ar_object = 'ZSNTIF'.
+          WHEN 'TIFF'. lv_ar_object = 'ZCASETIFF'.
+          WHEN 'XLS'.  lv_ar_object = 'ZSNXLS'.
+          WHEN 'XLSX'. lv_ar_object = 'ZSNXLSX'.
+          WHEN 'ZIP'.  lv_ar_object = 'ZSNZIP'.
+        ENDCASE.
+
+      ELSEIF lv_sap_object = 'QMSM'.
+        CONCATENATE 'ZTA' lv_file_extension INTO lv_ar_object.
+      ENDIF.
+
+      IF lv_sap_object = 'SCASE'.
+        DATA(lv_case_id) = lv_root_key_str.
+        REPLACE ALL OCCURRENCES OF 'CASE' IN lv_case_id WITH ''.
+        lv_object_id = lv_case_id.
+      ELSEIF lv_sap_object = 'BUS2080'.
+        DATA(lv_snot_id) = lv_root_key_str.
+        REPLACE ALL OCCURRENCES OF 'SNOT' IN lv_snot_id WITH ''.
+        lv_object_id = lv_snot_id.
+      ELSEIF lv_sap_object = 'QMSM'.
+        DATA(lv_qmnum) = lv_root_key_str.
+        REPLACE ALL OCCURRENCES OF 'TASK' IN lv_qmnum WITH ''.
+        CONCATENATE lv_qmnum lv_task_key INTO lv_object_id.
+      ENDIF.
+
+      lv_length = xstrlen( ls_filedata-file_data ).
+
+      CALL FUNCTION 'SCMS_XSTRING_TO_BINARY'
+        EXPORTING
+          buffer     = ls_filedata-file_data
+        TABLES
+          binary_tab = lt_binarchivdoc.
+
+      CALL FUNCTION 'ARCHIVOBJECT_CREATE_TABLE'
+        EXPORTING
+          archiv_id                = lv_archiv_id
+          arc_doc_id               = lv_arc_doc_id
+          document_type            = lv_doc_type
+          length                   = lv_length
+          compid                   = 'data'
+          vscan_profile            = '/SCMS/KPRO_CREATE'
+        IMPORTING
+          archiv_doc_id            = lv_arc_doc_id
+        TABLES
+          binarchivobject          = lt_binarchivdoc
+        EXCEPTIONS
+          error_archiv             = 1
+          error_communicationtable = 2
+          error_kernel             = 3
+          blocked_by_policy        = 4
+          OTHERS                   = 5.
+
+      IF sy-subrc <> 0.
+        ls_error_msg-type = 'E'.
+        CONCATENATE sy-msgv1 ' ' sy-msgv2 ' ' sy-msgv3 ' ' sy-msgv4
+          INTO ls_error_msg-message.
+        RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+          EXPORTING
+            textid  = /iwbep/cx_mgw_busi_exception=>business_error
+            message = ls_error_msg-message.
+      ENDIF.
+
+      CALL FUNCTION 'ARCHIV_CONNECTION_INSERT'
+        EXPORTING
+          archiv_id             = lv_archiv_id
+          arc_doc_id            = lv_arc_doc_id
+          ar_date               = sy-datum
+          ar_object             = lv_ar_object
+          object_id             = lv_object_id
+          sap_object            = lv_sap_object
+          doc_type              = lv_doc_type
+          creator               = sy-uname
+        EXCEPTIONS
+          error_connectiontable = 1
+          OTHERS                = 2.
+
+      IF sy-subrc <> 0.
+        ls_error_msg-type = 'E'.
+        CONCATENATE sy-msgv1 ' ' sy-msgv2 ' ' sy-msgv3 ' ' sy-msgv4
+          INTO ls_error_msg-message.
+        RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+          EXPORTING
+            textid  = /iwbep/cx_mgw_busi_exception=>business_error
+            message = ls_error_msg-message.
+      ENDIF.
+
+      CLEAR ls_filedata-file_data.
+      ls_filedata-doc_key = lv_arc_doc_id.
+      copy_data_to_ref( EXPORTING is_data = ls_filedata
+                        CHANGING  cr_data = er_entity ).
+    ENDIF.
+  ELSE.
+
+    READ TABLE it_key_tab ASSIGNING <fs_params> WITH KEY name = 'LANGUAGE'.
+    IF sy-subrc = 0.
+      lv_language = <fs_params>-value.
+    ENDIF.
+    IF lv_language IS INITIAL.
+      lv_language = sy-langu.
+    ENDIF.
+    CALL METHOD cl_wd_utilities=>get_otr_text_by_alias
+      EXPORTING
+        alias      = 'Z_ABAP/ZEGA_COURT_UPLOAD_FAIL'
+        language   = lv_language
+      RECEIVING
+        alias_text = lv_error.
+    lv_exerr = lv_error.
+    RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+      EXPORTING
+        textid  = /iwbep/cx_mgw_busi_exception=>business_error
+        message = lv_exerr.
+
+  ENDIF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_ZEGA_FW_FND_DPC_EXT->/IWBEP/IF_MGW_APPL_SRV_RUNTIME~EXECUTE_ACTION
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ACTION_NAME                 TYPE        STRING(optional)
+* | [--->] IT_PARAMETER                   TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR(optional)
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_FUNC_IMPORT(optional)
+* | [<---] ER_DATA                        TYPE REF TO DATA
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD /iwbep/if_mgw_appl_srv_runtime~execute_action.
+
+  DATA lv_token         TYPE guid_32.
+  DATA lv_token_check   TYPE string.
+  DATA lv_url           TYPE zlvalue.
+  DATA lv_dir           TYPE zhvalue.
+  DATA ls_url         TYPE zcl_zega_fw_fnd_mpc_ext=>scanurl.
+
+  CASE iv_action_name.
+    WHEN 'GetUrl'.
+* Fill the structure with url
+      CALL FUNCTION 'CMS_API_GENERAL_GUID_CREATE'
+        IMPORTING
+          e_guid_32 = lv_token.
+
+      lv_token_check = lv_token.
+      TRANSLATE lv_token_check TO LOWER CASE.
+
+      CALL FUNCTION 'RS_CHARACTER_CHECK'
+        EXPORTING
+          objectname         = lv_token_check
+        EXCEPTIONS
+          invalid_length     = 1
+          delimiter_error    = 2
+          invalid_character  = 3
+          objectname_missing = 4
+          OTHERS             = 5.
+
+      DATA lv_sysid TYPE zfldname.
+      lv_sysid =  sy-sysid && 'URL'.
+
+      CLEAR ls_url.
+      SELECT SINGLE lvalue hvalue FROM zerp_constants INTO ( lv_url, lv_dir )
+         WHERE prgname = 'ZPERMIT'
+           AND fldname = lv_sysid.
+      IF sy-subrc = 0.
+        ls_url-token = lv_token.
+        ls_url-url = |{ lv_url }1234&token={ lv_token }|.
+      ENDIF.
+
+      copy_data_to_ref(
+        EXPORTING
+          is_data = ls_url
+        CHANGING
+          cr_data = er_data
+          ).
+
+    WHEN OTHERS.
+      RETURN.
+  ENDCASE.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_ZEGA_FW_FND_DPC_EXT->/IWBEP/IF_MGW_APPL_SRV_RUNTIME~GET_STREAM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING(optional)
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING(optional)
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING(optional)
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR(optional)
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH(optional)
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITY(optional)
+* | [<---] ER_STREAM                      TYPE REF TO DATA
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_ENTITY_CNTXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD /iwbep/if_mgw_appl_srv_runtime~get_stream.
+    DATA:
+      attach_data TYPE zdt_ega_att_srv,
+      ls_header   TYPE ihttpnvp,
+      ls_stream   TYPE ty_s_media_resource,
+      mime_type   TYPE w3conttype.
+
+    IF iv_entity_name EQ 'AttachmentV2'.
+      DATA(genkey) = CONV zst_att_gen_srv-gen_key( it_key_tab[ name = 'GenKey' ]-value ).
+      DATA(attachtype) = CONV zst_att_gen_srv-attach_type( it_key_tab[ name = 'AttachType' ]-value ).
+      DATA(genkey_last_char) = strlen( genkey ) - 1.
+
+      IF genkey+genkey_last_char(1) = '$'. "Title Deed - sent from ZCL_ZEGA_CJ_DPC_EXT->GET_OWNER_DOCS()
+
+        CALL METHOD me->read_title_deed
+          EXPORTING
+            genkey      = genkey
+          IMPORTING
+            attach_data = attach_data.
+
+      ELSEIF attachtype EQ 'ZIP'.
+        DATA parts TYPE TABLE OF string.
+        SPLIT genkey AT space INTO TABLE parts.
+        DELETE parts WHERE table_line IS INITIAL.
+        DATA(atk) = VALUE #( parts[ 2 ]  OPTIONAL ).
+        SELECT SINGLE * FROM zcrm_experts_zip INTO @DATA(ls_str) WHERE guid EQ @atk.
+
+      ELSE.
+
+        " Get any attachments available from badi
+        DATA:
+          attachment TYPE zst_att_gen_srv,
+          gen_attach TYPE REF TO zbd_attachment_gen.
+
+        GET BADI gen_attach
+          FILTERS
+            type = attachtype.
+
+        CALL BADI gen_attach->get_attachment
+          EXPORTING
+            key        = genkey
+          CHANGING
+            attachment = attachment.
+        attach_data-file_descr = attachment-file_descr.
+        attach_data-file_mime_type = attachment-file_mime_type.
+        attach_data-file_data = attachment-data.
+
+      ENDIF.
+
+    ELSE.
+
+      DATA(rootkey) = CONV zdt_ega_att_srv-root_key( it_key_tab[ name = 'RootKey' ]-value ).
+      DATA(dockey) = CONV zdt_ega_att_srv-doc_key( it_key_tab[ name = 'DocKey' ]-value ).
+
+      SELECT SINGLE *
+        FROM zdt_ega_att_srv
+        INTO @attach_data
+       WHERE root_key = @rootkey
+         AND doc_key = @dockey.
+      IF sy-subrc NE 0.
+        RETURN.
+      ENDIF.
+
+    ENDIF.
+*       ls_stream-value = xstring_data.
+    IF attachtype <> 'ZIP'.
+      DATA(file_name) = attach_data-file_descr.
+      mime_type = attach_data-file_mime_type.
+
+
+      ls_stream-mime_type = mime_type.
+      ls_stream-value = attach_data-file_data.
+
+      copy_data_to_ref( EXPORTING is_data = ls_stream   CHANGING  cr_data = er_stream ).
+
+      ls_header-name = 'Content-Disposition'.
+      ls_header-value = |inline; filename="{ file_name }";|.
+      /iwbep/if_mgw_conv_srv_runtime~set_header( ls_header ).
+
+    ELSE.
+
+      file_name = sy-datum && '_' && sy-uzeit && '.zip'.
+      mime_type = 'application/zip'.
+      ls_stream-mime_type = mime_type.
+      ls_stream-value = ls_str-zip_contect.
+
+      copy_data_to_ref( EXPORTING is_data = ls_stream   CHANGING  cr_data = er_stream ).
+
+      ls_header-name = 'Content-Type'.
+      ls_header-value = 'application/zip'.
+      /iwbep/if_mgw_conv_srv_runtime~set_header( ls_header ).
+
+      ls_header-name = 'Content-Disposition'.
+      ls_header-value = |attachment; filename="{ file_name }"|.
+      /iwbep/if_mgw_conv_srv_runtime~set_header( ls_header ).
+
+      DELETE FROM zcrm_experts_zip WHERE guid EQ atk.
+
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_FW_FND_DPC_EXT->ATTACHMENTSET_DELETE_ENTITY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITY_D(optional)
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD attachmentset_delete_entity.
+    " Deleting the temporary attachment
+    DATA:
+          attachment TYPE zdt_ega_att_srv.
+    io_tech_request_context->get_converted_keys(
+      IMPORTING
+        es_key_values = attachment    " Entity Key Values - converted
+    ).
+
+    DELETE FROM zdt_ega_att_srv WHERE doc_key = @attachment-doc_key AND root_key = @attachment-root_key.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_FW_FND_DPC_EXT->ATTACHMENTSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_FW_FND_MPC=>TT_ATTACHMENT
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD attachmentset_get_entityset.
+    TRY.
+        DATA(rootkey) = CONV zdt_ega_att_srv-root_key( cl_http_utility=>decode_x_base64(
+          encoded = it_filter_select_options[ property = 'RootKey' ]-select_options[ 1 ]-low ) ).
+*        ( encoded = encoded ).
+      CATCH cx_root.
+    ENDTRY.
+
+    CHECK rootkey IS NOT INITIAL.
+
+    SELECT root_key, doc_key, file_descr, file_mime_type, creation_date, creation_time
+      FROM zdt_ega_att_srv
+      INTO CORRESPONDING FIELDS OF TABLE @et_entityset
+     WHERE root_key = @rootkey.
+
+    es_response_context-count = lines( et_entityset ).
+    es_response_context-inlinecount = lines( et_entityset ).
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_FW_FND_DPC_EXT->ATTACHMENTV2SET_DELETE_ENTITY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITY_D(optional)
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD attachmentv2set_delete_entity.
+    DATA:
+             attachment TYPE zcl_zega_fw_fnd_mpc=>ts_attachmentv2.
+    io_tech_request_context->get_converted_keys(
+      IMPORTING
+        es_key_values = attachment    " Entity Key Values - converted
+    ).
+    DATA:
+      BEGIN OF archid,
+        archiv_id  TYPE toav0-archiv_id,
+        ar_object  TYPE toav0-ar_object,
+        arc_doc_id TYPE toav0-arc_doc_id,
+        object_id  TYPE sapb-sapobjid,
+        sap_object TYPE toaom-sap_object,
+      END   OF archid.
+
+    archid = attachment-gen_key.
+
+
+
+    CALL FUNCTION 'ARCHIV_DELETE_META'
+      EXPORTING
+        archiv_id                = archid-archiv_id
+        arc_doc_id               = archid-arc_doc_id
+*       AR_OBJECT                = ' '
+        delete_flag              = 2
+        object_id                = archid-object_id
+        sap_object               = archid-sap_object
+*       CLIENT                   =
+*       SINGLE_ENTRY             = ' '
+*       DOCUMENTCLASS            =
+*       NO_AUTH_CHECK            =
+*   IMPORTING
+*       ALL_CONNECTIONS_DELETED  =
+      EXCEPTIONS
+        error_connectiontable    = 1
+        error_parameter          = 2
+        error_archiv             = 3
+        error_kernel             = 4
+        error_communicationtable = 5
+        error_authority          = 6
+        OTHERS                   = 7.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_FW_FND_DPC_EXT->ATTACHMENTV2SET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_FW_FND_MPC=>TT_ATTACHMENTV2
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD attachmentv2set_get_entityset.
+    TRY.
+        DATA(rootkey) = CONV zcl_zega_fw_fnd_mpc=>ts_attachmentv2-root_key( cl_http_utility=>decode_x_base64(
+          encoded = it_filter_select_options[ property = 'RootKey' ]-select_options[ 1 ]-low ) ).
+      CATCH cx_root.
+    ENDTRY.
+
+    TRY.
+        DATA(genfilter) = CONV zcl_zega_fw_fnd_mpc=>ts_attachmentv2-gen_filter(
+                                    it_filter_select_options[ property = 'GenFilter' ]-select_options[ 1 ]-low ).
+      CATCH cx_root.
+    ENDTRY.
+
+    TRY.
+        DATA(attachtype) = CONV zcl_zega_fw_fnd_mpc=>ts_attachmentv2-attach_type(
+                                    it_filter_select_options[ property = 'AttachType' ]-select_options[ 1 ]-low  ).
+      CATCH cx_root.
+    ENDTRY.
+
+    CHECK rootkey IS NOT INITIAL AND attachtype IS NOT INITIAL.
+
+    " Fetch the draft attachments
+    SELECT root_key, doc_key, file_descr, file_mime_type, creation_date, creation_time
+      FROM zdt_ega_att_srv
+      INTO CORRESPONDING FIELDS OF TABLE @et_entityset
+     WHERE root_key = @rootkey.
+
+    IF genfilter IS NOT INITIAL.
+      LOOP AT et_entityset ASSIGNING FIELD-SYMBOL(<entityset>).
+        <entityset>-gen_key = sy-tabix.
+        <entityset>-is_deletable = abap_true.
+      ENDLOOP.
+      " Get any attachments available from badi
+      DATA:
+        attachments TYPE ztt_att_gen_srv,
+        gen_attach  TYPE REF TO zbd_attachment_gen.
+
+      GET BADI gen_attach
+        FILTERS
+          type = attachtype.
+      IF gen_attach IS BOUND.
+        CALL BADI gen_attach->get_all_attachments
+          EXPORTING
+            gen_filter  = genfilter
+          CHANGING
+            attachments = attachments.    " ZST_ATT_GEN_SRV
+      ENDIF.
+      APPEND LINES OF attachments TO et_entityset.
+    ENDIF.
+    es_response_context-count = lines( et_entityset ).
+    es_response_context-inlinecount = lines( et_entityset ).
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_FW_FND_DPC_EXT->DEVICEREGISTRATI_CREATE_ENTITY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITY_C(optional)
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IO_DATA_PROVIDER               TYPE REF TO /IWBEP/IF_MGW_ENTRY_PROVIDER(optional)
+* | [<---] ER_ENTITY                      TYPE        ZCL_ZEGA_FW_FND_MPC=>TS_DEVICEREGISTRATION
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD deviceregistrati_create_entity.
+    io_data_provider->read_entry_data(
+      IMPORTING
+        es_data                      = er_entity
+    ).
+
+    SELECT *
+      FROM dd07v
+      INTO TABLE @DATA(dummy_data)
+     WHERE domname = 'ZDO_DEV_REG_SCENARIO'
+       AND domvalue_l = @er_entity-scenario.
+    IF sy-subrc NE 0.
+      DATA(message_cont) = me->mo_context->get_message_container( ).
+      message_cont->add_message_text_only(
+        EXPORTING
+          iv_msg_type               = /iwbep/if_message_container=>gcs_message_type-error    " Message Type - defined by GCS_MESSAGE_TYPE
+          iv_msg_text               = 'Scenario is incorrect'    " Message Text
+      ).
+      RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+        EXPORTING
+          message_container = message_cont.
+    ENDIF.
+
+    er_entity-user_id = |{ er_entity-user_id CASE = UPPER }|.
+    DATA:
+          device_data TYPE zapp_dev_registr.
+    SELECT SINGLE *
+      FROM zapp_dev_registr
+      INTO @DATA(device_data_db)
+     WHERE user_id = @er_entity-user_id
+       AND scenario = @er_entity-scenario.
+    IF sy-subrc EQ 0.
+      device_data = CORRESPONDING #( device_data_db ).
+      device_data-dyn_register_info = er_entity-dyn_register_info.
+      device_data-device_id = er_entity-device_id.
+    ELSE.
+      device_data = CORRESPONDING #( er_entity ).
+    ENDIF.
+
+    CLEAR: er_entity.
+    MODIFY zapp_dev_registr FROM device_data.
+    IF sy-subrc EQ 0.
+      er_entity = device_data.
+    ELSE.
+      RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+        EXPORTING
+          message = 'Device Registration Failed due to unknown reason'.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_FW_FND_DPC_EXT->DEVICEREGISTRATI_DELETE_ENTITY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITY_D(optional)
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD deviceregistrati_delete_entity.
+    DATA:
+          device_info	TYPE zcl_zega_fw_fnd_mpc=>ts_deviceregistration.
+
+    io_tech_request_context->get_converted_keys(
+      IMPORTING
+        es_key_values = device_info    " Entity Key Values - converted
+    ).
+
+
+    device_info-user_id = |{ device_info-user_id CASE = UPPER }|.
+    SELECT SINGLE *
+      FROM zapp_dev_registr
+      INTO @DATA(device_db)
+     WHERE scenario = @device_info-scenario
+       AND user_id = @device_info-user_id.
+    IF sy-subrc NE 0.
+      DATA(message_cont) = mo_context->get_message_container( ).
+      message_cont->add_message_text_only(
+        EXPORTING
+          iv_msg_type               = /iwbep/if_message_container=>gcs_message_type-error    " Message Type - defined by GCS_MESSAGE_TYPE
+          iv_msg_text               = 'Device Information Not Found'    " Message Text
+      ).
+      RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+        EXPORTING
+          message_container = message_cont.
+    ENDIF.
+
+
+    DELETE zapp_dev_registr FROM device_db.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_FW_FND_DPC_EXT->DOCUMENTSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_FW_FND_MPC=>TT_DOCUMENT
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD documentset_get_entityset.
+    DATA:
+          ls_attachment TYPE zcl_zega_fw_fnd_mpc=>ts_document.
+    TRY .
+        ls_attachment-case_type = it_filter_select_options[ property = 'CaseType' ]-select_options[ 1 ]-low.
+        ls_attachment-subscenario = it_filter_select_options[ property = 'SubScenario' ]-select_options[ 1 ]-low.
+      CATCH cx_sy_itab_line_not_found.
+        RETURN.
+    ENDTRY.
+
+    zcl_ega_doc_api=>get_instance( )->get_documents(
+      EXPORTING
+        iv_case_type   = ls_attachment-case_type
+        iv_subscenario = ls_attachment-subscenario
+      IMPORTING
+        et_data        = et_entityset
+    ).
+** Fetch the data
+*    SELECT *
+*      FROM zdt_ega_docs_sct
+*      INTO CORRESPONDING FIELDS OF TABLE @et_entityset
+*     WHERE case_type = @ls_attachment-case_type.
+*
+*    DATA: lt_domain_values      TYPE TABLE OF         dd07v.
+*
+**Fill Texts
+*    CALL FUNCTION 'DDUT_DOMVALUES_GET'
+*      EXPORTING
+*        name          = 'ZDO_EGA_DOCUMENT_TYPE'
+*      TABLES
+*        dd07v_tab     = lt_domain_values
+*      EXCEPTIONS
+*        illegal_input = 1
+*        OTHERS        = 2.
+*
+*    LOOP AT et_entityset ASSIGNING FIELD-SYMBOL(<fs_entity>).
+*      READ TABLE lt_domain_values INTO DATA(ls_domain) WITH KEY domvalue_l = <fs_entity>-document_type.
+*      IF sy-subrc EQ 0.
+*        <fs_entity>-description = ls_domain-ddtext.
+*      ENDIF.
+*    ENDLOOP.
+*
+** FIlter out the attachments based on teh scenario
+*    TRY.
+*        DATA(lv_attachscenario) = VALUE #( zcl_assist_prm_sidewalk=>st_subypes_attach_map[ subtype = ls_attachment-subscenario  ]-attachscenario ).
+*      CATCH cx_root.
+*        RETURN.
+*    ENDTRY.
+*    SELECT *
+*      FROM zdt_ega_docs_cus
+*      INTO TABLE @DATA(lt_subscenario)
+*     WHERE case_type = @ls_attachment-case_type.
+*    IF sy-subrc EQ 0.
+*      LOOP AT et_entityset ASSIGNING <fs_entity>.
+*        IF line_exists( lt_subscenario[ document_type = <fs_entity>-document_type ] ).
+*          " If some subscneario exists for a document type
+*          " then check if the subscenario sending from the ui matches else remove it
+*          IF NOT line_exists( lt_subscenario[ document_type = <fs_entity>-document_type sub_scenario = lv_attachscenario ] ).
+*            CLEAR <fs_entity>.
+*          ENDIF.
+*        ENDIF.
+*      ENDLOOP.
+*      DELETE et_entityset WHERE document_type IS INITIAL.
+*    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_FW_FND_DPC_EXT->DOCUMENTV2SET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_FW_FND_MPC=>TT_DOCUMENTV2
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD documentv2set_get_entityset.
+    DATA:
+             document TYPE zcl_zega_fw_fnd_mpc=>ts_documentv2.
+
+        document-case_type = VALUE #( it_filter_select_options[ property = 'CaseType' ]-select_options[ 1 ]-low OPTIONAL ).
+        document-subscenario = VALUE #( it_filter_select_options[ property = 'SubScenario' ]-select_options[ 1 ]-low OPTIONAL ).
+        document-version = VALUE #( it_filter_select_options[ property = 'Version' ]-select_options[ 1 ]-low OPTIONAL ).
+
+    " New version of fetching attachments
+    zcl_ega_doc_api=>get_instance( )->get_attachments(
+      EXPORTING
+        case_type   = document-case_type
+        subscenario = document-subscenario
+        version     = CONV #( document-version )
+      IMPORTING
+        attachments        = DATA(attachments)
+    ).
+
+    et_entityset = CORRESPONDING #( attachments MAPPING description = doc_type_desc document_type = doc_type subscenario = sub_scenario ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_ZEGA_FW_FND_DPC_EXT->FILL_CUSTOM_DOMAIN
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DOMAIN_NAME                 TYPE        DDOBJNAME
+* | [--->] IV_FILTER                      TYPE        STRING
+* | [--->] IV_LANG                        TYPE        SY-LANGU
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_FW_FND_MPC=>TT_VALUEHELP
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD fill_custom_domain.
+  DATA: ls_entity TYPE zcl_zega_fw_fnd_mpc=>ts_valuehelp.
+  DATA: lt_assigned_cashdesks_api TYPE fkkcjm_t,
+        ls_assigned_cashdesks_api LIKE LINE OF  lt_assigned_cashdesks_api,
+        ls_assigned_cashdesks     TYPE zst_ega_assigned_cashdesk,
+        lv_index                  TYPE          i,
+        lt_cashdesks_errors       TYPE          bapiret2_t,
+        lv_bukrs                  TYPE          bukrs,
+        lt_bukrs_errors           TYPE          bapiret2_t,
+        lt_exemption_reas_db      TYPE TABLE OF   tfk048at,
+        ls_exemption_reas_db      LIKE LINE OF    lt_exemption_reas_db.
+
+  "Insert + prasad.d for Authority Names Domain
+  DATA : lt_auth     TYPE TABLE OF zbp_authoritiest,
+         lt_auth_tmp TYPE TABLE OF zbp_authoritiest,
+         ls_auth     TYPE zbp_authoritiest.
+  TYPES: BEGIN OF ts_valuehelp,
+           language     TYPE string,
+           domainname   TYPE string,
+           domainfilter TYPE string,
+           domainvalue  TYPE string,
+           domaindesc   TYPE string,
+         END OF ts_valuehelp .
+  DATA : ls_valuehelp TYPE ts_valuehelp.
+  "Insert - prasad.d for Authority Names Domain
+
+  CASE iv_domain_name.
+    WHEN 'ZNAT'.
+      SELECT land1 landx50 INTO (ls_entity-domainvalue, ls_entity-domaindesc) FROM t005t
+        WHERE spras = iv_lang
+        ORDER BY land1 ASCENDING.
+        ls_entity-domainname = iv_domain_name.
+        ls_entity-language = iv_lang.
+        APPEND ls_entity TO et_entityset.
+      ENDSELECT.
+      RETURN.
+    WHEN 'ZREG'.
+      IF iv_filter IS NOT INITIAL.
+        SELECT DISTINCT t005u~bland t005u~bezei FROM t005s INNER JOIN t005u
+          ON t005s~land1 = t005u~land1 AND t005s~bland = t005u~bland
+          INTO (ls_entity-domainvalue, ls_entity-domaindesc)
+          WHERE
+            t005s~land1 = iv_filter AND
+            t005u~spras = iv_lang
+          ORDER BY t005u~bezei ASCENDING.
+          APPEND ls_entity TO et_entityset.
+        ENDSELECT.
+      ELSE.
+        SELECT DISTINCT t005u~bland t005u~bezei FROM t005s INNER JOIN t005u
+          ON t005s~land1 = t005u~land1 AND t005s~bland = t005u~bland
+          INTO (ls_entity-domainvalue, ls_entity-domaindesc)
+          WHERE
+            t005u~spras = iv_lang
+          ORDER BY t005u~bezei ASCENDING.
+          APPEND ls_entity TO et_entityset.
+        ENDSELECT.
+      ENDIF.
+      RETURN.
+    WHEN 'ZREL'.
+      SELECT zzreligion0001 text FROM ztb0000fywreit INTO (ls_entity-domainvalue, ls_entity-domaindesc)
+        WHERE spras = iv_lang.
+        ls_entity-domainname = iv_domain_name.
+        ls_entity-language = iv_lang.
+        APPEND ls_entity TO et_entityset.
+      ENDSELECT.
+      RETURN.
+    WHEN 'ZCORR'.
+      SELECT t002~laiso t002t~sptxt
+       FROM t002 INNER JOIN t002t ON t002~spras = t002t~sprsl
+       INTO (ls_entity-domainvalue, ls_entity-domaindesc)
+       WHERE t002t~spras EQ iv_lang.
+        ls_entity-domainname = iv_domain_name.
+        ls_entity-language = iv_lang.
+        APPEND ls_entity TO et_entityset.
+      ENDSELECT.
+    WHEN 'ZEDU'.
+      SELECT tab_type~zztfldnlrkne tab_trans~text
+            FROM ztb0000lfrhne AS tab_type INNER JOIN ztb0000lfrhnet AS tab_trans ON tab_type~zztfldnlrkne = tab_trans~zztfldnlrkne
+            INTO (ls_entity-domainvalue,ls_entity-domaindesc)
+            WHERE tab_trans~spras = iv_lang
+            ORDER BY tab_trans~text ASCENDING.
+        ls_entity-domainname = iv_domain_name.
+        ls_entity-language = iv_lang.
+        APPEND ls_entity TO et_entityset.
+      ENDSELECT.
+      RETURN.
+    WHEN 'ZSPL'.
+      SELECT tab_type~zztfld67r3ne tab_trans~text
+      FROM ztb0000rxr9ne AS tab_type INNER JOIN ztb0000rxr9net AS tab_trans ON tab_type~zztfld67r3ne = tab_trans~zztfld67r3ne
+      INTO (ls_entity-domainvalue,ls_entity-domaindesc)
+      WHERE
+        tab_trans~spras = iv_lang
+      ORDER BY tab_trans~text ASCENDING.
+        ls_entity-domainname = iv_domain_name.
+        ls_entity-language = iv_lang.
+        APPEND ls_entity TO et_entityset.
+      ENDSELECT.
+      RETURN.
+    WHEN 'ZCD'.
+      CALL FUNCTION 'ZFM_EGA_GET_ASSIGNED_CASHDESKS'
+        IMPORTING
+          et_assigned_cashdesks = lt_assigned_cashdesks_api.
+      LOOP AT lt_assigned_cashdesks_api INTO ls_assigned_cashdesks_api.
+        lv_index = lv_index + 1.
+        MOVE-CORRESPONDING ls_assigned_cashdesks_api TO ls_assigned_cashdesks.
+        ls_assigned_cashdesks-id      = lv_index.
+        CALL FUNCTION 'ZFM_EGA_BUKRS_FROM_CASHDESK'
+          EXPORTING
+            iv_office       = ls_assigned_cashdesks-offic
+            iv_cashdesk     = ls_assigned_cashdesks-chdsk
+          IMPORTING
+            ev_company_code = lv_bukrs
+            et_return       = lt_bukrs_errors.
+        IF lt_bukrs_errors IS INITIAL.
+          ls_assigned_cashdesks-bukrs = lv_bukrs.
+        ELSE.
+          EXIT.
+        ENDIF.
+        CONCATENATE ls_assigned_cashdesks-offic
+                    `-`
+                    ls_assigned_cashdesks-chdsk
+                    ` (`
+                    ls_assigned_cashdesks-bukrs
+                    `)`
+        INTO ls_entity-domaindesc RESPECTING BLANKS.
+        ls_entity-domainvalue = lv_index.
+        ls_entity-domainname = iv_domain_name.
+        APPEND ls_entity TO et_entityset.
+      ENDLOOP.
+    WHEN 'ZEXR'.
+      SELECT * FROM tfk048at
+        INTO TABLE lt_exemption_reas_db
+        WHERE abgrd LIKE 'Z%' AND
+        spras = sy-langu.
+      LOOP AT lt_exemption_reas_db INTO ls_exemption_reas_db.
+        ls_entity-domainvalue = ls_exemption_reas_db-abgrd.
+        ls_entity-domaindesc = ls_exemption_reas_db-abtxt.
+        ls_entity-domainname = iv_domain_name.
+        APPEND ls_entity TO et_entityset.
+      ENDLOOP.
+
+    WHEN 'ZGRARC'.
+      SELECT grund AS domainvalue, grtxt AS domaindesc FROM t157e
+      INTO CORRESPONDING FIELDS OF TABLE @et_entityset WHERE bwart EQ '551' AND spras EQ @sy-langu.
+*      ls_entity-domainvalue = '9999'.
+*      IF sy-langu eq 'E'.
+*        ls_entity-domaindesc = 'Others'.
+*      ELSE.
+*        ls_entity-domaindesc = 'الآخرين'.
+*      ENDIF.
+*      APPEND ls_entity TO et_entityset.
+    WHEN 'ZGR1STAT'.
+      SELECT stat_orderno AS domainvalue, stat_ordno_descr AS domaindesc FROM scmgstatprofst
+        INTO CORRESPONDING FIELDS OF TABLE @et_entityset WHERE profile_id EQ 'YGR1' AND langu EQ @sy-langu
+                                                           AND stat_orderno IN ( '30','50','70' )     .
+*        delete et_entityset WHERE domainvalue
+    WHEN 'ZGRAUSER'.
+      SELECT 'ZGRAUSER' AS domainname, sobid AS domainvalue, sobid AS domaindesc FROM hrp1001
+        INTO CORRESPONDING FIELDS OF TABLE @et_entityset WHERE objid EQ '60000475' ORDER BY sobid.
+      SORT et_entityset.
+      DELETE ADJACENT DUPLICATES FROM et_entityset.
+
+* Changes for PHD Material type
+    WHEN 'ZPHDMATKL'.
+      SELECT t023~matkl AS domainvalue, wgbez60 AS domaindesc, @iv_domain_name AS domainname
+        FROM t023
+       INNER JOIN t023t
+          ON t023~matkl = t023t~matkl
+        INTO CORRESPONDING FIELDS OF TABLE @et_entityset
+       WHERE t023~begru = 'PHD'
+         AND t023t~spras = @sy-langu.
+*Getting Locations
+    WHEN 'ZLOCATION'.
+      "Comment & Insert + prasad.d
+      SELECT location AS domainvalue, location_description AS domaindesc ,@iv_domain_name AS domainname
+             FROM zdt_epda_locat_t
+             INTO CORRESPONDING FIELDS OF TABLE @et_entityset WHERE language = @sy-langu.
+      SORT et_entityset.
+      DELETE ADJACENT DUPLICATES FROM et_entityset.
+    WHEN 'ZDO_PHD_BP_AUTHORITIES'.
+      SELECT * FROM zbp_authoritiest INTO TABLE lt_auth
+      WHERE spras = sy-langu.
+      IF sy-subrc EQ 0.
+        lt_auth_tmp[] = lt_auth[].
+        DELETE lt_auth_tmp WHERE authority NS 'RK-'.
+        DELETE lt_auth WHERE authority CS 'RK-'.
+        APPEND LINES OF lt_auth TO lt_auth_tmp.
+
+        LOOP AT lt_auth_tmp INTO ls_auth.
+          ls_valuehelp-language = sy-langu.
+          ls_valuehelp-domaindesc = ls_auth-description.
+          ls_valuehelp-domainname = 'ZDO_PHD_BP_AUTHORITIES'.
+          ls_valuehelp-domainvalue = ls_auth-authority.
+          APPEND ls_valuehelp TO et_entityset.
+        ENDLOOP.
+      ENDIF.
+    WHEN 'ZCJ_CTYPE'.
+      SELECT aotype AS domainvalue , xmaotype AS domaindesc FROM tivbdarobjtypet
+        INTO CORRESPONDING FIELDS OF TABLE @et_entityset WHERE aotype IN ( '10BU' , '10SB' , '50PF' ) AND spras EQ @sy-langu.
+    WHEN 'ZCJ_BTYPE'.
+      SELECT aofunction AS domainvalue , xmaofunction AS domaindesc FROM tivbdarfunct
+              INTO CORRESPONDING FIELDS OF TABLE @et_entityset WHERE aotype EQ @iv_filter AND spras EQ @sy-langu.
+    WHEN 'ZCJ_FTYPE'.
+      SELECT fixfitcharact AS domainvalue , xfixfitcharact AS domaindesc FROM tivbdcharactt
+              INTO CORRESPONDING FIELDS OF TABLE @et_entityset WHERE fixfitcharact IN ( '005301' , '005302' , '005303' ) AND spras EQ @sy-langu.
+    WHEN 'ZCJ_BSYS'.
+      SELECT fixfitcharact AS domainvalue , xfixfitcharact AS domaindesc FROM tivbdcharactt
+              INTO CORRESPONDING FIELDS OF TABLE @et_entityset WHERE fixfitcharact IN ( '003100' , '003101'
+        , '003102', '003103', '003104' ) AND spras EQ @sy-langu.
+    WHEN 'ZCJ_MUSGT'.
+      SELECT fixfitcharact AS domainvalue , xfixfitcharact AS domaindesc FROM tivbdcharactt
+              INTO CORRESPONDING FIELDS OF TABLE @et_entityset WHERE fixfitcharact >= 'MU00' AND fixfitcharact < 'MU25' AND spras EQ @sy-langu.
+    WHEN OTHERS.
+      RETURN.
+  ENDCASE.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_ZEGA_FW_FND_DPC_EXT->FILTER_DOMAIN
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DOMAIN                      TYPE        DDOBJNAME
+* | [<-->] CT_ENTITYSET                   TYPE        ZCL_ZEGA_FW_FND_MPC=>TT_VALUEHELP
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD filter_domain.
+  DATA: entityset TYPE zcl_zega_fw_fnd_mpc=>tt_valuehelp,
+        entity    LIKE LINE OF entityset.
+
+  IF iv_domain EQ 'AD_TITLE'.
+    DELETE ct_entityset WHERE domainvalue EQ '0003' OR domainvalue EQ '0004'.
+  ELSEIF iv_domain EQ 'BU_TYPE'.
+    DELETE ct_entityset WHERE domainvalue EQ '3'.
+  ELSEIF iv_domain EQ 'ZDE_EGA_ENTITY'.
+    entity = VALUE #( ct_entityset[ 22 ] OPTIONAL ).
+    DELETE ct_entityset INDEX 22.
+    INSERT entity INTO ct_entityset INDEX 1.
+    DELETE ct_entityset WHERE domainvalue EQ '29'.
+  ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_ZEGA_FW_FND_DPC_EXT->IF_SADL_GW_QUERY_CONTROL~SET_QUERY_OPTIONS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_SET                  TYPE        STRING
+* | [--->] IO_QUERY_OPTIONS               TYPE REF TO IF_SADL_GW_QUERY_OPTIONS
+* | [!CX!] CX_SADL_GW_CONTRACT_VIOLATION
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD if_sadl_gw_query_control~set_query_options.
+    CASE iv_entity_set.
+      WHEN 'FieldControlSet'.
+        TRY.
+            io_query_options->get_filter(
+              IMPORTING
+                et_filter                   = DATA(lt_filter)
+            ).
+            INSERT VALUE sabp_s_name_range_pair( name = 'LANGU' range = VALUE sabp_t_range_options( ( low = sy-langu option = 'EQ' sign = 'I' ) ) )
+                INTO TABLE lt_filter.
+            INSERT VALUE sabp_s_name_range_pair( name = 'LANGU' range = VALUE sabp_t_range_options( ( low = '' option = 'EQ' sign = 'I' ) ) )
+                INTO TABLE lt_filter.
+            io_query_options->set_filter(
+              EXPORTING
+                it_filter                     = lt_filter
+            ).
+          CATCH cx_root.
+            "Nothing
+        ENDTRY.
+      WHEN OTHERS.
+        RETURN.
+    ENDCASE.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_FW_FND_DPC_EXT->VALUEHELPSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_FW_FND_MPC=>TT_VALUEHELP
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD valuehelpset_get_entityset.
+
+
+  DATA: lv_language TYPE sylangu,
+        lv_domname  TYPE ddobjname,
+        ls_dd01v    TYPE dd01v.
+
+  DATA: lt_domvalues  TYPE STANDARD TABLE OF dd07v,
+        lv_texttable  TYPE  dd08v-tabname,
+        lv_checkfield TYPE  dd08v-fieldname,
+        lt_field_text TYPE STANDARD TABLE OF dfies.
+
+  FIELD-SYMBOLS:          <ls_field_text> TYPE dfies,
+                          <fs_text>       TYPE any,
+                          <fs_data>       TYPE any,
+                          <lt_checktable> TYPE STANDARD TABLE,
+                          <ls_checktable> TYPE any,
+                          <lt_texttable>  TYPE STANDARD TABLE,
+                          <ls_texttable>  TYPE any,
+                          <lv_field>      TYPE any..
+
+
+  TRY .
+      lv_language = it_filter_select_options[ property = 'Language' ]-select_options[ 1 ]-low.
+    CATCH cx_sy_itab_line_not_found.
+      lv_language = sy-langu.
+  ENDTRY.
+
+  TRY .
+      lv_domname = it_filter_select_options[ property = 'DomainName' ]-select_options[ 1 ]-low.
+    CATCH cx_sy_itab_line_not_found.
+      RETURN.
+  ENDTRY.
+
+  TRY .
+      DATA(lv_filter) = it_filter_select_options[ property = 'DomainFilter' ]-select_options[ 1 ]-low.
+    CATCH cx_sy_itab_line_not_found.
+  ENDTRY.
+
+  " checking if domain is fixed values or text tables
+  CALL FUNCTION 'DDIF_DOMA_GET'
+    EXPORTING
+      name          = lv_domname
+*     STATE         = 'A'
+      langu         = lv_language
+    IMPORTING
+*     GOTSTATE      =
+      dd01v_wa      = ls_dd01v
+    TABLES
+      dd07v_tab     = lt_domvalues
+    EXCEPTIONS
+      illegal_input = 1
+      OTHERS        = 2.
+
+  IF lt_domvalues[] IS NOT INITIAL.
+    LOOP AT lt_domvalues ASSIGNING FIELD-SYMBOL(<fs_domval>).
+      et_entityset = VALUE #( BASE et_entityset
+                              ( domainvalue =  <fs_domval>-domvalue_l
+                                domaindesc  =  <fs_domval>-ddtext
+                                language    =  lv_language
+                                domainname  =  lv_domname ) ) .
+
+    ENDLOOP.
+    filter_domain( EXPORTING iv_domain    = lv_domname CHANGING ct_entityset = et_entityset ).
+  ELSE.
+    fill_custom_domain(
+      EXPORTING
+        iv_domain_name = lv_domname
+        iv_filter      = lv_filter
+        iv_lang        = lv_language
+      IMPORTING
+        et_entityset   = et_entityset
+        ).
+
+    IF et_entityset IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+
+    CALL FUNCTION 'DDUT_TEXTTABLE_GET'
+      EXPORTING
+        tabname    = ls_dd01v-entitytab
+      IMPORTING
+        texttable  = lv_texttable
+        checkfield = lv_checkfield.
+    IF sy-subrc = 0.
+* get key fields of check table
+      CALL FUNCTION 'DDIF_NAMETAB_GET'
+        EXPORTING
+          tabname   = lv_texttable
+        TABLES
+          dfies_tab = lt_field_text
+        EXCEPTIONS
+          not_found = 1
+          OTHERS    = 2.
+
+      IF sy-subrc IS NOT INITIAL.
+        RETURN.
+      ENDIF.
+* get language field
+      READ TABLE lt_field_text ASSIGNING FIELD-SYMBOL(<ls_field_langu>)
+                 WITH KEY keyflag  = 'X'
+                          datatype = 'LANG'.
+
+* get first description field of texttable
+      READ TABLE lt_field_text ASSIGNING <ls_field_text>
+                 WITH KEY keyflag = space
+                          inttype = 'C'.
+
+*            DATA(lv_text) = .
+      CONCATENATE <ls_field_langu>-fieldname  'NE'  ''''  INTO DATA(lv_text)
+              SEPARATED BY space.
+      CONCATENATE lv_text lv_language  '''' INTO lv_text.
+
+* select descriptions
+      DATA:
+         lr_table         TYPE REF TO data.
+      CREATE DATA lr_table TYPE (lv_texttable).
+      ASSIGN lr_table->* TO <ls_texttable>.
+
+      CREATE DATA lr_table TYPE STANDARD TABLE OF (lv_texttable).
+      ASSIGN lr_table->* TO <lt_texttable>.
+
+      SELECT * FROM (lv_texttable)
+               INTO TABLE <lt_texttable>.                "#EC CI_DYNTAB
+
+      DELETE  <lt_texttable> WHERE (lv_text).
+
+      SORT <lt_texttable>
+           BY (lv_checkfield) (<ls_field_langu>-fieldname).
+
+    ENDIF.
+
+    LOOP AT <lt_texttable> ASSIGNING <ls_texttable>.
+      ASSIGN COMPONENT lv_checkfield OF STRUCTURE <ls_texttable> TO <fs_data>.
+      ASSIGN COMPONENT <ls_field_text>-fieldname OF STRUCTURE <ls_texttable> TO <fs_text>.
+      APPEND VALUE #( domainvalue =  <fs_data>
+      domaindesc  =  <fs_text>"<fs_domval>-ddtext
+      language =  lv_language
+      domainname  =  lv_domname ) TO et_entityset.
+    ENDLOOP.
+    filter_domain( EXPORTING iv_domain    = lv_domname CHANGING ct_entityset = et_entityset ).
+  ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_ZEGA_FW_FND_DPC_EXT->READ_TITLE_DEED
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] GENKEY                         TYPE        ZST_ATT_GEN_SRV-GEN_KEY(optional)
+* | [<---] ATTACH_DATA                    TYPE        ZDT_EGA_ATT_SRV
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD read_title_deed.
+
+    DATA: lo_filenet_api_ttldeed TYPE REF TO zcl_ega_filenet_api_ttldeed,
+          ls_filenet_request     TYPE zst_filenet_retrieve_doc_req.
+
+    DATA:
+      BEGIN OF ls_archid,
+        archiv_id  TYPE toav0-archiv_id,
+        ar_object  TYPE toav0-ar_object,
+        arc_doc_id TYPE toav0-arc_doc_id,
+        doc_class  TYPE srmal_doc_class,
+      END   OF ls_archid.
+
+    ls_archid = genkey.
+    DATA(doc_guid_length) = strlen( ls_archid-arc_doc_id ) - 1.
+
+    ls_filenet_request-os_name = 'LANDOS'.
+    ls_filenet_request-document_id = ls_archid-arc_doc_id+0(doc_guid_length).
+
+    CREATE OBJECT lo_filenet_api_ttldeed EXPORTING operation = '3'. " '3' is for READ
+
+    CALL METHOD lo_filenet_api_ttldeed->read
+      EXPORTING
+        in  = ls_filenet_request
+      IMPORTING
+        out = DATA(ls_filenet_response).
+
+    FREE lo_filenet_api_ttldeed.
+
+    IF ls_filenet_response-message = 'SUCCESS'.
+      attach_data-file_descr = ls_filenet_response-file_name.
+      attach_data-file_mime_type = ls_filenet_response-mime_type.
+      CALL FUNCTION 'SCMS_BASE64_DECODE_STR'
+        EXPORTING
+          input  = ls_filenet_response-file_content_base64
+        IMPORTING
+          output = attach_data-file_data.
+    ENDIF.
+
+  ENDMETHOD.
+ENDCLASS.

@@ -1,0 +1,426 @@
+class ZCL_ZEGA_EPDA_FSHRY_CR_DPC_EXT definition
+  public
+  inheriting from ZCL_ZEGA_EPDA_FSHRY_CR_DPC
+  create public .
+
+public section.
+
+  methods /IWBEP/IF_MGW_APPL_SRV_RUNTIME~CREATE_DEEP_ENTITY
+    redefinition .
+protected section.
+private section.
+ENDCLASS.
+
+
+
+CLASS ZCL_ZEGA_EPDA_FSHRY_CR_DPC_EXT IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_ZEGA_EPDA_FSHRY_CR_DPC_EXT->/IWBEP/IF_MGW_APPL_SRV_RUNTIME~CREATE_DEEP_ENTITY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING(optional)
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING(optional)
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING(optional)
+* | [--->] IO_DATA_PROVIDER               TYPE REF TO /IWBEP/IF_MGW_ENTRY_PROVIDER
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR(optional)
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH(optional)
+* | [--->] IO_EXPAND                      TYPE REF TO /IWBEP/IF_MGW_ODATA_EXPAND
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITY_C(optional)
+* | [<---] ER_DEEP_ENTITY                 TYPE REF TO DATA
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD /iwbep/if_mgw_appl_srv_runtime~create_deep_entity.
+
+    TYPES:
+        BEGIN OF ty_fshry_struc.
+    TYPES additional_services TYPE TABLE OF zst_cs_ega_epda_fshry_addsrv WITH DEFAULT KEY.
+    TYPES attachment          TYPE TABLE OF zst_cs_ega_epda_fshry_att WITH DEFAULT KEY.
+    TYPES boat                TYPE TABLE OF zst_cs_ega_epda_fshry_boat WITH DEFAULT KEY.
+    TYPES fees                TYPE TABLE OF zst_cs_ega_epda_fshry_fee WITH DEFAULT KEY.
+    TYPES fishing_area        TYPE TABLE OF zst_cs_ega_epda_fshry_area WITH DEFAULT KEY.
+    TYPES partner             TYPE TABLE OF zst_cs_ega_epda_fshry_bp WITH DEFAULT KEY.
+    TYPES transfer            TYPE TABLE OF zst_cs_ega_epda_fshry_transfer WITH DEFAULT KEY.
+    TYPES workers             TYPE TABLE OF zst_cs_ega_epda_fshry_workers WITH DEFAULT KEY.
+    TYPES locate_honey_bee    TYPE TABLE OF zst_cs_ega_epda_honey_bee WITH DEFAULT KEY."zst_cs_ega_epda_noc_location WITH DEFAULT KEY.
+    TYPES tree_list           TYPE TABLE OF zst_cs_ega_epda_tree WITH DEFAULT KEY.
+    INCLUDE TYPE zst_cs_ega_epda_fishery_root.
+    TYPES END OF ty_fshry_struc .
+
+    DATA : ls_deep                TYPE zcl_zega_epda_fshry_cr_mpc_ext=>ts_deepstr,
+*    DATA : ls_deep                TYPE zcl_zega_epda_fshry_cr_mpc_ext=>TS_HEADER,
+           ls_deep_class          TYPE ty_fshry_struc,
+           ls_additional_services TYPE  zst_cs_ega_epda_fshry_addsrv,
+           lt_additional_services TYPE TABLE OF zst_cs_ega_epda_fshry_addsrv,
+           lt_attachment          TYPE TABLE OF zst_cs_ega_epda_fshry_att,
+           ls_attachment          TYPE  zst_cs_ega_epda_fshry_att,
+           lt_boat                TYPE TABLE OF zst_cs_ega_epda_fshry_boat,
+           ls_boat                TYPE  zst_cs_ega_epda_fshry_boat,
+           lt_fees                TYPE TABLE OF zst_cs_ega_epda_fshry_fee,
+           ls_fees                TYPE  zst_cs_ega_epda_fshry_fee,
+           lt_fishing_area        TYPE TABLE OF zst_cs_ega_epda_fshry_area,
+           ls_fishing_area        TYPE  zst_cs_ega_epda_fshry_area,
+           lt_partner             TYPE TABLE OF zst_cs_ega_epda_fshry_bp,
+           ls_partner             TYPE  zst_cs_ega_epda_fshry_bp,
+           lt_transfer            TYPE TABLE OF zst_cs_ega_epda_fshry_transfer,
+           ls_transfer            TYPE  zst_cs_ega_epda_fshry_transfer,
+           lt_workers             TYPE TABLE OF zst_cs_ega_epda_fshry_workers,
+           ls_workers             TYPE  zst_cs_ega_epda_fshry_workers,
+           lt_locate_honey_bee    TYPE TABLE OF zst_cs_ega_epda_honey_bee,
+           ls_locate_honey_bee    TYPE  zst_cs_ega_epda_honey_bee,
+           lt_tree_list           TYPE TABLE OF zst_cs_ega_epda_tree,
+           ls_tree_list           TYPE  zst_cs_ega_epda_tree,
+           ev_caseid              TYPE scmg_ext_key,
+           ev_appl_no             TYPE zde_ega_request_number,
+           ev_draftid             TYPE zde_ega_draftid,
+           lt_return              TYPE bapiret2_t,
+           ev_draft_id            TYPE zde_ega_draftid,
+           ls_fisheries           TYPE zst_cs_ega_epda_fishery_root,
+           lo_msg                 TYPE REF TO /iwbep/if_message_container.
+
+    TRY.
+        io_data_provider->read_entry_data(
+          IMPORTING
+            es_data = ls_deep ).
+
+        ls_deep_class-key                               =      ls_deep-key .
+        ls_deep_class-parent_key                        =      ls_deep-parent_key.
+        ls_deep_class-root_key                          =      ls_deep-root_key        .
+        ls_deep_class-case_id                           =      ls_deep-case_id         .
+        ls_deep_class-case_type                         =      ls_deep-case_type.
+        ls_deep_class-application_number                =      ls_deep-application_number.
+        ls_deep_class-draft_id                          =      ls_deep-draft_id         .
+        ls_deep_class-submitted_from                    =      ls_deep-submitted_from   .
+        ls_deep_class-submit_flag                       =      ls_deep-submit_flag      .
+        ls_deep_class-lic_no                            =      ls_deep-lic_no           .
+        ls_deep_class-lic_type                          =      ls_deep-lic_type         .
+        ls_deep_class-port                              =      ls_deep-port             .
+        ls_deep_class-fishing_type                      =      ls_deep-fishing_type     .
+        ls_deep_class-applicant_id                      =      ls_deep-applicant_id     .
+        ls_deep_class-applicant_type                    =      ls_deep-applicant_type   .
+        ls_deep_class-owner_id                          =      ls_deep-owner_id         .
+        ls_deep_class-new_owner_id                      =      ls_deep-new_owner_id     .
+        ls_deep_class-executive_id                      =      ls_deep-executive_id     .
+        ls_deep_class-expire_date                       =      ls_deep-expire_date      .
+        ls_deep_class-created_by                        =      ls_deep-created_by       .
+        ls_deep_class-created_on                        =      ls_deep-created_on       .
+        ls_deep_class-created_time                      =      ls_deep-created_time     .
+        ls_deep_class-permitrequestdate                 =      ls_deep-permitrequestdate.
+        ls_deep_class-bp_free_srch                      =      ls_deep-bp_free_srch     .
+        ls_deep_class-owner_fee_exem                    =      ls_deep-owner_fee_exem   .
+        ls_deep_class-arti_reef_balls                   =      ls_deep-arti_reef_balls  .
+        ls_deep_class-reason                            =      ls_deep-reason           .
+        ls_deep_class-emirates_id_rout                  =      ls_deep-emirates_id_rout .
+        ls_deep_class-person_rout                       =      ls_deep-person_rout      .
+        ls_deep_class-ministry_let_no                   =      ls_deep-ministry_let_no  .
+        ls_deep_class-ministry_let_date                 =      ls_deep-ministry_let_date.
+        ls_deep_class-dok_parking_number                 =      ls_deep-dok_parking_number.
+        ls_deep_class-case_type_tx                      =      ls_deep-case_type_tx     .
+        ls_deep_class-case_title                        =      ls_deep-case_title       .
+        ls_deep_class-lic_type_tx                       =      ls_deep-lic_type_tx      .
+        ls_deep_class-issue_date                       =      ls_deep-issue_date       .
+        ls_deep_class-port_tx                           =      ls_deep-port_tx          .
+        ls_deep_class-fishing_type_tx                   =      ls_deep-fishing_type_tx  .
+        ls_deep_class-status                            =      ls_deep-status           .
+        ls_deep_class-status_tx                         =      ls_deep-status_tx        .
+        ls_deep_class-owner_name                        =      ls_deep-owner_name       .
+        ls_deep_class-owner_name_ar                     =      ls_deep-owner_name_ar    .
+        ls_deep_class-applicant_type_tx                 =      ls_deep-applicant_type_tx.
+        ls_deep_class-owner_fee_exem_tx                 =      ls_deep-owner_fee_exem_tx.
+        ls_deep_class-qrcode                            =      ls_deep-qrcode           .
+
+
+        LOOP AT ls_deep-additionalservices INTO DATA(ls_pay_additional_services).
+          ls_additional_services-key =  ls_pay_additional_services-key.
+          ls_additional_services-parent_key     =        ls_pay_additional_services-parent_key  .
+          ls_additional_services-root_key       =        ls_pay_additional_services-root_key     .
+          ls_additional_services-labour_accom   =        ls_pay_additional_services-labour_accom  .
+          ls_additional_services-boat_parking   =        ls_pay_additional_services-boat_parking   .
+          ls_additional_services-storage        =        ls_pay_additional_services-storage        .
+          ls_additional_services-labour_accom_tx =       ls_pay_additional_services-labour_accom_tx.
+          ls_additional_services-boat_parking_tx =       ls_pay_additional_services-boat_parking_tx.
+          ls_additional_services-storage_tx      =       ls_pay_additional_services-storage_tx     .
+          APPEND ls_additional_services TO lt_additional_services.
+          CLEAR ls_additional_services.
+        ENDLOOP.
+        ls_deep_class-additional_services  = lt_additional_services.
+
+        LOOP AT ls_deep-attachment INTO DATA(ls_pay_attachment).
+          ls_attachment-key             =     ls_pay_attachment-key.
+          ls_attachment-parent_key      =     ls_pay_attachment-parent_key  .
+          ls_attachment-root_key        =     ls_pay_attachment-root_key     .
+          ls_attachment-doc_type        =     ls_pay_attachment-doc_type.
+          ls_attachment-attach_key      =     ls_pay_attachment-attach_key.
+          ls_attachment-doc_type_desc   =     ls_pay_attachment-doc_type_desc.
+          ls_attachment-file_descr      =     ls_pay_attachment-file_descr    .
+          ls_attachment-file_data       =     ls_pay_attachment-file_data     .
+          ls_attachment-file_mime_type  =     ls_pay_attachment-file_mime_type.
+          ls_attachment-file_name       =     ls_pay_attachment-file_name     .
+          APPEND ls_attachment TO lt_attachment.
+          CLEAR ls_attachment.
+        ENDLOOP.
+        ls_deep_class-attachment  = lt_attachment.
+
+        LOOP AT ls_deep-boat INTO DATA(ls_pay_boat).
+          ls_boat-key             =    ls_pay_boat-key    .
+          ls_boat-parent_key      =    ls_pay_boat-parent_key.
+          ls_boat-root_key        =    ls_pay_boat-root_key   .
+          ls_boat-boat_id         =    ls_pay_boat-boat_id     .
+          ls_boat-boat_type       =    ls_pay_boat-boat_type    .
+          ls_boat-boat_name       =    ls_pay_boat-boat_name     .
+          ls_boat-fishing_type    =    ls_pay_boat-fishing_type   .
+          ls_boat-boat_lic_exp_on =    ls_pay_boat-boat_lic_exp_on .
+          ls_boat-length          =    ls_pay_boat-length          .
+          ls_boat-engine_no       =    ls_pay_boat-engine_no       .
+          ls_boat-engine_power     =   ls_pay_boat-engine_power    .
+          ls_boat-max_crew_cnt     =   ls_pay_boat-max_crew_cnt    .
+          ls_boat-boat_attach_key  =   ls_pay_boat-boat_attach_key .
+          ls_boat-boat_status      =   ls_pay_boat-boat_status     .
+          ls_boat-marine_contract  =   ls_pay_boat-marine_contract .
+          ls_boat-transfer         =   ls_pay_boat-transfer        .
+          ls_boat-created_date     =   ls_pay_boat-created_date    .
+          ls_boat-created_time     =   ls_pay_boat-created_time    .
+          ls_boat-changed_on       =   ls_pay_boat-changed_on      .
+          ls_boat-changed_time     =   ls_pay_boat-changed_time    .
+          ls_boat-boat_type_tx      =  ls_pay_boat-boat_type_tx    .
+          ls_boat-boat_status_tx    =  ls_pay_boat-boat_status_tx  .
+          ls_boat-fishing_type_tx   =  ls_pay_boat-fishing_type_tx .
+          ls_boat-marine_contract_tx  =  ls_pay_boat-marine_contract_tx.
+          ls_boat-doc_type          =  ls_pay_boat-doc_type        .
+          ls_boat-doc_type_desc     =  ls_pay_boat-doc_type_desc   .
+          ls_boat-file_descr        =  ls_pay_boat-file_descr      .
+          ls_boat-file_data         =  ls_pay_boat-file_data       .
+          ls_boat-file_mime_type    =  ls_pay_boat-file_mime_type  .
+          APPEND ls_boat TO lt_boat.
+          CLEAR ls_boat.
+        ENDLOOP.
+        ls_deep_class-boat = lt_boat.
+
+        LOOP AT ls_deep-fees INTO DATA(ls_pay_fees).
+          ls_fees-key               =      ls_pay_fees-key         .
+          ls_fees-parent_key        =      ls_pay_fees-parent_key   .
+          ls_fees-root_key          =      ls_pay_fees-root_key      .
+          ls_fees-fee_type          =      ls_pay_fees-fee_type            .
+          ls_fees-fee_rules         =      ls_pay_fees-fee_rules    .
+          ls_fees-amount            =      ls_pay_fees-amount .
+          ls_fees-nyears            =      ls_pay_fees-nyears .
+          ls_fees-fee_type_t        =      ls_pay_fees-fee_type_t           .
+          ls_fees-fee_rules_t       =      ls_pay_fees-fee_rules_t        .
+          APPEND ls_fees TO lt_fees.
+          CLEAR ls_fees.
+        ENDLOOP.
+        ls_deep_class-fees = lt_fees.
+
+        LOOP AT ls_deep-fishingarea INTO DATA(ls_pay_fishing_area).
+          ls_fishing_area-key               =      ls_pay_fishing_area-key         .
+          ls_fishing_area-parent_key        =      ls_pay_fishing_area-parent_key   .
+          ls_fishing_area-root_key          =      ls_pay_fishing_area-root_key      .
+          ls_fishing_area-gps               =      ls_pay_fishing_area-gps            .
+          ls_fishing_area-fishing_type      =      ls_pay_fishing_area-fishing_type    .
+          ls_fishing_area-coordinates_n_x   =      ls_pay_fishing_area-coordinates_n_x .
+          ls_fishing_area-coordinates_e_y   =      ls_pay_fishing_area-coordinates_e_y .
+          ls_fishing_area-depth             =      ls_pay_fishing_area-depth           .
+          ls_fishing_area-material          =      ls_pay_fishing_area-material        .
+          ls_fishing_area-fishing_type_tx   =      ls_pay_fishing_area-fishing_type_tx .
+          APPEND ls_fishing_area TO lt_fishing_area.
+          CLEAR ls_fishing_area.
+        ENDLOOP.
+        ls_deep_class-fishing_area = lt_fishing_area.
+
+        LOOP AT ls_deep-partner INTO DATA(ls_pay_partner).
+          ls_partner-key                    =       ls_pay_partner-key.
+          ls_partner-parent_key             =       ls_pay_partner-parent_key.
+          ls_partner-root_key               =       ls_pay_partner-root_key   .
+          ls_partner-owner_id               =       ls_pay_partner-owner_id    .
+          ls_partner-bp_type                =       ls_pay_partner-bp_type      .
+          ls_partner-bp_role                =       ls_pay_partner-bp_role       .
+          ls_partner-old_owner_id           =       ls_pay_partner-old_owner_id   .
+          ls_partner-own_type               =       ls_pay_partner-own_type        .
+          ls_partner-relkind                =       ls_pay_partner-relkind          .
+          ls_partner-app_flg                =       ls_pay_partner-app_flg          .
+          ls_partner-fshry_bp_type          =       ls_pay_partner-fshry_bp_type    .
+          ls_partner-resident_type          =       ls_pay_partner-resident_type    .
+          ls_partner-passport_number        =       ls_pay_partner-passport_number  .
+          ls_partner-relationship           =       ls_pay_partner-relationship     .
+          ls_partner-relat_mobile           =       ls_pay_partner-relat_mobile     .
+          ls_partner-relat_email            =       ls_pay_partner-relat_email      .
+          ls_partner-bp_name                =       ls_pay_partner-bp_name          .
+          ls_partner-bp_name_ar             =       ls_pay_partner-bp_name_ar       .
+          ls_partner-mobile_number          =       ls_pay_partner-mobile_number    .
+          ls_partner-email_address          =       ls_pay_partner-email_address    .
+          ls_partner-emirates_id            =       ls_pay_partner-emirates_id      .
+          ls_partner-eid_expiry_on          =       ls_pay_partner-eid_expiry_on    .
+          ls_partner-nationality            =       ls_pay_partner-nationality      .
+          ls_partner-nationality_tx         =       ls_pay_partner-nationality_tx   .
+          ls_partner-own_type_tx            =       ls_pay_partner-own_type_tx      .
+          ls_partner-relkind_tx             =       ls_pay_partner-relkind_tx       .
+          ls_partner-fshry_bp_type_tx       =       ls_pay_partner-fshry_bp_type_tx .
+          ls_partner-birthdate              =       ls_pay_partner-birthdate        .
+          ls_partner-passport_exp_on        =       ls_pay_partner-passport_exp_on  .
+          ls_partner-unified_no             =       ls_pay_partner-unified_no       .
+          ls_partner-unified_exp_on         =       ls_pay_partner-unified_exp_on   .
+          APPEND ls_partner TO lt_partner.
+          CLEAR ls_partner.
+        ENDLOOP.
+
+        ls_deep_class-partner = lt_partner.
+
+        LOOP AT ls_deep-transfer INTO DATA(ls_pay_transfer).
+          ls_transfer-key             =      ls_pay_transfer-key          .
+          ls_transfer-parent_key      =      ls_pay_transfer-parent_key    .
+          ls_transfer-root_key        =      ls_pay_transfer-root_key       .
+          ls_transfer-lic_no          =      ls_pay_transfer-lic_no         .
+          ls_transfer-owner_id        =      ls_pay_transfer-owner_id       .
+          ls_transfer-boat_id         =      ls_pay_transfer-boat_id        .
+          ls_transfer-duration        =      ls_pay_transfer-duration       .
+          ls_transfer-boat_name       =      ls_pay_transfer-boat_name      .
+          ls_transfer-bp_name         =      ls_pay_transfer-bp_name        .
+          ls_transfer-bp_name_ar      =      ls_pay_transfer-bp_name_ar     .
+          ls_transfer-mobile_number   =      ls_pay_transfer-mobile_number  .
+          ls_transfer-email_address   =      ls_pay_transfer-email_address  .
+          ls_transfer-emirates_id     =      ls_pay_transfer-emirates_id    .
+          ls_transfer-eid_expiry_on   =      ls_pay_transfer-eid_expiry_on  .
+          ls_transfer-nationality     =      ls_pay_transfer-nationality    .
+          ls_transfer-nationality_tx  =     ls_pay_transfer-nationality_tx .
+          APPEND ls_transfer TO lt_transfer.
+          CLEAR ls_transfer.
+        ENDLOOP.
+
+        ls_deep_class-transfer = lt_transfer.
+
+        LOOP AT ls_deep-workers INTO DATA(ls_pay_workers).
+          ls_workers-key                =             ls_pay_workers-key           .
+          ls_workers-parent_key         =             ls_pay_workers-parent_key     .
+          ls_workers-root_key           =             ls_pay_workers-root_key        .
+          ls_workers-worker_id          =             ls_pay_workers-worker_id        .
+          ls_workers-worker_bp          =             ls_pay_workers-worker_bp        .
+          ls_workers-worker_status      =             ls_pay_workers-worker_status    .
+          ls_workers-visa_status        =             ls_pay_workers-visa_status      .
+          ls_workers-boat_id            =             ls_pay_workers-boat_id          .
+          ls_workers-room_allocat       =             ls_pay_workers-room_allocat     .
+          ls_workers-room_no            =             ls_pay_workers-room_no          .
+          ls_workers-card_exp_on        =             ls_pay_workers-card_exp_on      .
+          ls_workers-card_print         =             ls_pay_workers-card_print       .
+          ls_workers-worker_id_old      =             ls_pay_workers-worker_id_old    .
+          ls_workers-renew              =             ls_pay_workers-renew            .
+          ls_workers-transfer           =             ls_pay_workers-transfer         .
+          ls_workers-transferred        =             ls_pay_workers-transferred      .
+          ls_workers-transfer_licno     =             ls_pay_workers-transfer_licno   .
+          ls_workers-transfer_beg       =             ls_pay_workers-transfer_beg     .
+          ls_workers-transfer_end       =             ls_pay_workers-transfer_end     .
+          ls_workers-created_date       =             ls_pay_workers-created_date     .
+          ls_workers-created_time       =             ls_pay_workers-created_time     .
+          ls_workers-changed_on         =             ls_pay_workers-changed_on       .
+          ls_workers-changed_time       =             ls_pay_workers-changed_time     .
+          ls_workers-worker_status_tx   =             ls_pay_workers-worker_status_tx .
+          ls_workers-visa_status_tx     =             ls_pay_workers-visa_status_tx   .
+          ls_workers-boat_name          =             ls_pay_workers-boat_name        .
+          ls_workers-room_allocat_tx    =             ls_pay_workers-room_allocat_tx  .
+          ls_workers-bp_name            =            ls_pay_workers-bp_name          .
+          ls_workers-emirates_id        =             ls_pay_workers-emirates_id      .
+          ls_workers-visa_id            =             ls_pay_workers-visa_id          .
+          ls_workers-id_expiry_on       =             ls_pay_workers-id_expiry_on     .
+          ls_workers-mobile_number      =             ls_pay_workers-mobile_number    .
+          ls_workers-email_address      =             ls_pay_workers-email_address    .
+          ls_workers-nationality        =             ls_pay_workers-nationality      .
+          ls_workers-nationality_tx     =             ls_pay_workers-nationality_tx   .
+          ls_workers-transfer_from      =             ls_pay_workers-transfer_from    .
+          ls_workers-transfer_to        =             ls_pay_workers-transfer_to      .
+          APPEND ls_workers TO lt_workers.
+          CLEAR ls_workers.
+        ENDLOOP.
+        ls_deep_class-workers = lt_workers.
+
+        LOOP AT ls_deep-locatehoneybee INTO DATA(ls_pay_locate_honey_bee).
+          ls_locate_honey_bee-key          =            ls_pay_locate_honey_bee-key       .
+          ls_locate_honey_bee-parent_key   =             ls_pay_locate_honey_bee-parent_key .
+          ls_locate_honey_bee-root_key     =             ls_pay_locate_honey_bee-root_key    .
+          ls_locate_honey_bee-appln_type   =             ls_pay_locate_honey_bee-appln_type   .
+          ls_locate_honey_bee-location     =             ls_pay_locate_honey_bee-location      .
+          ls_locate_honey_bee-plot_no      =             ls_pay_locate_honey_bee-plot_no        .
+          ls_locate_honey_bee-apiaries_cnt =             ls_pay_locate_honey_bee-apiaries_cnt     .
+          ls_locate_honey_bee-bees_source  =             ls_pay_locate_honey_bee-bees_source     .
+          ls_locate_honey_bee-honey_type   =             ls_pay_locate_honey_bee-honey_type       .
+          ls_locate_honey_bee-expect_prod_qty =          ls_pay_locate_honey_bee-expect_prod_qty   .
+          ls_locate_honey_bee-land_ownership  =          ls_pay_locate_honey_bee-land_ownership    .
+          ls_locate_honey_bee-season          =          ls_pay_locate_honey_bee-season            .
+          ls_locate_honey_bee-mobile          =          ls_pay_locate_honey_bee-mobile            .
+          ls_locate_honey_bee-company_name    =          ls_pay_locate_honey_bee-company_name      .
+          ls_locate_honey_bee-appln_type_tx   =          ls_pay_locate_honey_bee-appln_type_tx     .
+          ls_locate_honey_bee-location_tx     =          ls_pay_locate_honey_bee-location_tx       .
+          ls_locate_honey_bee-bees_source_tx  =          ls_pay_locate_honey_bee-bees_source_tx    .
+          ls_locate_honey_bee-land_ownership_tx =        ls_pay_locate_honey_bee-land_ownership_tx .
+          APPEND ls_locate_honey_bee TO lt_locate_honey_bee.
+          CLEAR ls_locate_honey_bee.
+        ENDLOOP.
+
+        ls_deep_class-locate_honey_bee = lt_locate_honey_bee.
+
+
+        LOOP AT ls_deep-treelist INTO DATA(ls_pay_treelist).
+          ls_tree_list-key          =              ls_pay_treelist-key          .
+          ls_tree_list-parent_key   =      ls_pay_treelist-parent_key   .
+          ls_tree_list-root_key     =      ls_pay_treelist-root_key     .
+          ls_tree_list-tree_type    =      ls_pay_treelist-tree_type    .
+          ls_tree_list-no_of_tree   =      ls_pay_treelist-no_of_tree   .
+          ls_tree_list-action       =      ls_pay_treelist-action       .
+          ls_tree_list-tree_type_tx =      ls_pay_treelist-tree_type_tx .
+          ls_tree_list-action_tx    =      ls_pay_treelist-action_tx    .
+          APPEND ls_tree_list TO lt_tree_list.
+          CLEAR ls_tree_list.
+        ENDLOOP.
+
+        ls_deep_class-tree_list = lt_tree_list.
+
+
+        NEW zcl_ega_epda_fshry_handler_api( )->create_case(
+           EXPORTING
+             is_frshy_case = ls_deep_class
+           IMPORTING
+             ev_caseid     = ev_caseid     " Case ID
+             ev_appl_no    = ev_appl_no    " RAK EGA: Request Number (Format: REQ-YYYY-Following Number)
+             ev_root_key   = ls_fisheries-key
+             ev_draftid    = ls_fisheries-draft_id    " Draft ID
+             et_return     = lt_return     " Return parameter table
+         ).
+
+*        IF line_exists( lt_return[  type = 'E' ] ).
+*          "Instantiate Message Container
+*          CALL METHOD me->/iwbep/if_mgw_conv_srv_runtime~get_message_container
+*            RECEIVING
+*              ro_message_container = lo_msg.   "Message Container Interface
+*
+*
+*          IF lo_msg IS BOUND.
+*            CALL METHOD lo_msg->add_messages_from_bapi
+*              EXPORTING
+*                it_bapi_messages = lt_return.   "Return parameter table
+*
+*            "Raising Exception
+*            RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+*              EXPORTING
+*                textid            = /iwbep/cx_mgw_busi_exception=>business_error
+*                message_container = lo_msg.
+*          ENDIF.
+*        ENDIF.
+        IF lt_return IS INITIAL.
+          ls_deep-message = 'CaseId has been created'.
+          ls_deep-eapplno = ev_appl_no.
+          ls_deep-ecaseid = ev_caseid.
+          ls_deep-erootkey = ls_fisheries-key.
+          ls_deep-edraftid = ls_fisheries-draft_id.
+        ENDIF.
+
+        copy_data_to_ref(
+          EXPORTING
+            is_data = ls_deep
+          CHANGING
+            cr_data = er_deep_entity
+        ).
+
+      CATCH /iwbep/cx_mgw_tech_exception.
+        "Do Nothing[
+    ENDTRY.
+  ENDMETHOD.
+ENDCLASS.

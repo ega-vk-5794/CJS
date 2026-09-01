@@ -1,0 +1,1896 @@
+class ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT definition
+  public
+  inheriting from ZCL_ZEGA_EPDA_MAPLET_I_DPC
+  create public .
+
+public section.
+
+  methods /IWBEP/IF_MGW_APPL_SRV_RUNTIME~CREATE_DEEP_ENTITY
+    redefinition .
+  methods /IWBEP/IF_MGW_APPL_SRV_RUNTIME~EXECUTE_ACTION
+    redefinition .
+  methods /IWBEP/IF_MGW_APPL_SRV_RUNTIME~GET_EXPANDED_ENTITYSET
+    redefinition .
+protected section.
+
+  methods ATTACHMENTSET_CREATE_ENTITY
+    redefinition .
+  methods ATTACHMENTSET_GET_ENTITYSET
+    redefinition .
+  methods FEEDETAILSSET_GET_ENTITYSET
+    redefinition .
+  methods INSPECTIONANSWER_GET_ENTITYSET
+    redefinition .
+  methods MAINACTIVITYSET_CREATE_ENTITY
+    redefinition .
+  methods MAINACTIVITYSET_GET_ENTITYSET
+    redefinition .
+  methods PORTACCOMMODATIO_GET_ENTITYSET
+    redefinition .
+  methods PORTROOMSET_GET_ENTITYSET
+    redefinition .
+  methods TASKSET_CREATE_ENTITY
+    redefinition .
+  methods TASKSET_GET_ENTITYSET
+    redefinition .
+  methods TOKENSET_GET_ENTITYSET
+    redefinition .
+  methods PORTBEDSET_GET_ENTITYSET
+    redefinition .
+private section.
+
+  data GT_PORT_ROOMS type ZEGA_CJ_EPDA_PORT_OBJECTS_TT .
+  data GT_PORT_BEDS type ZEGA_CJ_EPDA_PORT_OBJECTS_TT .
+
+  methods GET_ACTIVITY_FUNCTION
+    importing
+      !IR_CASE type ref to IF_SCMG_CASE
+      !IM_WIID type SWW_WIID
+    exporting
+      !LT_ACTFUNC type ZTT_SCASE_ACT_FUNC
+      !EX_POS_ID type SRMWFPOSID .
+  methods CTT
+    importing
+      !I_D type DATS
+      !I_T type TIMS
+    returning
+      value(R_T) type TIMESTAMP .
+  methods CFT
+    importing
+      !I_T type TIMESTAMP
+    exporting
+      !E_D type DATS
+      !E_T type TIMS .
+ENDCLASS.
+
+
+
+CLASS ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->/IWBEP/IF_MGW_APPL_SRV_RUNTIME~CREATE_DEEP_ENTITY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING(optional)
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING(optional)
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING(optional)
+* | [--->] IO_DATA_PROVIDER               TYPE REF TO /IWBEP/IF_MGW_ENTRY_PROVIDER
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR(optional)
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH(optional)
+* | [--->] IO_EXPAND                      TYPE REF TO /IWBEP/IF_MGW_ODATA_EXPAND
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITY_C(optional)
+* | [<---] ER_DEEP_ENTITY                 TYPE REF TO DATA
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD /iwbep/if_mgw_appl_srv_runtime~create_deep_entity.
+
+
+  DATA lo_message TYPE REF TO /iwbep/if_message_container.
+
+  CASE iv_entity_name.
+    WHEN zcl_zega_epda_maplet_i_mpc=>gc_inspectionanswer.
+      DATA :lt_inspection TYPE zcl_ega_epda_inspection_api=>tt_maplet_inspect_answer,
+            ls_inspection LIKE LINE OF lt_inspection.
+      DATA lt_visit_attachment TYPE zcl_ega_epda_inspection_api=>tt_maplet_visit_attach.
+      TYPES:
+        BEGIN OF ty_maplet_inspect_answer .
+      TYPES: answerset     TYPE TABLE OF zcl_zega_epda_maplet_i_mpc=>ts_answerparameter WITH DEFAULT KEY,
+             attachmentset TYPE TABLE OF zcl_zega_epda_maplet_i_mpc=>ts_attachment WITH DEFAULT KEY.
+             INCLUDE TYPE zcl_zega_epda_maplet_i_mpc=>ts_inspectionanswer.
+      TYPES END OF ty_maplet_inspect_answer .
+      DATA: ls_data   TYPE ty_maplet_inspect_answer,
+            lt_return TYPE bapiret2_t.
+
+      io_data_provider->read_entry_data( IMPORTING es_data = ls_data ).
+      ls_inspection-questionid         = ls_data-questionid.
+      ls_inspection-inspectionid       = ls_data-inspectionid.
+      ls_inspection-questioniddesc     = ls_data-questioniddesc.
+      ls_inspection-permitid           = ls_data-permitid.
+      ls_inspection-submissiondate     = ls_data-submissiondate.
+      ls_inspection-answerid           = ls_data-answerid.
+      ls_inspection-checklistid        = ls_data-checklistid.
+      ls_inspection-epdaapplicationid  = ls_data-epdaapplicationid.
+      ls_inspection-inspectiontype     = ls_data-inspectiontype.
+      ls_inspection-inspectiontypedesc = ls_data-inspectiontypedesc.
+      ls_inspection-visttype           = ls_data-visttype.
+      ls_inspection-visttypedesc       = ls_data-visttypedesc .
+*    ls_inspection-inspectiontask     = ls_data-inspectiontask.
+      ls_inspection-createdby          = ls_data-createdby.
+      ls_inspection-facilityid         = ls_data-facilityid.
+      ls_inspection-newinspectionid    = ls_data-newinspectionid.
+      ls_inspection-locationnumber     = ls_data-locationnumber.
+      ls_inspection-answerset          = ls_data-answerset.
+      ls_inspection-attachment         = VALUE #( FOR wa IN ls_data-attachmentset
+                                                  ( inspection_id = wa-inspectionid
+                                                  file_mime_type = wa-file_mime_type
+                                                  file_descr = wa-file_descr
+                                                  file_data = wa-file_data ) ).
+
+      APPEND ls_inspection TO lt_inspection.
+
+      NEW zcl_ega_epda_inspection_api( )->update_visit_checklist(
+        EXPORTING
+          it_inspection_answer = lt_inspection
+          it_visit_attachment  = lt_visit_attachment
+        IMPORTING
+          et_return = lt_return ).
+
+      copy_data_to_ref(
+        EXPORTING
+          is_data = ls_data
+        CHANGING
+          cr_data = er_deep_entity
+      ).
+    WHEN zcl_zega_epda_maplet_i_mpc=>gc_task.
+      CLEAR   :ls_inspection.
+      REFRESH :lt_inspection,
+               lt_return.
+      TYPES:
+        BEGIN OF ty_maplet_inspect_answer_task .
+      TYPES:
+        inspectionanswerset TYPE TABLE OF ty_maplet_inspect_answer WITH DEFAULT KEY,
+        attachmentset       TYPE TABLE OF zcl_zega_epda_maplet_i_mpc=>ts_attachment WITH DEFAULT KEY.
+        INCLUDE TYPE zcl_zega_epda_maplet_i_mpc=>ts_task.
+      TYPES END OF ty_maplet_inspect_answer_task .
+      DATA: ls_data_task TYPE ty_maplet_inspect_answer_task,
+            lt_data_task TYPE TABLE OF ty_maplet_inspect_answer_task.
+**Read the data
+      io_data_provider->read_entry_data( IMPORTING es_data = ls_data_task ).
+*    READ TABLE ls_data_task-inspectionanswerset INTO DATA(ls_data_tn) INDEX 1.
+      LOOP AT ls_data_task-inspectionanswerset INTO DATA(ls_data_tn).
+        ls_inspection-questionid         = ls_data_tn-questionid.
+        ls_inspection-inspectionid       = ls_data_tn-inspectionid.
+        ls_inspection-questioniddesc     = ls_data_tn-questioniddesc.
+        ls_inspection-permitid           = ls_data_tn-permitid.
+        ls_inspection-submissiondate     = ls_data_tn-submissiondate.
+        ls_inspection-answerid           = ls_data_tn-answerid.
+        ls_inspection-checklistid        = ls_data_tn-checklistid.
+        ls_inspection-epdaapplicationid  = ls_data_tn-epdaapplicationid.
+        ls_inspection-inspectiontype     = ls_data_tn-inspectiontype.
+        ls_inspection-inspectiontypedesc = ls_data_tn-inspectiontypedesc.
+        ls_inspection-visttype           = ls_data_tn-visttype.
+        ls_inspection-visttypedesc       = ls_data_tn-visttypedesc .
+        ls_inspection-createdby          = ls_data_tn-createdby.
+        ls_inspection-facilityid         = ls_data_tn-facilityid.
+        ls_inspection-newinspectionid    = ls_data_tn-newinspectionid.
+        ls_inspection-locationnumber     = ls_data_tn-locationnumber.
+        ls_inspection-answerset          = ls_data_tn-answerset.
+        ls_inspection-attachment         = VALUE #( FOR wa IN ls_data_tn-attachmentset
+                                                    ( inspection_id = wa-inspectionid
+                                                    file_mime_type = wa-file_mime_type
+                                                    file_descr = wa-file_descr
+                                                    file_data = wa-file_data ) ).
+
+        APPEND ls_inspection TO lt_inspection.
+      ENDLOOP.
+
+
+      lt_visit_attachment = VALUE #( FOR wa IN ls_data_task-attachmentset
+                                                        ( inspection_id = ls_data_task-inspectionid
+                                                          file_mime_type = wa-file_mime_type
+                                                          file_descr = wa-file_descr
+                                                          file_data = wa-file_data ) ).
+
+*    ls_data_task-attachmentset =
+      DATA lv_visit_status TYPE zde_epda_inspection_status.
+      NEW zcl_ega_epda_inspection_api( )->update_visit_checklist(
+        EXPORTING
+          it_inspection_answer = lt_inspection
+          it_visit_attachment  = lt_visit_attachment
+        IMPORTING
+          ev_visit_status = lv_visit_status
+          et_return = lt_return ).
+
+* Visit Status
+
+      IF lv_visit_status IS NOT INITIAL.
+        DATA lv_gis_status  TYPE zde_epda_gis_inspection_status.
+        SELECT SINGLE gis_status FROM zepda_gis_map_st INTO lv_gis_status
+          WHERE sap_status = lv_visit_status.
+        IF sy-subrc = 0.
+          ls_data_task-recommendation = lv_gis_status.
+
+          DATA lt_values_tab      TYPE STANDARD TABLE OF dd07v.
+          DATA ls_values_tab      TYPE dd07v.
+
+          REFRESH lt_values_tab[].
+          CLEAR ls_values_tab.
+          CALL FUNCTION 'GET_DOMAIN_VALUES'
+            EXPORTING
+              domname         = 'ZDO_EPDA_GIS_INSPECTION_STATUS'
+              text            = 'X'
+            TABLES
+              values_tab      = lt_values_tab
+            EXCEPTIONS
+              no_values_found = 1
+              OTHERS          = 2.
+          READ TABLE lt_values_tab INTO ls_values_tab WITH KEY domvalue_l = lv_gis_status.
+          IF sy-subrc = 0.
+            ls_data_task-recommendationtext = ls_values_tab-ddtext.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+
+
+* Validation
+      DATA lv_inspection_id TYPE zde_epda_inspection.
+      lv_inspection_id = ls_inspection-inspectionid.
+      IF ls_inspection-answerset[] IS NOT INITIAL.
+        NEW zcl_ega_epda_inspection_api( )->inspection_validation(
+          EXPORTING
+            iv_inspection_id = lv_inspection_id
+          IMPORTING
+            et_return = DATA(lt_return_valid) ).
+        APPEND LINES OF lt_return_valid TO lt_return.
+      ENDIF.
+
+      IF lt_return IS NOT INITIAL.
+        lo_message = /iwbep/cl_mgw_msg_container=>get_mgw_msg_container( ).
+        lo_message->add_messages_from_bapi( it_bapi_messages = lt_return
+                                            iv_add_to_response_header = abap_true ).
+        RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+          EXPORTING
+            message_container = lo_message
+            textid            = /iwbep/cx_mgw_busi_exception=>business_error.
+      ENDIF.
+
+      copy_data_to_ref(
+        EXPORTING
+          is_data = ls_data_task
+        CHANGING
+          cr_data = er_deep_entity
+      ).
+
+    WHEN 'PortUpdate'.
+      DATA: BEGIN OF ls_port,
+              iv_case       TYPE scmg_ext_key,
+              iv_cancel     TYPE flag,
+              portobjupdate TYPE zega_cj_epda_port_obj_tt,
+              et_messages   TYPE bapiret2_t,
+            END OF ls_port.
+
+      io_data_provider->read_entry_data( IMPORTING es_data = ls_port ).
+
+      CALL FUNCTION 'ZEGA_CJ_EPDA_UPDATE_PORT_OBJ'
+        EXPORTING
+          iv_case     = ls_port-iv_case
+          iv_cancel   = ls_port-iv_cancel
+          it_objects  = ls_port-portobjupdate
+        IMPORTING
+          et_messages = ls_port-et_messages.
+
+      copy_data_to_ref(
+        EXPORTING
+          is_data = ls_port
+        CHANGING
+          cr_data = er_deep_entity
+      ).
+
+  ENDCASE.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->/IWBEP/IF_MGW_APPL_SRV_RUNTIME~EXECUTE_ACTION
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ACTION_NAME                 TYPE        STRING(optional)
+* | [--->] IT_PARAMETER                   TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR(optional)
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_FUNC_IMPORT(optional)
+* | [<---] ER_DATA                        TYPE REF TO DATA
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD /iwbep/if_mgw_appl_srv_runtime~execute_action.
+  DATA: ls_data    TYPE zcl_zega_epda_maplet_i_mpc=>message,
+        ls_data_n  TYPE zcl_zega_epda_maplet_i_mpc=>message_n,
+        lv_insid   TYPE zde_epda_inspection,
+        lt_return  TYPE bapiret2_t,
+        lo_message TYPE REF TO /iwbep/if_message_container.
+
+  DATA:lv_nr         TYPE /iwbep/sb_odata_ty_p_int64,
+       lv_recnnr     TYPE recnnr,
+       lv_ts         TYPE timestamp,
+       lv_date       TYPE dats,
+       lv_time       TYPE zde_ega_inspect_time,
+       lv_opr_status TYPE zde_epda_inspect_operat_status,
+       lv_inspection TYPE zde_epda_inspection.
+
+  IF iv_action_name EQ 'DeleteDraft'.
+
+    TRY.
+        lv_inspection = it_parameter[ name = 'inspectionId' ]-value.
+      CATCH cx_sy_itab_line_not_found.
+    ENDTRY.
+
+    NEW zcl_ega_epda_inspection_api( )->delete_inspection_draft( EXPORTING iv_inspection_id = lv_inspection IMPORTING et_return = lt_return ).
+
+    IF lt_return IS NOT INITIAL.
+      lo_message = /iwbep/cl_mgw_msg_container=>get_mgw_msg_container( ).
+      lo_message->add_messages_from_bapi( it_bapi_messages          = lt_return
+                                          iv_add_to_response_header = abap_true ).
+      RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+        EXPORTING
+          message_container = lo_message
+          textid            = /iwbep/cx_mgw_busi_exception=>business_error.
+    ENDIF.
+
+    ls_data-information = 'Application has been removed from draft'.
+    copy_data_to_ref(
+      EXPORTING
+        is_data = ls_data
+      CHANGING
+        cr_data = er_data
+    ).
+  ELSEIF iv_action_name EQ 'GetInspectionId'.
+
+    TRY.
+        lv_recnnr = it_parameter[ name = 'vendorID' ]-value.
+      CATCH cx_sy_itab_line_not_found.
+    ENDTRY.
+
+    TRY.
+        lv_ts = it_parameter[ name = 'startDate' ]-value.
+      CATCH cx_sy_itab_line_not_found.
+    ENDTRY.
+
+    TRY.
+        lv_opr_status = it_parameter[ name = 'operationalStatus' ]-value.
+      CATCH cx_sy_itab_line_not_found.
+    ENDTRY.
+
+    cft(
+      EXPORTING
+        i_t = lv_ts
+      IMPORTING
+        e_d = lv_date
+        e_t = lv_time
+    ).
+
+    lv_nr = NEW zcl_ega_epda_inspection_api( )->get_next_id(
+                                           EXPORTING
+                                             iv_inspection_type = '5'
+                                             iv_permit_id       = lv_recnnr
+                                             iv_date            = lv_date
+                                             iv_time            = lv_time
+                                             iv_operat_status   = lv_opr_status
+                                             iv_case_type       = 'ZE02'
+                                           IMPORTING
+                                             et_return          = lt_return
+                                           ).
+    IF lt_return IS NOT INITIAL.
+      lo_message = /iwbep/cl_mgw_msg_container=>get_mgw_msg_container( ).
+      lo_message->add_messages_from_bapi( it_bapi_messages          = lt_return
+                                          iv_add_to_response_header = abap_true ).
+      RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+        EXPORTING
+          message_container = lo_message
+          textid            = /iwbep/cx_mgw_busi_exception=>business_error.
+    ENDIF.
+
+    ls_data_n-getinspectionid = lv_nr.
+    ls_data_n-allowed         = 'true'.
+    ls_data_n-message         = 'This application can be inspected'.
+
+    copy_data_to_ref(
+      EXPORTING
+        is_data = ls_data_n
+      CHANGING
+        cr_data = er_data
+    ).
+  ENDIF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->/IWBEP/IF_MGW_APPL_SRV_RUNTIME~GET_EXPANDED_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING(optional)
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING(optional)
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING(optional)
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION(optional)
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER(optional)
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING(optional)
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH(optional)
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR(optional)
+* | [--->] IV_FILTER_STRING               TYPE        STRING(optional)
+* | [--->] IV_SEARCH_STRING               TYPE        STRING(optional)
+* | [--->] IO_EXPAND                      TYPE REF TO /IWBEP/IF_MGW_ODATA_EXPAND(optional)
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ER_ENTITYSET                   TYPE REF TO DATA
+* | [<---] ET_EXPANDED_CLAUSES            TYPE        STRING_TABLE
+* | [<---] ET_EXPANDED_TECH_CLAUSES       TYPE        STRING_TABLE
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD /iwbep/if_mgw_appl_srv_runtime~get_expanded_entityset.
+
+  IF iv_entity_name EQ zcl_zega_epda_maplet_i_mpc=>gc_checklist.
+    TYPES:
+      BEGIN OF ty_questiontype,
+        itemvalueset TYPE TABLE OF zcl_zega_epda_maplet_i_mpc=>ts_itemvalue WITH DEFAULT KEY.
+        INCLUDE TYPE zcl_zega_epda_maplet_i_mpc=>ts_questiontype.
+  TYPES END OF ty_questiontype.
+
+    TYPES: tt_questiontype TYPE TABLE OF ty_questiontype WITH DEFAULT KEY.
+
+    TYPES:
+      BEGIN OF ty_question,
+        questiontypeset TYPE tt_questiontype.
+        INCLUDE TYPE zcl_zega_epda_maplet_i_mpc=>ts_questions.
+  TYPES END OF ty_question.
+
+    TYPES: tt_question TYPE TABLE OF ty_question WITH DEFAULT KEY.
+
+    TYPES:
+      BEGIN OF ty_checklist,
+        questionsset TYPE tt_question.
+        INCLUDE TYPE zcl_zega_epda_maplet_i_mpc=>ts_checklist.
+  TYPES END OF ty_checklist.
+
+    TYPES:
+    tt_checklist TYPE TABLE OF ty_checklist WITH DEFAULT KEY.
+
+    DATA: ls_checklist    TYPE ty_checklist,
+          ls_question     TYPE ty_question,
+          ls_questiontype TYPE ty_questiontype,
+          ls_itemvalue    TYPE zcl_zega_epda_maplet_i_mpc=>ts_itemvalue,
+          lt_checklist    TYPE tt_checklist,
+          lt_question     TYPE tt_question,
+          lt_questiontype TYPE tt_questiontype,
+          lt_itemvalue    TYPE TABLE OF zcl_zega_epda_maplet_i_mpc=>ts_itemvalue,
+          lv_vendortype   TYPE zde_ega_business_type.
+
+    TRY .
+        lv_vendortype = it_filter_select_options[ property = 'VendorTypeCode' ]-select_options[ 1 ]-low.
+      CATCH cx_sy_itab_line_not_found.
+    ENDTRY.
+
+    NEW zcl_ega_epda_inspection_api( )->get_inspection_questions(
+      EXPORTING
+        im_business_type = lv_vendortype
+    IMPORTING
+      et_quest_list    = DATA(lt_quest_list)
+    ).
+
+    SORT lt_quest_list ASCENDING BY business_type category_id question_id option_id.
+    LOOP AT lt_quest_list ASSIGNING FIELD-SYMBOL(<fs_qlist>).
+      AT NEW business_type.
+      ENDAT.
+      AT NEW category_id.
+        CLEAR ls_checklist.
+        REFRESH lt_question.
+        ls_checklist-checklistid    = <fs_qlist>-category_id.
+        ls_checklist-checklistname  = <fs_qlist>-category_en.
+        ls_checklist-vendortype     = <fs_qlist>-businees_type_description."COND #( WHEN lv_vendortype EQ '001' THEN 'Industrial' ELSE 'Professional' ).
+        ls_checklist-vendortypecode = <fs_qlist>-business_type. "lv_vendortype.
+        ls_checklist-userid         = sy-uname.
+        ls_checklist-avoidinroutine = abap_true.
+      ENDAT.
+      AT NEW question_id.
+        CLEAR ls_question.
+        ls_question-questionid      = <fs_qlist>-question_id.
+        ls_question-question        = <fs_qlist>-question_en.
+        ls_question-checklist       = <fs_qlist>-category_id.
+        ls_question-readonly        = <fs_qlist>-readonly.
+        ls_question-custom_flag     = <fs_qlist>-custom_flag.
+        IF ls_question-custom_flag  = abap_false.
+          ls_checklist-avoidinroutine = abap_false.
+        ENDIF.
+        ls_question-map_to_cust_fld = <fs_qlist>-map_to_cust_fld.
+      ENDAT.
+      AT NEW option_id.
+        CLEAR ls_questiontype.
+        ls_questiontype-optionid = <fs_qlist>-option_id.
+        ls_questiontype-itemtype = <fs_qlist>-option_type.
+        ls_questiontype-itemtypetext = <fs_qlist>-option_type_tx.
+        ls_questiontype-itemlabel = <fs_qlist>-option_lable_en.
+        ls_questiontype-minrequired = <fs_qlist>-minimum_select.
+        ls_questiontype-maxrequired = <fs_qlist>-maximum_select.
+        ls_questiontype-searchrequired = <fs_qlist>-searchrequired.
+        ls_questiontype-ismarks = <fs_qlist>-ismarksrequired.
+      ENDAT.
+
+      AT END OF option_id.
+        REFRESH lt_itemvalue[].
+        LOOP AT <fs_qlist>-item ASSIGNING FIELD-SYMBOL(<fs_item>).
+          CLEAR ls_itemvalue.
+          ls_itemvalue-id = <fs_item>-item_id.
+          ls_itemvalue-value = COND #( WHEN <fs_item>-item_txt_en IS INITIAL THEN <fs_qlist>-question_en ELSE <fs_item>-item_txt_en ).
+          APPEND ls_itemvalue TO lt_itemvalue.
+        ENDLOOP.
+        ls_questiontype-itemvalueset[] = lt_itemvalue[].
+        APPEND ls_questiontype TO lt_questiontype.
+      ENDAT.
+      AT END OF question_id.
+        ls_question-questiontypeset[] = lt_questiontype[].
+        APPEND ls_question TO lt_question.
+        REFRESH lt_questiontype[].
+      ENDAT.
+      AT END OF category_id.
+        ls_checklist-questionsset[] = lt_question[].
+        DESCRIBE TABLE lt_question LINES ls_checklist-totalnumberofquestions.
+        APPEND ls_checklist TO lt_checklist.
+        REFRESH lt_question[].
+      ENDAT.
+      AT END OF business_type.
+      ENDAT.
+    ENDLOOP.
+
+    copy_data_to_ref(
+      EXPORTING
+        is_data = lt_checklist
+      CHANGING
+        cr_data = er_entityset
+        ).
+
+    APPEND 'CHECKLISTSET' TO et_expanded_tech_clauses.
+    APPEND 'QUESTIONSSET/QUESTIONTYPESET/ITEMVALUESET' TO et_expanded_tech_clauses.
+    APPEND 'QUESTIONSSET/QUESTIONTYPESET' TO et_expanded_tech_clauses.
+    APPEND 'QUESTIONTYPESET/ITEMVALUESET' TO et_expanded_tech_clauses.
+    APPEND 'QUESTIONTYPESET' TO et_expanded_tech_clauses.
+    APPEND 'ITEMVALUESET' TO et_expanded_tech_clauses.
+    APPEND 'QUESTIONSSET' TO et_expanded_tech_clauses.
+
+  ELSEIF iv_entity_name EQ zcl_zega_epda_maplet_i_mpc=>gc_task.
+
+    TYPES BEGIN OF ty_inspect_answer.
+    TYPES answerset TYPE TABLE OF zcl_zega_epda_maplet_i_mpc=>ts_answerparameter WITH DEFAULT KEY.
+    TYPES attachmentset TYPE TABLE OF zcl_zega_epda_maplet_i_mpc=>ts_attachment WITH DEFAULT KEY.
+    INCLUDE TYPE zcl_zega_epda_maplet_i_mpc=>ts_inspectionanswer.
+    TYPES END OF ty_inspect_answer.
+
+    DATA ls_inspect_answer  TYPE ty_inspect_answer.
+    DATA lt_inspect_answer  TYPE TABLE OF ty_inspect_answer WITH DEFAULT KEY.
+    DATA lt_inspection      TYPE zcl_ega_epda_inspection_api=>tt_inspection.
+    DATA lt_ans_param       TYPE TABLE OF zcl_zega_epda_maplet_i_mpc=>ts_answerparameter WITH DEFAULT KEY.
+    DATA ls_ans_param       TYPE zcl_zega_epda_maplet_i_mpc=>ts_answerparameter .
+    DATA lv_question_id     TYPE zde_epda_question_id.
+    DATA:lt_insp_text   TYPE zcl_ega_epda_inspection_api=>tt_domval,
+         lt_visit_text  TYPE zcl_ega_epda_inspection_api=>tt_domval,
+         lt_status_text TYPE zcl_ega_epda_inspection_api=>tt_domval.
+*    DATA lt_ins_question    TYPE TABLE OF zdt_ins_question.
+    DATA lt_ins_opt_item TYPE ztt_epda_ins_opt_item.
+
+    TYPES BEGIN OF ty_inspection.
+    TYPES inspectionanswerset TYPE TABLE OF ty_inspect_answer WITH DEFAULT KEY.
+    TYPES attachmentset       TYPE TABLE OF zcl_zega_epda_maplet_i_mpc=>ts_attachment WITH DEFAULT KEY.
+    INCLUDE TYPE zcl_zega_epda_maplet_i_mpc=>ts_task.
+    TYPES END OF ty_inspection.
+
+**Data Declarations
+    DATA lr_inspection_api TYPE REF TO zcl_ega_epda_inspection_api.
+    DATA:lv_inspection   TYPE zde_epda_inspection,
+         lv_noinbox      TYPE c,
+         lt_apptype_text TYPE zcl_ega_epda_inspection_api=>tt_domval,
+         rt_appln_no     TYPE RANGE OF zde_ega_epda_application_no.
+
+    TRY .
+        lv_inspection = it_filter_select_options[ property = 'inspectionId' ]-select_options[ 1 ]-low.
+      CATCH cx_sy_itab_line_not_found.
+    ENDTRY.
+
+    TRY .
+        DATA(lv_status) = it_filter_select_options[ property = 'inspectionStatus' ]-select_options[ 1 ]-low.
+      CATCH cx_sy_itab_line_not_found.
+    ENDTRY.
+
+    TRY .
+        lv_noinbox = it_filter_select_options[ property = 'NoInbox' ]-select_options[ 1 ]-low.
+      CATCH cx_sy_itab_line_not_found.
+    ENDTRY.
+
+    lv_inspection = |{ CONV string( lv_inspection ) WIDTH = 10 ALPHA = IN }|.
+
+**Get the inspection text
+    NEW zcl_ega_epda_inspection_api( )->get_dom_val(
+       EXPORTING
+        iv_domain = 'ZDO_EPDA_INSPECTION_TYPE'
+       RECEIVING
+         et_domain = lt_insp_text ).
+**Get the Visit Text
+    NEW zcl_ega_epda_inspection_api( )->get_dom_val(
+        EXPORTING
+         iv_domain = 'ZDO_EGA_INSPECT_TYPE'
+        RECEIVING
+          et_domain = lt_visit_text ).
+
+    CREATE OBJECT lr_inspection_api.
+
+    DATA: lv_p         TYPE boolean, lv_d TYPE boolean, lv_c TYPE boolean, lv_comp_upto TYPE boolean.
+    IF lv_inspection IS INITIAL.
+      IF lv_status IS NOT INITIAL.
+        IF lv_status EQ 'DRAFT'.
+          lv_d = abap_true.
+          lv_comp_upto = abap_false.
+        ELSEIF lv_status EQ 'COMPLETED'.
+          lv_c = abap_true.
+          lv_comp_upto = abap_true.
+        ELSEIF lv_status EQ 'PENDING'.
+          lv_p = abap_true.
+        ENDIF.
+      ELSEIF iv_filter_string IS NOT INITIAL.
+
+        IF iv_filter_string CP '*DRAFT*'.
+          lv_d = abap_true.
+        ENDIF.
+        IF iv_filter_string CP '*COMPLETED*'.
+          lv_c = abap_true.
+          lv_comp_upto = abap_true.
+        ENDIF.
+        IF iv_filter_string CP '*PENDING*'.
+          lv_p = abap_true.
+        ENDIF.
+
+*( ( ( inspectionstatus eq 'PENDING' ) and ( inspectionstatus eq 'DRAFT' ) ) and ( inspectionstatus eq 'COMPLETED' ) )
+      ELSE.
+        lv_p = abap_true.
+        lv_d = abap_true.
+        lv_comp_upto = abap_false.
+      ENDIF.
+    ENDIF.
+
+    IF lv_noinbox IS INITIAL.
+
+      IF lv_p = abap_true OR lv_d = abap_true..
+        DATA(lt_data) = lr_inspection_api->get_inspector_inbox( im_login_user = sy-uname
+                                                                ir_inspection_id = VALUE #( ( sign = 'I' option = 'EQ' low = lv_inspection ) )
+                                                                iv_pending = lv_p
+                                                                iv_draft = lv_d ).
+      ENDIF.
+
+      IF lv_c = abap_true.
+        DATA(lt_data1) = lr_inspection_api->get_inspector_inbox( im_login_user = sy-uname
+                                                                ir_inspection_id = VALUE #( ( sign = 'I' option = 'EQ' low = lv_inspection ) )
+                                                                iv_completed = lv_c
+                                                                iv_comp_upto = lv_comp_upto ).
+        APPEND LINES OF lt_data1 TO lt_data.
+      ENDIF.
+
+
+      DATA: ls_entityset TYPE ty_inspection,
+            lt_entityset TYPE TABLE OF ty_inspection.
+
+      NEW zcl_ega_epda_inspection_api( )->get_dom_val(
+      EXPORTING
+       iv_domain = 'ZDO_EPDA_GIS_INSPECTION_STATUS' "'ZDO_EPDA_INSPECTION_STATUS'
+      RECEIVING
+        et_domain = lt_status_text ).
+
+      SELECT * FROM zepda_gis_map_st INTO TABLE @DATA(lt_gis_map_status).
+      NEW zcl_ega_epda_inspection_api( )->get_inspection_questions(
+        IMPORTING
+          et_quest_list = lt_quest_list
+          ).
+
+      LOOP AT lt_data ASSIGNING FIELD-SYMBOL(<ls_data>).
+        CLEAR ls_entityset.
+        ls_entityset-totalanswered = 0.
+        ls_entityset-vendortype = <ls_data>-business_type.
+        ls_entityset-wiid = <ls_data>-wi_id.
+        ls_entityset-inspectionid  = <ls_data>-inspection_id .
+        ls_entityset-epdaapplication_id  = <ls_data>-application_number .
+        ls_entityset-createdby  = <ls_data>-created_by_bp_name.
+        ls_entityset-createddate = ctt( i_d = <ls_data>-assign_date i_t = <ls_data>-assign_time ). "COND #( WHEN <ls_data>-assign_time IS INITIAL THEN '000000') ).
+
+        CLEAR ls_entityset-recommendation.
+        CLEAR ls_entityset-recommendationtext.
+        READ TABLE lt_gis_map_status INTO DATA(ls_gis_map_status) WITH KEY sap_status = <ls_data>-pre_inspection_status.
+        IF sy-subrc = 0.
+          ls_entityset-recommendation  = ls_gis_map_status-gis_status.
+          READ TABLE lt_status_text INTO DATA(ls_status_text) WITH KEY domvalue = ls_gis_map_status-gis_status.
+          IF sy-subrc = 0.
+            ls_entityset-recommendationtext  = ls_status_text-ddtext.
+          ENDIF.
+        ENDIF.
+
+        ls_entityset-username   = <ls_data>-inspected_by .
+*        ls_entityset-colorcode  = <ls_data>-colorcode .
+        ls_entityset-remarks    = <ls_data>-remarks .
+        ls_entityset-comments   = <ls_data>-comments.
+        ls_entityset-ownerid    = <ls_data>-owner_id .
+        ls_entityset-ownername  = <ls_data>-bp_name.
+        ls_entityset-companyid  = <ls_data>-comp_bp_id .
+        ls_entityset-companyname  = <ls_data>-comp_name_en .
+        ls_entityset-companyname_ar  = <ls_data>-comp_name_ar .
+        ls_entityset-newinspectionid  = <ls_data>-newinspectionid .
+        ls_entityset-caseid           = <ls_data>-case_id.
+        ls_entityset-visittype        = <ls_data>-inspect_type.
+        ls_entityset-visittypedesc    = <ls_data>-inspect_type_tx.
+        ls_entityset-colorcode        = <ls_data>-seqno.
+        ls_entityset-inspectiontype   = CONV #( <ls_data>-inspection_type ).
+        ls_entityset-inspectiontypedesc = <ls_data>-inspection_type_tx.
+        ls_entityset-licensevalidfrom = ctt( i_d = <ls_data>-permit_issue_date i_t = '000000').
+        ls_entityset-licensevalidto   = ctt( i_d = <ls_data>-permit_expiry_date i_t = '000000').
+        ls_entityset-vendorid             = <ls_data>-permit_id .
+        ls_entityset-mainactivitytext     = <ls_data>-main_activity_text.
+        ls_entityset-xcoordinate          = <ls_data>-location_x.
+        ls_entityset-ycoordinate          = <ls_data>-location_y.
+        ls_entityset-violation            = <ls_data>-violation.
+        ls_entityset-proposedfollowupdate = ctt( i_d = <ls_data>-follow_up_date i_t = '000000').
+
+        IF <ls_data>-location IS NOT INITIAL.
+          ls_entityset-districtid           = <ls_data>-location.
+        ELSEIF <ls_data>-establish_location IS NOT INITIAL.
+          ls_entityset-districtid           = <ls_data>-establish_location.
+        ENDIF.
+
+        ls_entityset-departmentheadcomment = <ls_data>-departmentheadcomment.
+        ls_entityset-userid = sy-uname.
+        ls_entityset-rejected             = <ls_data>-overwritten.
+        ls_entityset-operatstatus         = <ls_data>-operat_status.
+        ls_entityset-operatstatustext     = <ls_data>-operat_status_tx.
+        ls_entityset-status = COND #( WHEN <ls_data>-draft_req EQ 'X' THEN 'DRAFT'
+                                      WHEN <ls_data>-pending_req EQ 'X' THEN 'PENDING'
+                                      WHEN <ls_data>-completed_req EQ 'X' THEN 'COMPLETED' ).
+
+        IF <ls_data>-completed_req EQ 'X'.
+          READ TABLE lt_gis_map_status INTO ls_gis_map_status WITH KEY sap_status = <ls_data>-inspection_status.
+          IF sy-subrc = 0.
+            ls_entityset-recommendation  = ls_gis_map_status-gis_status.
+            READ TABLE lt_status_text INTO ls_status_text WITH KEY domvalue = ls_gis_map_status-gis_status.
+            IF sy-subrc = 0.
+              ls_entityset-recommendationtext  = ls_status_text-ddtext.
+            ENDIF.
+          ENDIF.
+        ENDIF.
+
+        TRY .
+            lv_inspection = |{ CONV string( ls_entityset-inspectionid ) WIDTH = 10 ALPHA = IN }|.
+          CATCH cx_sy_itab_line_not_found.
+        ENDTRY.
+
+* Get Latest Inspection with check list
+        NEW zcl_ega_epda_inspection_api( )->get_inspection(
+          EXPORTING
+            ir_inspection_id      = VALUE #(  ( sign = 'I' option = 'EQ' low = lv_inspection ) )
+*            iv_last_visit         = abap_true
+            iv_checklist          = abap_true
+            iv_only_answered      = abap_true
+*            iv_attachment         = abap_true
+          IMPORTING
+            et_inspection         = lt_inspection
+               ).
+**Get the inspection text
+        NEW zcl_ega_epda_inspection_api( )->get_dom_val(
+         EXPORTING
+          iv_domain = 'ZDO_EPDA_INSPECTION_TYPE'
+         RECEIVING
+           et_domain = lt_insp_text ).
+**Get the Visit Text
+        NEW zcl_ega_epda_inspection_api( )->get_dom_val(
+        EXPORTING
+         iv_domain = 'ZDO_EGA_INSPECT_TYPE'
+        RECEIVING
+          et_domain = lt_visit_text ).
+**Get the Visit Text
+        NEW zcl_ega_epda_inspection_api( )->get_dom_val(
+        EXPORTING
+         iv_domain = 'ZDO_EPDA_GIS_INSPECTION_STATUS' "'ZDO_EPDA_INSPECTION_STATUS'
+        RECEIVING
+          et_domain = lt_status_text ).
+
+* Read Latest Inspection with check list
+        READ TABLE lt_inspection ASSIGNING FIELD-SYMBOL(<ls_inspection>) WITH KEY seqno = <ls_data>-seqno.
+        IF sy-subrc = 0.
+
+** Get Option Details and item list associate to it.
+*          SELECT * FROM zdt_ins_qust_opt INTO TABLE @DATA(lt_ins_qust_opt)
+*            FOR ALL ENTRIES IN @<ls_inspection>-checklist
+*              WHERE option_id = @<ls_inspection>-checklist-option_id.
+*          IF sy-subrc = 0.
+*          ENDIF.
+*
+*          SELECT * FROM zdt_ins_opt_item INTO TABLE @DATA(lt_ins_opt_item)
+*            FOR ALL ENTRIES IN @<ls_inspection>-checklist
+*              WHERE option_id = @<ls_inspection>-checklist-option_id.
+*          IF sy-subrc = 0.
+*          ENDIF.
+*
+*
+*
+*
+*          SELECT * FROM zdt_ins_question INTO TABLE lt_ins_question
+*            FOR ALL ENTRIES IN <ls_inspection>-checklist
+*              WHERE question_id = <ls_inspection>-checklist-question_id.
+*          IF sy-subrc <> 0.
+*            REFRESH lt_ins_question.
+*          ENDIF.
+
+* Format the data to output
+          SORT <ls_inspection>-checklist ASCENDING BY category_id question_id option_id.
+
+          LOOP AT <ls_inspection>-checklist ASSIGNING FIELD-SYMBOL(<fs_checklist>).
+            AT NEW category_id.
+            ENDAT.
+            AT NEW question_id.
+              READ TABLE lt_quest_list INTO DATA(ls_quest_list)
+               WITH KEY business_type = <ls_inspection>-business_type
+                        category_id = <fs_checklist>-category_id
+                        question_id = <fs_checklist>-question_id
+                        option_id   = <fs_checklist>-option_id.
+              IF sy-subrc <> 0.
+                CONTINUE.
+              ENDIF.
+              ls_inspect_answer-inspectionid        = <ls_inspection>-inspection_id.
+              ls_inspect_answer-userid              = sy-uname.
+              ls_inspect_answer-checklistid         = <fs_checklist>-category_id.
+              ls_inspect_answer-questionid          = <fs_checklist>-question_id.
+              ls_inspect_answer-epdaapplicationid   = <ls_inspection>-application_number.
+              ls_inspect_answer-inspectiontype      = <ls_inspection>-inspection_type.
+              ls_inspect_answer-visttype            = <ls_inspection>-inspect_type .
+              ls_inspect_answer-permitid            = <ls_inspection>-permitid.
+              ls_inspect_answer-submissiondate      = ctt( i_d = <ls_inspection>-inspect_submit_date i_t = '000000').
+              ls_inspect_answer-createdby           = <ls_inspection>-inspected_by.
+              ls_inspect_answer-newinspectionid     = <ls_inspection>-newinspectionid.
+              ls_inspect_answer-locationnumber      = <ls_inspection>-location.
+              ls_inspect_answer-status              = <ls_inspection>-status.
+              ls_inspect_answer-hasattachment       = <fs_checklist>-hasattachment.
+*            READ TABLE lt_ins_question ASSIGNING FIELD-SYMBOL(<ls_ins_question>) WITH KEY question_id    = <fs_checklist>-question_id.
+*            IF sy-subrc = 0.
+*              ls_inspect_answer-questioniddesc = <ls_ins_question>-question_en.
+              ls_inspect_answer-questioniddesc = ls_quest_list-question_en.
+*            ENDIF.
+              ls_inspect_answer-inspectiontypedesc = <ls_inspection>-inspection_type_tx.
+              ls_inspect_answer-visttypedesc = <ls_inspection>-inspect_type_tx.
+            ENDAT.
+            AT NEW option_id.
+              REFRESH lt_ans_param[].
+              REFRESH lt_ins_opt_item[].
+              lt_ins_opt_item[] = ls_quest_list-item[].
+              ls_inspect_answer-answerid      = <fs_checklist>-option_id.
+              IF <fs_checklist>-option_type = 4 OR <fs_checklist>-option_type = 5.
+                CLEAR ls_ans_param.
+*                READ TABLE <fs_checklist>-answer ASSIGNING FIELD-SYMBOL(<fs_answer>) INDEX 1.
+*                IF sy-subrc = 0.
+                LOOP AT <fs_checklist>-answer ASSIGNING FIELD-SYMBOL(<fs_answer>).
+                  ls_ans_param-key = <fs_answer>-item_id.
+                  ls_ans_param-value = <fs_answer>-val_text.
+                  READ TABLE lt_ins_opt_item ASSIGNING FIELD-SYMBOL(<fs_ins_opt_item>) WITH KEY option_id = <fs_checklist>-option_id item_id = <fs_answer>-item_id.
+                  IF sy-subrc = 0.
+                    ls_ans_param-key = <fs_ins_opt_item>-item_id.
+                    ls_ans_param-description = <fs_ins_opt_item>-item_txt_en.
+                  ENDIF.
+*                ENDIF.
+                  APPEND ls_ans_param TO lt_ans_param.
+                ENDLOOP.
+              ELSE.
+*                LOOP AT lt_ins_opt_item ASSIGNING FIELD-SYMBOL(<fs_ins_opt_item>) WHERE option_id = <fs_checklist>-option_id.
+*
+*                  CLEAR ls_ans_param.
+*                  READ TABLE <fs_checklist>-answer ASSIGNING <fs_answer> WITH KEY item_id = <fs_ins_opt_item>-item_id.
+*                  IF sy-subrc = 0.
+*                    ls_ans_param-value = abap_true.
+*                  ENDIF.
+*                  ls_ans_param-key = <fs_ins_opt_item>-item_id.
+*                  ls_ans_param-description = <fs_ins_opt_item>-item_txt_en.
+*                  APPEND ls_ans_param TO lt_ans_param.
+*                ENDLOOP.
+
+                LOOP AT <fs_checklist>-answer ASSIGNING <fs_answer> .
+                  CLEAR ls_ans_param.
+                  READ TABLE lt_ins_opt_item ASSIGNING <fs_ins_opt_item> WITH KEY option_id = <fs_checklist>-option_id item_id = <fs_answer>-item_id.
+                  IF sy-subrc = 0.
+                    ls_ans_param-value = abap_true.
+                    ls_ans_param-key = <fs_ins_opt_item>-item_id.
+                    ls_ans_param-description = <fs_ins_opt_item>-item_txt_en.
+                    APPEND ls_ans_param TO lt_ans_param.
+
+                  ENDIF.
+                ENDLOOP.
+              ENDIF.
+            ENDAT.
+            AT END OF option_id.
+              IF lt_ans_param[] IS NOT INITIAL.
+                ls_entityset-totalanswered = ls_entityset-totalanswered + 1.
+              ENDIF.
+              ls_inspect_answer-answerset[] = lt_ans_param[].
+              ls_inspect_answer-attachmentset[] = VALUE #( FOR wa IN <ls_inspection>-attachment ( file_data = wa-file_data
+                                                                                                  file_descr = wa-file_descr
+                                                                                                  file_mime_type = wa-file_mime_type ) ).
+              APPEND ls_inspect_answer TO lt_inspect_answer.
+              REFRESH lt_ans_param[].
+            ENDAT.
+
+            AT END OF question_id.
+              CLEAR ls_inspect_answer.
+            ENDAT.
+
+            AT END OF category_id.
+            ENDAT.
+          ENDLOOP.
+        ENDIF.
+        ls_entityset-inspectionanswerset[] = lt_inspect_answer[].
+        ls_entityset-attachmentset[] = VALUE #( FOR wa IN <ls_inspection>-attachment[] (
+                                                  file_data = wa-file_data
+
+
+                                                   ) ).
+        CLEAR: lt_inspect_answer, lt_inspection.
+
+        UNASSIGN: <ls_inspection>.
+        APPEND ls_entityset TO lt_entityset.
+      ENDLOOP.
+
+      copy_data_to_ref(
+        EXPORTING
+         is_data =  lt_entityset
+        CHANGING
+         cr_data = er_entityset
+         ).
+
+      APPEND 'TASKSET' TO et_expanded_tech_clauses.
+      APPEND 'TASKSET/INSPECTIONANSWERSET' TO et_expanded_tech_clauses.
+      APPEND 'TASKSET/ATTACHMENTSET' TO et_expanded_tech_clauses.
+      APPEND 'INSPECTIONANSWERSET/ANSWERSET' TO et_expanded_tech_clauses.
+      APPEND 'INSPECTIONANSWERSET/ATTACHMENTSET' TO et_expanded_tech_clauses.
+    ENDIF.
+  ELSEIF iv_entity_name EQ zcl_zega_epda_maplet_i_mpc=>gc_industrialparam.
+
+*    TYPES:
+*    BEGIN OF ty_maplet_cust_fld_itemlist.
+*    TYPES main_activity_key  TYPE zde_epda_main_activity.
+*    TYPES industry_category  TYPE zde_epda_industry_category.
+*    TYPES map_to_cust_fld    TYPE zde_epda_map_cust_fld.
+*    TYPES error             TYPE text100.
+*    TYPES valuehelp         TYPE ztt_epda_ins_opt_item.
+*    TYPES END OF ty_maplet_cust_fld_itemlist .
+**Final Output
+    TYPES BEGIN OF ty_item.
+    TYPES valuehelpset TYPE TABLE OF zcl_zega_epda_maplet_i_mpc=>ts_valuehelp WITH DEFAULT KEY.
+    INCLUDE TYPE  zcl_zega_epda_maplet_i_mpc=>ts_industrialparam.
+    TYPES END OF ty_item.
+
+*    DATA lt_itemlist TYPE TABLE OF ty_maplet_cust_fld_itemlist.
+*    DATA ls_itemlist TYPE ty_maplet_cust_fld_itemlist.
+    DATA lt_item     TYPE TABLE OF ty_item WITH DEFAULT KEY.
+    DATA ls_item     TYPE ty_item.
+
+***Getting Values
+    NEW zcl_ega_epda_inspection_api( )->custom_fld_optlist_values(
+      IMPORTING
+        et_itemlist      =  DATA(lt_itemlist)
+    ).
+    LOOP AT lt_itemlist ASSIGNING FIELD-SYMBOL(<fs_itemlist>).
+      ls_item-main_activity_key  = <fs_itemlist>-main_activity_key.
+      ls_item-industry_category  = <fs_itemlist>-industry_category.
+      ls_item-map_to_cust_fld    = <fs_itemlist>-map_to_cust_fld.
+      ls_item-valuehelpset = VALUE #( BASE ls_item-valuehelpset FOR wa_item IN <fs_itemlist>-valuehelp
+                                      ( CORRESPONDING #( BASE ( VALUE #( option_id   = wa_item-option_id
+                                                                         item_id     = wa_item-item_id
+                                                                         item_txt_en = wa_item-item_txt_en
+                                                                         item_txt_ar = wa_item-item_txt_ar ) ) wa_item ) ) ).
+      APPEND ls_item TO lt_item.
+      CLEAR:ls_item.
+    ENDLOOP.
+
+    copy_data_to_ref(
+     EXPORTING
+       is_data = lt_item
+     CHANGING
+       cr_data = er_entityset
+       ).
+    APPEND 'INDUSTRIALPARAMSET' TO et_expanded_tech_clauses.
+    APPEND 'INDUSTRIALPARAMSET/VALUEHELPSET' TO et_expanded_tech_clauses.
+
+  ELSEIF iv_entity_name EQ zcl_zega_epda_maplet_i_mpc=>gc_mainactchange. "EQ 'MainActChange'.
+
+    TYPES BEGIN OF ty_dropdownfields .
+    TYPES valuehelpset TYPE TABLE OF zcl_zega_epda_maplet_i_mpc=>ts_valuehelp WITH DEFAULT KEY.
+    INCLUDE TYPE  zcl_zega_epda_maplet_i_mpc=>ts_dropdownfield.
+    TYPES END OF ty_dropdownfields.
+
+    TYPES BEGIN OF ty_mainact_chg.
+    TYPES dropdownfieldset TYPE STANDARD TABLE OF ty_dropdownfields WITH DEFAULT KEY.
+    INCLUDE TYPE  zcl_zega_epda_maplet_i_mpc=>ts_mainactchange.
+    TYPES END OF ty_mainact_chg.
+
+    DATA lt_mainact_chg   TYPE TABLE OF ty_mainact_chg WITH DEFAULT KEY.
+    DATA ls_mainact_chg   TYPE ty_mainact_chg.
+    DATA lt_dopdown   TYPE TABLE OF ty_dropdownfields.
+    DATA ls_dopdown   TYPE ty_dropdownfields.
+
+***getting values
+    REFRESH lt_itemlist[].
+    NEW zcl_ega_epda_inspection_api( )->custom_fld_optlist_values(
+      IMPORTING
+        et_itemlist      =  lt_itemlist
+    ).
+    SORT lt_itemlist ASCENDING BY main_activity_key map_to_cust_fld.
+    LOOP AT lt_itemlist INTO DATA(ls_itemlist).
+
+      AT NEW main_activity_key.
+        CLEAR ls_mainact_chg.
+      ENDAT.
+      CLEAR ls_dopdown.
+      REFRESH ls_dopdown-valuehelpset[].
+      ls_dopdown-maptocustfield     = ls_itemlist-map_to_cust_fld.
+      ls_dopdown-valuehelpset     = VALUE #( BASE ls_item-valuehelpset FOR wa_item IN ls_itemlist-valuehelp
+                                      ( CORRESPONDING #( BASE ( VALUE #( option_id   = wa_item-option_id
+                                                                         item_id     = wa_item-item_id
+                                                                         item_txt_en = wa_item-item_txt_en
+                                                                         item_txt_ar = wa_item-item_txt_ar ) ) wa_item ) ) ).
+      APPEND ls_dopdown TO lt_dopdown.
+      ls_mainact_chg-industrycategory = ls_itemlist-industry_category.
+      ls_mainact_chg-businesstype = ls_itemlist-business_type.
+      ls_mainact_chg-mainactivitytext = ls_itemlist-main_activity_txt.
+      AT END OF main_activity_key.
+        ls_mainact_chg-mainactivity     = ls_itemlist-main_activity_key.
+
+        ls_mainact_chg-dropdownfieldset[] = lt_dopdown[].
+        APPEND ls_mainact_chg TO lt_mainact_chg.
+        REFRESH lt_dopdown[].
+      ENDAT.
+    ENDLOOP.
+
+*  ENDIF.
+*    ENDIF.
+    copy_data_to_ref(
+     EXPORTING
+       is_data = lt_mainact_chg
+     CHANGING
+       cr_data = er_entityset
+       ).
+    APPEND 'MAINACTCHANGESET' TO et_expanded_tech_clauses.
+    APPEND 'MAINACTCHANGESET/DROPDOWNFIELDSET' TO et_expanded_tech_clauses.
+    APPEND 'DROPDOWNFIELDSET/VALUEHELPSET' TO et_expanded_tech_clauses.
+  ELSEIF iv_entity_name EQ 'PortAccommodation' OR iv_entity_name EQ 'PortRoom' OR iv_entity_name EQ 'PortBed'.
+
+    DATA: lv_port           TYPE  zde_ega_fshry_port,
+          lv_case           TYPE  scmg_ext_key,
+          lv_license        TYPE recnnumber,
+          lv_contract       TYPE recnnumber,
+          lv_reserved_items TYPE  flag,
+          lt_buildings      TYPE zega_cj_epda_port_objects_tt.
+
+    IF me->gt_port_rooms IS INITIAL.
+      LOOP AT it_filter_select_options INTO DATA(ls_filter).
+        CASE ls_filter-property.
+          WHEN 'IvCase'.
+            LOOP AT ls_filter-select_options INTO DATA(ls_option).
+              lv_case = ls_option-low.
+            ENDLOOP.
+          WHEN 'IvPort'.
+            LOOP AT ls_filter-select_options INTO ls_option.
+              lv_port = ls_option-low.
+            ENDLOOP.
+          WHEN 'IvReservedItems'.
+            LOOP AT ls_filter-select_options INTO ls_option.
+              lv_reserved_items = ls_option-low.
+            ENDLOOP.
+          WHEN 'IvLicense'.
+            LOOP AT ls_filter-select_options INTO ls_option.
+              lv_license = ls_option-low.
+            ENDLOOP.
+          WHEN 'IvContract'.
+            LOOP AT ls_filter-select_options INTO ls_option.
+              lv_contract = ls_option-low.
+            ENDLOOP.
+        ENDCASE.
+      ENDLOOP.
+
+      CALL FUNCTION 'ZEGA_CJ_EPDA_PORT_OBJECTS'
+        EXPORTING
+          iv_port           = lv_port
+          iv_case           = lv_case
+          iv_license        = lv_license
+          iv_contract       = lv_contract
+          iv_reserved_items = lv_reserved_items
+        IMPORTING
+          et_building       = lt_buildings
+          et_rooms          = me->gt_port_rooms
+          et_beds           = me->gt_port_beds.
+    ELSE.
+
+      CASE iv_entity_name.
+        WHEN 'PortRoom'.
+          lt_buildings[] = me->gt_port_rooms[].
+
+        WHEN 'PortBed'.
+          lt_buildings[] = me->gt_port_beds[].
+      ENDCASE.
+      READ TABLE it_key_tab INTO DATA(ls_key) WITH KEY name = 'ArchObjectId'.
+      IF sy-subrc EQ 0.
+        DELETE lt_buildings WHERE parent_arch_object_id NE ls_key-value.
+      ENDIF.
+    ENDIF.
+
+    DELETE lt_buildings WHERE available IS INITIAL.
+
+    copy_data_to_ref(
+     EXPORTING
+       is_data = lt_buildings
+     CHANGING
+       cr_data = er_entityset
+       ).
+
+
+    APPEND 'PortAccommodation' TO et_expanded_clauses.
+    APPEND 'PortRooms' TO et_expanded_clauses.
+    APPEND 'PortBeds' TO et_expanded_clauses.
+  ENDIF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->ATTACHMENTSET_CREATE_ENTITY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITY_C(optional)
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IO_DATA_PROVIDER               TYPE REF TO /IWBEP/IF_MGW_ENTRY_PROVIDER(optional)
+* | [<---] ER_ENTITY                      TYPE        ZCL_ZEGA_EPDA_MAPLET_I_MPC=>TS_ATTACHMENT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD attachmentset_create_entity.
+  DATA :lt_inspection TYPE zcl_ega_epda_inspection_api=>tt_maplet_inspect_answer,
+        ls_inspection LIKE LINE OF lt_inspection,
+        lt_attach     TYPE zcl_ega_epda_inspection_api=>ty_attachment,
+        lt_return     TYPE bapiret2_t.
+  DATA lt_visit_attachment TYPE zcl_ega_epda_inspection_api=>tt_maplet_visit_attach.
+
+  io_data_provider->read_entry_data( IMPORTING es_data = er_entity ).
+  DATA(ls_attach) = VALUE zcl_ega_epda_inspection_api=>ty_attachment( inspection_id  = er_entity-inspectionid
+                                                                      file_descr     = er_entity-file_descr
+                                                                      file_data      = er_entity-file_data
+                                                                      file_mime_type = er_entity-file_mime_type ).
+
+  IF er_entity-questionid IS NOT INITIAL AND er_entity-checklistid IS NOT INITIAL.
+
+    APPEND ls_attach     TO ls_inspection-attachment.
+
+    ls_inspection-questionid     = er_entity-questionid.
+    ls_inspection-inspectionid   = er_entity-inspectionid.
+    ls_inspection-checklistid    = er_entity-checklistid.
+    ls_inspection-answerid       = er_entity-optionid.
+    APPEND ls_inspection TO lt_inspection.
+  ELSE.
+    APPEND ls_attach     TO lt_visit_attachment.
+  ENDIF.
+
+  NEW zcl_ega_epda_inspection_api( )->update_visit_checklist(
+   EXPORTING
+     it_inspection_answer =  lt_inspection
+     it_visit_attachment  = lt_visit_attachment
+   IMPORTING
+     et_return = lt_return ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->ATTACHMENTSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_EPDA_MAPLET_I_MPC=>TT_ATTACHMENT
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD attachmentset_get_entityset.
+  DATA: lv_inspection TYPE zde_epda_inspection,
+        lv_question   TYPE zde_epda_question_id.
+
+  TRY .
+      lv_inspection = it_filter_select_options[ property = 'inspectionId' ]-select_options[ 1 ]-low.
+    CATCH cx_sy_itab_line_not_found.
+  ENDTRY.
+
+  TRY .
+      lv_question = it_filter_select_options[ property = 'questionId' ]-select_options[ 1 ]-low.
+    CATCH cx_sy_itab_line_not_found.
+  ENDTRY.
+
+  lv_inspection = |{ CONV string( lv_inspection ) WIDTH = 10 ALPHA = IN }|.
+
+  NEW zcl_ega_epda_inspection_api( )->get_inspection(
+    EXPORTING
+      ir_inspection_id      = VALUE #( ( sign = 'I' option = 'EQ'  low = lv_inspection ) )
+      iv_question_id        = lv_question
+      iv_checklist          = abap_true
+      iv_attachment         = abap_true
+      iv_last_visit         = abap_true
+    IMPORTING
+      et_inspection         = DATA(lt_inspection)
+     ).
+
+  TRY .
+      IF lv_question IS NOT INITIAL.
+        DATA(lt_attachment) = lt_inspection[ 1 ]-checklist[ 1 ]-attachment.
+        READ TABLE lt_inspection[ 1 ]-checklist INTO DATA(ls_checklist) WITH KEY question_id = lv_question.
+        IF sy-subrc = 0.
+          DATA(lv_optionid)   = ls_checklist-option_id.
+          DATA(lv_categoryid) = ls_checklist-category_id.
+        ENDIF.
+      ELSE.
+        lt_attachment = lt_inspection[ 1 ]-attachment.
+        CLEAR lv_optionid.
+        CLEAR lv_categoryid.
+      ENDIF.
+    CATCH cx_sy_itab_line_not_found.
+  ENDTRY.
+
+  et_entityset = VALUE #( FOR wa IN lt_attachment ( inspectionid = lv_inspection
+                                                    questionid   = lv_question
+                                                    checklistid  = lv_categoryid
+                                                    optionid     = lv_optionid
+                                                    file_data    = wa-file_data
+                                                    file_descr   = wa-file_descr
+                                                    file_mime_type = wa-file_mime_type
+                                                    userid = sy-uname ) ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->CFT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_T                            TYPE        TIMESTAMP
+* | [<---] E_D                            TYPE        DATS
+* | [<---] E_T                            TYPE        TIMS
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD cft.
+
+  CALL FUNCTION 'IB_CONVERT_FROM_TIMESTAMP'
+    EXPORTING
+      i_timestamp = i_t
+      i_tzone     = 'UTC+4'
+    IMPORTING
+      e_datlo     = e_d
+      e_timlo     = e_t.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->CTT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_D                            TYPE        DATS
+* | [--->] I_T                            TYPE        TIMS
+* | [<-()] R_T                            TYPE        TIMESTAMP
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD ctt.
+
+  CALL FUNCTION 'IB_CONVERT_INTO_TIMESTAMP'
+    EXPORTING
+      i_datlo     = i_d
+      i_timlo     = i_t
+      i_tzone     = 'UTC+4'
+    IMPORTING
+      e_timestamp = r_t.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->FEEDETAILSSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_EPDA_MAPLET_I_MPC=>TT_FEEDETAILS
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD feedetailsset_get_entityset.
+
+    DATA lv_inspection TYPE zde_epda_inspection.
+
+
+    TRY .
+        lv_inspection = it_filter_select_options[ property = 'InspectionId' ]-select_options[ 1 ]-low.
+      CATCH cx_sy_itab_line_not_found.
+    ENDTRY.
+
+    lv_inspection = |{ CONV string( lv_inspection ) WIDTH = 10 ALPHA = IN }|.
+
+    IF lv_inspection IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    NEW zcl_ega_epda_inspection_api( )->fee_details(
+      EXPORTING
+        iv_inspection_id      = lv_inspection
+      IMPORTING
+        et_fee         = DATA(lt_fee)
+       ).
+
+
+    et_entityset = VALUE #( FOR wa IN lt_fee ( inspectionid = lv_inspection
+                                               feetype = wa-fee_type
+                                               feedescription = wa-fee_description
+                                               amount = wa-amount
+                                               yearsduration  = wa-years_duration ) ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->GET_ACTIVITY_FUNCTION
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IR_CASE                        TYPE REF TO IF_SCMG_CASE
+* | [--->] IM_WIID                        TYPE        SWW_WIID
+* | [<---] LT_ACTFUNC                     TYPE        ZTT_SCASE_ACT_FUNC
+* | [<---] EX_POS_ID                      TYPE        SRMWFPOSID
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_activity_function.
+    DATA:lr_wf_path   TYPE REF TO cl_srm_wf_path,lt_positions TYPE srmwfppost,  lt_actfuncd TYPE  srmactfnctt.
+    CHECK ir_case IS BOUND.
+    REFRESH: lt_actfunc[].
+    CALL METHOD zcl_ega_cahdl_pr=>get_wf_path
+      EXPORTING
+        ir_case    = ir_case
+      IMPORTING
+        er_wf_path = lr_wf_path
+      EXCEPTIONS
+        error      = 1
+        OTHERS     = 2.
+*  get current position
+    CALL METHOD lr_wf_path->get_positions
+      RECEIVING
+        re_positions = lt_positions.
+    READ TABLE  lt_positions ASSIGNING FIELD-SYMBOL(<fs_pos>) WITH KEY posid_wiid =  im_wiid.
+    IF sy-subrc = 0.
+      IF ex_pos_id IS SUPPLIED.
+        ex_pos_id =  <fs_pos>-posid.
+        EXIT.
+      ENDIF.
+      CALL METHOD lr_wf_path->get_actfunc_desc_by_activity
+        EXPORTING
+          im_activity         = <fs_pos>-activity
+        RECEIVING
+          re_tab_actfunc_desc = lt_actfuncd.
+
+      MOVE-CORRESPONDING lt_actfuncd[]  TO lt_actfunc[].
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->INSPECTIONANSWER_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_EPDA_MAPLET_I_MPC=>TT_INSPECTIONANSWER
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inspectionanswer_get_entityset.
+  DATA: lv_inspection TYPE  zde_epda_inspection,
+        ls_inspection TYPE  zcl_zega_epda_maplet_i_mpc=>ts_inspectionanswer,
+        lt_insp_text  TYPE zcl_ega_epda_inspection_api=>tt_domval,
+        lt_visit_text TYPE zcl_ega_epda_inspection_api=>tt_domval.
+
+  TRY .
+      lv_inspection = it_filter_select_options[ property = 'InspectionId' ]-select_options[ 1 ]-low.
+    CATCH cx_sy_itab_line_not_found.
+  ENDTRY.
+  lv_inspection = |{ CONV string( lv_inspection ) WIDTH = 10 ALPHA = IN }|.
+
+  NEW zcl_ega_epda_inspection_api( )->get_inspection(
+    EXPORTING
+      ir_inspection_id      = COND #( WHEN lv_inspection IS NOT INITIAL THEN  VALUE #( ( sign = 'I' option = 'EQ' low = lv_inspection ) ) )
+      iv_checklist          = 'X'
+    IMPORTING
+      et_inspection         = DATA(lt_inspections)
+      et_return             = DATA(lt_return) ).
+**Get the inspection text
+  NEW zcl_ega_epda_inspection_api( )->get_dom_val(
+   EXPORTING
+    iv_domain = 'ZDO_EPDA_INSPECTION_TYPE'
+   RECEIVING
+     et_domain = lt_insp_text ).
+**Get the Visit Text
+  NEW zcl_ega_epda_inspection_api( )->get_dom_val(
+  EXPORTING
+   iv_domain = 'ZDO_EGA_INSPECT_TYPE'
+  RECEIVING
+    et_domain = lt_visit_text ).
+
+  LOOP AT lt_inspections INTO DATA(ls_inspect).
+    LOOP AT ls_inspect-checklist INTO DATA(ls_checklist).
+      ls_inspection-answerid = ls_checklist-question_id.
+    ENDLOOP.
+    READ TABLE lt_insp_text INTO DATA(ls_insp_text) WITH KEY domvalue = ls_inspect-inspection_type.
+    IF sy-subrc = 0.
+      ls_inspection-inspectiontypedesc = ls_insp_text-ddtext.
+    ENDIF.
+    READ TABLE lt_visit_text INTO DATA(ls_visit_text) WITH KEY domvalue = ls_inspect-inspect_type.
+    IF sy-subrc = 0.
+      ls_inspection-visttypedesc = ls_visit_text-ddtext.
+    ENDIF.
+    ls_inspection-userid = sy-uname.
+    APPEND ls_inspection TO et_entityset.
+  ENDLOOP.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->MAINACTIVITYSET_CREATE_ENTITY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITY_C(optional)
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IO_DATA_PROVIDER               TYPE REF TO /IWBEP/IF_MGW_ENTRY_PROVIDER(optional)
+* | [<---] ER_ENTITY                      TYPE        ZCL_ZEGA_EPDA_MAPLET_I_MPC=>TS_MAINACTIVITY
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD mainactivityset_create_entity.
+
+    DATA ls_entity        TYPE zcl_zega_epda_maplet_i_mpc_ext=>ts_mainactivity.
+    DATA lt_return        TYPE bapiret2_t.
+    DATA lo_message       TYPE REF TO /iwbep/if_message_container.
+    DATA lv_inspection_id TYPE  zde_epda_inspection.
+    DATA lv_case_id       TYPE  scmg_ext_key.
+    DATA lv_old_mainact   TYPE  zde_epda_main_activity.
+    DATA lv_new_mainact   TYPE  zde_epda_main_activity.
+
+    io_data_provider->read_entry_data( IMPORTING es_data = ls_entity ) .
+
+    lv_inspection_id = ls_entity-inspectionid.
+    lv_case_id = ls_entity-caseid.
+    lv_old_mainact = ls_entity-oldmainactivity.
+    lv_new_mainact = ls_entity-newmainactivity.
+
+    NEW zcl_ega_epda_inspection_api( )->mainactivitychanged(
+      EXPORTING
+        iv_inspection_id = lv_inspection_id
+        iv_case_id = lv_case_id
+        iv_old_mainact = lv_old_mainact
+        iv_new_mainact = lv_new_mainact
+      IMPORTING
+        et_return           = lt_return
+    ).
+
+    IF lt_return IS NOT INITIAL.
+      lo_message = /iwbep/cl_mgw_msg_container=>get_mgw_msg_container( ).
+      lo_message->add_messages_from_bapi( it_bapi_messages = lt_return
+                                          iv_add_to_response_header = abap_true ).
+      RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+        EXPORTING
+          message_container = lo_message
+          textid            = /iwbep/cx_mgw_busi_exception=>business_error.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->MAINACTIVITYSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_EPDA_MAPLET_I_MPC=>TT_MAINACTIVITY
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method MAINACTIVITYSET_GET_ENTITYSET.
+*SUPER->MAINACTIVITYSET_GET_ENTITYSET(
+*  EXPORTING
+*    IV_ENTITY_NAME           = IV_ENTITY_NAME
+*    IV_ENTITY_SET_NAME       = IV_ENTITY_SET_NAME
+*    IV_SOURCE_NAME           = IV_SOURCE_NAME
+*    IT_FILTER_SELECT_OPTIONS = IT_FILTER_SELECT_OPTIONS
+*    IS_PAGING                = IS_PAGING
+*    IT_KEY_TAB               = IT_KEY_TAB
+*    IT_NAVIGATION_PATH       = IT_NAVIGATION_PATH
+*    IT_ORDER                 = IT_ORDER
+*    IV_FILTER_STRING         = IV_FILTER_STRING
+*    IV_SEARCH_STRING         = IV_SEARCH_STRING
+**    io_tech_request_context  = io_tech_request_context
+**  IMPORTING
+**    et_entityset             = et_entityset
+**    es_response_context      = es_response_context
+*       ).
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->TASKSET_CREATE_ENTITY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITY_C(optional)
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IO_DATA_PROVIDER               TYPE REF TO /IWBEP/IF_MGW_ENTRY_PROVIDER(optional)
+* | [<---] ER_ENTITY                      TYPE        ZCL_ZEGA_EPDA_MAPLET_I_MPC=>TS_TASK
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD taskset_create_entity.
+
+  DATA: ls_entity  TYPE zcl_zega_epda_maplet_i_mpc_ext=>ts_task,
+        lt_return  TYPE bapiret2_t,
+        lo_message TYPE REF TO /iwbep/if_message_container.
+
+  io_data_provider->read_entry_data( IMPORTING es_data = ls_entity ) .
+
+  cft(
+    EXPORTING
+      i_t = ls_entity-proposedfollowupdate
+    IMPORTING
+      e_d = DATA(e_d)
+      e_t = DATA(e_t)
+  ).
+
+  NEW zcl_ega_epda_inspection_api( )->complete_inspection(
+    EXPORTING
+      is_inspect_complete = VALUE #( inspection_id = ls_entity-inspectionid
+                                     prop_followup_dt = e_d
+                                     recommend_stat = ls_entity-recommendation
+                                     location = ls_entity-districtid
+                                     comments = ls_entity-comments
+                                     remarks = ls_entity-remarks
+                                     violation = ls_entity-violation
+                                     location_x = ls_entity-xcoordinate
+                                     location_y = ls_entity-ycoordinate   )
+    IMPORTING
+      et_return           = lt_return
+  ).
+
+  IF lt_return IS NOT INITIAL.
+    lo_message = /iwbep/cl_mgw_msg_container=>get_mgw_msg_container( ).
+    lo_message->add_messages_from_bapi( it_bapi_messages = lt_return
+                                        iv_add_to_response_header = abap_true ).
+    RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+      EXPORTING
+        message_container = lo_message
+        textid            = /iwbep/cx_mgw_busi_exception=>business_error.
+  ENDIF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->TASKSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_EPDA_MAPLET_I_MPC=>TT_TASK
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD taskset_get_entityset.
+**Data Declarations
+    DATA lr_inspection_api TYPE REF TO zcl_ega_epda_inspection_api.
+    DATA:lv_inspection   TYPE zde_epda_inspection,
+         lv_noinbox      TYPE c,
+         lt_apptype_text TYPE zcl_ega_epda_inspection_api=>tt_domval,
+         rt_appln_no     TYPE RANGE OF zde_ega_epda_application_no.
+    DATA:lt_insp_text   TYPE zcl_ega_epda_inspection_api=>tt_domval,
+         lt_visit_text  TYPE zcl_ega_epda_inspection_api=>tt_domval,
+         lt_status_text TYPE zcl_ega_epda_inspection_api=>tt_domval.
+
+    TRY .
+        lv_inspection = it_filter_select_options[ property = 'inspectionId' ]-select_options[ 1 ]-low.
+      CATCH cx_sy_itab_line_not_found.
+    ENDTRY.
+
+    TRY .
+        DATA(lv_status) = it_filter_select_options[ property = 'inspectionStatus' ]-select_options[ 1 ]-low.
+      CATCH cx_sy_itab_line_not_found.
+    ENDTRY.
+
+    lv_inspection = |{ CONV string( lv_inspection ) WIDTH = 10 ALPHA = IN }|.
+
+**Get the inspection text
+    NEW zcl_ega_epda_inspection_api( )->get_dom_val(
+       EXPORTING
+        iv_domain = 'ZDO_EPDA_INSPECTION_TYPE'
+       RECEIVING
+         et_domain = lt_insp_text ).
+**Get the Visit Text
+    NEW zcl_ega_epda_inspection_api( )->get_dom_val(
+        EXPORTING
+         iv_domain = 'ZDO_EGA_INSPECT_TYPE'
+        RECEIVING
+          et_domain = lt_visit_text ).
+
+    NEW zcl_ega_epda_inspection_api( )->get_dom_val(
+    EXPORTING
+     iv_domain = 'ZDO_EPDA_GIS_INSPECTION_STATUS' "'ZDO_EPDA_INSPECTION_STATUS'
+    RECEIVING
+      et_domain = lt_status_text ).
+
+    SELECT * FROM zepda_gis_map_st INTO TABLE @DATA(lt_gis_map_status).
+
+    CREATE OBJECT lr_inspection_api.
+
+    DATA: lv_p TYPE boolean, lv_d TYPE boolean, lv_c TYPE boolean.
+    IF lv_status IS NOT INITIAL.
+      IF lv_status EQ 'DRAFT'.
+        lv_d = abap_true.
+      ELSEIF lv_status EQ 'COMPLETED'.
+        lv_c = abap_true.
+      ELSEIF lv_status EQ 'PENDING'.
+        lv_p = abap_true.
+      ENDIF.
+    ELSE.
+      lv_p = abap_true.
+      lv_d = abap_true.
+    ENDIF.
+
+    DATA(lt_data) = lr_inspection_api->get_inspector_inbox( im_login_user = sy-uname iv_pending = lv_p iv_draft = lv_d iv_completed = lv_c ).
+
+    DATA ls_entityset TYPE zcl_zega_epda_maplet_i_mpc=>ts_task.
+
+    LOOP AT lt_data ASSIGNING FIELD-SYMBOL(<ls_data>).
+      CLEAR ls_entityset.
+      ls_entityset-vendortype = <ls_data>-business_type.
+      ls_entityset-wiid = <ls_data>-wi_id.
+      ls_entityset-inspectionid  = <ls_data>-inspection_id .
+      ls_entityset-caseid        = <ls_data>-case_id.
+      ls_entityset-epdaapplication_id  = <ls_data>-application_number .
+      ls_entityset-createdby    = <ls_data>-created_by_bp_name.
+      ls_entityset-createddate  = ctt( i_d = <ls_data>-assign_date i_t = <ls_data>-assign_time ).
+*      ls_entityset-recommendation     = <ls_data>-pre_inspection_status.
+*      ls_entityset-recommendationtext = <ls_data>-pre_inspection_status_tx.
+      CLEAR ls_entityset-recommendation.
+      CLEAR ls_entityset-recommendationtext.
+      READ TABLE lt_gis_map_status INTO DATA(ls_gis_map_status) WITH KEY sap_status = <ls_data>-pre_inspection_status.
+      IF sy-subrc = 0.
+        ls_entityset-recommendation  = ls_gis_map_status-gis_status.
+        READ TABLE lt_status_text INTO DATA(ls_status_text) WITH KEY domvalue = ls_gis_map_status-gis_status.
+        IF sy-subrc = 0.
+          ls_entityset-recommendationtext  = ls_status_text-ddtext.
+        ENDIF.
+      ENDIF.
+      ls_entityset-username   = <ls_data>-inspected_by .
+      ls_entityset-colorcode  = <ls_data>-colorcode .
+      ls_entityset-remarks    = <ls_data>-remarks .
+      ls_entityset-comments   = <ls_data>-comments.
+      ls_entityset-ownerid    = <ls_data>-owner_id .
+      ls_entityset-ownername  = <ls_data>-bp_name.
+      ls_entityset-companyid  = <ls_data>-comp_bp_id .
+      ls_entityset-companyname  = <ls_data>-comp_name_en .
+      ls_entityset-companyname_ar  = <ls_data>-comp_name_ar .
+      ls_entityset-newinspectionid  = <ls_data>-newinspectionid .
+      ls_entityset-visittype            = <ls_data>-inspect_type.
+      ls_entityset-visittypedesc        = <ls_data>-inspect_type_tx.
+      ls_entityset-inspectiontype       = <ls_data>-inspection_type.
+      ls_entityset-inspectiontypedesc   = <ls_data>-inspection_type_tx.
+      ls_entityset-licensevalidfrom     = ctt( i_d = <ls_data>-permit_issue_date i_t = '000000').
+      ls_entityset-licensevalidto       = ctt( i_d = <ls_data>-permit_expiry_date i_t = '000000').
+      ls_entityset-vendorid             = <ls_data>-permit_id .
+      ls_entityset-mainactivitytext     = <ls_data>-main_activity_text.
+      ls_entityset-xcoordinate          = <ls_data>-location_x.
+      ls_entityset-ycoordinate          = <ls_data>-location_y.
+      ls_entityset-violation            = <ls_data>-violation.
+      ls_entityset-proposedfollowupdate = ctt( i_d = <ls_data>-follow_up_date i_t = '000000').
+      ls_entityset-districtid           = <ls_data>-location.
+      ls_entityset-departmentheadcomment = <ls_data>-departmentheadcomment.
+      ls_entityset-userid               = sy-uname.
+      ls_entityset-rejected             = <ls_data>-overwritten.
+      ls_entityset-operatstatus         = <ls_data>-operat_status.
+      ls_entityset-operatstatustext     = <ls_data>-operat_status_tx.
+      ls_entityset-status = COND #( WHEN <ls_data>-draft_req EQ 'X' THEN 'DRAFT'
+                                    WHEN <ls_data>-pending_req EQ 'X' THEN 'PENDING'
+                                    WHEN <ls_data>-completed_req EQ 'X' THEN 'COMPLETED' ).
+      APPEND ls_entityset TO et_entityset.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->TOKENSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_EPDA_MAPLET_I_MPC=>TT_TOKEN
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD tokenset_get_entityset.
+
+  DATA: ls_address TYPE bapiaddr3,
+        lt_return  TYPE bapiret2_t.
+
+  CALL FUNCTION 'BAPI_USER_GET_DETAIL'
+    EXPORTING
+      username = sy-uname
+    IMPORTING
+      address  = ls_address
+    TABLES
+      return   = lt_return.
+
+  et_entityset = VALUE #( ( userid    = sy-uname
+                            user_name = ls_address-fullname ) ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->PORTACCOMMODATIO_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_EPDA_MAPLET_I_MPC=>TT_PORTACCOMMODATION
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD portaccommodatio_get_entityset.
+
+    DATA: lv_port           TYPE  zde_ega_fshry_port,
+          lv_case           TYPE  scmg_ext_key,
+          lv_reserved_items TYPE  flag,
+          lt_buildings      TYPE zega_cj_epda_port_objects_tt.
+
+    LOOP AT it_filter_select_options INTO DATA(ls_filter).
+      CASE ls_filter-property.
+        WHEN 'IvCase'.
+          LOOP AT ls_filter-select_options INTO DATA(ls_option).
+            lv_case = ls_option-low.
+          ENDLOOP.
+        WHEN 'IvPort'.
+          LOOP AT ls_filter-select_options INTO ls_option.
+            lv_port = ls_option-low.
+          ENDLOOP.
+        WHEN 'IvReservedItems'.
+          LOOP AT ls_filter-select_options INTO ls_option.
+            lv_reserved_items = ls_option-low.
+          ENDLOOP.
+      ENDCASE.
+    ENDLOOP.
+
+    CALL FUNCTION 'ZEGA_CJ_EPDA_PORT_OBJECTS'
+      EXPORTING
+        iv_port           = lv_port
+        iv_case           = lv_case
+        iv_reserved_items = lv_reserved_items
+      IMPORTING
+        et_building       = lt_buildings
+        et_rooms          = me->gt_port_rooms
+        et_beds           = me->gt_port_beds.
+
+    MOVE-CORRESPONDING lt_buildings TO et_entityset.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->PORTBEDSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_EPDA_MAPLET_I_MPC=>TT_PORTBED
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method PORTBEDSET_GET_ENTITYSET.
+
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method ZCL_ZEGA_EPDA_MAPLET_I_DPC_EXT->PORTROOMSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        ZCL_ZEGA_EPDA_MAPLET_I_MPC=>TT_PORTROOM
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method PORTROOMSET_GET_ENTITYSET.
+
+  endmethod.
+ENDCLASS.
