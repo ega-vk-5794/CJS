@@ -381,6 +381,16 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
   `ZCL_RAK_CJ_API`, which inherits the legacy DPC, and a static reference would stop
   the renderer — every journey and the Studio — from loading whenever anything in that
   chain is inactive. Do not "tidy" it into a static call.
+- **`ZCL_RAK_MIGRATOR->RENDER_FTYPE( )` is a WHITELIST, and a cleared result is a
+  DELETE.** The field loop reads a blank return as "discard this row", so an ftype
+  `CLASSIFY( )` assigns correctly is still thrown away one gate later unless
+  `RENDER_FTYPE( )` also names it — and a discarded row never reaches `API_BIND( )`,
+  so it gets no `API:` directive either. This is what made M011 step 1 look empty:
+  the control was dropped and its **caption**, a separate display row, survived
+  alone — the grey "Parcel Selection:" box is a label whose control was deleted out
+  from under it. Add a new ftype in **both** places. `SIGN`, `CHEMICALS`, `ACCOM`
+  and `BOATS` are still deliberately dropped (nothing draws them), but counted and
+  named in the run log rather than lumped into `discarded`.
 - **The fifteen M journeys already loaded carry the OLD bindings and must be re-run.**
   Three were wrong and are fixed in `BIND_TABLE( )`/`CLASSIFY( )`: `PARCEL` pointed at
   `FindParcelSet` (a `CREATE_DEEP_ENTITY` target that opens a ZGCF case — a selector
