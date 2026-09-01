@@ -193,6 +193,24 @@ These raise nothing and render nothing. They account for most of the bugs found 
   navigation, submit and popups always repaint; popups go out through `POPUP_DISPLAY( )`
   regardless. Confirmed fixed on screen. If you ever need the old behaviour, do not
   reintroduce a second `VIEW_DISPLAY( )` call - go through `SEND_VIEW( )`.
+- **A backend TABLE's cells are positional at BOTH ends, and the two orders are set in
+  different places.** `ZCL_RAK_JOURNEY_BE` reads a backend table by assigning
+  `FIELD1..FIELDn` in order and handing cell N to configured column N of the
+  `KEY:Label:TYPE` spec in `DEFAULT_VAL`. The BAdI fills those same components the other
+  way round - `ZCL_EGA_CJ_ECOMP_ABS->ZIF_EGA_FW_CJI~READ( )` does
+  `lv_field = 'FIELD' && ls_child-list_sequence`, so the slot a value lands in comes from
+  **`LIST_SEQUENCE` in `/QNV/SB_UI_DEFIN`**, not from the CJS spec. Nothing checks that the
+  two agree: a column whose `LIST_SEQUENCE` is missing renders blank, and one whose
+  sequence differs from its position in `DEFAULT_VAL` renders the neighbouring value.
+  Before believing a wrong or empty column is a rendering bug, line the spec up against
+  the `/QNV/SB_UI_DEFIN` rows for that screen.
+- **`FIELDn` is a fixed-width DDIC component; a `TYPE string` source is cut to fit.**
+  The BAdI assigns a `string` (e.g. `TY_COMPLAINT_DETAILS-COMPLAINERNAME`) into a `FIELDn`
+  of `/QNV/SBUILD_UI_TABLE_CUST_TT`, and the truncation happens silently at that
+  assignment - which is why a 1000-character description came back as exactly 250. That
+  structure is legacy and must not be widened. Long text belongs on a scalar field bound
+  to the `GS_DATA` component that holds the whole string, the way EC05's `DESCRIPTION_1`
+  binds `GS_DATA-COMPLAINT_DESC`, with the table column left as a summary.
 - **A grid row written by hand is positional against the *configured* columns.**
   `SET_GRID_DATA( )` maps by name, but the `COLUMNS` a handler passes came straight back from
   `GET_GRID_DATA( )`, so the map is an identity map and cell N lands in configured column N.
