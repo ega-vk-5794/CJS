@@ -472,6 +472,43 @@ CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
   CHANGING
     CT_TABLES = CT_TABLES
     .
+*----------------------------------------------------------------------------*
+* TEMPORARY DIAGNOSTIC - REMOVE ONCE THE SHARE TOTAL IS CONFIRMED.
+*
+* Prints the owner rows exactly as they are about to leave for the backend:
+* the table name, the row number, and UI_TABLE_COLUMN1..10 in order. That is
+* the literal payload - TABLES_FOR_BACKEND( ) fills those columns in the CJS
+* spec's order and the BAdI reads them back by LIST_SEQUENCE, so this shows
+* which slot the share is actually travelling in.
+*
+* Deliberately ABOVE the CHECK below: a blank LICENSE_SEL exits this method,
+* and a diagnostic that only runs on the happy path answers nothing.
+*
+* "The Total of the Share (0.00%) is not equal to 100%" comes from the
+* backend, not from CJS, so reading the payload is the only way to tell a
+* wrong column order from an empty table.
+*----------------------------------------------------------------------------*
+    LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<dbg>) WHERE ui_table_name CP 'OWNER*'.
+      DATA lv_dbg TYPE string.
+      CLEAR lv_dbg.
+      DO 10 TIMES.
+        ASSIGN COMPONENT |UI_TABLE_COLUMN{ sy-index }| OF STRUCTURE <dbg>
+               TO FIELD-SYMBOL(<dc>).
+        CHECK sy-subrc = 0.
+        lv_dbg = |{ lv_dbg }{ sy-index }=[{ <dc> }] |.
+      ENDDO.
+      io_ctx->add_msg(
+        iv_type = 'Information'
+        iv_text = |POST { <dbg>-ui_table_name } row { <dbg>-sequence }: { lv_dbg }| ).
+    ENDLOOP.
+
+    IF NOT line_exists( ct_tables[ ui_table_name = 'OWNERS_SEARCH' ] ).
+      io_ctx->add_msg(
+        iv_type = 'Information'
+        iv_text = |POST carries NO OWNERS_SEARCH rows at all - the backend is | &&
+                  |summing shares it was never sent.| ).
+    ENDIF.
+
  DATA(lv_sel) = io_ctx->get_val( 'LICENSE_SEL' ).
     CHECK lv_sel IS NOT INITIAL.
     LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<t>) WHERE ui_table_name = 'LICENSES' AND ui_table_column1 = lv_sel..
