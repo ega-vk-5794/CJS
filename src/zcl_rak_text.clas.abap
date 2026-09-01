@@ -210,6 +210,11 @@ CLASS zcl_rak_text DEFINITION
         res_done_sub        TYPE symsgno VALUE '125',
         res_not_submitted   TYPE symsgno VALUE '126',
         res_not_sub_sub     TYPE symsgno VALUE '127',
+*       EC02's headers. MOBILE NUMBER, DEPARTMENT and STATUS are shared with
+*       EC06 above rather than duplicated - the same column, the same wording.
+        col_complaint_id    TYPE symsgno VALUE '128',
+        col_complaint_date  TYPE symsgno VALUE '129',
+        col_description     TYPE symsgno VALUE '130',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -510,7 +515,13 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
       ( msgno = c_no-res_not_submitted en = `Not submitted yet`    ar = `لم يتم التقديم بعد` )
       ( msgno = c_no-res_not_sub_sub
         en = `This application has not been submitted. Go back and complete the remaining steps.`
-        ar = `لم يتم تقديم هذا الطلب. يرجى الرجوع وإكمال الخطوات المتبقية.` ) ).
+        ar = `لم يتم تقديم هذا الطلب. يرجى الرجوع وإكمال الخطوات المتبقية.` )
+*     EC02's headers. COMPLAINT ID and DESCRIPTION carry Arabic taken verbatim
+*     from the journeys' own LABEL_AR (EC02's COMPLAINT_ID, EC05's
+*     DESCRIPTION_1), so a header and the field it reports on read identically.
+      ( msgno = c_no-col_complaint_id   en = `Complaint ID`   ar = `رقم الشكوى` )
+      ( msgno = c_no-col_complaint_date en = `Complaint Date` ar = `تاريخ الشكوى` )
+      ( msgno = c_no-col_description    en = `Description`    ar = `الوصف` ) ).
   ENDMETHOD.
 
 
@@ -639,7 +650,34 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
                      `complete, correct, and true. I understand that I will be held responsible ` &&
                      `for any incorrect or false information provided.`
         ar         = `أقر بأن المعلومات المقدمة في هذا النموذج دقيقة وكاملة وصحيحة وحقيقية. ` &&
-                     `وأتفهم أنني سأكون مسؤولاً عن أي معلومات غير صحيحة أو كاذبة يتم تقديمها.` ) ).
+                     `وأتفهم أنني سأكون مسؤولاً عن أي معلومات غير صحيحة أو كاذبة يتم تقديمها.` )
+
+*     EC05 - the Give Suggestions certification. ECOMP-41.
+*
+*     THE SAME TRUNCATION, ON BOTH COLUMNS THIS TIME, and the config proves it
+*     rather than suggesting it: EC05's ZLABEL is exactly 150 characters and
+*     ends "...I would be held responsible for", while ZLABEL_AR is exactly 80
+*     and stops mid-word at "وبالتا" - the opening of "وبالتالي". 150 and 80 are
+*     the two DDIC widths, so both were cut by the INSERT that wrote them. The
+*     Arabic reader saw it worse because the Arabic column was the shorter one.
+*
+*     >> BOTH CLOSING CLAUSES ARE RECONSTRUCTIONS. CONFIRM THEM. <<
+*
+*     Everything up to "responsible for" / "وبالتا" is verbatim from the
+*     database. What follows was written here to close the sentence, in EC05's
+*     own phrasing rather than EC01's - the two declarations are worded
+*     differently and should not be silently merged. As with EC01 it is the
+*     most conservative ending available: it completes the grammar and adds no
+*     obligation, consequence or penalty the visible half did not already
+*     imply. A citizen is agreeing to this sentence. If the approved wording
+*     says more, this understates it and must be replaced.
+      ( journey_id = 'EC05'
+        field_name = 'DECLARATION'
+        en         = `I hereby certify that the information provided on this form is accurately ` &&
+                     `described, complete, correct and true. Thus, I would be held responsible ` &&
+                     `for any incorrect or false information provided.`
+        ar         = `أقر بموجب هذا أن جميع المعلومات المقدمة في هذا الطلب صحيحة ودقيقة وكاملة، ` &&
+                     `وبالتالي أتحمل المسؤولية عن أي معلومات غير صحيحة أو مضللة.` ) ).
   ENDMETHOD.
 
 
