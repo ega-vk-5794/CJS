@@ -359,6 +359,24 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
   It is the one assumption that invalidates the whole layer, which is why the first
   two classes are read-only and touch no context. Activate them and run one journey
   before anything else is built on top.
+- **Never hand-write the shape of a standard SAP object you cannot open from here.**
+  `ZCL_RAK_CJ_REQ_CTX` was written three times as `INHERITING FROM
+  `/IWBEP/CL_MGW_REQUEST`` with `GET_REQUEST_HEADERS` redefined, and each activation
+  only revealed the next invisible fact — `MT_HEADERS` is already the parent's, the
+  constructor wants a mandatory `IR_REQUEST_DETAILS` of an unreadable type, and the
+  returning parameter is `RT_HEADER` not `RT_REQUEST_HEADERS`. Implementing
+  `/IWBEP/IF_MGW_REQ_ENTITYSET` instead is worse: ~45 methods plus a component
+  interface, each missing one an activation error. It is now a **factory** that reads
+  the candidate class's own `CONSTRUCTOR` by RTTI, builds a `PARAMETER-TABLE` from
+  whatever it declares mandatory, and creates it dynamically — `CREATE OBJECT ... TYPE
+  (name) PARAMETER-TABLE` — trying `/IWBEP/CL_MGW_REQUEST_UNITTST` (SAP's own
+  request context for a DPC with no HTTP request behind it) then
+  `/IWBEP/CL_MGW_REQUEST`. Nothing in the source names a signature, so it activates
+  whatever those turn out to be, and a wrong guess becomes a **catchable runtime
+  error** instead of a class that will not load. `GET( )` may return unbound; that
+  degrades rather than dumps, because every DPC call in the layer sits inside
+  `CATCH cx_root` → `TO_MSG( )`. Run **`ZRAK_CJ_REQCTX_DIAG`** before theorising — it
+  prints both constructors as the system declares them plus the last error.
 - **E016/E017/E018 rebuilt a control that has a backing service.** The legacy
   `CHEMICALS_DETAILS` control reads `ChemicalHistorySet` (`zega_fw_fnd_srv`, filtered
   by `IvPermit`/`IvTradeLicense`/`IvRegisteredEmirates`/`IvImpExpType`) to offer the
