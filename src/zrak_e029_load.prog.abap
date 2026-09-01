@@ -68,7 +68,13 @@ START-OF-SELECTION.
     density       = 'Cozy'
     show_actions  = 'X'
     active        = 'X'
-    handler_class = 'ZCL_E029_STORE_NEW_LOGIC'
+*   ZCL_E029_NEW_STORE_LOGIC, not ZCL_E029_STORE_NEW_LOGIC. This named the
+*   second, which has never had an implementation - only a .clas.xml shell,
+*   so the journey would have been created pointing at a handler that does
+*   not exist. E028 is the one journey whose rename to <THING>_<ACTION>
+*   completed; E029, E030, E128, E129 and E130 keep their <ACTION>_<THING>
+*   names, which are the ones carrying source.
+    handler_class = 'ZCL_E029_NEW_STORE_LOGIC'
     bknd_active   = 'X'
     bknd_category = 'EPDA'
     bknd_journey  = 'E029'

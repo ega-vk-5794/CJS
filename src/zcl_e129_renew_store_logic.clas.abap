@@ -9,7 +9,7 @@ CLASS zcl_e129_renew_store_logic DEFINITION
 *
 *   ZCL_E028_BERTH_NEW_LOGIC is the REFERENCE HANDLER for this family and
 *   the reasoning behind the shared shapes is written out there, once.
-*   Read it first, then ZCL_E128_BERTH_RENEW_LOGIC, which is this class's
+*   Read it first, then ZCL_E128_RENEW_BERTH_LOGIC, which is this class's
 *   near twin. Only what differs is commented here.
 *
 *   NO PAYMENT anywhere in NE129_1_* - confirmed against the export. So no
