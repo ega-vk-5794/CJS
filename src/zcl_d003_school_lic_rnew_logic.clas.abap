@@ -153,6 +153,57 @@ CLASS ZCL_D003_SCHOOL_LIC_RNEW_LOGIC IMPLEMENTATION.
 *  CHANGING
 *    CT_TABLES =
 *    .
+*----------------------------------------------------------------------------*
+* The owner rows leave in the order the backend READS them, which is not the
+* order it WROTE them in. Same defect, same fix, as D001 and D004.
+*
+* OWNERS_SEARCH's spec follows the READ - partner, name, mobile, e-mail, share,
+* -, Emirates ID, -, nationality - which is what keeps the owner list on screen
+* correct. TABLES_FOR_BACKEND( ) then fills UI_TABLE_COLUMN1..N in that same
+* order, so the share would arrive in slot 5 while /QNV/SB_UI_DEFIN gives
+* GS_DATA-OWNERS[]-SHARE_PER a LIST_SEQUENCE of 3 - and the backend refuses the
+* step with "The Total of the Share (0.00%) is not equal to 100%".
+*
+* Re-laid here on the way out: name, nationality, share, mobile, e-mail,
+* partner, Emirates ID.
+*
+* ABOVE the CHECK below: a blank LIC_SELECT exits this method, and the owners
+* still have to be re-laid.
+*----------------------------------------------------------------------------*
+    DATA lt_src TYPE zif_rak_journey=>tt_string.
+    DATA lv_c   TYPE i.
+
+    LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<ow>) WHERE ui_table_name = 'OWNERS_SEARCH'.
+      CLEAR lt_src.
+      DO 30 TIMES.
+        ASSIGN COMPONENT |UI_TABLE_COLUMN{ sy-index }| OF STRUCTURE <ow>
+               TO FIELD-SYMBOL(<sc>).
+        IF sy-subrc <> 0.
+          EXIT.
+        ENDIF.
+        APPEND |{ <sc> }| TO lt_src.
+        CLEAR <sc>.
+      ENDDO.
+
+      DATA(lt_out) = VALUE zif_rak_journey=>tt_string(
+        ( VALUE #( lt_src[ 2 ] OPTIONAL ) )    " 1 name
+        ( VALUE #( lt_src[ 9 ] OPTIONAL ) )    " 2 nationality
+        ( VALUE #( lt_src[ 5 ] OPTIONAL ) )    " 3 share      <- LIST_SEQUENCE 3
+        ( VALUE #( lt_src[ 3 ] OPTIONAL ) )    " 4 mobile
+        ( VALUE #( lt_src[ 4 ] OPTIONAL ) )    " 5 e-mail
+        ( VALUE #( lt_src[ 1 ] OPTIONAL ) )    " 6 partner
+        ( VALUE #( lt_src[ 7 ] OPTIONAL ) ) ). " 7 Emirates ID
+
+      CLEAR lv_c.
+      LOOP AT lt_out INTO DATA(lv_v).
+        lv_c = lv_c + 1.
+        ASSIGN COMPONENT |UI_TABLE_COLUMN{ lv_c }| OF STRUCTURE <ow>
+               TO FIELD-SYMBOL(<tc>).
+        CHECK sy-subrc = 0.
+        <tc> = lv_v.
+      ENDLOOP.
+    ENDLOOP.
+
     DATA(lv_sel) = io_ctx->get_val( 'LIC_SELECT' ).
     CHECK lv_sel IS NOT INITIAL.
     LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<t>) WHERE ui_table_name = 'LICENSES' AND ui_table_column1 = lv_sel..
