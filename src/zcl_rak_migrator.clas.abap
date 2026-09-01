@@ -342,6 +342,41 @@ CLASS zcl_rak_migrator DEFINITION
     METHODS step_title
       IMPORTING it_rows   TYPE tt_row iv_screen TYPE /qnv/sb_ui_defin-screen_name iv_no TYPE i
       EXPORTING ev_en     TYPE string ev_ar TYPE string.
+*   ---- composite control -> wrapper API binding ----------------------
+*   A ShapeIt composite does NOT post through the QNV item pipeline. Its
+*   TECHNICAL_NAME is blank in /QNV/SB_UI_DEFIN on purpose, because the
+*   control writes through its own OData service rather than through
+*   ct_item_data. So the field needs to say WHICH service instead - which
+*   is what this binding is, and why no TECH_NAME is invented for it.
+*
+*   It rides DEFAULT_VAL behind an API: prefix, the same way TEXT:, OTR:
+*   and SEL: already do. No DDIC column, no activation, no table adjust.
+*
+*       API:<api>:<entityset>[:<domain>[:<filter>]]
+*
+*   <api>       the CJS wrapper - PROPERTY, TENANCY, FEES, SIGN, VALUEHELP
+*   <entityset> what it reads, so the wrapper needs no per-field CASE
+*   <domain>    ValueHelp DomainName, where ValueHelp is the source
+*   <filter>    ValueHelp DomainFilter - only ZCJ_BTYPE uses one ('10BU')
+    TYPES: BEGIN OF ty_bind,
+             ftype   TYPE string,
+             api     TYPE string,
+             eset    TYPE string,
+             domain  TYPE string,
+             dfilter TYPE string,
+           END OF ty_bind.
+    TYPES tt_bind TYPE STANDARD TABLE OF ty_bind WITH EMPTY KEY.
+
+    METHODS bind_table
+      RETURNING VALUE(rt) TYPE tt_bind.
+
+*   The API: directive for one field, or blank when the ftype is not a
+*   composite. Blank is the overwhelmingly common answer.
+    METHODS api_bind
+      IMPORTING iv_ftype  TYPE string
+                iv_field  TYPE string OPTIONAL
+      RETURNING VALUE(rv) TYPE string.
+
     METHODS combobox_options
       IMPORTING is_row    TYPE ty_row
       RETURNING VALUE(rt) TYPE tt_kv.
@@ -661,6 +696,80 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       INSERT VALUE #( screen = r-screen_name orig = to_upper( r-field_name ) safe = uniq )
              INTO TABLE mt_name.
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD bind_table.
+*   Every row verified against the serving DPC, not inferred from a name.
+*   CUSTOMERJOURNEY unless marked otherwise.
+    rt = VALUE #(
+*     ---- parcels and property: ZCL_RAK_PROPERTY_API -------------------
+*     FindParcel and Properties are BOTH expanded reads - they have no
+*     standalone _GET_ENTITYSET method and are dispatched on iv_entity_name
+*     inside GET_EXPANDED_ENTITYSET. Floor and Unit exist ONLY as expanded
+*     children of Properties, which is why FLOORUNIT names Properties.
+      ( ftype = 'PARCEL'    api = 'PROPERTY' eset = 'FindParcelSet' )
+      ( ftype = 'PROPERTY'  api = 'PROPERTY' eset = 'PropertiesSet' )
+      ( ftype = 'FLOORUNIT' api = 'PROPERTY' eset = 'PropertiesSet' )
+      ( ftype = 'TITLEDEED' api = 'PROPERTY' eset = 'get_owner_prop_docs' )
+
+*     ---- tenancy: ZCL_RAK_TENANCY_API ---------------------------------
+      ( ftype = 'CONTRACT'  api = 'TENANCY'  eset = 'LeaseContractSet' )
+
+*     ---- signing: ZCL_RAK_SIGN_API, on ZUAEPASS_SRV -------------------
+*     Keyed on Intreno throughout. The flow state is NOT in the entity set -
+*     it is in SAPscript text CJ01/CJ20/CJ22/CJ23 - so the wrapper owns it,
+*     not the config.
+      ( ftype = 'SIGN'      api = 'SIGN'     eset = 'SignMethodSet' )
+
+*     ---- value help: ZCL_RAK_VALUEHELP_API, on zega_fw_fnd_srv --------
+*     DOMAIN is NOT derivable from /QNV/SB_UI_DEFIN - it lives in the
+*     ShapeIt control's own JS - so it is carried here, the same way
+*     ZRAK_M_MUNI_LOAD carries the M-code map. ZDE_EGA_ENTITY additionally
+*     depends on FILTER_DOMAIN( ), which moves index 22 to the front and
+*     drops value '29'; the wrapper reproduces that, not this table.
+      ( ftype = 'SELECT'    api = 'VALUEHELP' eset = 'ValueHelpSet'
+        domain = 'ZDE_EGA_ENTITY' )
+
+*     ---- EPDA composites on journeys already migrated -----------------
+*     ChemicalHistorySet returns the citizen's PREVIOUS declarations for a
+*     permit and trade licence. E016/E017/E018 hand-built the dialog and
+*     none of them carries this lookup.
+      ( ftype = 'CHEMICALS' api = 'CJ'       eset = 'ChemicalHistorySet' )
+*     PortAccommodationSet and WorkersListSet are on a FIFTH service,
+*     ZEGA_EPDA_MAPLET_I_SRV, which is in no repository read so far. The
+*     binding is written so the field is not silently blank; the wrapper
+*     behind it does not exist yet and must report that rather than
+*     returning no rows.
+      ( ftype = 'ACCOM'     api = 'MAPLET'   eset = 'PortAccommodationSet' ) ).
+  ENDMETHOD.
+
+
+  METHOD api_bind.
+    DATA(lv_ft) = to_upper( iv_ftype ).
+
+*   SELECT is the one ftype that is usually NOT a composite - most selects
+*   are a search help or a domain and resolve through the engine's own F4.
+*   Only the handful named here are ValueHelp-backed, so a bare SELECT must
+*   fall through rather than pick up the ZDE_EGA_ENTITY row by its ftype.
+    IF lv_ft = 'SELECT'.
+      IF to_upper( iv_field ) NS 'ENTITY'.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+    READ TABLE bind_table( ) INTO DATA(ls_b) WITH KEY ftype = lv_ft.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    rv = |API:{ ls_b-api }:{ ls_b-eset }|.
+    IF ls_b-domain IS NOT INITIAL.
+      rv = |{ rv }:{ ls_b-domain }|.
+      IF ls_b-dfilter IS NOT INITIAL.
+        rv = |{ rv }:{ ls_b-dfilter }|.
+      ENDIF.
+    ENDIF.
   ENDMETHOD.
 
 
@@ -1455,6 +1564,7 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     DATA lv_oseq TYPE i.
     DATA lv_shlp_cnt TYPE i.
     DATA lv_grid_cnt TYPE i.
+    DATA lv_bind_cnt TYPE i.
     DATA lv_grid_drp TYPE i.
     DATA lv_pick_cnt TYPE i.
     DATA lv_pay_drp  TYPE i.
@@ -1695,6 +1805,11 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 
       DATA(is_hidden) = xsdbool( line_exists( mt_hidden[ table_line = fname ] ) ).
 
+      DATA(lv_dir) = api_bind( iv_ftype = lv_ftype iv_field = CONV #( r-field_name ) ).
+      IF lv_dir IS NOT INITIAL.
+        lv_bind_cnt = lv_bind_cnt + 1.
+      ENDIF.
+
       INSERT zrak_t_jny_fld FROM @( VALUE #(
         mandt = sy-mandt journey_id = jid step_id = step
         field_name = fname seqnr = lv_fseq * 10
@@ -1720,6 +1835,11 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 *       froze each one at the old floor and left an author to edit them one by
 *       one - which nobody ever did.
         attach_maxmb = 0
+*       A ShapeIt composite carries no TECHNICAL_NAME because it does not
+*       post through ct_item_data - it writes through its own service. So
+*       nothing is invented here; the DEFAULT_VAL directive says which
+*       service instead, and the run log counts the fields that got one.
+        default_val = lv_dir
         tech_name = tech ) ).
 
       " SELECT: static JSON options in DATA1 (else engine uses shlp/rollname)
@@ -1769,6 +1889,12 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
              |{ lines( lt_rules ) } rules, { lv_shlp_cnt } shlp-F4, { tb } backend, | &&
              |{ td } defaulted-REVIEW (attach maxMB 2 - raise per field where a | &&
              |screen notice says more); { lines( lt ) } rows staged in ZRAK_T_MIG_RAW|.
+    IF lv_bind_cnt > 0.
+      ev_msg = ev_msg && | { lv_bind_cnt } composite field(s) bound to a wrapper API | &&
+                         |through DEFAULT_VAL 'API:...' - those post through their own | &&
+                         |service, not through ct_item_data, so a blank TECH_NAME on them | &&
+                         |is correct.|.
+    ENDIF.
     IF lv_pick_cnt > 0.
       ev_msg = ev_msg && | { lv_pick_cnt } of those are pick lists (DATA3 select mode): | &&
                          |READONLY, with a SEL: column and a _PICK target field each.|.
