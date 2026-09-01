@@ -130,6 +130,10 @@ CLASS zcl_rak_journey_render DEFINITION
 *   The one place the finished view leaves the engine. See MV_VIEW_SIG on
 *   ZCL_RAK_JOURNEY_ENGINE for why it is not always VIEW_DISPLAY( ).
     METHODS send_view IMPORTING iv_xml TYPE string.
+*   Resolves one TABLE column header through ZRAK_T_CJ_TXT when it is written
+*   as @nnn. See the method for why the spec cannot carry an Arabic twin.
+    METHODS col_header IMPORTING iv_raw   TYPE string
+                       RETURNING VALUE(rv) TYPE string.
     METHODS status_state IMPORTING iv_value     TYPE string
                                    iv_map       TYPE string OPTIONAL
                          RETURNING VALUE(rv_st) TYPE string.
@@ -631,6 +635,11 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             IF lv_csh IS INITIAL.
               lv_csh = lv_csn.
             ENDIF.
+*           BILINGUAL HEADER. Until this call the header was whatever single
+*           language someone typed into the spec, so an Arabic reader saw the
+*           English column titles - the grid renderer resolves its headers
+*           through PICK_TEXT( ) and this one did not.
+            lv_csh = col_header( lv_csh ).
             APPEND lv_csn TO lt_csn.
             APPEND lv_csh TO lt_csh.
           ENDLOOP.
@@ -2673,6 +2682,43 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
               WITH mo_e->zif_rak_journey~get_val( lv_field ).
       lv_ix = lv_ix - 1.
     ENDWHILE.
+  ENDMETHOD.
+
+
+  METHOD col_header.
+*   A TABLE column header comes from the KEY:Label:TYPE spec in DEFAULT_VAL,
+*   and DEFAULT_VAL has no _AR twin - so a literal header is frozen in whichever
+*   language it was typed in and shows its English to an Arabic reader. That is
+*   what made every Track Complaint / Track Suggestion details table render its
+*   headers in English on an Arabic run.
+*
+*   @nnn is the way out, and it is the SAME mechanism LONG_TEXT( ) already uses
+*   for a bilingual paragraph: a message number in ZRAK_T_CJ_TXT, which does
+*   have TEXT_EN and TEXT_AR and is picked by SY-LANGU. A spec column reads
+*   STATUS:@142:TEXT instead of STATUS:Status:TEXT.
+*
+*   OTR:<alias> deliberately is NOT accepted here, even though PICK( ) takes it
+*   everywhere else: the spec splits on ':', so an alias would be torn in half
+*   by the parser before it ever reached this method.
+*
+*   Anything not starting with @ is returned untouched, so every header
+*   configured today keeps rendering exactly as it does now.
+    rv = iv_raw.
+    IF strlen( rv ) < 2 OR rv(1) <> '@'.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_no) = substring( val = rv off = 1 ).
+    CONDENSE lv_no.
+    TRY.
+        rv = zcl_rak_text=>get( iv_no      = CONV symsgno( lv_no )
+                                iv_default = iv_raw
+                                iv_journey = mo_e->ms_config-journey_id ).
+      CATCH cx_root.
+*       An unusable number is not a reason to draw a blank header - show the
+*       raw token so it is obvious in testing which column is misconfigured.
+        rv = iv_raw.
+    ENDTRY.
   ENDMETHOD.
 
 

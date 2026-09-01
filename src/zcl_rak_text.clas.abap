@@ -189,6 +189,18 @@ CLASS zcl_rak_text DEFINITION
 *       entries rather than reusing bpp_partner_no / bpp_mobile.
         bpp_partner     TYPE symsgno VALUE '115',
         bpp_phone       TYPE symsgno VALUE '116',
+*       TABLE COLUMN HEADERS. A TABLE field's headers live in the
+*       KEY:Label:TYPE spec in DEFAULT_VAL, and DEFAULT_VAL has no _AR twin -
+*       so a literal header shows its English to an Arabic reader, which is
+*       what every Track Complaint / Track Suggestion details table did. A
+*       spec column written as KEY:@nnn resolves through here instead; see
+*       ZCL_RAK_JOURNEY_RENDER->COL_HEADER( ).
+        col_suggestion_id   TYPE symsgno VALUE '117',
+        col_suggestion_date TYPE symsgno VALUE '118',
+        col_mobile_number   TYPE symsgno VALUE '119',
+        col_name            TYPE symsgno VALUE '120',
+        col_department      TYPE symsgno VALUE '121',
+        col_status          TYPE symsgno VALUE '122',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -464,7 +476,20 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
       ( msgno = c_no-bpp_use_partner en = `Use this partner`            ar = `استخدام هذا الشريك` )
       ( msgno = c_no-bpp_partner_no  en = `Partner &1`                  ar = `الشريك &1` )
       ( msgno = c_no-bpp_partner     en = `Partner`                     ar = `الشريك` )
-      ( msgno = c_no-bpp_phone       en = `Phone Number`                ar = `رقم الهاتف` ) ).
+      ( msgno = c_no-bpp_phone       en = `Phone Number`                ar = `رقم الهاتف` )
+*     TABLE COLUMN HEADERS - see the block comment on C_NO above.
+*     SUGGESTION ID and MOBILE NUMBER carry the Arabic taken verbatim from
+*     EC06's own LABEL_AR for the matching input fields, so the header and the
+*     field it reports on read identically. The other four are standard terms;
+*     DEPARTMENT in particular has more than one accepted rendering in RAK
+*     government usage, so CONFIRM `الدائرة` with whoever owns the wording
+*     before this goes to citizens.
+      ( msgno = c_no-col_suggestion_id   en = `Suggestion ID`   ar = `رقم الاقتراح` )
+      ( msgno = c_no-col_suggestion_date en = `Suggestion Date` ar = `تاريخ الاقتراح` )
+      ( msgno = c_no-col_mobile_number   en = `Mobile Number`   ar = `رقم الهاتف` )
+      ( msgno = c_no-col_name            en = `Name`            ar = `الاسم` )
+      ( msgno = c_no-col_department      en = `Department`      ar = `الدائرة` )
+      ( msgno = c_no-col_status          en = `Status`          ar = `الحالة` ) ).
   ENDMETHOD.
 
 
