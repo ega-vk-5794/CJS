@@ -306,9 +306,14 @@ CLASS ZCL_D010_SCHOOL_BULD_CHG_LOGIC IMPLEMENTATION.
     DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
     DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
 
-    IF lv_loginbp IS INITIAL AND syst-sysid = 'E10'.
-      lv_loginbp = '1000116563'.
-    ENDIF.
+*   No hardcoded partner fallback. A fixed BP number stood here for E10, which
+*   is the same fixture that was just removed from nineteen other handlers: it
+*   makes the journey render somebody else's identity rather than nobody's, and
+*   the difference only shows up once it reaches the backend.
+*
+*   The cost is real and deliberate: on a system where the portal passes no
+*   USERDATA there is now no partner, so the applicant block stays empty instead
+*   of showing 1000116563's details.
 
     IF lv_loginbp IS NOT INITIAL.
       NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
@@ -328,6 +333,13 @@ CLASS ZCL_D010_SCHOOL_BULD_CHG_LOGIC IMPLEMENTATION.
       io_ctx->set_val( iv_name = c_app_id     iv_value = CONV #( ls_bp-emirates_id ) ).
       io_ctx->set_val( iv_name = c_app_mobile iv_value = CONV #( ls_bp-mobile_number ) ).
       io_ctx->set_val( iv_name = c_app_email  iv_value = CONV #( ls_bp-email_address ) ).
+
+*     LV_ROLE was read from the engine and then never used, while C_APP_TYPE sat
+*     declared and unreferenced - the two halves of a line that was not written.
+*     This is the same assignment E016, E142 and EPDA-E022 make. If APPLICANTTYPE
+*     is not a field on this journey the call is a silent no-op, so it costs
+*     nothing where it does not apply.
+      io_ctx->set_val( iv_name = c_app_type iv_value = |{ lv_role }| ).
 
     ENDIF.
 
