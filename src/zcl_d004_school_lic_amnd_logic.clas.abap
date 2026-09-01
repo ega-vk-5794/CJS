@@ -712,15 +712,32 @@ super->zif_rak_journey_logic~on_render_popup(
     ENDIF.
 
     io_ctx->set_val( iv_name = c_own_id iv_value = iv_id ).
-    LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
-      CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) = iv_id.
-      io_ctx->set_val( iv_name = c_own_name  iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = c_own_eid   iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = c_own_nat   iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = c_own_share iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = 'NAME_POP'      iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = 'TELEPHONE_POP' iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = 'EMAIL_POP'     iv_value = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
+*   By column name, matching what OWN_FORM_SAVE( ) writes. This read eight
+*   positions from a five-column grid, and from position 6 it was off by one
+*   against the writer as well - so the phone arrived in the name field, the
+*   e-mail in the phone field, and the last three came back empty.
+    DATA(ls_g) = io_ctx->get_grid_data( c_grid ).
+
+    LOOP AT ls_g-rows INTO DATA(lt_r).
+      CHECK zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns
+                                           it_row  = lt_r
+                                           iv_name = 'PARTNER' ) = iv_id.
+
+*     Not C_OWN_NAME - that constant holds 'IDENTIFICATION_POP', which is the
+*     ID-type SELECT, not a name field. Writing the owner's name into it leaves
+*     the dropdown matching no key, so it renders blank.
+      io_ctx->set_val( iv_name = 'NAME_POP'
+        iv_value = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'PARTNER' ) ).
+      io_ctx->set_val( iv_name = c_own_nat
+        iv_value = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'NATIONALITY' ) ).
+      io_ctx->set_val( iv_name = c_own_share
+        iv_value = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'SHARE_PER' ) ).
+      io_ctx->set_val( iv_name = 'TELEPHONE_POP'
+        iv_value = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'MOBILE_NUMBER' ) ).
+      io_ctx->set_val( iv_name = 'EMAIL_POP'
+        iv_value = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'EMAIL_ADDRESS' ) ).
+      io_ctx->set_val( iv_name = c_own_eid
+        iv_value = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'EMIRATES_ID' ) ).
       EXIT.
     ENDLOOP.
   endmethod.
@@ -734,37 +751,67 @@ super->zif_rak_journey_logic~on_render_popup(
     DATA lv_found TYPE abap_bool.
     DATA lt_row   TYPE zif_rak_journey=>tt_string.
 
+*   OWNERS_SEARCH has FIVE columns, from its DEFAULT_VAL spec - there are no
+*   ZRAK_T_JNY_COL rows for it, so GRID_COLS( ) falls through to the packed one:
+*
+*     PARTNER | NATIONALITY | SHARE_PER | MOBILE_NUMBER | EMAIL_ADDRESS
+*
+*   Seven cells used to be APPENDed into those five. SET_GRID_DATA( ) takes cell
+*   N for configured column N, so everything landed two places out and the last
+*   two were dropped: SHARE_PER received the owner's EMIRATES ID. The backend
+*   reads the columns by name, parsed '784-1956-6257327-7' as an amount, and
+*   refused the step with "The Total of the Share (0.00%) is not equal to 100%"
+*   - while the list on screen showed 100, because it read the same positions
+*   back and the two shifts cancelled.
+*
+*   By name, so the row follows the spec instead of assuming it. LOGIN_BP and the
+*   Emirates ID have no column here and are simply not stored; PARTNER carries
+*   the owner's NAME, which is what its own label and the OWNERS_DISP grid beside
+*   it both say it holds.
+    DATA(lt_new_row) = zcl_rak_journey_util=>blank_row( ls_g-columns ).
+
+    zcl_rak_journey_util=>put_cell(
+      EXPORTING it_cols = ls_g-columns iv_name = 'PARTNER'
+                iv_val  = io_ctx->get_val( 'NAME_POP' )
+      CHANGING  ct_row  = lt_new_row ).
+    zcl_rak_journey_util=>put_cell(
+      EXPORTING it_cols = ls_g-columns iv_name = 'NATIONALITY'
+                iv_val  = io_ctx->get_val( c_own_nat )
+      CHANGING  ct_row  = lt_new_row ).
+    zcl_rak_journey_util=>put_cell(
+      EXPORTING it_cols = ls_g-columns iv_name = 'SHARE_PER'
+                iv_val  = io_ctx->get_val( c_own_share )
+      CHANGING  ct_row  = lt_new_row ).
+    zcl_rak_journey_util=>put_cell(
+      EXPORTING it_cols = ls_g-columns iv_name = 'MOBILE_NUMBER'
+                iv_val  = io_ctx->get_val( 'TELEPHONE_POP' )
+      CHANGING  ct_row  = lt_new_row ).
+    zcl_rak_journey_util=>put_cell(
+      EXPORTING it_cols = ls_g-columns iv_name = 'EMAIL_ADDRESS'
+                iv_val  = io_ctx->get_val( 'EMAIL_POP' )
+      CHANGING  ct_row  = lt_new_row ).
+
+*   No EMIRATES_ID column on this grid, so the Emirates ID is not stored. Add a
+*   ZRAK_T_JNY_COL row named EMIRATES_ID and the line below starts persisting it
+*   with no further code change.
+    zcl_rak_journey_util=>put_cell(
+      EXPORTING it_cols = ls_g-columns iv_name = 'EMIRATES_ID'
+                iv_val  = io_ctx->get_val( c_own_eid )
+      CHANGING  ct_row  = lt_new_row ).
+
     LOOP AT ls_g-rows INTO DATA(lt_r).
-      IF VALUE string( lt_r[ 1 ] OPTIONAL ) = lv_id.
+      IF zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns
+                                        it_row  = lt_r
+                                        iv_name = 'PARTNER' ) = lv_id.
         lv_found = abap_true.
-        CLEAR lt_row.
-*        APPEND lv_id                            TO lt_row.
-        APPEND io_ctx->get_val( 'LOGIN_BP' )    TO lt_row.
-        APPEND io_ctx->get_val( 'NAME_POP' )   TO lt_row.
-        APPEND io_ctx->get_val( c_own_eid )     TO lt_row.
-        APPEND io_ctx->get_val( c_own_nat )     TO lt_row.
-        APPEND io_ctx->get_val( c_own_share )   TO lt_row.
-*        APPEND io_ctx->get_val( 'NAME_POP' )   TO lt_row.
-        APPEND io_ctx->get_val( 'TELEPHONE_POP' )   TO lt_row.
-        APPEND io_ctx->get_val( 'EMAIL_POP' )   TO lt_row.
-        APPEND lt_row TO ls_new-rows.
+        APPEND lt_new_row TO ls_new-rows.
       ELSE.
         APPEND lt_r TO ls_new-rows.
       ENDIF.
     ENDLOOP.
 
     IF lv_found = abap_false.
-      CLEAR lt_row.
-*      APPEND lv_id                          TO lt_row.
-      APPEND io_ctx->get_val( 'LOGIN_BP' )  TO lt_row.
-      APPEND io_ctx->get_val( 'NAME_POP' )   TO lt_row.
-      APPEND io_ctx->get_val( c_own_eid )   TO lt_row.
-      APPEND io_ctx->get_val( c_own_nat )   TO lt_row.
-      APPEND io_ctx->get_val( c_own_share ) TO lt_row.
-*      APPEND io_ctx->get_val( 'NAM=_POP' )   TO lt_row.
-      APPEND io_ctx->get_val( 'TELEPHONE_POP' )   TO lt_row.
-      APPEND io_ctx->get_val( 'EMAIL_POP' )   TO lt_row.
-      APPEND lt_row TO ls_new-rows.
+      APPEND lt_new_row TO ls_new-rows.
     ENDIF.
 
     io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
@@ -882,13 +929,26 @@ super->zif_rak_journey_logic~on_render_popup(
     lo_cl->column( )->text( 'Documents' ).
     lo_cl->column( halign = 'End' )->text( '' ).
 
+*   Read once, not once per row - a ~240-row T005T select.
+    DATA(lt_nat) = zcl_rak_journey_util=>nationalities( ).
+
     DATA(lo_it) = lo_t->items( ).
     LOOP AT ls_g-rows INTO DATA(lt_r).
-      DATA(lv_id)  = VALUE string( lt_r[ 1 ] OPTIONAL ).
-      DATA(lv_nam) = VALUE string( lt_r[ 2 ] OPTIONAL ).
-      DATA(lv_eid) = VALUE string( lt_r[ 3 ] OPTIONAL ).
-      DATA(lv_nat) = VALUE string( lt_r[ 4 ] OPTIONAL ).
-      DATA(lv_shr) = VALUE string( lt_r[ 5 ] OPTIONAL ).
+*     By column name. These five positions happened to line up with what the
+*     writer produced, which is why the list looked correct while the values sat
+*     in the wrong named columns and the backend read a share of nought.
+      DATA(lv_nam) = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'PARTNER' ).
+      DATA(lv_eid) = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'EMIRATES_ID' ).
+      DATA(lv_shr) = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'SHARE_PER' ).
+      DATA(lv_id)  = lv_nam.
+
+*     The row keeps LAND1; show the country. An unknown code falls back to
+*     itself rather than rendering blank - 'AW' on screen was the raw code.
+      DATA(lv_natkey) = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'NATIONALITY' ).
+      DATA(lv_nat)    = lv_natkey.
+      IF lv_natkey IS NOT INITIAL.
+        lv_nat = VALUE #( lt_nat[ key = lv_natkey ]-text DEFAULT lv_natkey ).
+      ENDIF.
 
 *     How many files this owner has. Counting them here is the only way the
 *     citizen can see, from the list, whose documents are still missing.
@@ -1127,7 +1187,10 @@ super->zif_rak_journey_logic~on_render_popup(
     DATA(ls_g)   = io_ctx->get_grid_data( c_grid ).
     DATA(ls_new) = VALUE zif_rak_journey=>ty_table( columns = ls_g-columns ).
     LOOP AT ls_g-rows INTO DATA(lt_r).
-      CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) <> iv_id.
+*     Matched on PARTNER, the same value RENDER_OWN_LIST( ) puts on the button.
+      CHECK zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns
+                                           it_row  = lt_r
+                                           iv_name = 'PARTNER' ) <> iv_id.
       APPEND lt_r TO ls_new-rows.
     ENDLOOP.
     io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).

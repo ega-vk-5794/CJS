@@ -75,6 +75,46 @@ CLASS zcl_rak_journey_util DEFINITION
     CLASS-METHODS nationalities
       RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
 
+*   Addressing a grid row by COLUMN NAME instead of by position.
+*
+*   Every handler that maintains a grid from a popup has written its row as a run
+*   of APPENDs in a fixed order, and every one of them has been wrong, because the
+*   row's real width is ZRAK_T_JNY_COL - or, with no rows there, the DEFAULT_VAL
+*   spec - and not the length of that run. SET_GRID_DATA( ) walks the CONFIGURED
+*   columns and takes cell N from the row, so a run longer or shorter than the
+*   spec puts every value in a neighbour's column and drops the tail.
+*
+*   It is close to invisible, which is why it survived: the hand-drawn list reads
+*   the same positions back, so the screen looks right, and only the POST - which
+*   reads the columns by NAME - sees the shift. D004 stored the owner's Emirates
+*   ID in SHARE_PER that way, and the backend refused the step with "The Total of
+*   the Share (0.00%) is not equal to 100%" while the list showed 100.
+*
+*   Here rather than in ZCL_RAK_JOURNEY_LOGIC so a handler can use it without a
+*   redefinition, and so the grid renderer can use it too.
+    CLASS-METHODS col_ix
+      IMPORTING it_cols   TYPE zif_rak_journey=>tt_string
+                iv_name   TYPE string
+      RETURNING VALUE(rv) TYPE i.
+
+    CLASS-METHODS cell_of
+      IMPORTING it_cols   TYPE zif_rak_journey=>tt_string
+                it_row    TYPE zif_rak_journey=>tt_string
+                iv_name   TYPE string
+      RETURNING VALUE(rv) TYPE string.
+
+    CLASS-METHODS put_cell
+      IMPORTING it_cols TYPE zif_rak_journey=>tt_string
+                iv_name TYPE string
+                iv_val  TYPE string
+      CHANGING  ct_row  TYPE zif_rak_journey=>tt_string.
+
+*   A row sized to the spec, every cell blank. Start here, then PUT_CELL( ) by
+*   name - never APPEND, which is what shifts the neighbours.
+    CLASS-METHODS blank_row
+      IMPORTING it_cols   TYPE zif_rak_journey=>tt_string
+      RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_string.
+
 ENDCLASS.
 
 
@@ -364,6 +404,42 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
         rv = lv_otr.
       ENDIF.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD col_ix.
+    LOOP AT it_cols INTO DATA(lv_c).
+      IF to_upper( condense( lv_c ) ) = to_upper( iv_name ).
+        rv = sy-tabix.
+        RETURN.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD cell_of.
+    DATA(lv_ix) = col_ix( it_cols = it_cols iv_name = iv_name ).
+    CHECK lv_ix > 0.
+    rv = VALUE #( it_row[ lv_ix ] OPTIONAL ).
+  ENDMETHOD.
+
+
+  METHOD put_cell.
+*   A column the spec does not define is SKIPPED, never appended. Appending is
+*   what pushed every later cell one place along in the first place.
+    DATA(lv_ix) = col_ix( it_cols = it_cols iv_name = iv_name ).
+    CHECK lv_ix > 0.
+    CHECK lines( ct_row ) >= lv_ix.
+    READ TABLE ct_row INDEX lv_ix ASSIGNING FIELD-SYMBOL(<cell>).
+    CHECK sy-subrc = 0.
+    <cell> = iv_val.
+  ENDMETHOD.
+
+
+  METHOD blank_row.
+    DO lines( it_cols ) TIMES.
+      APPEND `` TO rt.
+    ENDDO.
   ENDMETHOD.
 
 
