@@ -473,41 +473,63 @@ CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
     CT_TABLES = CT_TABLES
     .
 *----------------------------------------------------------------------------*
-* TEMPORARY DIAGNOSTIC - REMOVE ONCE THE SHARE TOTAL IS CONFIRMED.
+* The owner rows leave in the order the backend READS them, which is not the
+* order it WROTE them in.
 *
-* Prints the owner rows exactly as they are about to leave for the backend:
-* the table name, the row number, and UI_TABLE_COLUMN1..10 in order. That is
-* the literal payload - TABLES_FOR_BACKEND( ) fills those columns in the CJS
-* spec's order and the BAdI reads them back by LIST_SEQUENCE, so this shows
-* which slot the share is actually travelling in.
+* /QNV/SB_UI_DEFIN for ND004_1_2 gives GS_DATA-OWNERS[]-SHARE_PER a
+* LIST_SEQUENCE of 3. TABLES_FOR_BACKEND( ) fills UI_TABLE_COLUMN1..N in the
+* CJS spec's order, and OWNERS_SEARCH's spec follows the READ - which hands
+* back partner, name, mobile, e-mail, share - so the share was arriving in
+* slot 5. The backend read slot 3, found a mobile number, and refused the
+* step with "The Total of the Share (0.00%) is not equal to 100%".
 *
-* Deliberately ABOVE the CHECK below: a blank LICENSE_SEL exits this method,
-* and a diagnostic that only runs on the happy path answers nothing.
+* Read order and write order genuinely differ for this table, so no single
+* DEFAULT_VAL can satisfy both: the spec stays matched to the READ, which is
+* what keeps the list on screen correct, and the row is re-laid here on the
+* way out.
 *
-* "The Total of the Share (0.00%) is not equal to 100%" comes from the
-* backend, not from CJS, so reading the payload is the only way to tell a
-* wrong column order from an empty table.
+* Write order is OWNERS_DISP's - name, nationality, share, mobile, e-mail.
+* That grid carries the same five columns, round-trips correctly against this
+* backend, and puts the share at 3, which is what LIST_SEQUENCE says.
+*
+* Sits ABOVE the CHECK below: a blank LICENSE_SEL exits this method, and the
+* owners still have to be re-laid on a step where no licence is selected.
 *----------------------------------------------------------------------------*
-    LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<dbg>) WHERE ui_table_name CP 'OWNER*'.
-      DATA lv_dbg TYPE string.
-      CLEAR lv_dbg.
-      DO 10 TIMES.
-        ASSIGN COMPONENT |UI_TABLE_COLUMN{ sy-index }| OF STRUCTURE <dbg>
-               TO FIELD-SYMBOL(<dc>).
-        CHECK sy-subrc = 0.
-        lv_dbg = |{ lv_dbg }{ sy-index }=[{ <dc> }] |.
-      ENDDO.
-      io_ctx->add_msg(
-        iv_type = 'Information'
-        iv_text = |POST { <dbg>-ui_table_name } row { <dbg>-sequence }: { lv_dbg }| ).
-    ENDLOOP.
+    DATA lt_src TYPE zif_rak_journey=>tt_string.
+    DATA lv_c   TYPE i.
 
-    IF NOT line_exists( ct_tables[ ui_table_name = 'OWNERS_SEARCH' ] ).
-      io_ctx->add_msg(
-        iv_type = 'Information'
-        iv_text = |POST carries NO OWNERS_SEARCH rows at all - the backend is | &&
-                  |summing shares it was never sent.| ).
-    ENDIF.
+    LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<ow>) WHERE ui_table_name = 'OWNERS_SEARCH'.
+      CLEAR lt_src.
+      DO 30 TIMES.
+        ASSIGN COMPONENT |UI_TABLE_COLUMN{ sy-index }| OF STRUCTURE <ow>
+               TO FIELD-SYMBOL(<sc>).
+        IF sy-subrc <> 0.
+          EXIT.
+        ENDIF.
+        APPEND |{ <sc> }| TO lt_src.
+        CLEAR <sc>.
+      ENDDO.
+
+*     Source positions are the READ layout: 1 partner, 2 name, 3 mobile,
+*     4 e-mail, 5 share, 7 Emirates ID, 9 nationality.
+      DATA(lt_out) = VALUE zif_rak_journey=>tt_string(
+        ( VALUE #( lt_src[ 2 ] OPTIONAL ) )    " 1 name
+        ( VALUE #( lt_src[ 9 ] OPTIONAL ) )    " 2 nationality
+        ( VALUE #( lt_src[ 5 ] OPTIONAL ) )    " 3 share      <- LIST_SEQUENCE 3
+        ( VALUE #( lt_src[ 3 ] OPTIONAL ) )    " 4 mobile
+        ( VALUE #( lt_src[ 4 ] OPTIONAL ) )    " 5 e-mail
+        ( VALUE #( lt_src[ 1 ] OPTIONAL ) )    " 6 partner
+        ( VALUE #( lt_src[ 7 ] OPTIONAL ) ) ). " 7 Emirates ID
+
+      CLEAR lv_c.
+      LOOP AT lt_out INTO DATA(lv_v).
+        lv_c = lv_c + 1.
+        ASSIGN COMPONENT |UI_TABLE_COLUMN{ lv_c }| OF STRUCTURE <ow>
+               TO FIELD-SYMBOL(<tc>).
+        CHECK sy-subrc = 0.
+        <tc> = lv_v.
+      ENDLOOP.
+    ENDLOOP.
 
  DATA(lv_sel) = io_ctx->get_val( 'LICENSE_SEL' ).
     CHECK lv_sel IS NOT INITIAL.
