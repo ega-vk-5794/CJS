@@ -32,6 +32,8 @@ public section.
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_END
     redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
+    redefinition .
 protected section.
 private section.
 
@@ -108,6 +110,25 @@ ENDCLASS.
 
 
 CLASS ZCL_D004_SCHOOL_LIC_AMND_LOGIC IMPLEMENTATION.
+
+
+  METHOD zif_rak_journey_logic~on_after_read.
+    super->zif_rak_journey_logic~on_after_read( io_ctx = io_ctx ).
+
+*   The licence's existing owners land in the OWNERS_TABLE backend read. Bring
+*   them into the editable list so the citizen amends the real owners instead of
+*   retyping every one of them to add or withdraw a single partner - which is
+*   also why the shares kept failing the backend's 100% check: only the rows
+*   actually re-entered were being submitted.
+*
+*   The seeder runs once, and only while the editable grid is empty, so nothing
+*   the citizen has typed or deliberately deleted is ever restored underneath
+*   them. Both grids share the PARTNER / NATIONALITY / SHARE_PER /
+*   MOBILE_NUMBER / EMAIL_ADDRESS spec, so the copy is a straight name match.
+    seed_grid_from_backend( io_ctx    = io_ctx
+                            iv_grid   = c_grid
+                            iv_source = 'OWNERS_TABLE' ).
+  ENDMETHOD.
 
 
   METHOD zif_rak_journey_logic~get_table.

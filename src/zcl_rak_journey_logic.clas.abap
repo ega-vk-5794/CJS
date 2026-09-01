@@ -109,6 +109,26 @@ CLASS zcl_rak_journey_logic DEFINITION
     CONSTANTS c_pay_max_try TYPE i      VALUE 48.
 
   PROTECTED SECTION.
+*   Seed an EDITABLE owner-style grid from the backend table that already holds
+*   the same records, so the citizen amends what is there instead of retyping it.
+*
+*   Every amendment journey shows the same thing twice: a read-only list of the
+*   owners the licence already has, and an empty editable list underneath with an
+*   Add button. Nothing carried the first into the second, so amending one owner
+*   meant re-entering all of them - and the backend then rejected the step,
+*   because the shares of the rows actually submitted did not total 100.
+*
+*   Copied BY COLUMN NAME, never by position. The two grids usually share a
+*   spec, but "usually" is what put the Emirates ID into D004's SHARE_PER.
+*
+*   RUNS ONCE, and that is the whole safety of it: it does nothing at all unless
+*   the target grid is empty. A citizen who has deleted an owner on purpose does
+*   not get it back on the next round trip, and nothing they typed is replaced.
+    METHODS seed_grid_from_backend
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+                iv_grid   TYPE string
+                iv_source TYPE string.
+
     TYPES: BEGIN OF ty_pop_field,
              name  TYPE string,
              label TYPE string,
@@ -965,6 +985,54 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_after_read.
+  ENDMETHOD.
+
+
+  METHOD seed_grid_from_backend.
+*   Already populated - by the citizen, or by an earlier pass. Leave it alone.
+    DATA(ls_tgt) = io_ctx->get_grid_data( iv_grid ).
+    CHECK ls_tgt-rows IS INITIAL.
+    CHECK ls_tgt-columns IS NOT INITIAL.
+
+    DATA(ls_src) = io_ctx->get_backend_table( iv_source ).
+    CHECK ls_src-rows IS NOT INITIAL.
+
+    DATA lt_rows LIKE ls_tgt-rows.
+    DATA lv_any  TYPE abap_bool.
+
+    LOOP AT ls_src-rows INTO DATA(lt_srow).
+      DATA(lt_trow) = zcl_rak_journey_util=>blank_row( ls_tgt-columns ).
+
+*     Name to name. Where the backend gives no column of that name the target
+*     cell simply stays blank, rather than taking a neighbour's value.
+      LOOP AT ls_tgt-columns INTO DATA(lv_col).
+        DATA(lv_val) = zcl_rak_journey_util=>cell_of( it_cols = ls_src-columns
+                                                      it_row  = lt_srow
+                                                      iv_name = lv_col ).
+        CHECK lv_val IS NOT INITIAL.
+        zcl_rak_journey_util=>put_cell( EXPORTING it_cols = ls_tgt-columns
+                                                  iv_name = lv_col
+                                                  iv_val  = lv_val
+                                        CHANGING  ct_row  = lt_trow ).
+        lv_any = abap_true.
+      ENDLOOP.
+
+      APPEND lt_trow TO lt_rows.
+    ENDLOOP.
+
+*   Nothing matched by name at all - the two grids do not share a vocabulary.
+*   Say so rather than seeding a table of blank rows, which would read as data
+*   loss and would also submit as one.
+    IF lv_any = abap_false.
+      io_ctx->add_msg(
+        iv_type = 'Warning'
+        iv_text = |{ iv_grid } could not be pre-filled from { iv_source }: no column | &&
+                  |names in common. Check the two specs against each other.| ).
+      RETURN.
+    ENDIF.
+
+    io_ctx->set_grid_data( iv_field = iv_grid
+                           is_data  = VALUE #( columns = ls_tgt-columns rows = lt_rows ) ).
   ENDMETHOD.
 
 
