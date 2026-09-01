@@ -477,9 +477,6 @@ CLASS ZCL_D024_STUD_STUDY_LEAV_LOGIC IMPLEMENTATION.
 *
 *   Guarded on SY-SYSID rather than deleted so the journey is testable on E10 and
 *   cannot silently invent an applicant on E30. Remove once the dev box has BPs.
-    IF lv_loginbp IS INITIAL AND sy-sysid <> 'E30'.
-      lv_loginbp = '3000000049'.
-    ENDIF.
 
     IF lv_loginbp IS INITIAL.
       RETURN.
@@ -505,8 +502,9 @@ CLASS ZCL_D024_STUD_STUDY_LEAV_LOGIC IMPLEMENTATION.
       io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = |{ lv_eid }| ).
     ENDIF.
 
-    io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
-    io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
+*   The trailing hardcoded name and Emirates ID that used to sit here are gone.
+*   They ran AFTER the BUT000 / BUT0ID reads above and overwrote them, so every
+*   applicant saw and posted the same test person's identity.
   endmethod.
 
 

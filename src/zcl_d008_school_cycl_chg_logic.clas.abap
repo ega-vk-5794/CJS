@@ -160,9 +160,17 @@ CLASS ZCL_D008_SCHOOL_CYCL_CHG_LOGIC IMPLEMENTATION.
     " NOTE: no DECLARE checkbox to strip here — confirmed absent from the
     " export (see load report NOTE 2), not omitted by oversight.
 ***** assign field details back to the IO_CTX
-    DATA(ls_test) = io_ctx->get_val( 'CYCLE3GENDER' ).
-    ls_test = 'GIRL'.
-    io_ctx->set_val( iv_name = 'CYCLE3GENDER' iv_value = ls_test ).
+*   A test override stood here: it read CYCLE3GENDER, threw the citizen's answer
+*   away and forced 'GIRL' back into the model on every post. Removed.
+
+*   GENDER_C2 / GENDER_C3 are read BEFORE the loop that copies them into
+*   CYCLE2GENDER / CYCLE3GENDER. They used to be picked up inside that same
+*   LOOP, which made the result depend on the order CT_KV happened to arrive in:
+*   if CYCLE3GENDER came before GENDER_C3, the variable was still empty and the
+*   gender posted blank.
+    DATA(lv_c2gender) = VALUE string( ct_kv[ key = 'GENDER_C2' ]-value OPTIONAL ).
+    DATA(lv_c3gender) = VALUE string( ct_kv[ key = 'GENDER_C3' ]-value OPTIONAL ).
+
     LOOP AT ct_kv ASSIGNING FIELD-SYMBOL(<lfs_kv>).
       CASE <lfs_kv>-key.
         WHEN 'FEES_PREKG'.
@@ -201,11 +209,6 @@ CLASS ZCL_D008_SCHOOL_CYCL_CHG_LOGIC IMPLEMENTATION.
             CHANGING
               data = lt_fees_C3.
           CLEAR lv_json.
-        WHEN 'GENDER_C3'.
-          DATA(lv_c3gender) = <lfs_kv>-value.
-        WHEN 'GENDER_C2'.
-*          io_ctx->set_val( iv_name = 'COMBOBOX_1' iv_value = <lfs_kv>-value ).
-          DATA(lv_c2gender) = <lfs_kv>-value.
         when 'CYCLE3GENDER'.
           <lfs_kv>-value = lv_c3gender.
           when 'CYCLE2GENDER'.
@@ -223,13 +226,13 @@ CLASS ZCL_D008_SCHOOL_CYCL_CHG_LOGIC IMPLEMENTATION.
           ENDIF.
         WHEN 'BOOKS'.
 **          io_ctx->set_val( iv_name = 'INPUT_2' iv_value = <lfs_prekg>-g1 ).
-          READ TABLE ct_kv ASSIGNING <lfs_kv1> WITH KEY key = 'FEE_SCH_PREKG'.
+          READ TABLE ct_kv ASSIGNING <lfs_kv1> WITH KEY key = 'FEE_BK_PREKG'.
           IF sy-subrc IS INITIAL.
             <lfs_kv1>-value = <lfs_prekg>-g1.
           ENDIF.
         WHEN 'UNIFORM'.
 **          io_ctx->set_val( iv_name = 'INPUT_3' iv_value = <lfs_prekg>-g1 ).
-          READ TABLE ct_kv ASSIGNING <lfs_kv1> WITH KEY key = 'FEE_SCH_PREKG'.
+          READ TABLE ct_kv ASSIGNING <lfs_kv1> WITH KEY key = 'FEE_UNI_PREKG'.
           IF sy-subrc IS INITIAL.
             <lfs_kv1>-value = <lfs_prekg>-g1.
           ENDIF.
@@ -331,11 +334,16 @@ CLASS ZCL_D008_SCHOOL_CYCL_CHG_LOGIC IMPLEMENTATION.
           IF sy-subrc IS INITIAL.
             <lfs_kv1>-value = <lfs_c1>-g2.
           ENDIF.
-          READ TABLE ct_kv ASSIGNING <lfs_kv1> WITH KEY key = 'FEE_UNI_G1'.
+*         G3 and G4, not G1 and G2 again. These two read the grade 1 and grade 2
+*         keys while assigning the grade 3 and grade 4 amounts, so grades 3 and 4
+*         never reached the backend and grades 1 and 2 were posted with the wrong
+*         figures. The BOOKS branch directly above uses G1..G4 correctly, which
+*         is what makes this a copy-paste slip rather than a decision.
+          READ TABLE ct_kv ASSIGNING <lfs_kv1> WITH KEY key = 'FEE_UNI_G3'.
           IF sy-subrc IS INITIAL.
             <lfs_kv1>-value = <lfs_c1>-g3.
           ENDIF.
-          READ TABLE ct_kv ASSIGNING <lfs_kv1> WITH KEY key = 'FEE_UNI_G2'.
+          READ TABLE ct_kv ASSIGNING <lfs_kv1> WITH KEY key = 'FEE_UNI_G4'.
           IF sy-subrc IS INITIAL.
             <lfs_kv1>-value = <lfs_c1>-g4.
           ENDIF.
@@ -575,12 +583,23 @@ CLASS ZCL_D008_SCHOOL_CYCL_CHG_LOGIC IMPLEMENTATION.
         role    = DATA(role)
     ).
 
-    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '3000000049' ).
+    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
 
 *    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
-    io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
+*   The signed-in citizen, read from the business partner register. What stood
+*   here was a fixed name and Emirates ID, written AFTER the real read, so every
+*   applicant saw and posted the same test person.
+    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+      EXPORTING
+        iv_bp_id      = CONV bu_partner( loginbp )
+      IMPORTING
+        es_bp_details = DATA(ls_bp_real) ).
+    io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = COND #(
+      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
+      THEN CONV string( ls_bp_real-bp_name_ar )
+      ELSE CONV string( ls_bp_real-bp_name ) ) ).
+    io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
 *    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
-    io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
 
 *    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
     io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).

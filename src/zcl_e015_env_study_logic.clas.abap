@@ -164,9 +164,6 @@ CLASS ZCL_E015_ENV_STUDY_LOGIC IMPLEMENTATION.
     DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
 
 
-    IF lv_loginbp IS INITIAL AND sy-sysid <> 'E30'.
-      lv_loginbp = '3000000049'.
-    ENDIF.
 
     IF lv_loginbp IS NOT INITIAL.
       NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
@@ -192,8 +189,11 @@ CLASS ZCL_E015_ENV_STUDY_LOGIC IMPLEMENTATION.
     ENDIF.
 
 
-    io_ctx->set_val( iv_name = 'APP_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
-    io_ctx->set_val( iv_name = 'APP_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
+    io_ctx->set_val( iv_name = 'APP_NAME' iv_value = COND #(
+      WHEN sy-langu <> 'E' AND ls_bp-bp_name_ar IS NOT INITIAL
+      THEN CONV string( ls_bp-bp_name_ar )
+      ELSE CONV string( ls_bp-bp_name ) ) ).
+    io_ctx->set_val( iv_name = 'APP_ID' iv_value = CONV #( ls_bp-emirates_id ) ).
   ENDMETHOD.
 
 

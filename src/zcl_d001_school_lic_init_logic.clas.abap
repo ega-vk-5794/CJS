@@ -71,11 +71,78 @@ private section.
   constants C_EVT_OWNOK type STRING value 'OWN_OK' ##NO_TEXT.
   constants C_EVT_OWNCX type STRING value 'OWN_CANCEL' ##NO_TEXT.
   constants C_GRID type STRING value 'OWNERS_SEARCH' ##NO_TEXT.
+
+* The owner grid's columns, addressed by NAME rather than by position.
+*
+* Position was the bug. OWN_FORM_SAVE( ) appended nine cells - key, name, mobile,
+* e-mail, share, id type, Emirates ID, passport, nationality - but the grid is
+* whatever ZRAK_T_JNY_COL says it is, and for OWNERS_SEARCH that is FIVE columns:
+* NAME, MOBILE_NUMBER, EMAIL_ADDRESS, SHARE_PER, NATIONALITY. (The field's
+* DEFAULT_VAL still lists a leading PARTNER column, but ZRAK_T_JNY_COL wins
+* whenever it has rows - see GRID_COLS( ) - so that entry is dead.)
+*
+* SET_GRID_DATA( ) walks the CONFIGURED columns and takes cell N from the row, so
+* the nine cells landed one place to the left of where they read: the stored
+* Owner Name was the row key, Mobile held the name, Share held the e-mail, and
+* Nationality held the share. RENDER_OWN_LIST( ) then read one place to the right
+* again, so the screen looked correct while the POST carried shifted data.
+*
+* Naming the columns removes the whole class of fault: a column that moves, or
+* that is added to the spec later, is followed rather than silently mis-read, and
+* one that is absent resolves to 0 and is skipped instead of shifting its
+* neighbours.
+  constants C_COL_PARTNER type STRING value 'PARTNER' ##NO_TEXT.
+  constants C_COL_NAME    type STRING value 'NAME' ##NO_TEXT.
+  constants C_COL_MOBILE  type STRING value 'MOBILE_NUMBER' ##NO_TEXT.
+  constants C_COL_EMAIL   type STRING value 'EMAIL_ADDRESS' ##NO_TEXT.
+  constants C_COL_SHARE   type STRING value 'SHARE_PER' ##NO_TEXT.
+  constants C_COL_NAT     type STRING value 'NATIONALITY' ##NO_TEXT.
+  constants C_COL_EID     type STRING value 'EMIRATES_ID' ##NO_TEXT.
+  constants C_COL_DOB     type STRING value 'BIRTH_DATE' ##NO_TEXT.
   constants C_OWN_ID type STRING value 'OWN_ID' ##NO_TEXT.
   constants C_EVT_OWNEW type STRING value 'OWN_NEW' ##NO_TEXT.
   constants C_POP_OWN type STRING value 'TRIGGER_POPUP' ##NO_TEXT.
   constants C_TRIGGER_POPUP type STRING value 'TRIGGER_POPUP' ##NO_TEXT.
 
+* The owner row the backend prefills carries the name and nothing else. Fill in
+* what a BP lookup can supply so the citizen is not asked for data the register
+* already holds - and so the Nationality column is not blank on arrival.
+  methods FILL_OWNER_GAPS
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY .
+  methods FILL_CELL
+    importing
+      !IV_POS type I
+      !IV_VAL type STRING
+    changing
+      !CT_ROW type ZIF_RAK_JOURNEY=>TT_STRING
+      !CV_TOUCHED type ABAP_BOOL .
+* Position of a named column in the grid's own spec, or 0 when the spec has no
+* such column. 0 is a legitimate answer, not an error: OWNERS_SEARCH genuinely
+* has nowhere to keep an Emirates ID or a birth date today.
+  methods COL_IX
+    importing
+      !IT_COLS type ZIF_RAK_JOURNEY=>TT_STRING
+      !IV_NAME type STRING
+    returning
+      value(RV) type I .
+* Place a value in the named column. A column the spec does not define is
+* skipped, never appended - appending is what shifted every later cell.
+  methods PUT_CELL
+    importing
+      !IT_COLS type ZIF_RAK_JOURNEY=>TT_STRING
+      !IV_NAME type STRING
+      !IV_VAL type STRING
+    changing
+      !CT_ROW type ZIF_RAK_JOURNEY=>TT_STRING .
+* Read one named cell out of a row. Blank when the column is not in the spec.
+  methods CELL_OF
+    importing
+      !IT_COLS type ZIF_RAK_JOURNEY=>TT_STRING
+      !IT_ROW type ZIF_RAK_JOURNEY=>TT_STRING
+      !IV_NAME type STRING
+    returning
+      value(RV) type STRING .
   methods OWN_FORM_LOAD
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY
@@ -147,10 +214,19 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
 
   METHOD prepare_payment.
-*CALL METHOD SUPER->PREPARE_PAYMENT
-*  EXPORTING
-*    IO_CTX =
-*    .
+*   This was an EMPTY redefinition - nothing but the commented-out SE24 template
+*   above. PREPARE_PAYMENT is not a hook with an empty default: the base has a
+*   real 89-line body and the engine calls it on the way into the payment step.
+*   Redefining it to nothing therefore switched payment preparation off on a
+*   FEE-BEARING journey, silently, while BUILD_PAY_URL( ) and PAY_RENDER( ) next
+*   to it both chained correctly and looked like proof that the card worked.
+*
+*   Nothing is added here, so it is a straight pass-through. Kept as a chaining
+*   redefinition rather than deleted from the class so the intent is on the
+*   record next to its two siblings.
+    CALL METHOD super->prepare_payment
+      EXPORTING
+        io_ctx = io_ctx.
   ENDMETHOD.
 
 
@@ -184,6 +260,12 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       " <f> value is a JSON array: [{"ITEM":"..","QTY":"2","DUE":"..","ORIG":".."}]
       " /ui2/cl_json=>deserialize( json = ... changing data = lt_rows )
     ENDLOOP.
+
+*   Runs before the step's fields are built, which is the first point at which
+*   the backend's prefilled owner row is in the model and still editable.
+*   Self-limiting: it only touches cells that are EMPTY, so once a row is
+*   complete it does nothing, and it can never overwrite what a citizen typed.
+    fill_owner_gaps( io_ctx ).
   ENDMETHOD.
 
 
@@ -191,9 +273,42 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     " Real fee handling exists on this journey (PAYFEE) — do NOT blanket-
     " strip PAY_*/PAYFEE here the way the fee-less journeys did.
 
-    " UI-only scratch keys with no backend meaning.
+    " UI-only scratch key with no backend meaning.
     DELETE ct_kv WHERE key = 'DECLARE'.
-    DELETE ct_kv WHERE key = 'ACCEPTTERMS'.
+
+*   ACCEPTTERMS is NOT stripped, though it used to be. It carries
+*   TECH_NAME 'ACCEPT_TERMS' in ZRAK_T_JNY_FLD, so it is a real backend field -
+*   the citizen's acceptance of the terms - and deleting it here meant the one
+*   record that they accepted never left CJS.
+
+*   The payment CONTEXT and the payment WORKING STATE, which are not the fee.
+*
+*   PAY_BUKRS, PAY_MATERIAL, PAY_CASES_FOR and PAY_ETISALAT tell ZCL_RAK_PAY_ENGINE
+*   which department it is acting for; PAY_STARTED, PAY_REFERENCE, PAY_APPURL and
+*   PAY_TOTAL are its own bookkeeping. None of them is a /QNV field, and none of
+*   them belongs in the post - D026 strips exactly this set for exactly this
+*   reason. D001 was stripping neither.
+*
+*   NAMED, not 'PAY_*'. A wildcard strip would also take PAY_TOTAL, and PAY_TOTAL
+*   is NOT scratch on this journey: ZRAK_T_JNY_FLD gives it TECH_NAME
+*   'TOTALFEESVALUE', so it is the fee total the backend is waiting for. Only the
+*   keys with no TECH_NAME are removed.
+    DELETE ct_kv WHERE key = 'PAY_STARTED'
+                    OR key = 'PAY_STARTED1'
+                    OR key = 'PAY_REFERENCE'
+                    OR key = 'PAY_SCREEN'
+                    OR key = 'PAY_JOURNEY'
+                    OR key = 'PAY_CATEGORY'
+                    OR key = 'PAY_TRIES'
+                    OR key = 'PAY_APPURL'
+                    OR key = 'PAY_BUKRS'
+                    OR key = 'PAY_MATERIAL'
+                    OR key = 'PAY_CASES_FOR'
+                    OR key = 'PAY_ETISALAT'.
+
+*   PAYFEE itself is NOT stripped and SUPER is deliberately not called. The base
+*   ON_BEFORE_POST removes PAYFEE, which is right for a journey with no fee and
+*   wrong here: D001 has a real payment step and the fee has to reach the backend.
 
     " REVIEW: substitute {APPLICANT_NAME} in the DECLARE field's rendered
     " text once the source field for the applicant/owner name is confirmed.
@@ -277,16 +392,26 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       WHEN c_evt_ownok.
 *       Validate before writing. Closing on an incomplete row and complaining
 *       behind the dialog makes the citizen reopen it and guess what was wrong.
-        IF io_ctx->get_val( c_identity )  IS INITIAL
-           OR io_ctx->get_val( c_id ) IS INITIAL
-           OR io_ctx->get_val( c_dob ) IS INITIAL.
+*       Every field the popup marks with a star, and each one BLOCKS. The shares
+*       check used to be an ELSEIF that raised a Warning and then fell straight
+*       through to OWN_FORM_SAVE( ) - so "add without filling mandatory" saved
+*       anyway. Two things had to change: the RETURN, and the type. The engine
+*       gates on type = 'Error' only; a 'Warning' is displayed and ignored.
+        IF io_ctx->get_val( c_identity )   IS INITIAL
+           OR io_ctx->get_val( c_id )      IS INITIAL
+           OR io_ctx->get_val( c_dob )     IS INITIAL
+           OR io_ctx->get_val( c_nat )     IS INITIAL
+           OR io_ctx->get_val( 'NAME_POP' ) IS INITIAL.
 
-          io_ctx->add_msg( iv_type = 'Warning'
-                           iv_text = 'Kindly fill required details.' ).
+          io_ctx->add_msg( iv_type = 'Error'
+                           iv_text = 'Fill every required field before adding the owner.' ).
           RETURN.
-        ELSEIF  io_ctx->get_val( c_share ) IS INITIAL.
-          io_ctx->add_msg( iv_type = 'Warning'
-                           iv_text = 'Kindly enter shares as 100' ).
+        ENDIF.
+
+        IF io_ctx->get_val( c_share ) IS INITIAL.
+          io_ctx->add_msg( iv_type = 'Error'
+                           iv_text = 'Enter the ownership share percentage.' ).
+          RETURN.
         ENDIF.
 
         own_form_save( io_ctx ).
@@ -347,7 +472,12 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
           io_ctx->set_val( iv_name = 'TELEPHONE_POP'  iv_value = |{ ev_phone }| ).
           io_ctx->set_val( iv_name = 'EMAIL_POP'      iv_value = |{ ev_email }| ).
           io_ctx->set_val( iv_name = 'BIRTH_DATE'     iv_value = |{ ev_date_of_birth }| ).
-          io_ctx->set_val( iv_name = 'NATIONALITY' iv_value = |{ ev_nationality }| ).
+*         EV_NATIONALITY_KEY, not EV_NATIONALITY. The first is BU_NATIO - the
+*         same LAND1 the dropdown above is keyed on, so the search result lands
+*         on a real entry and the combobox shows it selected. The second is
+*         NATIO50, the display text, which matched no key and left the control
+*         blank - and then saved blank into the owner row.
+          io_ctx->set_val( iv_name = 'NATIONALITY' iv_value = |{ ev_nationality_key }| ).
 
         ENDIF.
 
@@ -626,16 +756,32 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     io_ctx->set_val( iv_name = c_nat iv_value = '' ).
     io_ctx->set_val( iv_name = C_DOB iv_value = '' ).
     io_ctx->set_val( iv_name = c_share iv_value = '' ).
+    io_ctx->set_val( iv_name = 'NAME_POP'      iv_value = '' ).
+    io_ctx->set_val( iv_name = 'TELEPHONE_POP' iv_value = '' ).
+    io_ctx->set_val( iv_name = 'EMAIL_POP'     iv_value = '' ).
 
-
-*    IF iv_id IS INITIAL.
-**     New owner. The id is minted NOW and not on save, because the uploaders in
-**     the dialog key their files on it - a file attached before the row exists
-**     still has to belong to the right person.
-*      io_ctx->set_val( iv_name  = c_own_id
-*                       iv_value = 'YFS002' ).
-*      RETURN.
-*    ENDIF.
+    IF iv_id IS INITIAL.
+*     New owner. The id is minted NOW and not on save, because the uploaders in
+*     the dialog key their files on it - a file attached before the row exists
+*     still has to belong to the right person.
+*
+*     It also has to be UNIQUE, which is what was actually broken: with this
+*     block commented out, OWN_ID stayed blank for every new owner, and
+*     OWN_FORM_SAVE( ) matched that blank key against the blank key the previous
+*     owner had written - so each new owner overwrote the one before it. The
+*     row prefilled from step 1 carries a real key, which is why exactly one
+*     popup-added owner ever survived alongside it.
+      TRY.
+          io_ctx->set_val( iv_name  = c_own_id
+                           iv_value = |OWN{ cl_system_uuid=>create_uuid_c32_static( ) }| ).
+        CATCH cx_uuid_error.
+*         A clock-based fallback so a UUID service failure cannot silently
+*         reinstate the blank key and the overwrite that came with it.
+          io_ctx->set_val( iv_name  = c_own_id
+                           iv_value = |OWN{ sy-datum }{ sy-uzeit }{ sy-timlo }| ).
+      ENDTRY.
+      RETURN.
+    ENDIF.
 
     io_ctx->set_val( iv_name = c_own_id iv_value = iv_id ).
 *    LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
@@ -647,6 +793,170 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *      EXIT.
 *    ENDLOOP.
 
+  ENDMETHOD.
+
+
+  METHOD fill_owner_gaps.
+*---------------------------------------------------------------------------------------*
+* The Partner step opens with one owner already in the grid - the applicant - put
+* there by the backend read. It arrives with the NAME only, which is why the
+* Nationality column was reported empty on a table nobody had touched yet.
+*
+* The register already knows the rest. ZFE_CJ_SEARCH_BP_BY_ID is the same call the
+* Add Owner popup makes, so the prefilled row ends up filled the same way a
+* hand-added one does, from the same source, in the same LAND1 vocabulary.
+*
+* THREE THINGS KEEP THIS SAFE TO CALL ON EVERY ROUND TRIP:
+*   - it writes only into cells that are EMPTY, so a citizen's own entry is never
+*     replaced and an intentionally cleared field is not refilled;
+*   - it does nothing at all unless some row is actually short, so once the grid
+*     is complete there is no lookup and no write;
+*   - it writes back only when something changed, so it cannot trigger a render
+*     loop by dirtying the model on every pass.
+*---------------------------------------------------------------------------------------*
+    DATA(ls_g) = io_ctx->get_grid_data( c_grid ).
+    CHECK ls_g-rows IS NOT INITIAL.
+
+    DATA lv_touched TYPE abap_bool.
+    DATA(lt_rows)   = ls_g-rows.
+
+    DATA lv_ix TYPE i.
+
+    LOOP AT lt_rows ASSIGNING FIELD-SYMBOL(<row>).
+*     Counted, not read from SY-TABIX. SY-TABIX is only guaranteed immediately
+*     after the LOOP statement, and there are table expressions between there and
+*     the test below - so the row number is kept explicitly rather than trusted.
+      lv_ix = lv_ix + 1.
+
+      DATA(lv_eid) = condense( cell_of( it_cols = ls_g-columns it_row = <row>
+                                        iv_name = c_col_eid ) ).
+
+*     The applicant's own row may not carry its Emirates ID yet either - and on
+*     the current five-column spec there is no EMIRATES_ID column at all, so it
+*     never does. ON_INIT put it in APPLICANT_ID from the login BP, so use that
+*     for the first row rather than giving up on the one row that is certain to
+*     be the applicant's.
+      IF lv_eid IS INITIAL AND lv_ix = 1.
+        lv_eid = condense( io_ctx->get_val( 'APPLICANT_ID' ) ).
+      ENDIF.
+      CHECK lv_eid IS NOT INITIAL.
+
+*     Nothing missing on this row - do not spend a backend call on it.
+      IF cell_of( it_cols = ls_g-columns it_row = <row> iv_name = c_col_mobile ) IS NOT INITIAL
+         AND cell_of( it_cols = ls_g-columns it_row = <row> iv_name = c_col_email ) IS NOT INITIAL
+         AND cell_of( it_cols = ls_g-columns it_row = <row> iv_name = c_col_nat ) IS NOT INITIAL.
+        CONTINUE.
+      ENDIF.
+
+      DATA lv_idnumber        TYPE bu_id_number.
+      DATA ev_partner         TYPE partner.
+      DATA ev_id_number       TYPE bu_id_number.
+      DATA ev_passport        TYPE bu_id_number.
+      DATA ev_name            TYPE bu_name1tx.
+      DATA ev_phone           TYPE farp_mobile.
+      DATA ev_email           TYPE ad_smtpadr.
+      DATA ev_nationality     TYPE natio50.
+      DATA ev_nationality_key TYPE bu_natio.
+      DATA ev_date_of_birth   TYPE bu_birthdt.
+      DATA ev_message         TYPE bapiret2-message.
+
+      CLEAR: ev_partner, ev_id_number, ev_passport, ev_name, ev_phone, ev_email,
+             ev_nationality, ev_nationality_key, ev_date_of_birth, ev_message.
+      lv_idnumber = lv_eid.
+
+      CALL FUNCTION 'ZFE_CJ_SEARCH_BP_BY_ID'
+        EXPORTING
+          iv_type            = 'YFS002'
+          iv_idnumber        = lv_idnumber
+        IMPORTING
+          ev_partner         = ev_partner
+          ev_id_number       = ev_id_number
+          ev_passport        = ev_passport
+          ev_name            = ev_name
+          ev_phone           = ev_phone
+          ev_email           = ev_email
+          ev_nationality     = ev_nationality
+          ev_nationality_key = ev_nationality_key
+          ev_date_of_birth   = ev_date_of_birth
+          ev_message         = ev_message.
+
+*     No such BP, or a register with nothing to add. Leave the row alone rather
+*     than blanking cells that already hold something.
+      CHECK ev_partner IS NOT INITIAL.
+
+      fill_cell( EXPORTING iv_pos = col_ix( it_cols = ls_g-columns iv_name = c_col_name )
+                           iv_val = |{ ev_name }|
+                 CHANGING  ct_row = <row> cv_touched = lv_touched ).
+      fill_cell( EXPORTING iv_pos = col_ix( it_cols = ls_g-columns iv_name = c_col_mobile )
+                           iv_val = |{ ev_phone }|
+                 CHANGING  ct_row = <row> cv_touched = lv_touched ).
+      fill_cell( EXPORTING iv_pos = col_ix( it_cols = ls_g-columns iv_name = c_col_email )
+                           iv_val = |{ ev_email }|
+                 CHANGING  ct_row = <row> cv_touched = lv_touched ).
+      fill_cell( EXPORTING iv_pos = col_ix( it_cols = ls_g-columns iv_name = c_col_nat )
+                           iv_val = |{ ev_nationality_key }|
+                 CHANGING  ct_row = <row> cv_touched = lv_touched ).
+      fill_cell( EXPORTING iv_pos = col_ix( it_cols = ls_g-columns iv_name = c_col_eid )
+                           iv_val = |{ ev_id_number }|
+                 CHANGING  ct_row = <row> cv_touched = lv_touched ).
+      fill_cell( EXPORTING iv_pos = col_ix( it_cols = ls_g-columns iv_name = c_col_dob )
+                           iv_val = |{ ev_date_of_birth }|
+                 CHANGING  ct_row = <row> cv_touched = lv_touched ).
+    ENDLOOP.
+
+    CHECK lv_touched = abap_true.
+
+    io_ctx->set_grid_data( iv_field = c_grid
+                           is_data  = VALUE #( columns = ls_g-columns rows = lt_rows ) ).
+  ENDMETHOD.
+
+
+  METHOD put_cell.
+*   Place a value in the column that carries IV_NAME. A column the spec does not
+*   define is skipped - never appended - because appending would push every
+*   later cell one place along and recreate the shift this replaced.
+    DATA(lv_ix) = col_ix( it_cols = it_cols iv_name = iv_name ).
+    CHECK lv_ix > 0.
+    CHECK lines( ct_row ) >= lv_ix.
+
+    READ TABLE ct_row INDEX lv_ix ASSIGNING FIELD-SYMBOL(<cell>).
+    CHECK sy-subrc = 0.
+    <cell> = iv_val.
+  ENDMETHOD.
+
+
+  METHOD col_ix.
+    LOOP AT it_cols INTO DATA(lv_c).
+      IF to_upper( condense( lv_c ) ) = to_upper( iv_name ).
+        rv = sy-tabix.
+        RETURN.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD cell_of.
+    DATA(lv_ix) = col_ix( it_cols = it_cols iv_name = iv_name ).
+    CHECK lv_ix > 0.
+    rv = VALUE #( it_row[ lv_ix ] OPTIONAL ).
+  ENDMETHOD.
+
+
+  METHOD fill_cell.
+*   Write only into an empty cell, and only into a cell the row actually has.
+*   A row shorter than the position asked for is the grid spec being narrower
+*   than this class expects - handled by OWN_FORM_SAVE( )'s width check, not by
+*   silently growing the row here, which would push every later cell sideways.
+    CHECK iv_val IS NOT INITIAL.
+    CHECK iv_pos > 0.                  " 0 = the spec has no such column
+    CHECK lines( ct_row ) >= iv_pos.
+
+    READ TABLE ct_row INDEX iv_pos ASSIGNING FIELD-SYMBOL(<cell>).
+    CHECK sy-subrc = 0.
+    CHECK <cell> IS INITIAL.
+
+    <cell>     = iv_val.
+    cv_touched = abap_true.
   ENDMETHOD.
 
 
@@ -669,28 +979,56 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     DATA(lv_mob) = condense( io_ctx->get_val( 'TELEPHONE_POP' ) ).
     DATA(lv_eaddr) = condense( io_ctx->get_val( 'EMAIL_POP' ) ).
 
-    LOOP AT ls_g-rows INTO DATA(lt_r).
-      IF VALUE string( lt_r[ 1 ] OPTIONAL ) = lv_id.
-        lv_found = abap_true.
-        CLEAR lt_row.
-        APPEND lv_id TO lt_row.
-* "Name
-        APPEND lv_name TO lt_row.
-* Mobile No.
-        APPEND lv_mob TO lt_row.
-* Email Address
-        APPEND lv_eaddr TO lt_row.
-* Shares
-        APPEND  lv_share TO lt_row.
-*ID type
-        APPEND lv_IDtype  TO lt_row.
-*Emirates ID
-        APPEND lv_eID   TO lt_row.
-*Passport
-        APPEND lv_id   TO lt_row.
-*Nationality
-        APPEND lv_nation TO lt_row.
+*   The row is built to the SPEC's width, and each value is placed in the column
+*   that carries its name. Appending in a fixed order was the defect: the grid is
+*   five columns, the method appended nine, and everything landed one place left
+*   of where it was read back.
+    CLEAR lt_row.
+    DO lines( ls_g-columns ) TIMES.
+      APPEND `` TO lt_row.
+    ENDDO.
 
+    put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_name   iv_val = lv_name
+              CHANGING  ct_row  = lt_row ).
+    put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_mobile iv_val = lv_mob
+              CHANGING  ct_row  = lt_row ).
+    put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_email  iv_val = lv_eaddr
+              CHANGING  ct_row  = lt_row ).
+    put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_share  iv_val = lv_share
+              CHANGING  ct_row  = lt_row ).
+    put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_nat    iv_val = lv_nation
+              CHANGING  ct_row  = lt_row ).
+
+*   These four have no column in OWNERS_SEARCH today, so PUT_CELL( ) skips them.
+*   They are written anyway so that adding the ZRAK_T_JNY_COL rows is all it
+*   takes to make them persist - no second code change.
+    put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_partner iv_val = lv_id
+              CHANGING  ct_row  = lt_row ).
+    put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_eid     iv_val = lv_eid
+              CHANGING  ct_row  = lt_row ).
+    put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_dob     iv_val = lv_dob
+              CHANGING  ct_row  = lt_row ).
+
+*   ID type is deliberately not written. It is a popup control, not owner data,
+*   and there is no column for it - the value that used to reach the grid under
+*   its name was the one being read back as the Emirates ID.
+    CLEAR lv_idtype.
+
+*   Without a PARTNER column there is no key to match an existing owner on, so
+*   the grid cannot tell one owner from another and every save appends. Say so
+*   once, plainly, rather than letting Edit look broken.
+    DATA(lv_keyix) = col_ix( it_cols = ls_g-columns iv_name = c_col_partner ).
+    IF lv_keyix = 0.
+      io_ctx->add_msg(
+        iv_type = 'Warning'
+        iv_text = |Owner list cannot identify rows: { c_grid } has no { c_col_partner } | &&
+                  |column. Add it in ZRAK_T_JNY_COL so editing and re-saving an | &&
+                  |owner updates that owner instead of adding another.| ).
+    ENDIF.
+
+    LOOP AT ls_g-rows INTO DATA(lt_r).
+      IF lv_keyix > 0 AND VALUE string( lt_r[ lv_keyix ] OPTIONAL ) = lv_id.
+        lv_found = abap_true.
         APPEND lt_row TO ls_new-rows.
       ELSE.
         APPEND lt_r TO ls_new-rows.
@@ -698,27 +1036,7 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     ENDLOOP.
 
     IF lv_found = abap_false.
-      CLEAR lt_row.
-      APPEND lv_id  TO lt_row.
-* "Name
-      APPEND lv_name TO lt_row.
-* Mobile No.
-      APPEND lv_mob TO lt_row.
-* Email Address
-      APPEND lv_eaddr TO lt_row.
-* Shares
-      APPEND  lv_share TO lt_row.
-*ID type
-      APPEND lv_IDtype  TO lt_row.
-*Emirates ID
-      APPEND lv_eID   TO lt_row.
-*Passport
-      APPEND lv_id   TO lt_row.
-*Nationality
-      APPEND lv_nation TO lt_row.
-
       APPEND lt_row TO ls_new-rows.
-
     ENDIF.
 
     io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
@@ -748,17 +1066,33 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     lo_cl->column( )->text( 'Nationality' ).
     lo_cl->column( halign = 'End' )->text( '' ).
 
+*   Read once, not once per row - this is a ~240-row T005T select.
+    DATA(lt_nat) = zcl_rak_journey_util=>nationalities( ).
+
     DATA(lo_it) = lo_t->items( ).
     LOOP AT ls_g-rows INTO DATA(lt_r).
-      DATA(lv_id)  = VALUE string( lt_r[ 1 ] OPTIONAL ).
-      DATA(lv_nam)  = VALUE string( lt_r[ 2 ] OPTIONAL ).
-      DATA(lv_no) = VALUE string( lt_r[ 3 ] OPTIONAL ).
-      DATA(lv_eadd)  = VALUE string( lt_r[ 4 ] OPTIONAL ).
-      DATA(lv_shr) = VALUE string( lt_r[ 5 ] OPTIONAL ).
-     " DATA(lv_id_typ)  = VALUE string( lt_r[ 6 ] OPTIONAL ).
-      DATA(lv_eid) = VALUE string( lt_r[ 6 ] OPTIONAL ).
-      "DATA(lv_pass)  = VALUE string( lt_r[ 8 ] OPTIONAL ).
-      DATA(lv_nat) = VALUE string( lt_r[ 7 ] OPTIONAL ).
+*     By column name, so this follows the spec instead of assuming it. The
+*     Emirates ID and the row key have no column in OWNERS_SEARCH today, so both
+*     come back blank rather than showing a neighbouring column's value.
+      DATA(lv_nam)    = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_name ).
+      DATA(lv_no)     = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_mobile ).
+      DATA(lv_eadd)   = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_email ).
+      DATA(lv_shr)    = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_share ).
+      DATA(lv_eid)    = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_eid ).
+      DATA(lv_natkey) = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_nat ).
+
+*     The row key when there is one, the name when there is not - it only has to
+*     be something OWN_EDIT( ) and OWN_DELETE( ) can find the row by again.
+      DATA(lv_id) = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_partner ).
+      IF lv_id IS INITIAL.
+        lv_id = lv_nam.
+      ENDIF.
+
+*     The row stores LAND1; the citizen should see the country, not 'AE'.
+      DATA(lv_nat) = lv_natkey.
+      IF lv_natkey IS NOT INITIAL.
+        lv_nat = VALUE #( lt_nat[ key = lv_natkey ]-text DEFAULT lv_natkey ).
+      ENDIF.
 
 **     How many files this owner has. Counting them here is the only way the
 **     citizen can see, from the list, whose documents are still missing.
@@ -875,117 +1209,21 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     lo_c3->input( value = io_ctx->bind( c_dob ) width = '17rem' ).
 *  Ntionality
     DATA(lo_c4) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c4->label( text = 'Nationality' ).
+    lo_c4->label( text = 'Nationality' class = 'rakReq' ).
 *    lo_c4->input( value = io_ctx->bind( c_nat ) width = '17rem' ).
-    lo_c4->combobox( selectedkey = io_ctx->bind( c_nat )
-        placeholder = 'select'
-        )->item( key = '1'     text = 'Afghanistan'
-        )->item( key = '2'     text = 'Antigua/Barbuda'
-        )->item( key = '3'     text = 'Anguilla'
-        )->item( key = '4'     text = 'Armenia'
-        )->item( key = '5'     text = 'Dutch Antilles'
-        )->item( key = '6'     text = 'Angola'
-        )->item( key = '7'     text = 'Antarctica'
-        )->item( key = '8'     text = 'Argentina'
-        )->item( key = '9'     text = 'Samoa, America'
-        )->item( key = '10'   text = 'Austria'
-        )->item( key = '11'    text = 'Australia'
-        )->item( key = '12'   text = 'Aruba'
-        )->item( key = '13'    text = 'Azerbaijan'
-        )->item( key = '14'    text = 'Bosnia-Herz'
-        )->item( key = '15'    text = 'Barbados'
-        )->item( key = '16'    text = 'Bangladesh'
-        )->item( key = '17'    text = 'Belgium'
-        )->item( key = '18'    text = 'Burkina Faso'
-        )->item( key = '19'    text = 'Bahrain'
-        )->item( key = '20'   text = 'Burundi'
-        )->item( key = '21'    text = 'Benin'
-        )->item( key = '22'   text = 'Blue'
-        )->item( key = '23'    text = 'Bermuda'
-        )->item( key = '24'    text = 'Bulgaria'
-        )->item( key = '25'    text = 'Brunei Daruss'
-        )->item( key = '26'    text = 'Bolivia'
-        )->item( key = '27'    text = 'Brazil'
-        )->item( key = '28'    text = 'Bahamas'
-        )->item( key = '29'    text = 'Bhutan'
-        )->item( key = '30'    text = 'Bouvet Islands'
-        )->item( key = '31'    text = 'Botswana'
-        )->item( key = '32'    text = 'Belize'
-        )->item( key = '33'    text = 'Canada'
-        )->item( key = '34'    text = 'Coconut Islands'
-        )->item( key = '35'    text = 'Dem. Rep. Congo'
-        )->item( key = '36'    text = 'CAR'
-        )->item( key = '37'    text = 'Rep.of Congo'
-        )->item( key = '38'    text = 'Switzerland'
-        )->item( key = '39'    text = 'Cote dlvoire'
-        )->item( key = '40'    text = 'Cook Islands'
-        )->item( key = '41'    text = 'Chile'
-        )->item( key = '42'    text = 'Cameroon'
-        )->item( key = '43'    text = 'China'
-        )->item( key = '44'    text = 'Colombia'
-        )->item( key = '45'    text = 'Costa Rica'
-        )->item( key = '46'    text = 'Serbia/Monten'
-        )->item( key = '47'    text = 'Cuba'
-        )->item( key = '48'    text = 'Cape Verde'
-        )->item( key = '49'    text = 'Christmas island'
-        )->item( key = '50'    text = 'Cyprus'
-        )->item( key = '51'    text = 'Czech Replublic'
-        )->item( key = '52'    text = 'Germany'
-        )->item( key = '53'    text = 'Djibouti'
-        )->item( key = '54'    text = 'Denmark'
-        )->item( key = '55'    text = 'Dominican Rep.'
-        )->item( key = '56'    text = 'Algeria'
-        )->item( key = '57'    text = 'Ecuador'
-        )->item( key = '58'    text = 'Estonia'
-        )->item( key = '59'    text = 'Egypt'
-        )->item( key = '60'    text = 'West Sahara'
-        )->item( key = '61'    text = 'Eritrea'
-        )->item( key = '62'    text = 'Spain'
-        )->item( key = '63'    text = 'Ethiopia'
-        )->item( key = '64'    text = 'European union'
-        )->item( key = '65'    text = 'Finland'
-        )->item( key = '66'    text = 'Fiji'
-        )->item( key = '67'    text = 'Falkland Islnds'
-        )->item( key = '68'    text = 'Micronesia'
-        )->item( key = '69'    text = 'Faroe islands'
-        )->item( key = '70'    text = 'France'
-        )->item( key = '71'    text = 'Gabon'
-        )->item( key = '72'    text = 'United Kingdom'
-        )->item( key = '73'    text = 'Grenada'
-        )->item( key = '74'    text = 'Georgia'
-        )->item( key = '75'    text = 'French Guayana'
-        )->item( key = '76'    text = 'Ghana'
-        )->item( key = '77'    text = 'Gibraltar'
-        )->item( key = '78'    text = 'Greenland'
-        )->item( key = '79'    text = 'Gambia'
-        )->item( key = '80'    text = 'Guinea'
-        )->item( key = '81'    text = 'Guadeloupe'
-        )->item( key = '82'    text = 'Equatorial Guin'
-        )->item( key = '83'    text = 'Greece'
-        )->item( key = '84'    text = 'S. Sandwich Ins'
-        )->item( key = '85'    text = 'Guantemala'
-        )->item( key = '86'    text = 'Guam'
-        )->item( key = '87'    text = 'Guinea-Bissau'
-        )->item( key = '88'    text = 'Guyana'
-        )->item( key = '89'    text = 'Hong Kong'
-        )->item( key = '90'    text = 'Heard/McDon.Isl'
-        )->item( key = '91'    text = 'Honduras'
-        )->item( key = '92'    text = 'Croatia'
-        )->item( key = '93'    text = 'Hailti'
-        )->item( key = '94'    text = 'Hungary'
-        )->item( key = '95'    text = 'Indonesia'
-        )->item( key = '96'    text = 'Ireland'
-        )->item( key = '97'    text = 'India'
-        )->item( key = '98'    text = 'Brit.Ind.Oc.Ter'
-        )->item( key = '99'    text = 'Iraq'
-        )->item( key = '100'   text = 'Iran'
-        )->item( key = '101'   text = 'Iceland'
-        )->item( key = '102'   text = 'Italy'
-        )->item( key = '103'   text = 'Jamaica'
-        )->item( key = '104'   text = 'Jordan'
-        )->item( key = '105'   text = 'Japan'
-        )->item( key = '106'   text = 'Kenya'
-        ).
+*   The country list comes from T005T through the shared helper, keyed on LAND1.
+*
+*   It used to be 106 items hand-written here and keyed '1' to '106'. Three
+*   things were wrong with that at once: the list stopped at Kenya, United Arab
+*   Emirates was not in it, and - the reason nationality saved blank - the BP
+*   search writes what ZFE_CJ_SEARCH_BP_BY_ID returns into this same field, so a
+*   numeric key could never match. Dropdown, search-fill and saved value now all
+*   speak LAND1.
+    DATA(lo_nat) = lo_c4->combobox( selectedkey = io_ctx->bind( c_nat )
+                                    placeholder = 'select' ).
+    LOOP AT zcl_rak_journey_util=>nationalities( ) INTO DATA(ls_nat).
+      lo_nat->item( key = ls_nat-key text = ls_nat-text ).
+    ENDLOOP.
 
 *Shares
     DATA(lo_c5) = lo_r2->vbox( class = 'rakCell' ).
@@ -1040,8 +1278,16 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
     DATA(ls_g)   = io_ctx->get_grid_data( c_grid ).
     DATA(ls_new) = VALUE zif_rak_journey=>ty_table( columns = ls_g-columns ).
+*   Matched the same way RENDER_OWN_LIST( ) built the id it put on the button:
+*   the PARTNER column when the spec has one, the name when it does not. Reading
+*   cell 1 blindly deleted by whatever happened to sit first, which on the
+*   current five-column spec is the owner's NAME, not a key.
+    DATA(lv_keyix) = col_ix( it_cols = ls_g-columns iv_name = c_col_partner ).
     LOOP AT ls_g-rows INTO DATA(lt_r).
-      CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) <> iv_id.
+      DATA(lv_rowid) = cell_of( it_cols = ls_g-columns it_row = lt_r
+                                iv_name = COND #( WHEN lv_keyix > 0
+                                                  THEN c_col_partner ELSE c_col_name ) ).
+      CHECK lv_rowid <> iv_id.
       APPEND lt_r TO ls_new-rows.
     ENDLOOP.
     io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
@@ -1058,12 +1304,43 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
   method OWN_EDIT.
     "When user click on edit pencil for OWNER ROW they should be able
     "to see existing details and edit it
-    LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
-      CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) = iv_id.
-      io_ctx->set_val( iv_name = c_identity  iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = c_id   iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = c_nat   iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = c_share iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
+*   Indices match OWN_FORM_SAVE( )'s numbered column list exactly. They did not
+*   before: this read columns 2-5 as identification / EID / nationality / shares,
+*   but 2-4 hold the name, the mobile and the e-mail. That is why the reported
+*   symptom was "EID Number is converting to mobile number" and "Identification
+*   getting blank" - the mobile landed in the Emirates ID box, and the name
+*   landed in a dropdown that has no such key, so it rendered empty.
+*
+*   Every field the popup shows is restored. Anything left unset here keeps
+*   whatever the LAST owner typed, which is the other half of the report:
+*   "its showing old entered data rather than showing selected row data".
+    DATA(ls_g)     = io_ctx->get_grid_data( c_grid ).
+    DATA(lv_keyix) = col_ix( it_cols = ls_g-columns iv_name = c_col_partner ).
+
+    LOOP AT ls_g-rows INTO DATA(lt_r).
+*     Without a PARTNER column there is no key, so there is no way to tell which
+*     row was pressed. Matching on the name is the only thing left, and it is
+*     better than opening the popup on whatever the previous owner typed.
+      IF lv_keyix > 0.
+        CHECK VALUE string( lt_r[ lv_keyix ] OPTIONAL ) = iv_id.
+      ELSE.
+        CHECK cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_name ) = iv_id.
+      ENDIF.
+
+      io_ctx->set_val( iv_name = 'NAME_POP'
+        iv_value = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_name ) ).
+      io_ctx->set_val( iv_name = 'TELEPHONE_POP'
+        iv_value = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_mobile ) ).
+      io_ctx->set_val( iv_name = 'EMAIL_POP'
+        iv_value = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_email ) ).
+      io_ctx->set_val( iv_name = c_share
+        iv_value = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_share ) ).
+      io_ctx->set_val( iv_name = c_nat
+        iv_value = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_nat ) ).
+      io_ctx->set_val( iv_name = c_id
+        iv_value = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_eid ) ).
+      io_ctx->set_val( iv_name = c_dob
+        iv_value = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_dob ) ).
       EXIT.
     ENDLOOP.
 

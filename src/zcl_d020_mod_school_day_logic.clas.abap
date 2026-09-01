@@ -600,12 +600,23 @@ CLASS ZCL_D020_MOD_SCHOOL_DAY_LOGIC IMPLEMENTATION.
         role    = DATA(role)
     ).
 
-    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '3000000049' ).
+    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
 
 *    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
-    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
+*   The signed-in citizen, read from the business partner register. What stood
+*   here was a fixed name and Emirates ID, written AFTER the real read, so every
+*   applicant saw and posted the same test person.
+    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+      EXPORTING
+        iv_bp_id      = CONV bu_partner( loginbp )
+      IMPORTING
+        es_bp_details = DATA(ls_bp_real) ).
+    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = COND #(
+      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
+      THEN CONV string( ls_bp_real-bp_name_ar )
+      ELSE CONV string( ls_bp_real-bp_name ) ) ).
+    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
 *    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
-    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( '784-1981-1502090-5' ) ).
 
 *    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
     io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).

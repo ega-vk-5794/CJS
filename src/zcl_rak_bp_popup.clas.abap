@@ -267,25 +267,12 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 
   METHOD nationalities.
 *   T005T, one language, ordered by code - the same read the OData domain service
-*   does. Written as SELECT ... INTO TABLE rather than SELECT ... ENDSELECT: the
-*   loop form holds a database cursor open for the whole of the loop body, and
-*   this one is a single round trip for about 240 rows.
-    SELECT land1 AS key, landx50 AS text
-      FROM t005t
-      WHERE spras = @sy-langu
-      ORDER BY land1 ASCENDING
-      INTO CORRESPONDING FIELDS OF TABLE @rt.
-
-*   Falling back to English rather than to nothing. A journey launched in a
-*   language T005T has no rows for would otherwise show an empty nationality list,
-*   which looks like a broken control rather than a missing translation.
-    IF rt IS INITIAL AND sy-langu <> 'E'.
-      SELECT land1 AS key, landx50 AS text
-        FROM t005t
-        WHERE spras = 'E'
-        ORDER BY land1 ASCENDING
-        INTO CORRESPONDING FIELDS OF TABLE @rt.
-    ENDIF.
+*   does. The read itself now lives in ZCL_RAK_JOURNEY_UTIL so a handler that
+*   does not inherit from this class can reach the SAME list: D001's owner popup
+*   needs it and was hand-maintaining 106 items keyed '1' to '106' instead, with
+*   no United Arab Emirates in them. Kept as a method here rather than replaced
+*   at the call site, so this class's own contract does not change.
+    rt = zcl_rak_journey_util=>nationalities( ).
   ENDMETHOD.
 
 
@@ -428,7 +415,7 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *     reaching the request would fail every comparison and read as a data
 *     mismatch rather than a format one.
       lo_form->date_picker( value        = mo_ctx->bind( fld( 'DOB' ) )
-                            displayformat = 'dd/MM/yyyy'
+                            displayformat = 'dd.MM.yyyy'
                             valueformat   = 'yyyyMMdd' ).
 
       lo_form->label( 'Nationality' ).

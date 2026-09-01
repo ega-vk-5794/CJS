@@ -1627,8 +1627,16 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                               valuestate     = lv_vs
                               valuestatetext = lv_vst
                               width          = lv_w
+*                             dd.MM.yyyy, not dd/MM/yyyy. The dot form is the one
+*                             the rest of the product already shows - grid DATE
+*                             cells, the license list - and it is the only one
+*                             the framework can read back: the grid date parser
+*                             tests LV_D+2(1) = '.' and LV_D+5(1) = '.' and
+*                             accepts nothing else but YYYYMMDD. A scalar date
+*                             rendered with slashes therefore displayed in one
+*                             format and parsed in another.
                               valueformat    = 'yyyy-MM-dd'
-                              displayformat  = 'dd/MM/yyyy' ).
+                              displayformat  = 'dd.MM.yyyy' ).
 
       WHEN 'TIME'.
         req_label( io_form = io_form is_field = is_field ).

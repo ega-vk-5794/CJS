@@ -139,9 +139,6 @@ CLASS ZCL_D025_STUD_TRANS_CERT_LOGIC IMPLEMENTATION.
                 role    = DATA(lv_role) ).
 
 
-    IF lv_loginbp IS INITIAL AND sy-sysid <> 'E30'.
-      lv_loginbp = '3000000049'.
-    ENDIF.
 
     IF lv_loginbp IS INITIAL.
       RETURN.
@@ -149,8 +146,19 @@ CLASS ZCL_D025_STUD_TRANS_CERT_LOGIC IMPLEMENTATION.
 
     io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
 
-    io_ctx->set_val( iv_name = 'PARENTNAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
-    io_ctx->set_val( iv_name = 'PARENTEID' iv_value = CONV #( '784-1981-1502090-5' ) ).
+*   The signed-in citizen, read from the business partner register. What stood
+*   here was a fixed name and Emirates ID, written AFTER the real read, so every
+*   applicant saw and posted the same test person.
+    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+      EXPORTING
+        iv_bp_id      = CONV bu_partner( lv_loginbp )
+      IMPORTING
+        es_bp_details = DATA(ls_bp_real) ).
+    io_ctx->set_val( iv_name = 'PARENTNAME' iv_value = COND #(
+      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
+      THEN CONV string( ls_bp_real-bp_name_ar )
+      ELSE CONV string( ls_bp_real-bp_name ) ) ).
+    io_ctx->set_val( iv_name = 'PARENTEID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
   ENDMETHOD.
 
 

@@ -57,6 +57,24 @@ CLASS zcl_rak_journey_util DEFINITION
     CLASS-METHODS comp_name IMPORTING VALUE(iv_key) TYPE string
                              RETURNING VALUE(rv)     TYPE string.
 
+*   The country list, keyed by T005T-LAND1 and texted in the logon language.
+*
+*   ONE source, because a nationality has to survive three hops that were each
+*   using a different vocabulary: the dropdown the citizen picks from, the value
+*   ZFE_CJ_SEARCH_BP_BY_ID fills in after a BP search, and whatever is written to
+*   the owner row and posted. D001 hand-maintained 106 items keyed '1' to '106'
+*   while the BP search wrote the nationality TEXT into the same field - so the
+*   key never matched, the combobox rendered unselected, and the column saved
+*   blank. United Arab Emirates was not in the hand-written list at all.
+*
+*   LAND1 is the key that makes the three agree: it is what T005T is keyed on and
+*   what ZFE_CJ_SEARCH_BP_BY_ID returns as EV_NATIONALITY_KEY (BU_NATIO).
+*
+*   Lifted from ZCL_RAK_BP_POPUP->NATIONALITIES( ), which now delegates here
+*   rather than holding a second copy - the same move PICK_TEXT( ) made.
+    CLASS-METHODS nationalities
+      RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
+
 ENDCLASS.
 
 
@@ -345,6 +363,29 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
       IF sy-subrc = 0 AND lv_otr IS NOT INITIAL.
         rv = lv_otr.
       ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD nationalities.
+*   SELECT ... INTO TABLE rather than SELECT ... ENDSELECT: the loop form holds a
+*   database cursor open for the whole of the loop body, and this is a single
+*   round trip for about 240 rows.
+    SELECT land1 AS key, landx50 AS text
+      FROM t005t
+      WHERE spras = @sy-langu
+      ORDER BY land1 ASCENDING
+      INTO CORRESPONDING FIELDS OF TABLE @rt.
+
+*   Falling back to English rather than to nothing. A journey launched in a
+*   language T005T has no rows for would otherwise show an empty nationality
+*   list, which looks like a broken control rather than a missing translation.
+    IF rt IS INITIAL AND sy-langu <> 'E'.
+      SELECT land1 AS key, landx50 AS text
+        FROM t005t
+        WHERE spras = 'E'
+        ORDER BY land1 ASCENDING
+        INTO CORRESPONDING FIELDS OF TABLE @rt.
     ENDIF.
   ENDMETHOD.
 ENDCLASS.
