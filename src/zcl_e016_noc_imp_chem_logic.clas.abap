@@ -757,10 +757,15 @@ super->zif_rak_journey_logic~on_render_popup(
       RETURN.
     ENDIF.
 
+*   TT_MAP is declared, not written inline on the VALUE below. VALUE takes a
+*   TYPE NAME - 'VALUE STANDARD TABLE OF ty_map WITH EMPTY KEY( ... )' is not
+*   a constructor expression at all, and the Class Builder reports it as
+*   'Field "VALUE" is unknown', naming the operator rather than the mistake.
     TYPES: BEGIN OF ty_map,
              field TYPE string,
              cands TYPE string,      " '|'-separated candidate component names
-           END OF ty_map.
+           END OF ty_map,
+           tt_map TYPE STANDARD TABLE OF ty_map WITH EMPTY KEY.
 
 *   EXACT NAMES NOW, not candidates. ZV_EPDA_CHEVHELP was unreadable when
 *   this was first written, so each field carried a list of guesses; the
@@ -768,7 +773,7 @@ super->zif_rak_journey_logic~on_render_popup(
 *   CHEMINAL_NAME (the source's own misspelling, which E017's constant
 *   copies) and CAS_NO. A single name per field is the honest form once the
 *   name is a fact.
-    DATA(lt_map) = VALUE STANDARD TABLE OF ty_map WITH EMPTY KEY (
+    DATA(lt_map) = VALUE tt_map(
       ( field = c_hs_code_pop          cands = `HS_CODE` )
       ( field = c_material_name_pop    cands = `MATERIAL_NAME` )
       ( field = c_chemical_name_pop    cands = `CHEMINAL_NAME` )

@@ -172,14 +172,19 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   TT_MAP is declared, not written inline on the VALUE below. VALUE takes a
+*   TYPE NAME - 'VALUE STANDARD TABLE OF ty_map WITH EMPTY KEY( ... )' is not
+*   a constructor expression at all, and the Class Builder reports it as
+*   'Field "VALUE" is unknown', naming the operator rather than the mistake.
     TYPES: BEGIN OF ty_map,
              field TYPE string,
              cands TYPE string,
-           END OF ty_map.
+           END OF ty_map,
+           tt_map TYPE STANDARD TABLE OF ty_map WITH EMPTY KEY.
 
 *   EXACT NAMES NOW - CHEMINAL_NAME is the source's own misspelling, not a
 *   slip here, and CAS_NO carries the underscore.
-    DATA(lt_map) = VALUE STANDARD TABLE OF ty_map WITH EMPTY KEY (
+    DATA(lt_map) = VALUE tt_map(
       ( field = c_hs_code_pop          cands = `HS_CODE` )
       ( field = c_material_name_pop    cands = `MATERIAL_NAME` )
       ( field = c_chemical_name_pop    cands = `CHEMINAL_NAME` )

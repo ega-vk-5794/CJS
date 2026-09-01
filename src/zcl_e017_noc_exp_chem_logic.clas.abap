@@ -842,15 +842,20 @@ lo_c12->combobox( selectedkey = io_ctx->bind( c_import_pop )
       RETURN.
     ENDIF.
 
+*   TT_MAP is declared, not written inline on the VALUE below. VALUE takes a
+*   TYPE NAME - 'VALUE STANDARD TABLE OF ty_map WITH EMPTY KEY( ... )' is not
+*   a constructor expression at all, and the Class Builder reports it as
+*   'Field "VALUE" is unknown', naming the operator rather than the mistake.
     TYPES: BEGIN OF ty_map,
              field TYPE string,
              cands TYPE string,
-           END OF ty_map.
+           END OF ty_map,
+           tt_map TYPE STANDARD TABLE OF ty_map WITH EMPTY KEY.
 
 *   EXACT NAMES NOW. Note that this handler's own C_CHEM_POP is
 *   'CHEMINAL_NAME' - the same misspelling the source carries, which is how
 *   we know these constants were copied from that service in the first place.
-    DATA(lt_map) = VALUE STANDARD TABLE OF ty_map WITH EMPTY KEY (
+    DATA(lt_map) = VALUE tt_map(
       ( field = c_hs_pop        cands = `HS_CODE` )
       ( field = c_mat_pop       cands = `MATERIAL_NAME` )
       ( field = c_chem_pop      cands = `CHEMINAL_NAME` )

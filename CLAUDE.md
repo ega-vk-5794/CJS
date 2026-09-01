@@ -242,6 +242,13 @@ These raise nothing and render nothing. They account for most of the bugs found 
   Write ABAP for payment routing, live BP search, cross-container side effects.
 - **Migrating a legacy screen?** Drive `ZCL_RAK_MIGRATOR`. Do not hand-author `ZRAK_T_JNY*`
   `INSERT`s — they drift from its mapping.
+- **`VALUE` takes a TYPE NAME, never a type declaration.** `VALUE STANDARD TABLE OF
+  ty_map WITH EMPTY KEY ( ... )` is not a constructor expression, and the Class
+  Builder reports it as **`Field "VALUE" is unknown`** — naming the operator rather
+  than the mistake, which reads like a missing field. Declare the table type
+  (`tt_map TYPE STANDARD TABLE OF ty_map WITH EMPTY KEY`) and write `VALUE tt_map( … )`.
+  A named type is fine inline — `VALUE string_table( … )`, `VALUE abap_parmbind_tab( … )`
+  — which is what makes the invalid form look plausible.
 - **An ABAP source line stops at 255 characters.** Past that the Class Builder truncates and
   reports `Field "LV_V" is unknown` - naming whatever the cut left behind, at the line it cut,
   never the length. Three unrelated-looking unknown-field errors on three neighbouring lines is
