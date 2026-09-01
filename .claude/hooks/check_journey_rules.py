@@ -16,6 +16,7 @@ best-effort catch, not a guarantee:
    both hooks already run INSIDE the post that commit_step( ) triggers, so
    calling it there re-enters the post it's already inside of.
 """
+import os
 import re
 import sys
 from _common import read_input, changed_text, file_path, deny
@@ -28,14 +29,34 @@ text = changed_text(ti)
 if not path.lower().endswith(".clas.abap"):
     sys.exit(0)
 
+# ZCL_RAK_JOURNEY_LOGIC *is* the base. Its own ON_CUSTOM_VALIDATE is the PAID
+# gate rather than a caller of one, so the super-> rule cannot apply to it -
+# without this guard the hook blocks every edit to the class it protects.
+if os.path.basename(path).lower().startswith("zcl_rak_journey_logic"):
+    sys.exit(0)
+
 method_re = re.compile(
     r"METHOD\s+(?P<name>[\w~]+)\b(?P<body>.*?)ENDMETHOD\b",
     re.IGNORECASE | re.DOTALL,
 )
 
+def live(src):
+    """Drop ABAP full-line comments ('*' in column 1) before matching.
+
+    Without this the checks below run against prose and fail BOTH ways. The
+    false negative is the one that mattered: ZCL_E128_RENEW_BERTH_LOGIC carried
+    a commented-out '*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE'
+    template above an empty body, which satisfied the super-> search while the
+    PAID gate was in fact gone. The false positive is the mirror: a comment
+    explaining why the super-> call has to precede the CHECK contains the word
+    'check', and tripped the ordering rule on correct code.
+    """
+    return "\n".join(ln for ln in src.split("\n") if not ln.startswith("*"))
+
+
 for m in method_re.finditer(text):
     name = m.group("name").lower()
-    body = m.group("body")
+    body = live(m.group("body"))
 
     if name.endswith("on_custom_validate"):
         super_re = re.search(

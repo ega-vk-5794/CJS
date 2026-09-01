@@ -59,11 +59,23 @@ CLASS ZCL_E031_MATSTORAGE_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
+*   THE BASE CALL IS THE PAID GATE - it refuses a submit while PAYFEE <> 'PAID'.
+*   It has to run BEFORE the CHECK below: a failing CHECK exits the method, so a
+*   CHECK placed first skips the gate on every step this handler does not own,
+*   which is every step where payment is actually decided. Nothing here assigns
+*   RT today; when the block below is revived it must EXTEND it with
+*   VALUE #( BASE rt ... ), never assign over it, or the gate's own messages go.
+    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
+                                                         iv_step = iv_step ).
+
     CHECK iv_step = c_step_storage.
-    " Read the grid rows via the context grid accessor. Column names are the
-    " legacy MATERIALS[] components (MATERIAL_TYPE, QUANTITY, UNIT,
-    " OUTSIDE_DURATION). REVIEW-GRID: confirm the ctx grid API name against
-    " hooks.md — get_grid( ) assumed here.
+    " STILL DEAD. The block below was written against an assumed get_grid( )
+    " that does not exist: the real accessor is io_ctx->get_grid_data( <field> ),
+    " which returns ty_table - COLUMNS plus ROWS as plain string tables, NOT the
+    " typed row structure this code reads (<row>-material_type and friends). See
+    " ZCL_E016/E017/E018 for the shape that works. Reviving it also needs the
+    " grid field name confirmed and a decision on whether >=1 row is really
+    " required, so it is left off rather than guessed at.
 *    DATA(lt_rows) = io_ctx->get_grid( 'MATERIALS' ).
 *    IF lt_rows IS INITIAL.
 *      rt = VALUE #( ( type = 'Error' text = 'Add at least one material row' ) ).

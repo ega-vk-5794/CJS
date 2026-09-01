@@ -138,6 +138,83 @@ CLASS zcl_rak_text DEFINITION
 *       does not exist until the request is approved is the normal case, and
 *       an empty viewer reads as one still loading.
         pdf_none      TYPE symsgno VALUE '075',
+*       ZCL_RAK_BP_POPUP - the reusable Partner Search dialog. Framework text
+*       because the popup itself is shared infrastructure, not one journey's
+*       wording - every field label and section title in it used to be a bare
+*       ABAP literal, so it rendered in English even on an Arabic run.
+        bpp_title       TYPE symsgno VALUE '076',
+        bpp_search_by   TYPE symsgno VALUE '077',
+        bpp_eid         TYPE symsgno VALUE '078',
+        bpp_passport_ne TYPE symsgno VALUE '079',
+        bpp_unified_ne  TYPE symsgno VALUE '080',
+        bpp_trade_lic   TYPE symsgno VALUE '081',
+        bpp_passport_no TYPE symsgno VALUE '082',
+        bpp_unified_id  TYPE symsgno VALUE '083',
+        bpp_dob         TYPE symsgno VALUE '084',
+        bpp_nat         TYPE symsgno VALUE '085',
+        bpp_pass_type   TYPE symsgno VALUE '086',
+        bpp_general     TYPE symsgno VALUE '087',
+        bpp_contact     TYPE symsgno VALUE '088',
+        bpp_address     TYPE symsgno VALUE '089',
+        bpp_first_name  TYPE symsgno VALUE '090',
+        bpp_father_name TYPE symsgno VALUE '091',
+        bpp_grand_name  TYPE symsgno VALUE '092',
+        bpp_fourth_name TYPE symsgno VALUE '093',
+        bpp_last_name   TYPE symsgno VALUE '094',
+        bpp_gender      TYPE symsgno VALUE '095',
+        bpp_id_no       TYPE symsgno VALUE '096',
+        bpp_id_exp      TYPE symsgno VALUE '097',
+        bpp_unified_num TYPE symsgno VALUE '098',
+        bpp_pp_issue    TYPE symsgno VALUE '099',
+        bpp_pp_country  TYPE symsgno VALUE '100',
+        bpp_pp_exp      TYPE symsgno VALUE '101',
+        bpp_occupation  TYPE symsgno VALUE '102',
+        bpp_mobile      TYPE symsgno VALUE '103',
+        bpp_email       TYPE symsgno VALUE '104',
+        bpp_telephone   TYPE symsgno VALUE '105',
+        bpp_country     TYPE symsgno VALUE '106',
+        bpp_region      TYPE symsgno VALUE '107',
+        bpp_city        TYPE symsgno VALUE '108',
+        bpp_street      TYPE symsgno VALUE '109',
+        bpp_house_no    TYPE symsgno VALUE '110',
+        bpp_pobox       TYPE symsgno VALUE '111',
+        bpp_resume      TYPE symsgno VALUE '112',
+        bpp_use_partner TYPE symsgno VALUE '113',
+        bpp_partner_no  TYPE symsgno VALUE '114',
+*       ZCL_C022_KHULA_CERTI_LOGIC's own Partner Search popup - a separate,
+*       hand-drawn copy of ZCL_RAK_BP_POPUP's, not a call into it, so it
+*       needed its own pass through this catalogue. Two labels here are
+*       worded differently than their ZCL_RAK_BP_POPUP twin (Partner vs
+*       Partner &1, Phone Number vs Mobile Number) so they get their own
+*       entries rather than reusing bpp_partner_no / bpp_mobile.
+        bpp_partner     TYPE symsgno VALUE '115',
+        bpp_phone       TYPE symsgno VALUE '116',
+*       TABLE COLUMN HEADERS. A TABLE field's headers live in the
+*       KEY:Label:TYPE spec in DEFAULT_VAL, and DEFAULT_VAL has no _AR twin -
+*       so a literal header shows its English to an Arabic reader, which is
+*       what every Track Complaint / Track Suggestion details table did. A
+*       spec column written as KEY:@nnn resolves through here instead; see
+*       ZCL_RAK_JOURNEY_RENDER->COL_HEADER( ).
+        col_suggestion_id   TYPE symsgno VALUE '117',
+        col_suggestion_date TYPE symsgno VALUE '118',
+        col_mobile_number   TYPE symsgno VALUE '119',
+        col_name            TYPE symsgno VALUE '120',
+        col_department      TYPE symsgno VALUE '121',
+        col_status          TYPE symsgno VALUE '122',
+*       THE RESULT CARD. Its headline and subtitle were English literals with no
+*       language test at all, while the closed-card and the Reference label a few
+*       lines away in the same method were already bilingual - so an Arabic run
+*       ended on an English success message.
+        res_paid            TYPE symsgno VALUE '123',
+        res_submitted       TYPE symsgno VALUE '124',
+        res_done_sub        TYPE symsgno VALUE '125',
+        res_not_submitted   TYPE symsgno VALUE '126',
+        res_not_sub_sub     TYPE symsgno VALUE '127',
+*       EC02's headers. MOBILE NUMBER, DEPARTMENT and STATUS are shared with
+*       EC06 above rather than duplicated - the same column, the same wording.
+        col_complaint_id    TYPE symsgno VALUE '128',
+        col_complaint_date  TYPE symsgno VALUE '129',
+        col_description     TYPE symsgno VALUE '130',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -366,7 +443,85 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
         ar = `يجب إتمام عملية الدفع قبل الإرسال.` )
       ( msgno = c_no-pdf_none
         en = `No document to display yet.`
-        ar = `لا يوجد مستند للعرض حتى الآن.` ) ).
+        ar = `لا يوجد مستند للعرض حتى الآن.` )
+      ( msgno = c_no-bpp_title       en = `Partner Search`              ar = `البحث عن الشريك` )
+      ( msgno = c_no-bpp_search_by   en = `Search By`                   ar = `البحث بواسطة` )
+      ( msgno = c_no-bpp_eid         en = `Emirates ID`                 ar = `الهوية الإماراتية` )
+      ( msgno = c_no-bpp_passport_ne
+        en = `Passport (Non EID Holder only)`
+        ar = `جواز السفر (لغير حاملي الهوية الإماراتية فقط)` )
+      ( msgno = c_no-bpp_unified_ne
+        en = `Unified ID (Non EID Holder only)`
+        ar = `الرقم الموحد (لغير حاملي الهوية الإماراتية فقط)` )
+      ( msgno = c_no-bpp_trade_lic   en = `Trade License Number`        ar = `رقم الرخصة التجارية` )
+      ( msgno = c_no-bpp_passport_no en = `Passport Number`             ar = `رقم جواز السفر` )
+      ( msgno = c_no-bpp_unified_id  en = `Unified ID`                  ar = `الرقم الموحد` )
+      ( msgno = c_no-bpp_dob         en = `Date of Birth`               ar = `تاريخ الميلاد` )
+      ( msgno = c_no-bpp_nat         en = `Nationality`                 ar = `الجنسية` )
+      ( msgno = c_no-bpp_pass_type   en = `Passport Type`               ar = `نوع جواز السفر` )
+      ( msgno = c_no-bpp_general     en = `General Info`                ar = `معلومات عامة` )
+      ( msgno = c_no-bpp_contact     en = `Contact Info`                ar = `معلومات الاتصال` )
+      ( msgno = c_no-bpp_address     en = `Address Info`                ar = `معلومات العنوان` )
+      ( msgno = c_no-bpp_first_name  en = `First Name`                  ar = `الاسم الأول` )
+      ( msgno = c_no-bpp_father_name en = `Father Name`                 ar = `اسم الأب` )
+      ( msgno = c_no-bpp_grand_name  en = `Grandfather Name`            ar = `اسم الجد` )
+      ( msgno = c_no-bpp_fourth_name en = `Fourth Name`                 ar = `الاسم الرابع` )
+      ( msgno = c_no-bpp_last_name   en = `Last Name`                   ar = `اسم العائلة` )
+      ( msgno = c_no-bpp_gender      en = `Gender`                      ar = `الجنس` )
+      ( msgno = c_no-bpp_id_no       en = `ID Number`                   ar = `رقم الهوية` )
+      ( msgno = c_no-bpp_id_exp      en = `ID Expiry date`              ar = `تاريخ انتهاء الهوية` )
+      ( msgno = c_no-bpp_unified_num en = `Unified Number`              ar = `الرقم الموحد` )
+      ( msgno = c_no-bpp_pp_issue    en = `Date of passport Issue`      ar = `تاريخ إصدار جواز السفر` )
+      ( msgno = c_no-bpp_pp_country
+        en = `Country of passport Issue`
+        ar = `بلد إصدار جواز السفر` )
+      ( msgno = c_no-bpp_pp_exp      en = `Passport Expiry Date`        ar = `تاريخ انتهاء جواز السفر` )
+      ( msgno = c_no-bpp_occupation  en = `Occupation`                  ar = `المهنة` )
+      ( msgno = c_no-bpp_mobile      en = `Mobile Number`               ar = `رقم الهاتف المتحرك` )
+      ( msgno = c_no-bpp_email       en = `Email`                       ar = `البريد الإلكتروني` )
+      ( msgno = c_no-bpp_telephone   en = `Telephone`                   ar = `الهاتف` )
+      ( msgno = c_no-bpp_country     en = `Country Of Living`           ar = `بلد الإقامة` )
+      ( msgno = c_no-bpp_region      en = `Region`                      ar = `المنطقة` )
+      ( msgno = c_no-bpp_city        en = `City`                        ar = `المدينة` )
+      ( msgno = c_no-bpp_street      en = `Street Name`                 ar = `اسم الشارع` )
+      ( msgno = c_no-bpp_house_no    en = `Home Number`                 ar = `رقم المنزل` )
+      ( msgno = c_no-bpp_pobox       en = `PO Box`                      ar = `صندوق البريد` )
+      ( msgno = c_no-bpp_resume      en = `Resume Search`               ar = `استئناف البحث` )
+      ( msgno = c_no-bpp_use_partner en = `Use this partner`            ar = `استخدام هذا الشريك` )
+      ( msgno = c_no-bpp_partner_no  en = `Partner &1`                  ar = `الشريك &1` )
+      ( msgno = c_no-bpp_partner     en = `Partner`                     ar = `الشريك` )
+      ( msgno = c_no-bpp_phone       en = `Phone Number`                ar = `رقم الهاتف` )
+*     TABLE COLUMN HEADERS - see the block comment on C_NO above.
+*     SUGGESTION ID and MOBILE NUMBER carry the Arabic taken verbatim from
+*     EC06's own LABEL_AR for the matching input fields, so the header and the
+*     field it reports on read identically. The other four are standard terms;
+*     DEPARTMENT in particular has more than one accepted rendering in RAK
+*     government usage, so CONFIRM `الدائرة` with whoever owns the wording
+*     before this goes to citizens.
+      ( msgno = c_no-col_suggestion_id   en = `Suggestion ID`   ar = `رقم الاقتراح` )
+      ( msgno = c_no-col_suggestion_date en = `Suggestion Date` ar = `تاريخ الاقتراح` )
+      ( msgno = c_no-col_mobile_number   en = `Mobile Number`   ar = `رقم الهاتف` )
+      ( msgno = c_no-col_name            en = `Name`            ar = `الاسم` )
+      ( msgno = c_no-col_department      en = `Department`      ar = `الدائرة` )
+      ( msgno = c_no-col_status          en = `Status`          ar = `الحالة` )
+*     RESULT CARD - see the block comment on C_NO above. Standard renderings;
+*     worth a wording pass by whoever owns the Arabic before they go live, the
+*     same way the EC01 declaration is flagged.
+      ( msgno = c_no-res_paid          en = `Payment received`     ar = `تم استلام الدفع` )
+      ( msgno = c_no-res_submitted     en = `Application submitted` ar = `تم تقديم الطلب` )
+      ( msgno = c_no-res_done_sub
+        en = `We have everything we need. Keep the reference below for any follow-up.`
+        ar = `لدينا كل ما نحتاجه. يرجى الاحتفاظ بالرقم المرجعي أدناه لأي متابعة.` )
+      ( msgno = c_no-res_not_submitted en = `Not submitted yet`    ar = `لم يتم التقديم بعد` )
+      ( msgno = c_no-res_not_sub_sub
+        en = `This application has not been submitted. Go back and complete the remaining steps.`
+        ar = `لم يتم تقديم هذا الطلب. يرجى الرجوع وإكمال الخطوات المتبقية.` )
+*     EC02's headers. COMPLAINT ID and DESCRIPTION carry Arabic taken verbatim
+*     from the journeys' own LABEL_AR (EC02's COMPLAINT_ID, EC05's
+*     DESCRIPTION_1), so a header and the field it reports on read identically.
+      ( msgno = c_no-col_complaint_id   en = `Complaint ID`   ar = `رقم الشكوى` )
+      ( msgno = c_no-col_complaint_date en = `Complaint Date` ar = `تاريخ الشكوى` )
+      ( msgno = c_no-col_description    en = `Description`    ar = `الوصف` ) ).
   ENDMETHOD.
 
 
@@ -495,7 +650,34 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
                      `complete, correct, and true. I understand that I will be held responsible ` &&
                      `for any incorrect or false information provided.`
         ar         = `أقر بأن المعلومات المقدمة في هذا النموذج دقيقة وكاملة وصحيحة وحقيقية. ` &&
-                     `وأتفهم أنني سأكون مسؤولاً عن أي معلومات غير صحيحة أو كاذبة يتم تقديمها.` ) ).
+                     `وأتفهم أنني سأكون مسؤولاً عن أي معلومات غير صحيحة أو كاذبة يتم تقديمها.` )
+
+*     EC05 - the Give Suggestions certification. ECOMP-41.
+*
+*     THE SAME TRUNCATION, ON BOTH COLUMNS THIS TIME, and the config proves it
+*     rather than suggesting it: EC05's ZLABEL is exactly 150 characters and
+*     ends "...I would be held responsible for", while ZLABEL_AR is exactly 80
+*     and stops mid-word at "وبالتا" - the opening of "وبالتالي". 150 and 80 are
+*     the two DDIC widths, so both were cut by the INSERT that wrote them. The
+*     Arabic reader saw it worse because the Arabic column was the shorter one.
+*
+*     >> BOTH CLOSING CLAUSES ARE RECONSTRUCTIONS. CONFIRM THEM. <<
+*
+*     Everything up to "responsible for" / "وبالتا" is verbatim from the
+*     database. What follows was written here to close the sentence, in EC05's
+*     own phrasing rather than EC01's - the two declarations are worded
+*     differently and should not be silently merged. As with EC01 it is the
+*     most conservative ending available: it completes the grammar and adds no
+*     obligation, consequence or penalty the visible half did not already
+*     imply. A citizen is agreeing to this sentence. If the approved wording
+*     says more, this understates it and must be replaced.
+      ( journey_id = 'EC05'
+        field_name = 'DECLARATION'
+        en         = `I hereby certify that the information provided on this form is accurately ` &&
+                     `described, complete, correct and true. Thus, I would be held responsible ` &&
+                     `for any incorrect or false information provided.`
+        ar         = `أقر بموجب هذا أن جميع المعلومات المقدمة في هذا الطلب صحيحة ودقيقة وكاملة، ` &&
+                     `وبالتالي أتحمل المسؤولية عن أي معلومات غير صحيحة أو مضللة.` ) ).
   ENDMETHOD.
 
 

@@ -449,16 +449,12 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakStepperV .rakLbl\{margin-top:6px;margin-inline-start:0;text-align:center;\}| &&
         |.rakStepperV .rakBar\{flex:1;width:auto;height:3px;margin:0 5px 24px;\}| &&
         |\}| &&
-*     The asterisk used to be absolutely positioned against the label's trailing
-*     edge. That worked while the label was a narrow left-hand column; now that
-*     labels sit ABOVE their field the label spans the full card, so the marker
-*     landed at the far right, a screen away from the text it marks. Flowing it
-*     inline puts it hard against the text at ANY label width - and it stops
-*     being a layout dependency, which is what made it fragile in the first
-*     place. nowrap and the reserved padding go with it: neither is needed once
-*     the marker is in the text flow, and nowrap would clip a long top label.
-        |.rakReq::after\{content:'*';color:#bb0000;font-weight:700;| &&
-        |margin-inline-start:.2rem;\}| &&
+*     NO REQUIRED-MARKER RULE HERE ANY MORE. The asterisk is drawn by UI5 itself,
+*     from the sap.m.Label REQUIRED property (see REQ_LABEL( ) in
+*     ZCL_RAK_JOURNEY_RENDER), and it is styled by sapMLabelRequired. The
+*     '.rakReq::after' rule this used to carry was removed with the last call
+*     site that set the class: leaving it would mean a stray 'rakReq' in some
+*     future popup renders a SECOND asterisk beside the native one.
         |.rakBlkTitle\{display:block;margin:.9rem 1rem .35rem;font-size:.95rem;| &&
         |font-weight:700;color:{ n };\}| &&
         |.rakRecList\{box-sizing:border-box;margin:.4rem 1rem;padding:0;\}| &&
@@ -905,9 +901,9 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
       |.rakRail\{flex:none;align-self:flex-start;position:sticky;top:0;\}| &&
       |.rakMain\{flex:1;min-width:0;\}| &&
 
-*     REQUIRED MARKER. Inline, not absolutely positioned - labels sit above their
-*     field now, so a positioned asterisk lands a card away from its text.
-      |.rakReq::after\{content:'*';color:#bb0000;font-weight:700;margin-inline-start:.2rem;\}| &&
+*     REQUIRED MARKER. Labels get theirs from the native sap.m.Label REQUIRED
+*     property, so there is no '.rakReq::after' rule - only the checkbox star,
+*     which is a real sibling control and not a label at all.
       |.rakReqStar\{color:#bb0000!important;font-weight:700;margin-inline-end:.15rem;\}| &&
 
 *     ROW AND CELL GRID. flex-wrap carries !important because sap.m.FlexBox writes

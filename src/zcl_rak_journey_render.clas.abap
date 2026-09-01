@@ -120,6 +120,20 @@ CLASS zcl_rak_journey_render DEFINITION
     DATA mo_lbl_tgt   TYPE REF TO z2ui5_cl_xml_view.
     METHODS pay_field IMPORTING iv_index       TYPE i
                       RETURNING VALUE(rv_name) TYPE string.
+*   {FIELDNAME} in a resolved LONG_TEXT( ) - e.g. a declaration reading
+*   "I, {APPLICANTNAME}, certify..." - substituted with that field's
+*   current value. Only ever touches text that actually contains braces,
+*   so a journey with no placeholders renders exactly as it did before
+*   this existed. This is what D001 and E026 both left an unimplemented
+*   "REVIEW: substitute {APPLICANT_NAME}" comment waiting on.
+    METHODS subst_fields CHANGING cv_text TYPE string.
+*   The one place the finished view leaves the engine. See MV_VIEW_SIG on
+*   ZCL_RAK_JOURNEY_ENGINE for why it is not always VIEW_DISPLAY( ).
+    METHODS send_view IMPORTING iv_xml TYPE string.
+*   Resolves one TABLE column header through ZRAK_T_CJ_TXT when it is written
+*   as @nnn. See the method for why the spec cannot carry an Arabic twin.
+    METHODS col_header IMPORTING iv_raw   TYPE string
+                       RETURNING VALUE(rv) TYPE string.
     METHODS status_state IMPORTING iv_value     TYPE string
                                    iv_map       TYPE string OPTIONAL
                          RETURNING VALUE(rv_st) TYPE string.
@@ -336,7 +350,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       LOOP AT mo_e->mt_msg INTO DATA(ls_e).
         page->message_strip( text = zcl_rak_journey_util=>esc( ls_e-text ) type = ls_e-type showicon = abap_true class = 'sapUiSmallMargin' ).
       ENDLOOP.
-      mo_e->mo_client->view_display( view->stringify( ) ).
+      send_view( view->stringify( ) ).
       RETURN.
     ENDIF.
 
@@ -378,7 +392,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     IF mo_e->mv_submitted = abap_true OR mo_e->mv_closed = abap_true.
       render_result( io_parent = page is_field = VALUE #( name = '' type = 'RESULT' ) ).
       render_feedback( page ).
-      mo_e->mo_client->view_display( view->stringify( ) ).
+      send_view( view->stringify( ) ).
       render_popup( ).
       RETURN.
     ENDIF.
@@ -412,7 +426,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       ENDLOOP.
     ENDIF.
 
-    mo_e->mo_client->view_display( view->stringify( ) ).
+    send_view( view->stringify( ) ).
 
     render_popup( ).
   ENDMETHOD.
@@ -434,12 +448,15 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
 
   METHOD render_attach.
+*   An attachment label is drawn here, not through REQ_LABEL( ), so it kept the
+*   CSS-class marker after REQ_LABEL( ) moved to the native property - and the
+*   class alone draws nothing. Same REQUIRED property, same result.
+    DATA(lv_req) = mo_e->mo_rules->is_required( is_field ).
     io_form->label(
-      text  = zcl_rak_journey_util=>esc( COND #( WHEN is_field-attach_label IS NOT INITIAL
-                           THEN is_field-attach_label ELSE |{ is_field-label } - attachment| ) )
-      class = COND string( WHEN mo_e->mo_rules->is_required( is_field ) = abap_true
-                           THEN 'rakReq sapUiFormLabelNoColon'
-                           ELSE 'sapUiFormLabelNoColon' ) ).
+      text     = zcl_rak_journey_util=>esc( COND #( WHEN is_field-attach_label IS NOT INITIAL
+                              THEN is_field-attach_label ELSE |{ is_field-label } - attachment| ) )
+      class    = 'sapUiFormLabelNoColon'
+      required = lv_req ).
     DATA(lo_box) = io_form->vbox( ).
 
     DATA(lv_count) = render_chips( io_box = lo_box iv_field = is_field-name ).
@@ -618,6 +635,11 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             IF lv_csh IS INITIAL.
               lv_csh = lv_csn.
             ENDIF.
+*           BILINGUAL HEADER. Until this call the header was whatever single
+*           language someone typed into the spec, so an Arabic reader saw the
+*           English column titles - the grid renderer resolves its headers
+*           through PICK_TEXT( ) and this one did not.
+            lv_csh = col_header( lv_csh ).
             APPEND lv_csn TO lt_csn.
             APPEND lv_csh TO lt_csh.
           ENDLOOP.
@@ -1649,8 +1671,8 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       WHEN 'CHECKBOX'.
         DATA(lo_cbx) = io_form->hbox( alignitems = 'Start' width = '100%' ).
 *       THE MARKER LEADS THE STATEMENT, unlike every other field, where
-*       REQ_LABEL puts it after the label via .rakReq::after - which is what
-*       sap.m.Label does for required and what the rest of the form should keep.
+*       REQ_LABEL sets the native sap.m.Label REQUIRED property and UI5 puts the
+*       marker after the text - which is what the rest of the form should keep.
 *
 *       A checkbox is not a label. Its text is a whole consent sentence, and the
 *       star is a SIBLING in the hbox rather than part of the text, so trailing
@@ -2111,17 +2133,28 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     DATA lv_col   TYPE string.
     DATA lv_head  TYPE string.
     DATA lv_sub   TYPE string.
+*   THROUGH THE CATALOGUE, not literals. These four strings had no language test
+*   at all, while the closed-card above and the Reference label below were both
+*   already bilingual - so an Arabic run reached the end of a journey and was
+*   told in English that it had worked. IV_DEFAULT carries the exact previous
+*   wording, so a missing catalogue row shows what it showed before.
     IF lv_done = abap_true.
       lv_col  = `#2e9e4f`.
       lv_head = COND string( WHEN lv_paid = abap_true
-                             THEN `Payment received`
-                             ELSE `Application submitted` ).
-      lv_sub  = `We have everything we need. Keep the reference below for any follow-up.`
-      .
+                             THEN zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-res_paid
+                                                     iv_default = 'Payment received' )
+                             ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-res_submitted
+                                                     iv_default = 'Application submitted' ) ).
+      lv_sub  = zcl_rak_text=>get(
+                  iv_no      = zcl_rak_text=>c_no-res_done_sub
+                  iv_default = 'We have everything we need. Keep the reference below for any follow-up.' ).
     ELSE.
       lv_col  = `#e0a800`.
-      lv_head = `Not submitted yet`.
-      lv_sub  = `This application has not been submitted. Go back and complete the remaining steps.`.
+      lv_head = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-res_not_submitted
+                                   iv_default = 'Not submitted yet' ).
+      lv_sub  = zcl_rak_text=>get(
+                  iv_no      = zcl_rak_text=>c_no-res_not_sub_sub
+                  iv_default = 'This application has not been submitted. Go back and complete the remaining steps.' ).
     ENDIF.
 
     DATA(lv_rtl) = COND string( WHEN mo_e->mv_lang = 'A' THEN ` dir="rtl"` ELSE `` ).
@@ -2609,6 +2642,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       rv_text = zcl_rak_text=>long( iv_journey = mo_e->ms_config-journey_id
                                     iv_field   = is_field-name
                                     iv_default = is_field-label ).
+      subst_fields( CHANGING cv_text = rv_text ).
       RETURN.
     ENDIF.
 
@@ -2623,6 +2657,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *     so an Arabic reader sees whatever was configured here. Use the @ form
 *     when that matters.
       rv_text = lv_body.
+      subst_fields( CHANGING cv_text = rv_text ).
       RETURN.
     ENDIF.
 
@@ -2639,6 +2674,116 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       CATCH cx_root.
         rv_text = is_field-label.
     ENDTRY.
+    subst_fields( CHANGING cv_text = rv_text ).
+  ENDMETHOD.
+
+
+  METHOD subst_fields.
+    IF cv_text NS '{'.
+      RETURN.
+    ENDIF.
+
+    DATA lt_match TYPE match_result_tab.
+    FIND ALL OCCURRENCES OF REGEX '\{([A-Za-z_][A-Za-z0-9_]*)\}' IN cv_text
+         RESULTS lt_match.
+
+*   Backwards, so an earlier replacement's length change never shifts the
+*   offset a later one still needs. FIND ALL OCCURRENCES returns matches
+*   left to right, so working from the last index down to the first walks
+*   the string right to left.
+    DATA(lv_ix) = lines( lt_match ).
+    WHILE lv_ix > 0.
+      READ TABLE lt_match INTO DATA(ls_match) INDEX lv_ix.
+      DATA(lv_field) = to_upper( substring( val = cv_text
+                                            off = ls_match-submatches[ 1 ]-offset
+                                            len = ls_match-submatches[ 1 ]-length ) ).
+      REPLACE SECTION OFFSET ls_match-offset LENGTH ls_match-length OF cv_text
+              WITH mo_e->zif_rak_journey~get_val( lv_field ).
+      lv_ix = lv_ix - 1.
+    ENDWHILE.
+  ENDMETHOD.
+
+
+  METHOD col_header.
+*   A TABLE column header comes from the KEY:Label:TYPE spec in DEFAULT_VAL,
+*   and DEFAULT_VAL has no _AR twin - so a literal header is frozen in whichever
+*   language it was typed in and shows its English to an Arabic reader. That is
+*   what made every Track Complaint / Track Suggestion details table render its
+*   headers in English on an Arabic run.
+*
+*   @nnn is the way out, and it is the SAME mechanism LONG_TEXT( ) already uses
+*   for a bilingual paragraph: a message number in ZRAK_T_CJ_TXT, which does
+*   have TEXT_EN and TEXT_AR and is picked by SY-LANGU. A spec column reads
+*   STATUS:@142:TEXT instead of STATUS:Status:TEXT.
+*
+*   OTR:<alias> deliberately is NOT accepted here, even though PICK( ) takes it
+*   everywhere else: the spec splits on ':', so an alias would be torn in half
+*   by the parser before it ever reached this method.
+*
+*   Anything not starting with @ is returned untouched, so every header
+*   configured today keeps rendering exactly as it does now.
+    rv = iv_raw.
+    IF strlen( rv ) < 2 OR rv(1) <> '@'.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_no) = substring( val = rv off = 1 ).
+    CONDENSE lv_no.
+    TRY.
+        rv = zcl_rak_text=>get( iv_no      = CONV symsgno( lv_no )
+                                iv_default = iv_raw
+                                iv_journey = mo_e->ms_config-journey_id ).
+      CATCH cx_root.
+*       An unusable number is not a reason to draw a blank header - show the
+*       raw token so it is obvious in testing which column is misconfigured.
+        rv = iv_raw.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD send_view.
+*   WHY THIS EXISTS: VIEW_DISPLAY( ) replaces the whole XML view, so UI5 destroys
+*   and rebuilds the page. On a step that is only reacting to a dropdown that is
+*   a full repaint for no visual difference - the flicker, plus the lost scroll
+*   position and focus that come with it. VIEW_MODEL_UPDATE( ) instead sets
+*   CHECK_UPDATE_MODEL, which refreshes the bound values without touching the
+*   control tree, so anything ON_CHANGE( ) wrote server-side still reaches the
+*   screen. The side effects are not skipped - only the repaint is.
+*
+*   THE TEST IS THE MARKUP ITSELF, not a list of things that might have moved.
+*   If the stringified view is byte-identical to the one already on screen, a
+*   repaint would produce an identical DOM by definition, so there is nothing to
+*   lose by skipping it. Anything that genuinely changes the page - a rule
+*   flipping VISIBLE or REQUIRED, a dependent dropdown's options, a message
+*   strip, a step change - changes the markup and takes the full path.
+*
+*   Two guards keep the quiet path narrow. MV_VIEW_SIG must already hold
+*   something, so the first render of a session is always a real view; and
+*   MV_QUIET_EVT is set only for a CHANGE_ round trip, so navigation, submit and
+*   popup events always repaint even when the markup happens to match.
+    DATA lv_sig TYPE string.
+    TRY.
+        cl_abap_message_digest=>calculate_hash_for_char(
+          EXPORTING
+            if_algorithm  = 'SHA1'
+            if_data       = iv_xml
+          IMPORTING
+            ef_hashstring = lv_sig ).
+      CATCH cx_root.
+*       No hash means no safe comparison, so take the path that is always
+*       correct rather than the one that is usually faster.
+        CLEAR lv_sig.
+    ENDTRY.
+
+    IF lv_sig IS NOT INITIAL
+       AND lv_sig = mo_e->mv_view_sig
+       AND mo_e->mv_quiet_evt = abap_true.
+      mo_e->mo_client->view_model_update( ).
+      RETURN.
+    ENDIF.
+
+    mo_e->mv_view_sig = lv_sig.
+    mo_e->mo_client->view_display( iv_xml ).
   ENDMETHOD.
 
 
@@ -2652,10 +2797,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     IF mo_lbl_tgt IS BOUND.
       lo_lbl = mo_lbl_tgt.
     ENDIF.
-    lo_lbl->label( text  = zcl_rak_journey_util=>esc( is_field-label )
-                    class = COND string( WHEN lv_req = abap_true
-                                         THEN 'rakReq sapUiFormLabelNoColon'
-                                         ELSE 'sapUiFormLabelNoColon' ) ).
+*   REQUIRED must be set as the sap.m.Label control property, not faked with a
+*   CSS class - that is what actually makes UI5's own renderer draw the marker
+*   (sapMLabelRequired). The CLASS-only 'rakReq'/.rakReq::after approach this
+*   used to rely on never reliably reached the DOM; ZCL_CJ_DEMO_P001 (a plain,
+*   non-CJS abap2UI5 screen) proves the native REQUIRED property is what works.
+    lo_lbl->label( text     = zcl_rak_journey_util=>esc( is_field-label )
+                    class    = 'sapUiFormLabelNoColon'
+                    required = lv_req ).
   ENDMETHOD.
 
 

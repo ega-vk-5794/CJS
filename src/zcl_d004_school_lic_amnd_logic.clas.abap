@@ -69,6 +69,7 @@ private section.
   constants C_LANG_EN type STRING value 'E' ##NO_TEXT.
   constants C_PARTNER_MOBILE type STRING value 'PARTNER_MOBILE' ##NO_TEXT.
   constants C_PARTNER_EMAIL type STRING value 'PARTNER_EMAIL' ##NO_TEXT.
+  constants C_DOB type STRING value 'DATE_OF_BIRTH_POP' ##NO_TEXT.
 
   methods OWNER_STEP
     importing
@@ -98,6 +99,10 @@ private section.
   methods OWN_SEARCH
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY .
+  methods OWN_DELETE
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IV_ID type STRING .
 ENDCLASS.
 
 
@@ -410,7 +415,8 @@ CLASS ZCL_D004_SCHOOL_LIC_AMND_LOGIC IMPLEMENTATION.
         IMPORTING
           es_bp_details = DATA(ls_bp) ).
 
-      io_ctx->set_val( iv_name = 'OWNER_BP' iv_value = |{ lv_loginbp }| ).
+*      io_ctx->set_val( iv_name = 'OWNER_BP' iv_value = |{ lv_loginbp }| ).
+      io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
 
       IF sy-langu = c_lang_en.
         io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name ) ).
@@ -528,22 +534,81 @@ CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
         own_search( io_ctx ).
 
       WHEN c_evt_ownok.
-*       Validate before writing. Closing on an incomplete row and complaining
-*       behind the dialog makes the citizen reopen it and guess what was wrong.
-        IF io_ctx->get_val( c_own_eid ) IS INITIAL.
+
+       IF io_ctx->get_val( c_own_name )  IS INITIAL
+           OR io_ctx->get_val( c_own_eid ) IS INITIAL
+           OR io_ctx->get_val( c_dob ) IS INITIAL
+           OR io_ctx->get_val( c_own_nat ) IS INITIAL.
+
           io_ctx->add_msg( iv_type = 'Warning'
-                           iv_text = 'Owner name and Emirates ID are both needed.' ).
+                           iv_text = 'Kindly fill required details.' ).
+          RETURN.
+        ELSEIF io_ctx->get_val( c_own_share ) IS INITIAL.
+          io_ctx->add_msg( iv_type = 'Warning'
+                           iv_text = 'Kindly enter shares as 100' ).
           RETURN.
         ENDIF.
+
+*       784-XXXX-XXXXXXX-X - the same shape as the field's own placeholder.
+        DATA(lv_eid_chk) = condense( io_ctx->get_val( c_own_eid ) ).
+        FIND REGEX '^784-\d{4}-\d{7}-\d$' IN lv_eid_chk.
+        IF sy-subrc <> 0.
+          io_ctx->add_msg( iv_type = 'Warning'
+                           iv_text = 'Emirates ID must be in the format 784-XXXX-XXXXXXX-X.' ).
+          RETURN.
+        ENDIF.
+
         own_form_save( io_ctx ).
-        io_ctx->close_popup( ).
+
+        io_ctx->close_popup( ). "Close pop-up screen after adding data
         io_ctx->add_msg( iv_type = 'Success'
                          iv_text = |{ io_ctx->get_val( c_own_name ) } added to the owner list.| ).
+
+
+*       Validate before writing. Closing on an incomplete row and complaining
+*       behind the dialog makes the citizen reopen it and guess what was wrong.
+*       Identification and Shares carry the same rakReq marker as Emirates ID
+*       in RENDER_OWN_POPUP( ) but used to slip through unchecked here.
+***        IF io_ctx->get_val( c_own_name )  IS INITIAL
+***           OR io_ctx->get_val( c_own_eid )   IS INITIAL
+***           OR io_ctx->get_val( c_own_share ) IS INITIAL.
+***          io_ctx->add_msg( iv_type = 'Warning'
+***                           iv_text = 'Kindly fill required details.' ).
+***          RETURN.
+***        ENDIF.
+***
+****       784-XXXX-XXXXXXX-X - the same shape as the field's own placeholder.
+***        DATA(lv_eid_chk) = condense( io_ctx->get_val( c_own_eid ) ).
+***        FIND REGEX '^784-\d{4}-\d{7}-\d$' IN lv_eid_chk.
+***        IF sy-subrc <> 0.
+***          io_ctx->add_msg( iv_type = 'Warning'
+***                           iv_text = 'Emirates ID must be in the format 784-XXXX-XXXXXXX-X.' ).
+***          RETURN.
+***        ENDIF.
+***
+***        own_form_save( io_ctx ).
+***        io_ctx->close_popup( ).
+***        io_ctx->add_msg( iv_type = 'Success'
+***                         iv_text = |{ io_ctx->get_val( c_own_name ) } added to the owner list.| ).
 
       WHEN 'CANCEL'.
         io_ctx->close_popup( ).
       WHEN c_evt_owncx.
         io_ctx->close_popup( ).
+
+      WHEN OTHERS.
+*       Row actions carry their subject in the event id, same as D001's owner
+*       list. These were rendered on every row (RENDER_OWN_LIST) with no
+*       handler at all - Edit and Delete pressed and did nothing.
+        IF iv_event CP 'OWN_EDIT_*'.
+          own_form_load( io_ctx = io_ctx iv_id = substring( val = iv_event off = 9 ) ).
+          io_ctx->open_popup( c_pop_own ).
+          RETURN.
+        ENDIF.
+        IF iv_event CP 'OWN_DEL_*'.
+          own_delete( io_ctx = io_ctx iv_id = substring( val = iv_event off = 8 ) ).
+          RETURN.
+        ENDIF.
     ENDCASE.
 
   ENDMETHOD.
@@ -627,13 +692,22 @@ super->zif_rak_journey_logic~on_render_popup(
     io_ctx->set_val( iv_name = c_own_eid   iv_value = '' ).
     io_ctx->set_val( iv_name = c_own_nat   iv_value = '' ).
     io_ctx->set_val( iv_name = c_own_share iv_value = '' ).
+    io_ctx->set_val( iv_name = 'NAME_POP'      iv_value = '' ).
+    io_ctx->set_val( iv_name = 'TELEPHONE_POP' iv_value = '' ).
+    io_ctx->set_val( iv_name = 'EMAIL_POP'     iv_value = '' ).
 
     IF iv_id IS INITIAL.
 *     New owner. The id is minted NOW and not on save, because the uploaders in
 *     the dialog key their files on it - a file attached before the row exists
-*     still has to belong to the right person.
+*     still has to belong to the right person. This used to mint the SAME
+*     fixed id ('YFS002') for every new owner, so OWN_FORM_SAVE's "does this
+*     id already exist" check matched the first owner every time and every
+*     later Add overwrote them instead of appending - a timestamp is unique
+*     per press.
+      DATA lv_ts TYPE timestampl.
+      GET TIME STAMP FIELD lv_ts.
       io_ctx->set_val( iv_name  = c_own_id
-                       iv_value = 'YFS002' ).
+                       iv_value = |{ lv_ts }| ).
       RETURN.
     ENDIF.
 
@@ -644,6 +718,9 @@ super->zif_rak_journey_logic~on_render_popup(
       io_ctx->set_val( iv_name = c_own_eid   iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
       io_ctx->set_val( iv_name = c_own_nat   iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
       io_ctx->set_val( iv_name = c_own_share iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = 'NAME_POP'      iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = 'TELEPHONE_POP' iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = 'EMAIL_POP'     iv_value = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
       EXIT.
     ENDLOOP.
   endmethod.
@@ -661,12 +738,13 @@ super->zif_rak_journey_logic~on_render_popup(
       IF VALUE string( lt_r[ 1 ] OPTIONAL ) = lv_id.
         lv_found = abap_true.
         CLEAR lt_row.
-        APPEND lv_id                            TO lt_row.
-        APPEND io_ctx->get_val( c_own_name )    TO lt_row.
+*        APPEND lv_id                            TO lt_row.
+        APPEND io_ctx->get_val( 'LOGIN_BP' )    TO lt_row.
+        APPEND io_ctx->get_val( 'NAME_POP' )   TO lt_row.
         APPEND io_ctx->get_val( c_own_eid )     TO lt_row.
         APPEND io_ctx->get_val( c_own_nat )     TO lt_row.
         APPEND io_ctx->get_val( c_own_share )   TO lt_row.
-        APPEND io_ctx->get_val( 'NAME_POP' )   TO lt_row.
+*        APPEND io_ctx->get_val( 'NAME_POP' )   TO lt_row.
         APPEND io_ctx->get_val( 'TELEPHONE_POP' )   TO lt_row.
         APPEND io_ctx->get_val( 'EMAIL_POP' )   TO lt_row.
         APPEND lt_row TO ls_new-rows.
@@ -677,12 +755,13 @@ super->zif_rak_journey_logic~on_render_popup(
 
     IF lv_found = abap_false.
       CLEAR lt_row.
-      APPEND lv_id                          TO lt_row.
-      APPEND io_ctx->get_val( c_own_name )  TO lt_row.
+*      APPEND lv_id                          TO lt_row.
+      APPEND io_ctx->get_val( 'LOGIN_BP' )  TO lt_row.
+      APPEND io_ctx->get_val( 'NAME_POP' )   TO lt_row.
       APPEND io_ctx->get_val( c_own_eid )   TO lt_row.
       APPEND io_ctx->get_val( c_own_nat )   TO lt_row.
       APPEND io_ctx->get_val( c_own_share ) TO lt_row.
-      APPEND io_ctx->get_val( 'NAME_POP' )   TO lt_row.
+*      APPEND io_ctx->get_val( 'NAM=_POP' )   TO lt_row.
       APPEND io_ctx->get_val( 'TELEPHONE_POP' )   TO lt_row.
       APPEND io_ctx->get_val( 'EMAIL_POP' )   TO lt_row.
       APPEND lt_row TO ls_new-rows.
@@ -855,53 +934,150 @@ super->zif_rak_journey_logic~on_render_popup(
 
 
   METHOD render_own_popup.
-*   ONE dialog: the owner's details and their documents. No search, no drill-
-*   down, no second popup - the list is on the step behind and this is the form
-*   that adds one line to it.
+
+
+*   ONE dialog: the owner's details and their documents. No drill-down, no
+*   second popup - the list is on the step behind and this is the form that
+*   adds one line to it.
     DATA(lv_id) = io_ctx->get_val( c_own_id ).
 
-    DATA(lo_dlg) = io_popup->dialog( title = 'Owner' contentwidth = '40rem' ).
+    DATA(lo_dlg) = io_popup->dialog( title = 'Owner' contentwidth = '54rem' ).
     DATA(lo_c)   = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
 
-*   Search sits ON the section title, not under the Emirates ID field, because
-*   it acts on the whole form: type the ID, press Search, and the rest fills in.
-    DATA(lo_hdr) = lo_c->hbox( justifycontent = 'SpaceBetween' alignitems = 'Center' ).
-    lo_hdr->title( text = 'Owner Details' class = 'rakBlkTitle' ).
-    lo_hdr->button( text  = 'Search'
-                    type  = 'Emphasized'
-                    icon  = 'sap-icon://search'
-                    press = io_ctx->event( c_evt_ownsr ) ).
+    lo_c->title( text = 'Owner Details' class = 'rakBlkTitle' ).
 
-*   Two per row, the way the legacy dialog laid it out.
-    DATA(lo_r1) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
-    DATA(lo_c1) = lo_r1->vbox( class = 'rakCell' ).
-    lo_c1->label( text = 'Identification' class = 'rakReq' ).
-    lo_c1->input( value = io_ctx->bind( c_own_name ) width = '17rem' ).
-    DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
-    lo_c2->label( text = 'Emirates ID' class = 'rakReq' ).
-*   Enter in the ID box does the same as pressing Search. Somebody who has just
+*   Same two-column SimpleForm/ResponsiveGridLayout combination DIALOG_FORM( )
+*   uses in ZCL_RAK_JOURNEY_LOGIC (it cannot be called directly here - it owns
+*   and closes its own dialog, with no room for the Documents section below -
+*   but its layout is copied so this reads like every other popup). Search
+*   moves off the section header and onto the Emirates ID field's own
+*   value-help icon, the same F4_EVT affordance DIALOG_FORM( ) offers per
+*   field; pressing it or Enter both still fire C_EVT_OWNSR into the
+*   on_popup_event handler below, unchanged.
+    DATA(lo_form) = lo_c->simple_form( editable                = abap_true
+                                       layout                  = 'ResponsiveGridLayout'
+                                       columnsxl               = '2'
+                                       columnsl                = '2'
+                                       columnsm                = '2'
+                                       labelspanxl             = '12'
+                                       labelspanl              = '12'
+                                       labelspanm              = '12'
+                                       adjustlabelspan         = 'false'
+                                       singlecontainerfullsize = abap_false
+      )->content( ns = 'form' ).
+
+    lo_form->label( text = 'Identification' required = abap_true ).
+*   Emirates ID is the only option, and OWN_FORM_LOAD now defaults it - so
+*   there is nothing left for the citizen to pick from this dropdown.
+**    DATA(lo_nat1) =
+    lo_form->combobox( selectedkey = io_ctx->bind( c_own_name )
+**                        editable    = abap_false
+                        placeholder = 'select'
+      )->item( key = '1'     text = 'Emirates ID' ).
+*      )->item( key = '2'    text = 'Passport' ).
+
+    lo_form->label( text = 'Emirates ID' required = abap_true ).
+*   The search icon and Enter both do the same thing. Somebody who has just
 *   typed fifteen digits should not have to reach for the mouse.
-    lo_c2->input( value       = io_ctx->bind( c_own_eid )
-                  width       = '17rem'
-                  placeholder = '784-xxxx-xxxxxxx-x'
-                  submit      = io_ctx->event( c_evt_ownsr ) ).
+    lo_form->input( value            = io_ctx->bind( c_own_eid )
+                    placeholder      = '784-xxxx-xxxxxxx-x'
+                    showvaluehelp    = abap_true
+                    valuehelprequest = io_ctx->event( c_evt_ownsr )
+                    submit           = io_ctx->event( c_evt_ownsr ) ).
+            lo_form->button( text = 'Check' press = io_ctx->event( c_evt_ownsr ) ).
 
-    DATA(lo_r2) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
-    DATA(lo_c5) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c5->label( text = 'Owner name' ).
-    lo_c5->input( value = io_ctx->bind( 'NAME_POP' ) width = '17rem' ).
-    DATA(lo_c6) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c6->label( text = 'Telephone' ).
-    lo_c6->input( value = io_ctx->bind( 'TELEPHONE_POP' ) width = '17rem' ).
-    DATA(lo_c7) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c7->label( text = 'Email' ).
-    lo_c7->input( value = io_ctx->bind( 'EMAIL_POP' ) width = '17rem' ).
-    DATA(lo_c3) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c3->label( text = 'Nationality' ).
-    lo_c3->input( value = io_ctx->bind( c_own_nat ) width = '17rem' ).
-    DATA(lo_c4) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c4->label( text = 'Shares %' class = 'rakReq' ).
-    lo_c4->input( value = io_ctx->bind( c_own_share ) type = 'Number' width = '17rem' ).
+    lo_form->label( text = 'Owner name' required = abap_true ).
+    lo_form->input( value = io_ctx->bind( 'NAME_POP' ) type = 'Text' ).
+
+    lo_form->label( text = 'Telephone' required = abap_true ).
+    lo_form->input( value = io_ctx->bind( 'TELEPHONE_POP' ) type = 'Number' ).
+
+    lo_form->label( text = 'Email' required = abap_true ).
+    lo_form->input( value = io_ctx->bind( 'EMAIL_POP' ) type = 'Text' ).
+
+    lo_form->label( text = 'Birth Date' required = abap_true ).
+    lo_form->date_picker( value         = io_ctx->bind( c_dob )
+                          valueformat   = 'yyyy-MM-dd'
+                          displayformat = 'dd.MM.yyyy' ).
+
+    lo_form->label( text = 'Nationality' required = abap_true ).
+    DATA(lo_nat) = lo_form->combobox( selectedkey = io_ctx->bind( c_own_nat )
+                                      placeholder = 'select' ).
+*   T005T, not a hand-typed list. The 106-item literal this replaced stopped
+*   at "Kenya" and never had United Arab Emirates in it at all - or anything
+*   else L through Z. Same source ZCL_RAK_BP_POPUP already reads for its own
+*   nationality dropdown, so a country missing here can't happen again the
+*   same way, and it comes back correctly per language for free.
+    SELECT land1 AS key, landx50 AS text
+      FROM t005t
+      WHERE spras = @sy-langu
+      ORDER BY land1 ASCENDING
+      INTO TABLE @DATA(lt_nat).
+    IF lt_nat IS INITIAL AND sy-langu <> 'E'.
+      SELECT land1 AS key, landx50 AS text
+        FROM t005t
+        WHERE spras = 'E'
+        ORDER BY land1 ASCENDING
+        INTO TABLE @lt_nat.
+    ENDIF.
+    LOOP AT lt_nat INTO DATA(ls_nat).
+      lo_nat->item( key = ls_nat-key text = ls_nat-text ).
+    ENDLOOP.
+
+    lo_form->label( text = 'Shares %' required = abap_true ).
+    lo_form->input( value = io_ctx->bind( c_own_share ) type = 'Number' ).
+
+
+
+*****************
+*****************
+******************   ONE dialog: the owner's details and their documents. No search, no drill-
+******************   down, no second popup - the list is on the step behind and this is the form
+******************   that adds one line to it.
+*****************    DATA(lv_id) = io_ctx->get_val( c_own_id ).
+*****************
+*****************    DATA(lo_dlg) = io_popup->dialog( title = 'Owner' contentwidth = '40rem' ).
+*****************    DATA(lo_c)   = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
+*****************
+******************   Search sits ON the section title, not under the Emirates ID field, because
+******************   it acts on the whole form: type the ID, press Search, and the rest fills in.
+*****************    DATA(lo_hdr) = lo_c->hbox( justifycontent = 'SpaceBetween' alignitems = 'Center' ).
+*****************    lo_hdr->title( text = 'Owner Details' class = 'rakBlkTitle' ).
+*****************    lo_hdr->button( text  = 'Search'
+*****************                    type  = 'Emphasized'
+*****************                    icon  = 'sap-icon://search'
+*****************                    press = io_ctx->event( c_evt_ownsr ) ).
+*****************
+******************   Two per row, the way the legacy dialog laid it out.
+*****************    DATA(lo_r1) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
+*****************    DATA(lo_c1) = lo_r1->vbox( class = 'rakCell' ).
+*****************    lo_c1->label( text = 'Identification' required = abap_true ).
+*****************    lo_c1->input( value = io_ctx->bind( c_own_name ) width = '17rem' ).
+*****************    DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
+*****************    lo_c2->label( text = 'Emirates ID' required = abap_true ).
+******************   Enter in the ID box does the same as pressing Search. Somebody who has just
+******************   typed fifteen digits should not have to reach for the mouse.
+*****************    lo_c2->input( value       = io_ctx->bind( c_own_eid )
+*****************                  width       = '17rem'
+*****************                  placeholder = '784-xxxx-xxxxxxx-x'
+*****************                  submit      = io_ctx->event( c_evt_ownsr ) ).
+*****************
+*****************    DATA(lo_r2) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
+*****************    DATA(lo_c5) = lo_r2->vbox( class = 'rakCell' ).
+*****************    lo_c5->label( text = 'Owner name' ).
+*****************    lo_c5->input( value = io_ctx->bind( 'NAME_POP' ) width = '17rem' ).
+*****************    DATA(lo_c6) = lo_r2->vbox( class = 'rakCell' ).
+*****************    lo_c6->label( text = 'Telephone' ).
+*****************    lo_c6->input( value = io_ctx->bind( 'TELEPHONE_POP' ) width = '17rem' ).
+*****************    DATA(lo_c7) = lo_r2->vbox( class = 'rakCell' ).
+*****************    lo_c7->label( text = 'Email' ).
+*****************    lo_c7->input( value = io_ctx->bind( 'EMAIL_POP' ) width = '17rem' ).
+*****************    DATA(lo_c3) = lo_r2->vbox( class = 'rakCell' ).
+*****************    lo_c3->label( text = 'Nationality' ).
+*****************    lo_c3->input( value = io_ctx->bind( c_own_nat ) width = '17rem' ).
+*****************    DATA(lo_c4) = lo_r2->vbox( class = 'rakCell' ).
+*****************    lo_c4->label( text = 'Shares %' required = abap_true ).
+*****************    lo_c4->input( value = io_ctx->bind( c_own_share ) type = 'Number' width = '17rem' ).
 
 *   ---- their documents ------------------------------------------------
 *   iv_key is what makes a repeating list work. Every uploader here is keyed on
@@ -912,15 +1088,31 @@ super->zif_rak_journey_logic~on_render_popup(
 *   Without the key every owner's files would land in one chip list with nothing
 *   to tell them apart, and the delete button beside a chip would remove
 *   somebody else's document.
-    lo_c->title( text = 'Documents' class = 'rakBlkTitle sapUiSmallMarginTop' ).
-    lo_c->label( text = 'Emirates ID copy' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'EMI_COPY_POP' iv_key = lv_id ).
-    lo_c->label( text = 'Passport copy' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'PASSPORT_COPY_POP' iv_key = lv_id ).
-    lo_c->label( text = 'Introductory Statement' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'INTRODUCTORY_POP' iv_key = lv_id ).
-    lo_c->label( text = 'Criminal clearance certificate' ).
-    io_ctx->render_upload( io_view = lo_c iv_field = 'CRIMINAL_CLEAR_POP' iv_key = lv_id ).
+     DATA(lo_dr1) = lo_c->hbox( class = 'rakRow' ).
+    DATA(lo_d1)  = lo_dr1->vbox( class = 'rakCell' ).
+    lo_d1->label( text = 'Emirates ID Copy' ).
+    io_ctx->render_upload( io_view = lo_d1 iv_field = 'EMI_COPY_POP' iv_key = lv_id ).
+    DATA(lo_d2)  = lo_dr1->vbox( class = 'rakCell' ).
+    lo_d2->label( text = 'Passport Copy' ).
+    io_ctx->render_upload( io_view = lo_d2 iv_field = 'PASSPORT_COPY_POP' iv_key = lv_id ).
+
+    DATA(lo_dr2) = lo_c->hbox( class = 'rakRow' ).
+    DATA(lo_d3)  = lo_dr2->vbox( class = 'rakCell' ).
+    lo_d3->label( text = 'Introductory Statement' ).
+    io_ctx->render_upload( io_view = lo_d3 iv_field = 'INTRODUCTORY_POP' iv_key = lv_id ).
+    DATA(lo_d4)  = lo_dr2->vbox( class = 'rakCell' ).
+    lo_d4->label( text = 'Criminal Clearance certificate' ).
+    io_ctx->render_upload( io_view = lo_d4 iv_field = 'CRIMINAL_CLEAR_POP' iv_key = lv_id ).
+
+**    lo_c->title( text = 'Documents' class = 'rakBlkTitle sapUiSmallMarginTop' ).
+**    lo_c->label( text = 'Emirates ID copy' ).
+**    io_ctx->render_upload( io_view = lo_c iv_field = 'EMI_COPY_POP' iv_key = lv_id ).
+**    lo_c->label( text = 'Passport copy' ).
+**    io_ctx->render_upload( io_view = lo_c iv_field = 'PASSPORT_COPY_POP' iv_key = lv_id ).
+**    lo_c->label( text = 'Introductory Statement' ).
+**    io_ctx->render_upload( io_view = lo_c iv_field = 'INTRODUCTORY_POP' iv_key = lv_id ).
+**    lo_c->label( text = 'Criminal clearance certificate' ).
+**    io_ctx->render_upload( io_view = lo_c iv_field = 'CRIMINAL_CLEAR_POP' iv_key = lv_id ).
 
     DATA(lo_b) = lo_dlg->buttons( ).
     lo_b->button( text  = 'Add'
@@ -928,6 +1120,17 @@ super->zif_rak_journey_logic~on_render_popup(
                   icon  = 'sap-icon://accept'
                   press = io_ctx->event( c_evt_ownok ) ).
     lo_b->button( text = 'Close' press = io_ctx->event( c_evt_owncx ) ).
+  ENDMETHOD.
+
+
+  METHOD own_delete.
+    DATA(ls_g)   = io_ctx->get_grid_data( c_grid ).
+    DATA(ls_new) = VALUE zif_rak_journey=>ty_table( columns = ls_g-columns ).
+    LOOP AT ls_g-rows INTO DATA(lt_r).
+      CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) <> iv_id.
+      APPEND lt_r TO ls_new-rows.
+    ENDLOOP.
+    io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
   ENDMETHOD.
 
 

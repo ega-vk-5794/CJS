@@ -48,6 +48,20 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mt_param     TYPE zif_rak_journey=>tt_kv.
     DATA mv_journey   TYPE string.
     DATA mv_lang      TYPE sy-langu.
+*   FLICKER CONTROL. Every round trip used to end in VIEW_DISPLAY( ), which
+*   hands the client a whole new XML view - so UI5 tore the page down and
+*   rebuilt it each time a citizen picked from a dropdown, and the repaint is
+*   what reads as flickering. MV_VIEW_SIG is the hash of the view last sent;
+*   SEND_VIEW( ) in ZCL_RAK_JOURNEY_RENDER compares against it and, when the
+*   markup has not moved, calls VIEW_MODEL_UPDATE( ) instead - the values still
+*   travel, nothing is rebuilt. It rides the serialized instance, so a fresh
+*   session starts blank and gets a full view, which is correct.
+    DATA mv_view_sig  TYPE string.
+*   Set only for a CHANGE_ round trip. The signature test alone would be
+*   enough - identical markup repaints to an identical DOM - but keeping the
+*   quiet path off navigation, submit and popup events bounds what this can
+*   affect to the case it was written for.
+    DATA mv_quiet_evt TYPE abap_bool.
     DATA mv_userdata  TYPE string.
     DATA mv_loginbp   TYPE string.
     DATA mv_rolebp    TYPE string.
@@ -298,6 +312,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     DATA(ls_get)   = mo_client->get( ).
     DATA(lv_event) = ls_get-event.
+    CLEAR mv_quiet_evt.
 
 *   Refresh the rule state against THIS round trip's field values before
 *   dispatching the event. An INPUT-triggered rule's field arrives already
@@ -318,6 +333,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     ELSEIF strlen( lv_event ) > 7 AND substring( val = lv_event len = 7 ) = 'CHANGE_'.
       DATA(lv_chg_fld) = substring( val = lv_event off = 7 ).
+      mv_quiet_evt = abap_true.
       radio_key_back( lv_chg_fld ).
       IF mo_logic IS BOUND.
         TRY.

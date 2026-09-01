@@ -107,6 +107,14 @@ Use a private method. There is no macro in this codebase worth keeping.
 Grid rows are plain string tables and a row can have fewer cells than the spec
 has columns. Guard with `lines( )` or wrap in a helper.
 
+**An offset or length on a `STRING` throws when the string is shorter**, exactly like a
+missing table row. `CX_SY_RANGE_OUT_OF_BOUNDS`, not a truncated result and not a blank.
+This bites hardest on event names, which are `TYPE string` and short: `CASE iv_event(8)`
+against `'OWN_OK'` throws. Prefer `CP` against the event's own wildcard constant - a
+pattern match cannot run off the end - or test `strlen( )` first. Worse, the engine
+catches `ON_POPUP_EVENT` exceptions and renders them as a Warning, so this presents as a
+puzzling message on an action that otherwise worked, never as a dump.
+
 **`OPTIONAL` on a table expression is what stops the dump** when reading a filter
 or an optional row:
 

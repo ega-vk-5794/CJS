@@ -75,6 +75,15 @@ CLASS ZCL_E023_DEWATERING_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
+*   THE BASE CALL IS THE PAID GATE - it refuses a submit while PAYFEE <> 'PAID'.
+*   It has to run BEFORE the CHECK below: a failing CHECK exits the method, so a
+*   CHECK placed first skips the gate on every step this handler does not own,
+*   which is every step where payment is actually decided. RT is extended with
+*   VALUE #( BASE rt ... ) further down rather than assigned, so the gate's own
+*   messages survive.
+    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
+                                                         iv_step = iv_step ).
+
     CHECK iv_step = c_step_dewater.
     " Belt-and-braces: config MIN_VAL/MAX_VAL already gate this, but the
     " legacy journey enforced 1..60 in code, so mirror it.
@@ -84,11 +93,11 @@ CLASS ZCL_E023_DEWATERING_LOGIC IMPLEMENTATION.
       TRY.
           lv_n = lv_days.
         CATCH cx_sy_conversion_no_number.
-          rt = VALUE #( ( type = 'Error' text = 'Duration must be a number of days between 1 and 60' ) ).
+          rt = VALUE #( BASE rt ( type = 'Error' text = 'Duration must be a number of days between 1 and 60' ) ).
           RETURN.
       ENDTRY.
       IF lv_n < 1 OR lv_n > 60.
-        rt  = VALUE #( ( type = 'Error' text = 'Duration must be between 1 and 60 days' ) ).
+        rt  = VALUE #( BASE rt ( type = 'Error' text = 'Duration must be between 1 and 60 days' ) ).
       ENDIF.
     ENDIF.
   ENDMETHOD.

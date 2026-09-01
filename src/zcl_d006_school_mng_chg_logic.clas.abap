@@ -35,72 +35,73 @@ public section.
   methods ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
     redefinition .
 protected section.
-private section.
+PRIVATE SECTION.
 
-  constants C_MIN_SEARCH_LEN type I value 3 ##NO_TEXT.
-  constants C_DEFAULT_IDTYPE type STRING value 'YFS002' ##NO_TEXT.
+  CONSTANTS c_min_search_len TYPE i VALUE 3 ##NO_TEXT.
+  CONSTANTS c_default_idtype TYPE string VALUE 'YFS002' ##NO_TEXT.
+  CONSTANTS c_login_bp TYPE string VALUE 'LOGIN_BP'.
 *  constants C_ROWSEP .
 
 *  methods OWNER_STEP .
 *  methods BLOB_READ .
 
-  types:
-    begin of ty_owner,
-   IDENTIFICATION_POP TYPE string,
-   EMIRATES_ID_POP TYPE string,
-   DATE_OF_BIRTH_POP TYPE string,
-   NATIONALITY_POP TYPE string,
-   SHARES_POP         TYPE string,
-   EMI_COPY_POP    TYPE string,
-   end of ty_owner .
-  types:
+  TYPES:
+    BEGIN OF ty_owner,
+      identification_pop TYPE string,
+      emirates_id_pop    TYPE string,
+      date_of_birth_pop  TYPE string,
+      nationality_pop    TYPE string,
+      shares_pop         TYPE string,
+      emi_copy_pop       TYPE string,
+    END OF ty_owner .
+  TYPES:
     tt_owner TYPE STANDARD TABLE OF ty_owner WITH EMPTY KEY .
 
-  constants:
-    c_rowsep TYPE c LENGTH 1 value '|' ##NO_TEXT.
-  constants:
-    c_colsep TYPE c LENGTH 1 value '~' ##NO_TEXT.
-  constants C_GRID type STRING value 'OWNERS_SEARCH' ##NO_TEXT.
-  constants C_EVT_OWNEW type STRING value 'OWN_NEW' ##NO_TEXT.
-  constants C_EVT_OWNSR type STRING value 'OWN_SEARCH' ##NO_TEXT.
-  constants C_EVT_OWNOK type STRING value 'OWN_OK' ##NO_TEXT.
-  constants C_EVT_OWNCX type STRING value 'OWN_CANCEL' ##NO_TEXT.
-  constants C_OWN_ID type STRING value 'IDENTIFICATION_POP' ##NO_TEXT.
-  constants C_POP_OWN type STRING value 'OWNER' ##NO_TEXT.
-  data C_OWN_NAME type STRING value 'IDENTIFICATION_POP' ##NO_TEXT.
-  data C_OWN_EID type STRING value 'EMIRATES_ID_POP' ##NO_TEXT.
-  data C_OWN_NAT type STRING value 'NATIONALITY_POP' ##NO_TEXT.
-  data C_OWN_SHARE type STRING value 'SHARES_POP' ##NO_TEXT.
-  data C_PAY_POLLS type STRING value 'PAY_POLLS' ##NO_TEXT.
+  CONSTANTS:
+    c_rowsep TYPE c LENGTH 1 VALUE '|' ##NO_TEXT.
+  CONSTANTS:
+    c_colsep TYPE c LENGTH 1 VALUE '~' ##NO_TEXT.
+  CONSTANTS c_grid TYPE string VALUE 'OWNERS_SEARCH' ##NO_TEXT.
+  CONSTANTS c_evt_ownew TYPE string VALUE 'OWN_NEW' ##NO_TEXT.
+  CONSTANTS c_evt_ownsr TYPE string VALUE 'OWN_SEARCH' ##NO_TEXT.
+  CONSTANTS c_evt_ownok TYPE string VALUE 'OWN_OK' ##NO_TEXT.
+  CONSTANTS c_evt_owncx TYPE string VALUE 'OWN_CANCEL' ##NO_TEXT.
+  CONSTANTS c_own_id TYPE string VALUE 'IDENTIFICATION_POP' ##NO_TEXT.
+  CONSTANTS c_pop_own TYPE string VALUE 'OWNER' ##NO_TEXT.
+  DATA c_own_name TYPE string VALUE 'IDENTIFICATION_POP' ##NO_TEXT.
+  DATA c_own_eid TYPE string VALUE 'EMIRATES_ID_POP' ##NO_TEXT.
+  DATA c_own_nat TYPE string VALUE 'NATIONALITY_POP' ##NO_TEXT.
+  DATA c_own_share TYPE string VALUE 'SHARES_POP' ##NO_TEXT.
+  DATA c_pay_polls TYPE string VALUE 'PAY_POLLS' ##NO_TEXT.
 
-  methods OWNER_STEP
-    importing
-      !IO_CTX type ref to ZIF_RAK_JOURNEY
-    returning
-      value(RV_STEP) type I .
-  methods BLOB_READ
-    importing
-      !IO_CTX type ref to ZIF_RAK_JOURNEY
-    returning
-      value(RT) type TT_OWNER .
-  methods RENDER_OWN_LIST
-    importing
-      !IO_CTX type ref to ZIF_RAK_JOURNEY
-      !IO_VIEW type ref to Z2UI5_CL_XML_VIEW .
-  methods OWN_FORM_LOAD
-    importing
-      !IO_CTX type ref to ZIF_RAK_JOURNEY
-      !IV_ID type STRING optional .
-  methods RENDER_OWN_POPUP
-    importing
-      !IO_CTX type ref to ZIF_RAK_JOURNEY
-      !IO_POPUP type ref to Z2UI5_CL_XML_VIEW .
-  methods OWN_FORM_SAVE
-    importing
-      !IO_CTX type ref to ZIF_RAK_JOURNEY .
-  methods OWN_SEARCH
-    importing
-      !IO_CTX type ref to ZIF_RAK_JOURNEY .
+  METHODS owner_step
+    IMPORTING
+      !io_ctx        TYPE REF TO zif_rak_journey
+    RETURNING
+      VALUE(rv_step) TYPE i .
+  METHODS blob_read
+    IMPORTING
+      !io_ctx   TYPE REF TO zif_rak_journey
+    RETURNING
+      VALUE(rt) TYPE tt_owner .
+  METHODS render_own_list
+    IMPORTING
+      !io_ctx  TYPE REF TO zif_rak_journey
+      !io_view TYPE REF TO z2ui5_cl_xml_view .
+  METHODS own_form_load
+    IMPORTING
+      !io_ctx TYPE REF TO zif_rak_journey
+      !iv_id  TYPE string OPTIONAL .
+  METHODS render_own_popup
+    IMPORTING
+      !io_ctx   TYPE REF TO zif_rak_journey
+      !io_popup TYPE REF TO z2ui5_cl_xml_view .
+  METHODS own_form_save
+    IMPORTING
+      !io_ctx TYPE REF TO zif_rak_journey .
+  METHODS own_search
+    IMPORTING
+      !io_ctx TYPE REF TO zif_rak_journey .
 ENDCLASS.
 
 
@@ -279,41 +280,36 @@ CLASS ZCL_D006_SCHOOL_MNG_CHG_LOGIC IMPLEMENTATION.
 *  EXPORTING
 *    IO_CTX =
 *    .
-    CALL METHOD super->zif_rak_journey_logic~on_init
-      EXPORTING
-        io_ctx = io_ctx.
-*
-    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
-*
-    zcl_ega_cj_utility=>get_bp(
-      EXPORTING
-        qv_key  = user_data
-      IMPORTING
-        loginbp = DATA(loginbp)
-        rolebp  = DATA(rolebp)
-        role    = DATA(role)
-    ).
-*
-    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+*    CALL METHOD super->zif_rak_journey_logic~on_init
+*      EXPORTING
+*        io_ctx = io_ctx.
+**
+*    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
+**
+*    zcl_ega_cj_utility=>get_bp(
+*      EXPORTING
+*        qv_key  = user_data
+*      IMPORTING
+*        loginbp = DATA(loginbp)
+*        rolebp  = DATA(rolebp)
+*        role    = DATA(role)
+*    ).
+**
+*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '3000000049' ).
 
-*    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
-*   The signed-in citizen, read from the business partner register. What stood
-*   here was a fixed name and Emirates ID, written AFTER the real read, so every
-*   applicant saw and posted the same test person.
-    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
-      EXPORTING
-        iv_bp_id      = CONV bu_partner( loginbp )
-      IMPORTING
-        es_bp_details = DATA(ls_bp_real) ).
-    io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = COND #(
-      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
-      THEN CONV string( ls_bp_real-bp_name_ar )
-      ELSE CONV string( ls_bp_real-bp_name ) ) ).
-    io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
-*    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
+    DATA: lv_loginbp TYPE bu_partner.
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
 
-*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
-    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
+    io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+*    io_ctx->set_val( iv_name = c_owner_bp iv_value = |{ lv_loginbp }| ).
+
+**    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
+*    io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
+**    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
+*    io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
+*
+**    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+*    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
   ENDMETHOD.
 
 

@@ -13,7 +13,11 @@ CLASS lcl_event_receiver DEFINITION.
       handle_fav_drop
         FOR EVENT on_drop
         OF cl_gui_alv_tree
-        IMPORTING sender node_key drag_drop_object.
+        IMPORTING sender node_key drag_drop_object,
+      handle_hotspot_click
+        FOR EVENT hotspot_click
+        OF cl_gui_alv_grid
+        IMPORTING sender e_row_id e_column_id es_row_no.
 
 ENDCLASS.
 CLASS lcl_editor DEFINITION.
@@ -33,6 +37,7 @@ CLASS lcl_editor DEFINITION.
           lo_category_container TYPE REF TO cl_gui_docking_container,
           lo_editor_container   TYPE REF TO cl_gui_docking_container,
           lo_property_container TYPE REF TO cl_gui_docking_container,
+          lo_property_grid      TYPE REF TO cl_gui_alv_grid,
           lt_category           TYPE zcj_z2ui5_categoty_tb, "tt_category,
           lt_controls           TYPE zcj_z2ui5_controls_tb, "tt_control,
           lt_search_category    TYPE tt_search_category,
@@ -44,6 +49,7 @@ CLASS lcl_editor DEFINITION.
     METHODS:
       constructor,
       init_screens,
+      init_params_screens,
       on_load_json_end IMPORTING p_task TYPE clike,
       load_controls,
       load_editor,
@@ -86,57 +92,94 @@ CLASS lcl_editor IMPLEMENTATION.
 
   ENDMETHOD.
   METHOD init_screens.
-    CREATE OBJECT lo_category_container
-      EXPORTING
-        repid                       = sy-repid             " Current Program ID
-        dynnr                       = sy-dynnr             " Screen/Dynpro Number (e.g., '1000' for Selection Screens)
-        side                        = cl_gui_docking_container=>dock_at_left " Dock Position: LEFT, RIGHT, TOP, or BOTTOM
-        extension                   = 300                  " Width or height of the container in pixels
-      EXCEPTIONS
-        cntl_error                  = 1
-        cntl_system_error           = 2
-        create_error                = 3
-        lifetime_error              = 4
-        lifetime_dynpro_dynpro_link = 5
-        OTHERS                      = 6.
+    IF lo_category_container IS INITIAL.
+
+      DATA(lv_style) = cl_gui_control=>ws_child + cl_gui_control=>ws_thickframe + cl_gui_control=>ws_visible.
+      CREATE OBJECT lo_category_container
+        EXPORTING
+          repid                       = sy-repid
+          dynnr                       = sy-dynnr
+          side                        = cl_gui_docking_container=>dock_at_left
+          ratio                       = 20
+          style                       = lv_style
+        EXCEPTIONS
+          cntl_error                  = 1
+          cntl_system_error           = 2
+          create_error                = 3
+          lifetime_error              = 4
+          lifetime_dynpro_dynpro_link = 5
+          OTHERS                      = 6.
 
 
-    CREATE OBJECT lo_editor_container
-      EXPORTING
-        repid                       = sy-repid             " Current Program ID
-        dynnr                       = sy-dynnr             " Screen/Dynpro Number (e.g., '1000' for Selection Screens)
-        side                        = cl_gui_docking_container=>dock_at_left " Dock Position: LEFT, RIGHT, TOP, or BOTTOM
-        extension                   = 1200                  " Width or height of the container in pixels
-      EXCEPTIONS
-        cntl_error                  = 1
-        cntl_system_error           = 2
-        create_error                = 3
-        lifetime_error              = 4
-        lifetime_dynpro_dynpro_link = 5
-        OTHERS                      = 6.
+      CREATE OBJECT lo_editor_container
+        EXPORTING
+          repid                       = sy-repid
+          dynnr                       = sy-dynnr
+          side                        = cl_gui_docking_container=>dock_at_left
+          ratio                       = 50
+          style                       = lv_style
+        EXCEPTIONS
+          cntl_error                  = 1
+          cntl_system_error           = 2
+          create_error                = 3
+          lifetime_error              = 4
+          lifetime_dynpro_dynpro_link = 5
+          OTHERS                      = 6.
 
-    DATA: effect TYPE i.
+      CREATE OBJECT me->lo_property_container
+        EXPORTING
+          repid                       = sy-repid
+          dynnr                       = '0100'
+          extension                   = 300
+          side                        = cl_gui_docking_container=>dock_at_bottom
+          style                       = lv_style
+        EXCEPTIONS
+          cntl_error                  = 1
+          cntl_system_error           = 2
+          create_error                = 3
+          lifetime_error              = 4
+          lifetime_dynpro_dynpro_link = 5
+          OTHERS                      = 6.
 
-    CREATE OBJECT me->lo_line_behaviour.
-    effect = cl_dragdrop=>copy.
-    CALL METHOD me->lo_line_behaviour->add
-      EXPORTING
-        flavor     = 'favorit'                  "#EC NOTEXT
-        dragsrc    = 'X'
-        droptarget = ' '
-        effect     = effect.
+      CREATE OBJECT me->lo_property_grid
+        EXPORTING
+          i_parent          = me->lo_property_container
+        EXCEPTIONS
+          error_cntl_create = 1
+          error_cntl_init   = 2
+          error_cntl_link   = 3
+          error_dp_create   = 4.
 
-    CREATE OBJECT me->lo_fav_behaviour.
-    effect = cl_dragdrop=>copy.
-    CALL METHOD me->lo_fav_behaviour->add
-      EXPORTING
-        flavor     = 'favorit'                  "#EC NOTEXT
-        dragsrc    = 'X'
-        droptarget = 'X'
-        effect     = effect.
+      DATA: effect TYPE i.
 
-    me->load_controls( ).
-    me->load_editor( ).
+      CREATE OBJECT me->lo_line_behaviour.
+      effect = cl_dragdrop=>copy.
+      CALL METHOD me->lo_line_behaviour->add
+        EXPORTING
+          flavor     = 'favorit'                  "#EC NOTEXT
+          dragsrc    = 'X'
+          droptarget = ' '
+          effect     = effect.
+
+      CREATE OBJECT me->lo_fav_behaviour.
+      effect = cl_dragdrop=>copy.
+      CALL METHOD me->lo_fav_behaviour->add
+        EXPORTING
+          flavor     = 'favorit'                  "#EC NOTEXT
+          dragsrc    = 'X'
+          droptarget = 'X'
+          effect     = effect.
+
+      me->load_controls( ).
+      me->load_editor( ).
+    ENDIF.
+  ENDMETHOD.
+  METHOD init_params_screens.
+    IF me->lo_property_container IS INITIAL.
+      DATA(lv_style) = cl_gui_control=>ws_child + cl_gui_control=>ws_thickframe + cl_gui_control=>ws_visible.
+
+
+    ENDIF.
   ENDMETHOD.
   METHOD load_controls.
     DATA: lt_fcat            TYPE lvc_t_fcat,

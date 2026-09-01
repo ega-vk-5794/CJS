@@ -126,6 +126,99 @@ These raise nothing and render nothing. They account for most of the bugs found 
   back to the literal `OTR:...` string, on screen, rather than going blank — a visible symptom
   instead of a silent one. Existing literal text is unaffected: only a value that starts with
   the four characters `OTR:` is treated this way.
+- **A required label is marked by the `required` property, never by a CSS class.**
+  `label( ... required = abap_true )` is what makes UI5's own renderer draw the asterisk
+  (`sapMLabelRequired`). The old mechanism — a `rakReq` class plus a hand-written
+  `.rakReq::after` rule — never reliably reached the DOM, so every mandatory field on every
+  journey rendered unmarked while `VALIDATE_STEP( )` went on correctly refusing the submit:
+  a form that looks optional and won't submit. The class and the CSS rule behind it are both
+  gone; `.rakReqStar` is a different thing and stays (the required-**checkbox** marker is a
+  sibling control, because a checkbox's text is a whole sentence, not a label).
+  `ZCL_RAK_JOURNEY_RENDER->REQ_LABEL( )` is the engine's one label, but it is **not the only
+  place a label is drawn** — `RENDER_ATTACH( )` and `ZCL_RAK_JOURNEY_LOGIC->DIALOG_FORM( )`
+  draw their own, and a hand-drawn popup that calls `z2ui5_cl_xml_view->label( )` directly
+  bypasses all three. Prefer `DIALOG_FORM( )` for a new popup: it sets `REQUIRED` from each
+  field's own flag, so the marker cannot be forgotten.
+- **An offset on `IV_EVENT` is an offset on a `STRING`, and a short event throws.**
+  `IV_EVENT` is `TYPE string`, so `iv_event(8)` on anything shorter raises
+  `CX_SY_RANGE_OUT_OF_BOUNDS` - and event names are short: `C_EVT_OWNOK` is `'OWN_OK'`,
+  six characters. E016 dispatched its Edit/Delete rows with `CASE iv_event(8)` after a
+  `CASE` whose Add branch did not `RETURN`, so pressing Add fell into it and threw.
+  It never dumped, which is why it survived: the engine wraps `ON_POPUP_EVENT` in
+  `TRY/CATCH cx_root` and turns it into a Warning - so the row saved, the popup closed,
+  and the citizen got an unexplained offset error on a **successful** Add. Match event
+  names with `CP` (`iv_event CP c_edit_pop`) the way D001/D004/E017/E018 do - a pattern
+  match cannot run off the end - or guard the offset with `strlen( )`.
+- **An empty redefinition is a DELETION, not a no-op.** Handlers INHERIT from
+  `ZCL_RAK_JOURNEY_LOGIC`, so redefining a hook REPLACES its base body. Most of the
+  interface is genuinely empty and overriding it costs nothing - but four hooks are not:
+  `ON_CUSTOM_VALIDATE` is the PAID gate, `RENDER_FIELD` is the payment card,
+  `ON_POPUP_EVENT` is the BP and attachment machinery, `WANTS_FEEDBACK` returns true.
+  Emptying one removes that silently. This is not hypothetical: **E128 lost its PAID
+  gate and could be submitted unpaid, D020 lost its fee card, E014 and E027 lost the
+  payload strip** - all four with a commented-out `CALL METHOD SUPER->` template sitting
+  in the body, which is what SE24's "redefine" button generates and which reads exactly
+  like the call has been made. Either chain (`rt = super->...( )`, extending with
+  `VALUE #( BASE rt ... )`) or delete the redefinition so the base runs. `ON_BEFORE_POST`
+  and `ON_BEFORE_FIELDS` are the deliberate exception - their base strips `PAY_*`/`PAYFEE`,
+  which is wrong for a fee-bearing journey, so D001, D025 and E027 skip it on purpose.
+- **A popup's `REQUIRED` is a marker; the handler is the enforcement, and the two drift.**
+  `DIALOG_FORM( )` sets `REQUIRED` on the label and nothing else - `VALIDATE_STEP( )` never
+  sees popup fields, so the OK event has to check them itself. The two lists must mirror
+  each other: a field marked but not checked promises an asterisk it never enforces, and a
+  field checked but not marked is the looks-optional-and-won't-submit bug. E016/E017/E018
+  had *no* markers against 9/4/10 enforced fields until this was fixed.
+- **Validation that only adds a message does not block anything.** E017's `VALIDATE_INPUT( )`
+  returned nothing and the caller ran `POPULATE_GRID( )` and `CLOSE_POPUP( )` regardless, so
+  a blank chemical row was saved and the dialog shut with a warning toast as the only sign.
+  A popup check has to return a verdict and the caller has to gate the save AND the close on
+  it - leaving the dialog open is the point, so the citizen keeps what they typed.
+- **Check whether a method is reachable before believing what it renders.** Several handlers
+  keep a hand-drawn `RENDER_OWN_POPUP( )` whose only call site is commented out, sitting
+  beside the live `DIALOG_FORM( )` path. Nothing marks it dead. Twenty of thirty-one label
+  fixes in one session landed in exactly that kind of code and changed nothing on screen.
+  `grep` for the call site, not just the method.
+- **Every round trip used to repaint the whole page, and that is what "flickering" is.**
+  `VIEW_DISPLAY( )` hands the client a fresh XML view, so UI5 tears the control tree down
+  and rebuilds it - taking the scroll position and the focus with it. Picking from a
+  dropdown raises `CHANGE` (see `OPT_EVT( )`), and the round trip is *correct* - `ON_CHANGE( )`
+  has to run - but repainting afterwards when nothing moved is not. `SEND_VIEW( )` in
+  `ZCL_RAK_JOURNEY_RENDER` is now the single exit for the finished view: it hashes the
+  stringified markup against `ZCL_RAK_JOURNEY_ENGINE-MV_VIEW_SIG` and, when it matches,
+  calls `VIEW_MODEL_UPDATE( )` instead - which sets `CHECK_UPDATE_MODEL` and refreshes the
+  bound values without touching the controls, so a value `ON_CHANGE( )` wrote server-side
+  still reaches the screen. **The test is the markup itself, never a list of things that
+  might have moved**, so it cannot go stale: anything that really changes the page changes
+  the markup. `MV_QUIET_EVT` keeps the quiet path to `CHANGE_` round trips only, so
+  navigation, submit and popups always repaint; popups go out through `POPUP_DISPLAY( )`
+  regardless. Confirmed fixed on screen. If you ever need the old behaviour, do not
+  reintroduce a second `VIEW_DISPLAY( )` call - go through `SEND_VIEW( )`.
+- **A backend TABLE's cells are positional at BOTH ends, and the two orders are set in
+  different places.** `ZCL_RAK_JOURNEY_BE` reads a backend table by assigning
+  `FIELD1..FIELDn` in order and handing cell N to configured column N of the
+  `KEY:Label:TYPE` spec in `DEFAULT_VAL`. The BAdI fills those same components the other
+  way round - `ZCL_EGA_CJ_ECOMP_ABS->ZIF_EGA_FW_CJI~READ( )` does
+  `lv_field = 'FIELD' && ls_child-list_sequence`, so the slot a value lands in comes from
+  **`LIST_SEQUENCE` in `/QNV/SB_UI_DEFIN`**, not from the CJS spec. Nothing checks that the
+  two agree: a column whose `LIST_SEQUENCE` is missing renders blank, and one whose
+  sequence differs from its position in `DEFAULT_VAL` renders the neighbouring value.
+  Before believing a wrong or empty column is a rendering bug, line the spec up against
+  the `/QNV/SB_UI_DEFIN` rows for that screen.
+- **`FIELDn` is a fixed-width DDIC component; a `TYPE string` source is cut to fit.**
+  The BAdI assigns a `string` (e.g. `TY_COMPLAINT_DETAILS-COMPLAINERNAME`) into a `FIELDn`
+  of `/QNV/SBUILD_UI_TABLE_CUST_TT`, and the truncation happens silently at that
+  assignment - which is why a 1000-character description came back as exactly 250. That
+  structure is legacy and must not be widened. Long text belongs on a scalar field bound
+  to the `GS_DATA` component that holds the whole string, the way EC05's `DESCRIPTION_1`
+  binds `GS_DATA-COMPLAINT_DESC`, with the table column left as a summary.
+- **A grid row written by hand is positional against the *configured* columns.**
+  `SET_GRID_DATA( )` maps by name, but the `COLUMNS` a handler passes came straight back from
+  `GET_GRID_DATA( )`, so the map is an identity map and cell N lands in configured column N.
+  A cell appended out of order is written to the neighbouring column; one appended past the
+  last configured column is dropped. Neither raises anything. The order lives in
+  `ZRAK_T_JNY_FLD-DEFAULT_VAL` for the grid field — read it before adding or reordering a
+  field in an Add-a-row popup's save. E016/E017/E018 each carry this note at their save method,
+  and their orders legitimately differ from each other because their specs do.
 
 ## Conventions
 
@@ -182,6 +275,8 @@ mistake lands rather than relying on this file being read closely:
 | `session_start.py` | SessionStart | Pulls `main`, reprints the short list of rules below |
 | `block_legacy_writes.py` | PreToolUse (Write/Edit/MultiEdit) | The namespace boundary — denies creating/editing a legacy-namespace object |
 | `check_journey_rules.py` | PreToolUse (Write/Edit/MultiEdit) | `ON_CUSTOM_VALIDATE` redefinitions call `super->` before any `CHECK`; `commit_step( )` is never called from `ON_BEFORE_POST`/`ON_BEFORE_TABLES` |
+| `check_empty_redefinition.py` | PreToolUse (Write/Edit/MultiEdit) | Denies emptying a hook whose base does real work — reads which those are from `ZCL_RAK_JOURNEY_LOGIC` itself, exempts `ON_BEFORE_POST`/`ON_BEFORE_FIELDS` |
+| `check_required_label.py` | PreToolUse (Write/Edit/MultiEdit) | The required marker stays the native `required` property — denies a `rakReq` class on a `label( )` call, and denies a `.rakReq` rule reappearing in the theme CSS |
 | `protect_abapgit_config.py` | PreToolUse (Write/Edit/MultiEdit) | Asks for confirmation before touching `.abapgit.xml` / `*.devc.xml` |
 | `check_crlf.py` | PostToolUse (Write/Edit/MultiEdit) | Flags a file under `src/` that gained CRLF line endings, since this repo's git history is LF |
 
@@ -235,12 +330,34 @@ This has already reverted fixes across five classes. In the pull dialog the Stat
 | `M_` | **SAP has changes git does not** | ticking discards them |
 | `MM` | both changed | conflict — diff before choosing |
 
+**This is not a hypothetical: it happened again during the last review session.** The
+E128 PAID-gate fix was pushed to git, E128 showed `M_` in the pull dialog, the row was
+not ticked, and the next Stage pushed SAP's older copy back over it - the gate was gone
+a second time and had to be re-applied. If a fix you know you made is missing, check the
+stage history before re-diagnosing the code.
+
 **The pull dialog pre-ticks only Add local object rows.** Every `Overwrite local object` row arrives
 **unticked**, and the ticks reset every time the dialog opens - so an existing object is skipped
 unless you tick it by hand, on every pull. abapGit still reports success, which is why this reads as
 "the pull is broken" rather than "that row was not selected".
 
 ## Open items
+
+- **E128 needs pulling and activating.** Its PAID gate fix is in git and was reverted
+  once by a stage-without-pull; until the `Overwrite local object` row is ticked and the
+  class activated, that journey can still be submitted unpaid.
+- **Whether E014, E016, E017 and E018 should strip `PAY_*`/`PAYFEE` on post is unresolved.**
+  They redefine `ON_BEFORE_POST` without chaining and without stripping, which is correct
+  for a fee-bearing journey and wrong otherwise. Deciding it needs the `ZRAK_T_JNY_FLD`
+  rows for those journeys - config, not git.
+- **E017's dead `RENDER_OWN_POPUP( )` types CAS Number as `type = 'Number'`**, which would
+  render blank for a value like `7732-18-5`. Unreachable today, so flagged not fixed.
+- **E016 carries a stale duplicate of its Add Chemical dialog** under `WHEN C_EVT_DETAILS`,
+  unreachable because popups always open with `C_CHEM`. Its bindings were corrected but it
+  should be deleted; that is E016's owner's call.
+- **~30 handler classes have only been pattern-scanned, not read.** The scans cover the
+  traps in this file; a logic error unique to one journey (E017's non-blocking validation
+  was exactly that) only surfaces on a real read.
 
 - **Four DDIC changes are in git but not necessarily in SAP**: `ZRAK_T_JNY` gained
   `DRAFT_MODE` / `ATTACH_MODE`, `ZRAK_CJ_LAY` gained `FLOW`, and `ZRAK_T_JNY_FLD` gained

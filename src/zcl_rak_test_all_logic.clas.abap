@@ -1040,10 +1040,10 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *   Two per row, the way the legacy dialog laid it out.
     DATA(lo_r1) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
     DATA(lo_c1) = lo_r1->vbox( class = 'rakCell' ).
-    lo_c1->label( text = 'Owner name' class = 'rakReq' ).
+    lo_c1->label( text = 'Owner name' required = abap_true ).
     lo_c1->input( value = io_ctx->bind( c_own_name ) width = '17rem' ).
     DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
-    lo_c2->label( text = 'Emirates ID' class = 'rakReq' ).
+    lo_c2->label( text = 'Emirates ID' required = abap_true ).
 *   Enter in the ID box does the same as pressing Search. Somebody who has just
 *   typed fifteen digits should not have to reach for the mouse.
     lo_c2->input( value       = io_ctx->bind( c_own_eid )
@@ -1056,7 +1056,7 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
     lo_c3->label( text = 'Nationality' ).
     lo_c3->input( value = io_ctx->bind( c_own_nat ) width = '17rem' ).
     DATA(lo_c4) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c4->label( text = 'Shares %' class = 'rakReq' ).
+    lo_c4->label( text = 'Shares %' required = abap_true ).
     lo_c4->input( value = io_ctx->bind( c_own_share ) type = 'Number' width = '17rem' ).
 
 *   ---- their documents ------------------------------------------------

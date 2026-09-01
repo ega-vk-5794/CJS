@@ -279,7 +279,7 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 *   Two per row, the way the legacy dialog laid it out.
     DATA(lo_r1) = lo_c->hbox( class = 'rakRow' alignitems = 'End' )."ROw 1
     DATA(lo_c1) = lo_r1->vbox( class = 'rakCell' ).
-    lo_c1->label( text = 'HS Code' class = 'rakReq' ).
+    lo_c1->label( text = 'HS Code' required = abap_true ).
     lo_c1->input( value = io_ctx->bind( c_hs_code_pop ) width = '17rem' ).
 
     DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
@@ -302,49 +302,49 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
     lo_c5->input( value = io_ctx->bind( c_chemical_formula_pop ) width = '17rem' ).
 
     DATA(lo_c6) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c6->label( text = 'Packing' class = 'rakReq' ).
+    lo_c6->label( text = 'Packing' required = abap_true ).
     lo_c6->input( value = io_ctx->bind( c_packaging_pop ) width = '17rem' ).
 
     DATA(lo_c7) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c7->label( text = 'Quantity' class = 'rakReq' ).
+    lo_c7->label( text = 'Quantity' required = abap_true ).
     lo_c7->input( value = io_ctx->bind( c_quantity_pop ) type = 'Number' width = '17rem' ).
 
     DATA(lo_c8) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c8->label( text = 'Gross Weight' class = 'rakReq' ).
+    lo_c8->label( text = 'Gross Weight' required = abap_true ).
     lo_c8->input( value = io_ctx->bind( c_gross_weight_pop ) type = 'Number' width = '17rem' ).
 
     DATA(lo_c9) = lo_r2->vbox( class = 'rakCell' ).
 *    DATA(lo_u) = lo_c9->select( selectedkey = io_ctx->bind( c_uom_pop ) )->items( ).
 *    lo_u->item( key = 'KG' text = 'Kilogram'
 *                key = 'EA' text = 'Each').
-    lo_c9->label( text = 'UOM' class = 'rakReq' ).
+    lo_c9->label( text = 'UOM' required = abap_true ).
     lo_c9->input( value = io_ctx->bind( c_uom_pop ) width = '17rem' ).
 
 
     DATA(lo_c10) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c10->label( text = 'Invoice Number' class = 'rakReq' ).
+    lo_c10->label( text = 'Invoice Number' required = abap_true ).
     lo_c10->input( value = io_ctx->bind( c_invoice_pop ) width = '17rem' ).
 
 
     DATA(lo_c11) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c11->label( text = 'Country of Origin' class = 'rakReq' ).
+    lo_c11->label( text = 'Country of Origin' required = abap_true ).
     lo_c11->input( value = io_ctx->bind( c_origin_pop )
                    width = '17rem'
                    placeholder = 'IN'
                    submit      = io_ctx->event( c_evt_ownsr ) ).
 
     DATA(lo_c12) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c12->label( text = 'Point of Entrance/End User' class = 'rakReq' ).
+    lo_c12->label( text = 'Point of Entrance/End User' required = abap_true ).
     lo_c12->input( value = io_ctx->bind( c_end_user_pop ) width = '17rem' ).
 
 
     DATA(lo_c13) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c13->label( text = 'Bill of Lading' class = 'rakReq' ).
+    lo_c13->label( text = 'Bill of Lading' required = abap_true ).
     lo_c13->input( value = io_ctx->bind( c_bol_pop ) width = '17rem' ).
 
 
     DATA(lo_c14) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c14->label( text = 'Transport Company' class = 'rakReq' ).
+    lo_c14->label( text = 'Transport Company' required = abap_true ).
     lo_c14->input( value = io_ctx->bind( c_trans_comp ) width = '17rem' ).
 
 
@@ -626,6 +626,26 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
         io_ctx->open_popup( c_chem ).
 
       WHEN c_evt_ownok. "'OWNER_ADD'. "
+*       RENDER_OWN_POPUP( ) marks HS Code, Packing, Quantity, Gross Weight,
+*       UOM, Invoice Number, Country of Origin, Point of Entrance/End User,
+*       Bill of Lading and Transport Company rakReq, but nothing here ever
+*       checked any of them - Add saved whatever was typed, blank fields
+*       included.
+        IF io_ctx->get_val( c_hs_code_pop )          IS INITIAL
+           OR io_ctx->get_val( c_packaging_pop )     IS INITIAL
+           OR io_ctx->get_val( c_quantity_pop )      IS INITIAL
+           OR io_ctx->get_val( c_gross_weight_pop )  IS INITIAL
+           OR io_ctx->get_val( c_uom_pop )           IS INITIAL
+           OR io_ctx->get_val( c_invoice_pop )       IS INITIAL
+           OR io_ctx->get_val( c_origin_pop )        IS INITIAL
+           OR io_ctx->get_val( c_end_user_pop )      IS INITIAL
+           OR io_ctx->get_val( c_bol_pop )           IS INITIAL
+           OR io_ctx->get_val( c_trans_comp )        IS INITIAL.
+          io_ctx->add_msg( iv_type = 'Warning'
+                           iv_text = 'Kindly fill required details.' ).
+          RETURN.
+        ENDIF.
+
         own_form_save( io_ctx ).
         io_ctx->close_popup( ). "Close pop-up screen after adding data
 
@@ -680,30 +700,34 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 *        RETURN.
       WHEN c_chem. "c_evt_details. "c_chem. "c_evt_details. " FOr F4 use this
 
+*       REQUIRED here is the marker only - DIALOG_FORM( ) sets it on the label
+*       and enforces nothing; a popup's enforcement is the handler's own, in the
+*       OK event. So this list mirrors WHEN c_evt_ownok exactly: the ten fields
+*       it tests are marked, the four it does not are left alone.
         dialog_form(
           io_ctx     = io_ctx
           io_popup   = io_popup
           iv_title   = 'Add Chemical'
           it_fields  = VALUE #(
-                                ( name = c_hs_code_pop          label = 'HS Code'  )
+                                ( name = c_hs_code_pop          label = 'HS Code' required = abap_true )
                                 ( name = c_material_name_pop    label = 'Material Name' )
                                 ( name = c_chemical_name_pop    label = 'Chemical Name' )
                                 ( name = c_cas_pop              label = 'CAS Number' maxlen = 20 )
                                 ( name = c_chemical_formula_pop label = 'Chemical Formula' )
-                                ( name = c_packaging_pop        label = 'Packing' )
-                                ( name = c_quantity_pop         label = 'Quantity'  )
-                                ( name = c_gross_weight_pop     label = 'Gross Weight'  )
-                                ( name = c_uom_pop              label = 'UOM' type = 'SELECT'
+                                ( name = c_packaging_pop        label = 'Packing' required = abap_true )
+                                ( name = c_quantity_pop         label = 'Quantity' required = abap_true )
+                                ( name = c_gross_weight_pop     label = 'Gross Weight' required = abap_true )
+                                ( name = c_uom_pop              label = 'UOM' type = 'SELECT' required = abap_true
                                   options = VALUE #( ( key = 'GAL' text = 'Gallon' )
                                                      ( key = 'KG'  text = 'Kilogram' )
                                                      ( key = 'LIT' text = 'Liter' )
                                                      ( key = 'MAT' text = 'Metric Ton' ) ) )
 
-                                ( name = c_invoice_pop          label = 'Invoice Number'  )
-                                ( name = c_origin_pop           label = 'Country of Origin' shlp = 'H_T005'  )
-                                ( name = c_end_user_pop         label = 'Point of Entrance'  )
-                                ( name = c_bol_pop              label = 'Bill of Lading'  )
-                                ( name = c_trans_comp           label = 'Transport Company'  )
+                                ( name = c_invoice_pop          label = 'Invoice Number' required = abap_true )
+                                ( name = c_origin_pop           label = 'Country of Origin' shlp = 'H_T005' required = abap_true )
+                                ( name = c_end_user_pop         label = 'Point of Entrance' required = abap_true )
+                                ( name = c_bol_pop              label = 'Bill of Lading' required = abap_true )
+                                ( name = c_trans_comp           label = 'Transport Company' required = abap_true )
                               )
           iv_ok_text = 'Add'
           iv_ok_evt  = c_evt_ownok
@@ -831,38 +855,31 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 
 
   METHOD own_form_save.
-    CONSTANTS c_own_id TYPE string VALUE 'OWN_ID' ##NO_TEXT.
+*   This used to copy every existing row through unchanged and then always
+*   APPEND a new one - there was no check anywhere for "does a row with
+*   this HS Code already exist". Every Add after an Edit duplicated the
+*   row it came from instead of updating it, leaving the stale original
+*   still in the grid. HS Code is the row's key (RENDER_CHEM_DETAILS and
+*   OWN_DELETE already match on column 1 by it), so this now finds that
+*   row and overwrites it in place, the same as every other Add-a-row
+*   popup in this codebase.
+*
+*   THE APPEND ORDER BELOW IS THE CONFIGURED COLUMN ORDER, not a free choice.
+*   SET_GRID_DATA( ) is handed COLUMNS straight back from GET_GRID_DATA( ), so
+*   its map-by-name is an identity map and cell N lands in configured column N
+*   (ZCL_RAK_JOURNEY_ENGINE:2614). Append a cell out of order and it is written
+*   to the neighbouring column; append past the last configured column and it is
+*   dropped. Neither raises anything. Before adding or reordering a field here,
+*   read the grid spec in ZRAK_T_JNY_FLD-DEFAULT_VAL for this grid field and
+*   match it - the display methods in this class only corroborate the first few.
     DATA(ls_g)  = io_ctx->get_grid_data( c_grid ).
-    DATA(lv_id) = io_ctx->get_val( c_own_id ).
 
     DATA(ls_new) = VALUE zif_rak_journey=>ty_table( columns = ls_g-columns ).
     DATA lv_found TYPE abap_bool.
     DATA lt_row   TYPE zif_rak_journey=>tt_string.
 
-    LOOP AT ls_g-rows INTO DATA(lt_r).
-      CLEAR lt_row.
-      APPEND VALUE string( lt_r[ 1 ] OPTIONAL )   TO lt_row. " HS Code
-      APPEND VALUE string( lt_r[ 2 ] OPTIONAL )   TO lt_row. " Material Name
-      APPEND VALUE string( lt_r[ 3 ] OPTIONAL )   TO lt_row. " Chemical Name
-      APPEND VALUE string( lt_r[ 4 ] OPTIONAL )   TO lt_row. " Cas No
-      APPEND VALUE string( lt_r[ 5 ] OPTIONAL )   TO lt_row. " Chemical Formulae
-      APPEND VALUE string( lt_r[ 6 ] OPTIONAL )   TO lt_row. " Packaging
-      APPEND VALUE string( lt_r[ 7 ] OPTIONAL )   TO lt_row. " Gross weight
-      APPEND VALUE string( lt_r[ 8 ] OPTIONAL )   TO lt_row. " Unit
-      APPEND VALUE string( lt_r[ 9 ] OPTIONAL )   TO lt_row. " Quantity
-      APPEND VALUE string( lt_r[ 10 ] OPTIONAL )  TO lt_row. " Invoice No
-      APPEND VALUE string( lt_r[ 11 ] OPTIONAL )  TO lt_row. " Country of origin
-      APPEND VALUE string( lt_r[ 12 ] OPTIONAL )  TO lt_row. " Point of entrance
-      APPEND VALUE string( lt_r[ 13 ] OPTIONAL )  TO lt_row. " Bill of Landing
-      APPEND VALUE string( lt_r[ 14 ] OPTIONAL )  TO lt_row. " Transport Company
-
-      APPEND lt_row TO ls_new-rows.
-    ENDLOOP.
-
     DATA(lv_hs_code)    = condense( io_ctx->get_val( C_HS_CODE_POP ) ).
     DATA(lv_mat_name)   = condense( io_ctx->get_val( C_MATERIAL_NAME_POP ) ).
-*    DATA(lv_mat_name)   = condense( io_ctx->get_val( C_MATERIAL_NAME_POP ) ).
-
     DATA(lv_chem_name)  = condense( io_ctx->get_val( C_CHEMICAL_NAME_POP ) ).
     DATA(lv_cas)        = condense( io_ctx->get_val( C_CAS_POP ) ).
     DATA(lv_chem_form)  = condense( io_ctx->get_val( C_CHEMICAL_FORMULA_POP ) ).
@@ -876,30 +893,50 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
     DATA(lv_bol)        = condense( io_ctx->get_val( C_BOL_POP ) ).
     DATA(lv_trans_comp) = condense( io_ctx->get_val( C_TRANS_COMP ) ).
 
+    LOOP AT ls_g-rows INTO DATA(lt_r).
+      IF VALUE string( lt_r[ 1 ] OPTIONAL ) = lv_hs_code.
+        lv_found = abap_true.
+        CLEAR lt_row.
+        APPEND lv_hs_code     TO lt_row. " HS Code
+        APPEND lv_mat_name    TO lt_row. " Material name
+        APPEND lv_chem_name   TO lt_row. " Chemical Name
+        APPEND lv_cas         TO lt_row. " CAS No
+        APPEND lv_chem_form   TO lt_row. " Chemical Formulae
+        APPEND lv_packaging   TO lt_row. " Packaging
+        APPEND lv_qty         TO lt_row. " Quantity
+        APPEND lv_gr_wt       TO lt_row. " Gross weight
+        APPEND lv_uom         TO lt_row. " Unit
+        APPEND lv_inv_no      TO lt_row. " Invoice No
+        APPEND lv_orig_ctry   TO lt_row. " Ctry of origin
+        APPEND lv_entrance    TO lt_row. " Point of entrance
+        APPEND lv_bol         TO lt_row. " Bill of lading
+        APPEND lv_trans_comp  TO lt_row. " Transport Company
+        APPEND lt_row TO ls_new-rows.
+      ELSE.
+        APPEND lt_r TO ls_new-rows.
+      ENDIF.
+    ENDLOOP.
 
-    CLEAR lt_row.
-    APPEND lv_hs_code     TO lt_row. " HS Code
-    APPEND lv_mat_name    TO lt_row. " Material name
-    APPEND lv_chem_name   TO lt_row. " Chemical Name
-    APPEND lv_cas         TO lt_row. " CAS No
-    APPEND lv_chem_form   TO lt_row. " Chemical Formulae
-    APPEND lv_packaging   TO lt_row. " Packaging
-    APPEND lv_qty         TO lt_row. " Quantity
-    APPEND lv_gr_wt       TO lt_row. " Gross weight
-    APPEND lv_uom         TO lt_row. " Unit
-    APPEND lv_inv_no      TO lt_row. " Invoice No
-    APPEND lv_orig_ctry   TO lt_row. " Ctry of origin
-    APPEND lv_entrance    TO lt_row. " Point of entrance
-    APPEND lv_bol         TO lt_row. " Bill of lading
-    APPEND lv_trans_comp  TO lt_row. " Transport Company
-
-    APPEND lt_row TO ls_new-rows.
+    IF lv_found = abap_false.
+      CLEAR lt_row.
+      APPEND lv_hs_code     TO lt_row. " HS Code
+      APPEND lv_mat_name    TO lt_row. " Material name
+      APPEND lv_chem_name   TO lt_row. " Chemical Name
+      APPEND lv_cas         TO lt_row. " CAS No
+      APPEND lv_chem_form   TO lt_row. " Chemical Formulae
+      APPEND lv_packaging   TO lt_row. " Packaging
+      APPEND lv_qty         TO lt_row. " Quantity
+      APPEND lv_gr_wt       TO lt_row. " Gross weight
+      APPEND lv_uom         TO lt_row. " Unit
+      APPEND lv_inv_no      TO lt_row. " Invoice No
+      APPEND lv_orig_ctry   TO lt_row. " Ctry of origin
+      APPEND lv_entrance    TO lt_row. " Point of entrance
+      APPEND lv_bol         TO lt_row. " Bill of lading
+      APPEND lv_trans_comp  TO lt_row. " Transport Company
+      APPEND lt_row TO ls_new-rows.
+    ENDIF.
 
     io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
-
-
-
-
   ENDMETHOD.
 
 
@@ -920,16 +957,31 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 
 
   METHOD own_edit.
-
+*   Every field but HS Code was commented out here, so Edit opened with
+*   the row's own HS Code and thirteen blank fields regardless of what had
+*   actually been saved - it looked like a fresh Add, not an edit. Row
+*   layout is the one OWN_FORM_SAVE( ) writes: 1 HS Code, 2 Material,
+*   3 Chemical Name, 4 CAS, 5 Formula, 6 Packaging, 7 Quantity,
+*   8 Gross Weight, 9 UOM, 10 Invoice, 11 Origin, 12 End User, 13 BOL,
+*   14 Transport Company.
     LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
 
       CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) = iv_id.
-      io_ctx->set_val( iv_name = c_hs_code_pop         iv_value  = VALUE #( lt_r[ 1 ] OPTIONAL ) ).
-*      io_ctx->set_val( iv_name = c_material_name_pop   iv_value  = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
-*      io_ctx->set_val( iv_name = c_chemical_name_pop   iv_value  = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
-*      io_ctx->set_val( iv_name = c_cas_pop             iv_value  = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
-*      io_ctx->set_val( iv_name = c_gross_weight_pop    iv_value  = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
-
+      io_ctx->set_val( iv_name = c_hs_code_pop          iv_value = VALUE #( lt_r[ 1 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_material_name_pop    iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_chemical_name_pop    iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_cas_pop              iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_chemical_formula_pop iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_packaging_pop        iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_quantity_pop         iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_gross_weight_pop     iv_value = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_uom_pop              iv_value = VALUE #( lt_r[ 9 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_invoice_pop          iv_value = VALUE #( lt_r[ 10 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_origin_pop           iv_value = VALUE #( lt_r[ 11 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_end_user_pop         iv_value = VALUE #( lt_r[ 12 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_bol_pop              iv_value = VALUE #( lt_r[ 13 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_trans_comp           iv_value = VALUE #( lt_r[ 14 ] OPTIONAL ) ).
+      EXIT.
     ENDLOOP.
 
   ENDMETHOD.

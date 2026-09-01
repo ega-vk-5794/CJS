@@ -104,21 +104,28 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
     ENDIF.
 
 **    io_ctx->set_val( iv_name = c_own_id iv_value = iv_id ).
+*   Row layout is the one FORM_SAVE( ) actually writes: 1 HS code (the row
+*   key), 2 material, 3 chemical name, 4 CAS, 5 formula, 6 packaging,
+*   7 gross weight, 8 UOM, 9 quantity, 10 invoice, 11 origin, 12 end user,
+*   13 BOL. Reading from column 2 (an off-by-one against every field) and
+*   with gross weight/UOM/quantity in FORM_SAVE's write order rather than
+*   this popup's own field order put every field on Edit one or two boxes
+*   away from where it was saved.
     LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
       CHECK VALUE string( lt_r[ 1 ] OPTIONAL ) = iv_id.
-      io_ctx->set_val( iv_name = c_HS_CODE_POP          iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_MATERIAL_NAME_POP    iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_CHEMICAL_NAME_POP    iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_CAS_POP              iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_CHEMICAL_FORMULA_POP iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_PACKAGING_POP        iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_QUANTITY_POP         iv_value = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_GROSS_WEIGHT_POP     iv_value = VALUE #( lt_r[ 9 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_UOM_POP              iv_value = VALUE #( lt_r[ 10 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_INVOICE_POP          iv_value = VALUE #( lt_r[ 11 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_ORIGIN_POP           iv_value = VALUE #( lt_r[ 12 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_END_USER_POP         iv_value = VALUE #( lt_r[ 13 ] OPTIONAL ) ).
-      io_ctx->set_val( iv_name = C_BOL_POP              iv_value = VALUE #( lt_r[ 14 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_HS_CODE_POP          iv_value = VALUE #( lt_r[ 1 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_MATERIAL_NAME_POP    iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_CHEMICAL_NAME_POP    iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_CAS_POP              iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_CHEMICAL_FORMULA_POP iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_PACKAGING_POP        iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_GROSS_WEIGHT_POP     iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_UOM_POP              iv_value = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_QUANTITY_POP         iv_value = VALUE #( lt_r[ 9 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_INVOICE_POP          iv_value = VALUE #( lt_r[ 10 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_ORIGIN_POP           iv_value = VALUE #( lt_r[ 11 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_END_USER_POP         iv_value = VALUE #( lt_r[ 12 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_BOL_POP              iv_value = VALUE #( lt_r[ 13 ] OPTIONAL ) ).
       EXIT.
     ENDLOOP.
 
@@ -225,7 +232,7 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
 *   Two per row, the way the legacy dialog laid it out.
     DATA(lo_r1) = lo_c->hbox( class = 'rakRow' alignitems = 'End' ).
     DATA(lo_c1) = lo_r1->vbox( class = 'rakCell' ).
-    lo_c1->label( text = 'HS Code' class = 'rakReq' ).
+    lo_c1->label( text = 'HS Code' required = abap_true ).
     lo_c1->input( value = io_ctx->bind( C_HS_CODE_POP ) width = '17rem' ).
      DATA(lo_c2) = lo_r1->vbox( class = 'rakCell' ).
     lo_c2->label( text = 'Material Name' ).
@@ -242,28 +249,28 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
     lo_c5->label( text = 'Chemical formula' ).
     lo_c5->input( value = io_ctx->bind( C_CHEMICAL_FORMULA_POP ) width = '17rem' ).
     DATA(lo_c6) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c6->label( text = 'Packing' class = 'rakReq' ).
+    lo_c6->label( text = 'Packing' required = abap_true ).
     lo_c6->input( value = io_ctx->bind( C_PACKAGING_POP ) width = '17rem' ).
     DATA(lo_c7) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c7->label( text = 'Quantity' class = 'rakReq' ).
+    lo_c7->label( text = 'Quantity' required = abap_true ).
     lo_c7->input( value = io_ctx->bind( C_QUANTITY_POP ) type = 'Number' width = '17rem' ).
     DATA(lo_c8) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c8->label( text = 'Gross Weight' class = 'rakReq' ).
+    lo_c8->label( text = 'Gross Weight' required = abap_true ).
     lo_c8->input( value = io_ctx->bind( C_GROSS_WEIGHT_POP ) type = 'Number' width = '17rem' ).
     DATA(lo_c9) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c9->label( text = 'UOM' class = 'rakReq' ).
+    lo_c9->label( text = 'UOM' required = abap_true ).
     lo_c9->input( value = io_ctx->bind( C_UOM_POP ) type = 'SELECT' width = '17rem' ).
     DATA(lo_c10) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c10->label( text = 'Invoice Number' class = 'rakReq' ).
+    lo_c10->label( text = 'Invoice Number' required = abap_true ).
     lo_c10->input( value = io_ctx->bind( C_INVOICE_POP ) width = '17rem' ).
     DATA(lo_c11) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c11->label( text = 'Country of Origin' class = 'rakReq' ).
+    lo_c11->label( text = 'Country of Origin' required = abap_true ).
     lo_c11->input( value = io_ctx->bind( C_ORIGIN_POP ) width = '17rem' ).
     DATA(lo_c12) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c12->label( text = 'Point of Entrance/End User' class = 'rakReq' ).
+    lo_c12->label( text = 'Point of Entrance/End User' required = abap_true ).
     lo_c12->input( value = io_ctx->bind( C_END_USER_POP ) width = '17rem' ).
     DATA(lo_c13) = lo_r2->vbox( class = 'rakCell' ).
-    lo_c13->label( text = 'Bill of Lading' class = 'rakReq' ).
+    lo_c13->label( text = 'Bill of Lading' required = abap_true ).
     lo_c13->input( value = io_ctx->bind( C_BOL_POP ) width = '17rem' ).
 
 *   ---- their documents ------------------------------------------------
@@ -482,6 +489,24 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
         io_ctx->close_popup( ).
 
       WHEN c_evt_ownok.
+*       RENDER_OWN_POPUP( ) marks HS Code, Packing, Quantity, Gross Weight,
+*       UOM, Invoice Number, Country of Origin, Point of Entrance/End User
+*       and Bill of Lading rakReq, but nothing here ever checked any of
+*       them - Add saved whatever was typed, blank fields included.
+        IF io_ctx->get_val( c_hs_code_pop )      IS INITIAL
+           OR io_ctx->get_val( c_packaging_pop )     IS INITIAL
+           OR io_ctx->get_val( c_quantity_pop )      IS INITIAL
+           OR io_ctx->get_val( c_gross_weight_pop )  IS INITIAL
+           OR io_ctx->get_val( c_uom_pop )           IS INITIAL
+           OR io_ctx->get_val( c_invoice_pop )       IS INITIAL
+           OR io_ctx->get_val( c_origin_pop )        IS INITIAL
+           OR io_ctx->get_val( c_end_user_pop )      IS INITIAL
+           OR io_ctx->get_val( c_bol_pop )           IS INITIAL.
+          io_ctx->add_msg( iv_type = 'Warning'
+                           iv_text = 'Kindly fill required details.' ).
+          RETURN.
+        ENDIF.
+
         form_save( io_ctx ).
         io_ctx->close_popup( ).
 
@@ -537,29 +562,36 @@ super->zif_rak_journey_logic~on_render_popup(
 **      render_own_popup( io_ctx = io_ctx io_popup = io_popup ).
 
 
+*       REQUIRED here is the marker only - DIALOG_FORM( ) sets it on the label
+*       and nothing more; a popup's enforcement is the handler's own, in the OK
+*       event below. So this list has to mirror that check exactly: a field
+*       marked here but not checked there promises an asterisk it never
+*       enforces, and a field checked there but not marked here is the bug this
+*       whole exercise is about - a form that looks optional and refuses to
+*       submit. The fields marked are precisely the ones WHEN c_evt_ownok tests.
         dialog_form(
           io_ctx     = io_ctx
           io_popup   = io_popup
           iv_title   = 'Add Chemical'
           it_fields  = VALUE #(
-                                ( name = c_hs_code_pop          label = 'HS Code'  )
+                                ( name = c_hs_code_pop          label = 'HS Code' required = abap_true )
                                 ( name = c_material_name_pop    label = 'Material Name' )
                                 ( name = c_chemical_name_pop    label = 'Chemical Name' )
                                 ( name = c_cas_pop              label = 'CAS Number' maxlen = 20 )
                                 ( name = c_chemical_formula_pop label = 'Chemical Formula' )
-                                ( name = c_packaging_pop        label = 'Packing' )
-                                ( name = c_quantity_pop         label = 'Quantity'  )
-                                ( name = c_gross_weight_pop     label = 'Gross Weight'  )
-                                ( name = c_uom_pop              label = 'UOM' type = 'SELECT'
+                                ( name = c_packaging_pop        label = 'Packing' required = abap_true )
+                                ( name = c_quantity_pop         label = 'Quantity' required = abap_true )
+                                ( name = c_gross_weight_pop     label = 'Gross Weight' required = abap_true )
+                                ( name = c_uom_pop              label = 'UOM' type = 'SELECT' required = abap_true
                                   options = VALUE #( ( key = 'GAL' text = 'Gallon' )
                                                      ( key = 'KG'  text = 'Kilogram' )
                                                      ( key = 'LIT' text = 'Liter' )
                                                      ( key = 'MAT' text = 'Metric Ton' ) ) )
 
-                                ( name = c_invoice_pop          label = 'Invoice Number'  )
-                                ( name = c_origin_pop           label = 'Country of Origin' shlp = 'H_T005'  )
-                                ( name = c_end_user_pop         label = 'Point of Entrance'  )
-                                ( name = c_bol_pop              label = 'Bill of Lading'  )
+                                ( name = c_invoice_pop          label = 'Invoice Number' required = abap_true )
+                                ( name = c_origin_pop           label = 'Country of Origin' shlp = 'H_T005' required = abap_true )
+                                ( name = c_end_user_pop         label = 'Point of Entrance' required = abap_true )
+                                ( name = c_bol_pop              label = 'Bill of Lading' required = abap_true )
 **                                ( name = c_trans_comp           label = 'Transport Company'  )
                               )
           iv_ok_text = 'Add'
@@ -568,28 +600,44 @@ super->zif_rak_journey_logic~on_render_popup(
         RETURN.
       RETURN.
       WHEN C_EVT_DETAILS.
-
-
+*       UNREACHABLE, AND IT CARRIED THE CONSTANT-NAME-AS-STRING BUG.
+*
+*       Unreachable: this CASE is on IV_ID, the popup id, and the only id this
+*       handler ever opens is C_CHEM - WHEN c_evt_details in ON_POPUP_EVENT
+*       calls open_popup( c_chem ), not open_popup( c_evt_details ). So the
+*       branch above is the one citizens see and this one has never run.
+*
+*       The bug: every NAME below was the CONSTANT'S OWN NAME in quotes -
+*       name = 'C_HS_CODE_POP' rather than name = c_hs_code_pop. That binds to
+*       a model component literally called C_HS_CODE_POP, which does not exist,
+*       so all thirteen inputs would read and write nothing and the dialog would
+*       look perfectly normal doing it. Stripping the C_ would not have saved it
+*       either: C_MATERIAL_NAME_POP's VALUE is 'MAT_NAME_POP', not
+*       'MATERIAL_NAME_POP'. The constants are now used, so if this branch is
+*       ever reached it will at least bind.
+*
+*       It is still a stale duplicate of the live branch - it lacks the UOM
+*       option list, the H_T005 help on Country of Origin, the CAS length and
+*       every REQUIRED marker. Deleting it is the right end state; that is a
+*       call for whoever owns E016, so it is flagged rather than removed.
         dialog_form(
           io_ctx     = io_ctx
           io_popup   = io_popup
           iv_title   = 'Add Chemical'
           it_fields  = VALUE #(
-                                ( name = 'C_HS_CODE_POP'        label = 'HS Code'  )
-                                ( name = 'C_MATERIAL_NAME_POP'  label = 'Material Name' )
-                                ( name = 'C_CHEMICAL_NAME_POP'  label = 'Chemical Name' )
-                                ( name = 'C_CAS_POP'            label = 'CAS Number' )
-                                ( name = 'C_CHEMICAL_FORMULA_POP'     label = 'Chemical Formula' )
-                                ( name = 'C_PACKAGING_POP'          label = 'Packing' )
-                                ( name = 'C_QUANTITY_POP'        label = 'Quantity'  )
-                                ( name = 'C_GROSS_WEIGHT_POP'        label = 'Gross Weight'  )
-                                ( name = 'C_UOM_POP'        label = 'UOM'  )
-                                ( name = 'C_INVOICE_POP'        label = 'Invoice Number'  )
-                                ( name = 'C_ORIGIN_POP'        label = 'Country of Origin'  )
-                                ( name = 'C_END_USER_POP'        label = 'Point of Entrance/End User'  )
-                                ( name = 'C_BOL_POP'        label = 'Bill of Lading'  )
-*                                ( name = 'DATE_OF_BIRTH_POP' label = 'Date of Birth' )
-*                                ( name = 'DATE_OF_BIRTH_POP' label = 'Date of Birth' )
+                                ( name = c_hs_code_pop          label = 'HS Code'  )
+                                ( name = c_material_name_pop    label = 'Material Name' )
+                                ( name = c_chemical_name_pop    label = 'Chemical Name' )
+                                ( name = c_cas_pop              label = 'CAS Number' )
+                                ( name = c_chemical_formula_pop label = 'Chemical Formula' )
+                                ( name = c_packaging_pop        label = 'Packing' )
+                                ( name = c_quantity_pop         label = 'Quantity'  )
+                                ( name = c_gross_weight_pop     label = 'Gross Weight'  )
+                                ( name = c_uom_pop              label = 'UOM'  )
+                                ( name = c_invoice_pop          label = 'Invoice Number'  )
+                                ( name = c_origin_pop           label = 'Country of Origin'  )
+                                ( name = c_end_user_pop         label = 'Point of Entrance/End User'  )
+                                ( name = c_bol_pop              label = 'Bill of Lading'  )
                                  )
           iv_ok_text = 'Add'
           iv_ok_evt  = c_own_add ).
@@ -600,6 +648,14 @@ super->zif_rak_journey_logic~on_render_popup(
 
 
   METHOD form_save.
+*   THE APPEND ORDER BELOW IS THE CONFIGURED COLUMN ORDER, not a free choice.
+*   SET_GRID_DATA( ) is handed COLUMNS straight back from GET_GRID_DATA( ), so
+*   its map-by-name is an identity map and cell N lands in configured column N
+*   (ZCL_RAK_JOURNEY_ENGINE:2614). Append a cell out of order and it is written
+*   to the neighbouring column; append past the last configured column and it is
+*   dropped. Neither raises anything. Before adding or reordering a field here,
+*   read the grid spec in ZRAK_T_JNY_FLD-DEFAULT_VAL for this grid field and
+*   match it - the display methods in this class only corroborate the first few.
     DATA(ls_g)  = io_ctx->get_grid_data( c_grid ).
     DATA(lv_id) = io_ctx->get_val( c_hs_code_pop ).
 

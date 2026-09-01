@@ -680,9 +680,25 @@ CLASS ZCL_D020_MOD_SCHOOL_DAY_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~render_field.
-*    CHECK to_upper( iv_name ) = 'SCHOOLHOURS'.
+*   THE BASE RENDER_FIELD IS THE PAYMENT CARD. It reads the fee rows from
+*   GET_BACKEND_TABLE( PAYFEE ), falls back to ZCL_RAK_PAY_ENGINE=>GET_FEES( )
+*   with a visible warning when no /QNV/SB_UI_DEFIN row exists, and calls
+*   PAY_RENDER( ) with the polling flag. An empty redefinition REPLACES all of
+*   that, so this journey lost its fee card without anything being reported.
 *
-*    rv_html = render_academic_hours( io_ctx = io_ctx ).
-*    rv_handled = abap_true.
+*   Chaining is safe on every other field: the base opens with
+*   rv_done = abap_false and CHECKs is_field-name = c_pay_field, so for
+*   anything that is not PAYFEE it does nothing and returns false, which is
+*   exactly what an unclaimed field should return.
+*
+*   The commented-out SCHOOLHOURS attempt below was written against an older
+*   signature - IV_NAME, RV_HTML and RV_HANDLED are none of them parameters of
+*   this method any more (it is IO_CTX, IO_FORM, IS_FIELD, returning RV_DONE),
+*   so it could not have compiled as written. Reviving it means rewriting it
+*   against the current signature and returning RV_DONE, and it has to leave
+*   the PAYFEE case to super->.
+    rv_done = super->zif_rak_journey_logic~render_field( io_ctx   = io_ctx
+                                                        io_form  = io_form
+                                                        is_field = is_field ).
   ENDMETHOD.
 ENDCLASS.
