@@ -16,6 +16,29 @@ rather than read, it says so.
 | [gaps/open-questions.md](gaps/open-questions.md) | What is still missing, and which of it is blocked on access rather than effort |
 | [gaps/abapgit-operations.md](gaps/abapgit-operations.md) | Pull and stage hazards observed in this repository, with the evidence |
 
+## What a new session needs, and what it does not
+
+**Does not need to be supplied again** — it is in this repository:
+
+- Every backend DPC and MPC read so far, in [`reference/legacy-src/`](reference/legacy-src/)
+- The `/QNV/SB_UI_DEFIN` export, in [`reference/export/`](reference/export/)
+- The domain values, filter names and function-module names, in the notes above
+
+**Not in this repository, but nobody has to send it** — these are public GitHub
+repositories a session can clone for itself:
+
+| Repository | Holds |
+| --- | --- |
+| `RAK-eEGA/shapeit1120` | 85 ShapeIt UI controls under `js/controls/` — `RAKPARCELSELECTOR`, `RAK_PROPERTIES`, `RAK_CONTRACTS`, `RAK_SIGNCONTRACT`, `RAK_BOATCONTROL` … |
+| `RAK-eEGA/shapeitext2` | `APPOINTMENT`, `ACCOMODATIONS`, `MTABLE_COL`, `MTABLE_EXT` — these four exist nowhere else |
+| `RAK-eEGA/rdcusjourney` | the legacy ABAP backend, including `ZCL_ZEGA_CJ_DPC_EXT` and the BAdI implementations |
+
+Clone all three. `shapeitext2` was once described as ignorable; it is not.
+
+**Genuinely still missing** — see [gaps/open-questions.md](gaps/open-questions.md).
+The appointment service, the `ACADEMIC_CALENDAR` control, three zero-hit controls
+and the fishery reads are in none of the above and have to be supplied by hand.
+
 ## The one rule these notes keep proving
 
 **Do not hand-write the shape of a standard SAP object you cannot open.**
