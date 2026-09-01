@@ -2317,7 +2317,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         lv_ht = `PDF,JPG,JPEG,PNG`.
       ENDIF.
       REPLACE ALL OCCURRENCES OF `,` IN lv_ht WITH `, `.
-      io_view->message_strip(
+      io_parent->message_strip(
         text     = |{ lv_ht } · up to { lv_hm } MB|
         type     = 'Information'
         showicon = abap_true
