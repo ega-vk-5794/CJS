@@ -17,18 +17,41 @@ CLASS lcl_event_receiver DEFINITION.
       handle_hotspot_click
         FOR EVENT hotspot_click
         OF cl_gui_alv_grid
-        IMPORTING sender e_row_id e_column_id es_row_no.
+        IMPORTING sender e_row_id e_column_id es_row_no,
+      tree_selection_changed
+        FOR EVENT selection_changed
+        OF cl_gui_alv_tree
+        IMPORTING sender node_key.
+
 
 ENDCLASS.
 CLASS lcl_editor DEFINITION.
 
   PUBLIC SECTION.
     TYPES:
+      BEGIN OF ty_properties,
+        exp_icon    TYPE icon-id,
+        value       TYPE string,
+        binding     TYPE icon-id,
+        group       TYPE char30,
+        name        TYPE string,
+        text        TYPE string,
+        fullname    TYPE string,
+        sapmethod   TYPE string,
+        scc_cstring TYPE string,
+        library     TYPE string,
+        type        TYPE string,
+        cardinality TYPE string,
+        color       TYPE char10,
+        field_style TYPE lvc_t_styl,
+      END OF ty_properties,
+      tt_properties TYPE STANDARD TABLE OF ty_properties WITH DEFAULT KEY,
       BEGIN OF ty_search_category,
-        id        TYPE lvc_nkey,
+        node_key  TYPE lvc_nkey,
         text      TYPE string,
         fullname  TYPE string,
         sapmethod TYPE fieldname,
+        prop      TYPE tt_properties,
       END OF ty_search_category,
       tt_search_category TYPE STANDARD TABLE OF ty_search_category WITH DEFAULT KEY.
 
@@ -42,6 +65,7 @@ CLASS lcl_editor DEFINITION.
           lt_controls           TYPE zcj_z2ui5_controls_tb, "tt_control,
           lt_search_category    TYPE tt_search_category,
           lt_editor             TYPE tt_search_category,
+          lt_prop               TYPE tt_properties,
           lc_event_receiver     TYPE REF TO lcl_event_receiver,
           lo_line_behaviour     TYPE REF TO cl_dragdrop,
           lo_fav_behaviour      TYPE REF TO cl_dragdrop.
@@ -53,11 +77,13 @@ CLASS lcl_editor DEFINITION.
       on_load_json_end IMPORTING p_task TYPE clike,
       load_controls,
       load_editor,
+      load_properties,
       add_editor_node IMPORTING VALUE(relat_node_key) TYPE lvc_nkey
                                 VALUE(item)           TYPE ty_search_category
                                 VALUE(node_text)      TYPE lvc_value
                                 VALUE(item_layout)    TYPE lvc_t_layi
                                 VALUE(node_layout)    TYPE lvc_s_layn,
+      select_editor_node IMPORTING VALUE(node_key)    TYPE lvc_nkey,
       search_controls IMPORTING text TYPE any.
 
 ENDCLASS.
@@ -141,15 +167,6 @@ CLASS lcl_editor IMPLEMENTATION.
           lifetime_dynpro_dynpro_link = 5
           OTHERS                      = 6.
 
-      CREATE OBJECT me->lo_property_grid
-        EXPORTING
-          i_parent          = me->lo_property_container
-        EXCEPTIONS
-          error_cntl_create = 1
-          error_cntl_init   = 2
-          error_cntl_link   = 3
-          error_dp_create   = 4.
-
       DATA: effect TYPE i.
 
       CREATE OBJECT me->lo_line_behaviour.
@@ -172,6 +189,7 @@ CLASS lcl_editor IMPLEMENTATION.
 
       me->load_controls( ).
       me->load_editor( ).
+      me->load_properties( ).
     ENDIF.
   ENDMETHOD.
   METHOD init_params_screens.
@@ -311,7 +329,9 @@ CLASS lcl_editor IMPLEMENTATION.
           ls_node     TYPE lvc_s_layn,
           lv_header   TYPE treev_hhdr,
           lv_toolb_ex TYPE ui_functions,
-          ls_editor   TYPE ty_search_category.
+          ls_editor   TYPE ty_search_category,
+          lt_events   TYPE cntl_simple_events,
+          l_event     TYPE cntl_simple_event.
 
     APPEND cl_alv_tree_base=>mc_fc_load_variant     TO lv_toolb_ex.
     APPEND cl_alv_tree_base=>mc_fc_save_variant     TO lv_toolb_ex.
@@ -325,7 +345,7 @@ CLASS lcl_editor IMPLEMENTATION.
       EXPORTING
         parent                      = me->lo_editor_container
         node_selection_mode         = cl_gui_column_tree=>node_sel_mode_single
-        item_selection              = 'X'
+        item_selection              = ''
         no_html_header              = 'X'
         no_toolbar                  = ''
       EXCEPTIONS
@@ -337,9 +357,44 @@ CLASS lcl_editor IMPLEMENTATION.
         failed                      = 6
         illegal_column_name         = 7.
 
+    CLEAR lt_events[].
+
+* Get existing events
+    CALL METHOD me->lo_editor->get_registered_events
+      IMPORTING
+        events = lt_events.
+
+* Change selection
+    l_event-eventid    = cl_gui_column_tree=>eventid_selection_changed.
+    l_event-appl_event = 'X'.
+    APPEND l_event TO lt_events.
+    CLEAR l_event.
+
+* Context Menu - Request
+    l_event-eventid    = cl_gui_column_tree=>eventid_node_context_menu_req.
+    l_event-appl_event = 'X'.
+    APPEND l_event TO lt_events.
+    CLEAR l_event.
+
+* PressKey
+    l_event-eventid    = cl_gui_column_tree=>eventid_node_keypress.
+    l_event-appl_event = 'X'.
+    APPEND l_event TO lt_events.
+    CLEAR l_event.
+
+* register events
+    CALL METHOD me->lo_editor->set_registered_events
+      EXPORTING
+        events                    = lt_events
+      EXCEPTIONS
+        cntl_error                = 1
+        cntl_system_error         = 2
+        illegal_event_combination = 3.
+
     CREATE OBJECT lc_event_receiver.
     SET HANDLER lc_event_receiver->handle_fav_drop FOR me->lo_editor.
     SET HANDLER lc_event_receiver->handle_line_drag FOR me->lo_editor.
+    SET HANDLER lc_event_receiver->tree_selection_changed FOR  me->lo_editor.
 
     CLEAR: lt_fcat[].
 
@@ -383,6 +438,65 @@ CLASS lcl_editor IMPLEMENTATION.
 
     cl_gui_cfw=>flush( ).
   ENDMETHOD.
+  METHOD load_properties.
+
+    DATA: ls_layout TYPE lvc_s_layo,
+          lt_fcat   TYPE lvc_t_fcat,
+          ls_fcat   TYPE lvc_s_fcat.
+
+    CREATE OBJECT me->lo_property_grid
+      EXPORTING
+        i_parent          = me->lo_property_container
+      EXCEPTIONS
+        error_cntl_create = 1
+        error_cntl_init   = 2
+        error_cntl_link   = 3
+        error_dp_create   = 4.
+
+    ls_layout-grid_title = 'Attributes'.
+    ls_layout-smalltitle = 'X'.
+    ls_layout-no_rowmark = 'X'.
+    ls_layout-sel_mode   = 'B'.
+    ls_layout-info_fname = 'COLOR'.
+    ls_layout-no_headers = 'X'.
+    ls_layout-no_rowmove = 'X'.
+    ls_layout-no_rowins  = 'X'.
+    ls_layout-stylefname = 'FIELD_STYLE'.
+    ls_layout-cwidth_opt = 'X'.
+
+    ls_fcat-fieldname  = 'EXPA_ICON'.
+    ls_fcat-outputlen  = '2'.
+    ls_fcat-icon       = 'X'.
+    ls_fcat-emphasize  = 'C30'.
+    APPEND ls_fcat TO lt_fcat.  CLEAR  ls_fcat.
+
+    ls_fcat-fieldname  = 'NAME'.
+    ls_fcat-outputlen  = '30'.
+    ls_fcat-emphasize  = 'C21'.
+    APPEND ls_fcat TO lt_fcat.  CLEAR  ls_fcat.
+
+    ls_fcat-fieldname  = 'VALUE'.
+    ls_fcat-drdn_field = 'DRP_HANDLE'.
+    ls_fcat-edit       = 'X'.
+    ls_fcat-outputlen  = '30'.
+    ls_fcat-ref_table  = '/NEPTUNE/OBJ_AT'.
+    ls_fcat-ref_field  = 'VALUE'.
+    ls_fcat-lowercase  = 'X'.
+    APPEND ls_fcat TO lt_fcat.  CLEAR  ls_fcat.
+
+    ls_fcat-fieldname  = 'BINDING'.
+    ls_fcat-outputlen  = '4'.
+    ls_fcat-icon       = 'X'.
+    APPEND ls_fcat TO lt_fcat.  CLEAR  ls_fcat.
+
+* Show table
+    CALL METHOD me->lo_property_grid->set_table_for_first_display
+      EXPORTING
+        is_layout       = ls_layout
+      CHANGING
+        it_fieldcatalog = lt_fcat[]
+        it_outtab       = me->lt_prop.
+  ENDMETHOD.
   METHOD add_editor_node.
     me->lo_fav_behaviour->get_handle( IMPORTING handle = DATA(dnd_handle) ).
     node_layout-dragdropid = dnd_handle.
@@ -393,9 +507,40 @@ CLASS lcl_editor IMPLEMENTATION.
         i_node_text      = node_text
         is_outtab_line   = item
         is_node_layout   = node_layout
-        it_item_layout   = item_layout ).
+        it_item_layout   = item_layout
+      IMPORTING
+        e_new_node_key = DATA(lv_node_key) ).
+
+    READ TABLE me->lt_editor ASSIGNING FIELD-SYMBOL(<editor>) INDEX lines( me->lt_editor ).
+    IF sy-subrc EQ 0.
+      <editor>-node_key = lv_node_key.
+    ENDIF.
 
     me->lo_editor->frontend_update( ).
+    CALL METHOD cl_gui_cfw=>flush.
+  ENDMETHOD.
+  METHOD select_editor_node.
+    READ TABLE me->lt_editor INTO DATA(ls_editor) WITH KEY node_key = node_key.
+    IF sy-subrc EQ 0.
+      READ TABLE me->lt_controls INTO DATA(ls_control)
+      WITH KEY fullname = ls_editor-fullname BINARY SEARCH.
+      IF sy-subrc EQ 0.
+        CLEAR: me->lt_prop[].
+        LOOP AT ls_control-events INTO DATA(ls_prop).
+          APPEND INITIAL LINE TO me->lt_prop[] ASSIGNING FIELD-SYMBOL(<prop>).
+          MOVE-CORRESPONDING ls_prop TO <prop>.
+          <prop>-group = 'Events'.
+          <prop>-exp_icon = '@3S@'.
+        ENDLOOP.
+*          PROPERTIES
+*AGGREGATIONS
+*ASSOCIATIONS
+*EVENTS
+        IF me->lo_property_grid IS NOT INITIAL.
+          me->lo_property_grid->refresh_table_display( ).
+        ENDIF.
+      ENDIF.
+    ENDIF.
   ENDMETHOD.
   METHOD search_controls.
 *    DATA: lv_search TYPE string.

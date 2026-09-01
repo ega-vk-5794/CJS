@@ -57,4 +57,7 @@ CLASS lcl_event_receiver IMPLEMENTATION.
       CALL SCREEN 100.
     ENDIF.
   ENDMETHOD.
+  METHOD tree_selection_changed.
+    go_editor->select_editor_node( node_key ).
+  ENDMETHOD.
 ENDCLASS.

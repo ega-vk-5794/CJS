@@ -20,10 +20,16 @@ public section.
   methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
     redefinition .
 protected section.
-  PRIVATE SECTION.
-    CONSTANTS c_min_search_len TYPE i      VALUE 3.
-    CONSTANTS c_default_idtype TYPE string VALUE 'YFS002'.
+private section.
 
+  constants C_MIN_SEARCH_LEN type I value 3 ##NO_TEXT.
+  constants C_DEFAULT_IDTYPE type STRING value 'YFS002' ##NO_TEXT.
+  constants C_LOGIN_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
+  constants C_PARTNER_NAME type STRING value 'Applicant Name' ##NO_TEXT.
+  constants C_PARTNER_ID type STRING value 'Emirates Id Number' ##NO_TEXT.
+  constants C_VALID_TO type STRING value 'LICENCE_VALID_TO' ##NO_TEXT.
+  constants C_LANG_EN type STRING value 'E' ##NO_TEXT.
+  constants C_APPLICANTTYPE type STRING value 'Applicant Type' ##NO_TEXT.
 ENDCLASS.
 
 
@@ -199,43 +205,70 @@ CLASS ZCL_D013_STAFF_APP_LET_LOGIC IMPLEMENTATION.
       EXPORTING
         io_ctx = io_ctx.
 
-    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
+    DATA: lv_loginbp TYPE bu_partner.
 
-    zcl_ega_cj_utility=>get_bp(
-      EXPORTING
-        qv_key  = user_data
-      IMPORTING
-        loginbp = DATA(loginbp)
-        rolebp  = DATA(rolebp)
-        role    = DATA(role)
-    ).
-    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role.
 
-    io_ctx->set_val( iv_name = 'LICNO' iv_value = '0000002500009' ).
-    io_ctx->set_val( iv_name = 'LICISSUED' iv_value = 'yyyy.mm.dd' ).
-    io_ctx->set_val( iv_name = 'LICEXPIRED' iv_value = 'yyyy.mm.dd' ).
+
+    IF lv_loginbp IS NOT INITIAL.
+      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+        EXPORTING
+          iv_bp_id      = lv_loginbp
+        IMPORTING
+          es_bp_details = DATA(ls_bp) ).
+
+*      "Login BP
+      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+*      "Applicant Name
+      IF sy-langu = c_lang_en.
+        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name ) ).
+      ELSE.
+        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+      ENDIF.
+*      "Applicant Type
+*      io_ctx->set_val( iv_name = c_applicanttype iv_value = |{ lv_role }| ).
+      io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Investor' ).
+    ENDIF.
+
+*    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
+*
+*    zcl_ega_cj_utility=>get_bp(
+*      EXPORTING
+*        qv_key  = user_data
+*      IMPORTING
+*        loginbp = DATA(loginbp)
+*        rolebp  = DATA(rolebp)
+*        role    = DATA(role)
+*    ).
+*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+*
+*    io_ctx->set_val( iv_name = 'LICNO' iv_value = '0000002500009' ).
+*    io_ctx->set_val( iv_name = 'LICISSUED' iv_value = 'yyyy.mm.dd' ).
+*    io_ctx->set_val( iv_name = 'LICEXPIRED' iv_value = 'yyyy.mm.dd' ).
 
 *    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
 *   The signed-in citizen, read from the business partner register. What stood
 *   here was a fixed name and Emirates ID, written AFTER the real read, so every
 *   applicant saw and posted the same test person.
-    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
-      EXPORTING
-        iv_bp_id      = CONV bu_partner( loginbp )
-      IMPORTING
-        es_bp_details = DATA(ls_bp_real) ).
-    io_ctx->set_val( iv_name = 'APPLICANTNAME' iv_value = COND #(
-      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
-      THEN CONV string( ls_bp_real-bp_name_ar )
-      ELSE CONV string( ls_bp_real-bp_name ) ) ).
-    io_ctx->set_val( iv_name = 'APPLICANT_ID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
-*    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
-
-*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
-    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Investor' ).
-
-    io_ctx->set_val( iv_name = 'SCHOOLNAMEEN' iv_value = 'UAE School' ).
-    io_ctx->set_val( iv_name = 'SCHOOLNAMEAR' iv_value = 'UAE School Arabic' ).
+*    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+*      EXPORTING
+*        iv_bp_id      = CONV bu_partner( loginbp )
+*      IMPORTING
+*        es_bp_details = DATA(ls_bp_real) ).
+*    io_ctx->set_val( iv_name = 'APPLICANTNAME' iv_value = COND #(
+*      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
+*      THEN CONV string( ls_bp_real-bp_name_ar )
+*      ELSE CONV string( ls_bp_real-bp_name ) ) ).
+*    io_ctx->set_val( iv_name = 'APPLICANT_ID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
+**    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
+*
+**    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+*    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Investor' ).
+*
+*    io_ctx->set_val( iv_name = 'SCHOOLNAMEEN' iv_value = 'UAE School' ).
+*    io_ctx->set_val( iv_name = 'SCHOOLNAMEAR' iv_value = 'UAE School Arabic' ).
   ENDMETHOD.
 
 
