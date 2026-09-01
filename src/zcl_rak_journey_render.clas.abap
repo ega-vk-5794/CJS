@@ -2125,17 +2125,28 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     DATA lv_col   TYPE string.
     DATA lv_head  TYPE string.
     DATA lv_sub   TYPE string.
+*   THROUGH THE CATALOGUE, not literals. These four strings had no language test
+*   at all, while the closed-card above and the Reference label below were both
+*   already bilingual - so an Arabic run reached the end of a journey and was
+*   told in English that it had worked. IV_DEFAULT carries the exact previous
+*   wording, so a missing catalogue row shows what it showed before.
     IF lv_done = abap_true.
       lv_col  = `#2e9e4f`.
       lv_head = COND string( WHEN lv_paid = abap_true
-                             THEN `Payment received`
-                             ELSE `Application submitted` ).
-      lv_sub  = `We have everything we need. Keep the reference below for any follow-up.`
-      .
+                             THEN zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-res_paid
+                                                     iv_default = 'Payment received' )
+                             ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-res_submitted
+                                                     iv_default = 'Application submitted' ) ).
+      lv_sub  = zcl_rak_text=>get(
+                  iv_no      = zcl_rak_text=>c_no-res_done_sub
+                  iv_default = 'We have everything we need. Keep the reference below for any follow-up.' ).
     ELSE.
       lv_col  = `#e0a800`.
-      lv_head = `Not submitted yet`.
-      lv_sub  = `This application has not been submitted. Go back and complete the remaining steps.`.
+      lv_head = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-res_not_submitted
+                                   iv_default = 'Not submitted yet' ).
+      lv_sub  = zcl_rak_text=>get(
+                  iv_no      = zcl_rak_text=>c_no-res_not_sub_sub
+                  iv_default = 'This application has not been submitted. Go back and complete the remaining steps.' ).
     ENDIF.
 
     DATA(lv_rtl) = COND string( WHEN mo_e->mv_lang = 'A' THEN ` dir="rtl"` ELSE `` ).

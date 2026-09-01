@@ -201,6 +201,15 @@ CLASS zcl_rak_text DEFINITION
         col_name            TYPE symsgno VALUE '120',
         col_department      TYPE symsgno VALUE '121',
         col_status          TYPE symsgno VALUE '122',
+*       THE RESULT CARD. Its headline and subtitle were English literals with no
+*       language test at all, while the closed-card and the Reference label a few
+*       lines away in the same method were already bilingual - so an Arabic run
+*       ended on an English success message.
+        res_paid            TYPE symsgno VALUE '123',
+        res_submitted       TYPE symsgno VALUE '124',
+        res_done_sub        TYPE symsgno VALUE '125',
+        res_not_submitted   TYPE symsgno VALUE '126',
+        res_not_sub_sub     TYPE symsgno VALUE '127',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -489,7 +498,19 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
       ( msgno = c_no-col_mobile_number   en = `Mobile Number`   ar = `رقم الهاتف` )
       ( msgno = c_no-col_name            en = `Name`            ar = `الاسم` )
       ( msgno = c_no-col_department      en = `Department`      ar = `الدائرة` )
-      ( msgno = c_no-col_status          en = `Status`          ar = `الحالة` ) ).
+      ( msgno = c_no-col_status          en = `Status`          ar = `الحالة` )
+*     RESULT CARD - see the block comment on C_NO above. Standard renderings;
+*     worth a wording pass by whoever owns the Arabic before they go live, the
+*     same way the EC01 declaration is flagged.
+      ( msgno = c_no-res_paid          en = `Payment received`     ar = `تم استلام الدفع` )
+      ( msgno = c_no-res_submitted     en = `Application submitted` ar = `تم تقديم الطلب` )
+      ( msgno = c_no-res_done_sub
+        en = `We have everything we need. Keep the reference below for any follow-up.`
+        ar = `لدينا كل ما نحتاجه. يرجى الاحتفاظ بالرقم المرجعي أدناه لأي متابعة.` )
+      ( msgno = c_no-res_not_submitted en = `Not submitted yet`    ar = `لم يتم التقديم بعد` )
+      ( msgno = c_no-res_not_sub_sub
+        en = `This application has not been submitted. Go back and complete the remaining steps.`
+        ar = `لم يتم تقديم هذا الطلب. يرجى الرجوع وإكمال الخطوات المتبقية.` ) ).
   ENDMETHOD.
 
 
