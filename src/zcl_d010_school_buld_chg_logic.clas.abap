@@ -34,6 +34,20 @@ protected section.
       !IV_IX type I
     returning
       value(RV) type STRING .
+private section.
+
+  constants C_APP_NAME type STRING value 'APPLICANTNAME' ##NO_TEXT.
+  constants C_APP_ID type STRING value 'APPLICANT_ID' ##NO_TEXT.
+  constants C_APP_MOBILE type STRING value 'APP_MOBILE' ##NO_TEXT.
+  constants C_APP_EMAIL type STRING value 'APP_EMAIL' ##NO_TEXT.
+  constants C_APP_TYPE type STRING value 'APPLICANTTYPE' ##NO_TEXT.
+  constants C_LOGIN_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
+  constants C_LANG_EN type STRING value 'E' ##NO_TEXT.
+  constants C_APP_ROLE type STRING value 'APP_ROLE' ##NO_TEXT.
+  constants C_OWNER_BP_IDTYPE type STRING value 'OWNER_BP_IDTYPE' ##NO_TEXT.
+  constants C_OWNER_NAME type STRING value 'OWNER_NAME' ##NO_TEXT.
+  constants C_OWNER_MOBILE type STRING value 'OWNER_MOBILE' ##NO_TEXT.
+  constants C_OWNER_EMAIL type STRING value 'OWNER_EMAIL' ##NO_TEXT.
 ENDCLASS.
 
 
@@ -265,28 +279,57 @@ CLASS ZCL_D010_SCHOOL_BULD_CHG_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-  method ZIF_RAK_JOURNEY_LOGIC~ON_INIT.
+  METHOD zif_rak_journey_logic~on_init.
 *CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
 *  EXPORTING
 *    IO_CTX =
 *    .
-
-    CALL METHOD super->zif_rak_journey_logic~on_init
-      EXPORTING
-        io_ctx = io_ctx.
 *
-    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
+*    CALL METHOD super->zif_rak_journey_logic~on_init
+*      EXPORTING
+*        io_ctx = io_ctx.
+**
+*    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
+**
+*    zcl_ega_cj_utility=>get_bp(
+*      EXPORTING
+*        qv_key  = user_data
+*      IMPORTING
+*        loginbp = DATA(loginbp)
+*        rolebp  = DATA(rolebp)
+*        role    = DATA(role)
+*    ).
 *
-    zcl_ega_cj_utility=>get_bp(
-      EXPORTING
-        qv_key  = user_data
-      IMPORTING
-        loginbp = DATA(loginbp)
-        rolebp  = DATA(rolebp)
-        role    = DATA(role)
-    ).
+*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = CONV string( '3000000049' ) ). "'3000000049' ).
+    DATA: lv_loginbp TYPE bu_partner.
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
 
-    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = CONV string( '3000000049' ) ). "'3000000049' ).
+    IF lv_loginbp IS INITIAL AND syst-sysid = 'E10'.
+      lv_loginbp = '1000116563'.
+    ENDIF.
 
-  endmethod.
+    IF lv_loginbp IS NOT INITIAL.
+      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+        EXPORTING
+          iv_bp_id      = lv_loginbp
+        IMPORTING
+          es_bp_details = DATA(ls_bp) ).
+
+      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+
+      IF sy-langu = c_lang_en.
+        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name ) ).
+      ELSE.
+        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+      ENDIF.
+
+      io_ctx->set_val( iv_name = c_app_id     iv_value = CONV #( ls_bp-emirates_id ) ).
+      io_ctx->set_val( iv_name = c_app_mobile iv_value = CONV #( ls_bp-mobile_number ) ).
+      io_ctx->set_val( iv_name = c_app_email  iv_value = CONV #( ls_bp-email_address ) ).
+
+    ENDIF.
+
+  ENDMETHOD.
 ENDCLASS.
