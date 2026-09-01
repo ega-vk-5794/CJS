@@ -32,8 +32,6 @@ public section.
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_END
     redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
-    redefinition .
 protected section.
 private section.
 
@@ -110,39 +108,6 @@ ENDCLASS.
 
 
 CLASS ZCL_D004_SCHOOL_LIC_AMND_LOGIC IMPLEMENTATION.
-
-
-  METHOD zif_rak_journey_logic~on_after_read.
-    super->zif_rak_journey_logic~on_after_read( io_ctx = io_ctx ).
-
-*   The licence's existing owners land in the OWNERS_TABLE backend read. Bring
-*   them into the editable list so the citizen amends the real owners instead of
-*   retyping every one of them to add or withdraw a single partner - which is
-*   also why the shares kept failing the backend's 100% check: only the rows
-*   actually re-entered were being submitted.
-*
-*   The seeder runs once, and only while the editable grid is empty, so nothing
-*   the citizen has typed or deliberately deleted is ever restored underneath
-*   them.
-*
-*   OWNERS_DISP, not OWNERS_TABLE. The two are different backend reads and only
-*   one of them is laid out the way this journey's spec expects.
-*
-*   OWNERS_DISP is the read behind the grey Owners list at the top of this step,
-*   which renders correctly against the very same PARTNER / NATIONALITY /
-*   SHARE_PER / MOBILE_NUMBER / EMAIL_ADDRESS spec - that is the evidence its
-*   order matches. OWNERS_TABLE comes back as partner number, name, mobile,
-*   e-mail: its cells are positional from the BAdI's LIST_SEQUENCE in
-*   /QNV/SB_UI_DEFIN and owe nothing to the CJS column list. Seeding from it put
-*   the BP number under Owner Name, the name under Nationality and the phone
-*   under Owner Shares - the two specs share column NAMES without sharing what
-*   those names mean.
-    seed_grid_from_backend( io_ctx    = io_ctx
-                            iv_grid   = c_grid
-                            iv_source = 'OWNERS_DISP' ).
-  ENDMETHOD.
-
-
   METHOD zif_rak_journey_logic~get_table.
 
     DATA: lv_recnnr TYPE vicncn-recnnr,
@@ -754,13 +719,13 @@ super->zif_rak_journey_logic~on_render_popup(
     LOOP AT ls_g-rows INTO DATA(lt_r).
       CHECK zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns
                                            it_row  = lt_r
-                                           iv_name = 'PARTNER' ) = iv_id.
+                                           iv_name = 'NAME' ) = iv_id.
 
 *     Not C_OWN_NAME - that constant holds 'IDENTIFICATION_POP', which is the
 *     ID-type SELECT, not a name field. Writing the owner's name into it leaves
 *     the dropdown matching no key, so it renders blank.
       io_ctx->set_val( iv_name = 'NAME_POP'
-        iv_value = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'PARTNER' ) ).
+        iv_value = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'NAME' ) ).
       io_ctx->set_val( iv_name = c_own_nat
         iv_value = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'NATIONALITY' ) ).
       io_ctx->set_val( iv_name = c_own_share
@@ -803,9 +768,16 @@ super->zif_rak_journey_logic~on_render_popup(
 *   it both say it holds.
     DATA(lt_new_row) = zcl_rak_journey_util=>blank_row( ls_g-columns ).
 
+*   NAME carries the owner's name; PARTNER carries the BP number. They were the
+*   same column while the spec had PARTNER labelled "Owner Name", which is how
+*   the partner number ended up rendered as the name.
+    zcl_rak_journey_util=>put_cell(
+      EXPORTING it_cols = ls_g-columns iv_name = 'NAME'
+                iv_val  = io_ctx->get_val( 'NAME_POP' )
+      CHANGING  ct_row  = lt_new_row ).
     zcl_rak_journey_util=>put_cell(
       EXPORTING it_cols = ls_g-columns iv_name = 'PARTNER'
-                iv_val  = io_ctx->get_val( 'NAME_POP' )
+                iv_val  = io_ctx->get_val( 'OWNER_PARTNER' )
       CHANGING  ct_row  = lt_new_row ).
     zcl_rak_journey_util=>put_cell(
       EXPORTING it_cols = ls_g-columns iv_name = 'NATIONALITY'
@@ -835,7 +807,7 @@ super->zif_rak_journey_logic~on_render_popup(
     LOOP AT ls_g-rows INTO DATA(lt_r).
       IF zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns
                                         it_row  = lt_r
-                                        iv_name = 'PARTNER' ) = lv_id.
+                                        iv_name = 'NAME' ) = lv_id.
         lv_found = abap_true.
         APPEND lt_new_row TO ls_new-rows.
       ELSE.
@@ -970,7 +942,7 @@ super->zif_rak_journey_logic~on_render_popup(
 *     By column name. These five positions happened to line up with what the
 *     writer produced, which is why the list looked correct while the values sat
 *     in the wrong named columns and the backend read a share of nought.
-      DATA(lv_nam) = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'PARTNER' ).
+      DATA(lv_nam) = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'NAME' ).
       DATA(lv_eid) = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'EMIRATES_ID' ).
       DATA(lv_shr) = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = 'SHARE_PER' ).
       DATA(lv_id)  = lv_nam.
@@ -1223,7 +1195,7 @@ super->zif_rak_journey_logic~on_render_popup(
 *     Matched on PARTNER, the same value RENDER_OWN_LIST( ) puts on the button.
       CHECK zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns
                                            it_row  = lt_r
-                                           iv_name = 'PARTNER' ) <> iv_id.
+                                           iv_name = 'NAME' ) <> iv_id.
       APPEND lt_r TO ls_new-rows.
     ENDLOOP.
     io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
