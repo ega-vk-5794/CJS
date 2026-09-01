@@ -1528,6 +1528,40 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       APPEND VALUE #( screen = lv_scr step_id = sid title = lv_ten ) TO et_report.
     ENDLOOP.
 
+*   ---- REVIEW step ----------------------------------------------------
+*   Listed as "not derivable" in this class's own header since v6, and it
+*   is not derivable - the legacy screens have no review page, because
+*   ShapeIt never had one. But the engine does: ftype REVIEW walks
+*   MS_CONFIG-STEPS itself and renders every OTHER step's filled fields,
+*   skipping the display-only types and anything a rule has hidden. So the
+*   step needs exactly one field and no configuration at all - no labels,
+*   no column spec, nothing to maintain.
+*
+*   It is appended AFTER the screen loop so it is always last, and it
+*   carries NO BKND_SCREEN: there is no legacy screen behind it, so it must
+*   never post. A step with a blank bknd_screen renders and validates and
+*   creates nothing, which everywhere else in CJS is a bug - here it is the
+*   whole point, and it is written down so nobody "fixes" it by filling the
+*   column in.
+    lv_stepno = lv_stepno + 1.
+    DATA(lv_rvsid) = |STP{ lv_stepno }|.
+
+    INSERT zrak_t_jny_step FROM @( VALUE #(
+      mandt = sy-mandt journey_id = jid step_id = lv_rvsid seqnr = lv_stepno * 10
+      title    = 'Review and submit'
+      title_ar = 'مراجعة وإرسال'
+      icon     = 'sap-icon://survey'
+      columns  = 0
+      bknd_screen = '' ) ).
+
+    INSERT zrak_t_jny_fld FROM @( VALUE #(
+      mandt = sy-mandt journey_id = jid step_id = lv_rvsid
+      field_name = 'REVIEW' seqnr = 10
+      ftype = 'REVIEW' ) ).
+
+    APPEND VALUE #( screen = '' step_id = lv_rvsid title = 'Review and submit' )
+           TO et_report.
+
     " ---- rules: DATA4/DATA5 container visibility + UI_FIELD_LOGICS ------
     CLEAR mt_hidden.
     DATA lt_raw_rules TYPE tt_rule.
