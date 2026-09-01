@@ -45,6 +45,19 @@ private section.
   constants C_END_USER_POP type STRING value 'END_USER_POP' ##NO_TEXT.
   constants C_BOL_POP type STRING value 'BOL_POP' ##NO_TEXT.
   constants C_CHEM type STRING value 'CHEM' ##NO_TEXT.
+* The previous-declarations picker at the top of the Add Chemical dialog,
+* and the event its selection raises. See HISTORY_OPTS( ).
+  constants C_HIST_POP type STRING value 'CHEM_HIST_POP' ##NO_TEXT.
+  constants C_EVT_HIST type STRING value 'CHEM_HIST_PICK' ##NO_TEXT.
+* IvImpExpType, the filter that separates import history from export and
+* transit history. LEFT BLANK ON PURPOSE: the three codes the legacy
+* service expects could not be read from anywhere available, and FILTER( )
+* omits a blank rather than sending an empty equality. Unfiltered offers a
+* little too much history; a guessed code would offer none, and an empty
+* picker is indistinguishable from an applicant with no history. Fill this
+* in once the code is known - it is the only value in this feature that is
+* not taken from something that could be read.
+  constants C_IMPEXP type STRING value '' ##NO_TEXT.
   constants C_EVT_OWNOK type STRING value 'OWN_OK' ##NO_TEXT.
   constants C_EVT_OWNCX type STRING value 'OWN_CANCEL' ##NO_TEXT.
   constants C_OWN_ADD type STRING value 'OWNER_ADD' ##NO_TEXT.
@@ -70,6 +83,19 @@ private section.
   methods FORM_SAVE
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY .
+  methods HISTORY_REQ
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+    returning
+      value(RS) type ZCL_RAK_CHEM_API=>TY_REQ .
+  methods HISTORY_OPTS
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+    returning
+      value(RT) type ZIF_RAK_JOURNEY=>TT_OPTION .
+  methods HISTORY_APPLY
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY .
 ENDCLASS.
 
 
@@ -79,6 +105,7 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
 
   method CHEM_FORM_LOAD.
 
+    io_ctx->set_val( iv_name = C_HIST_POP            iv_value = '' ).
     io_ctx->set_val( iv_name = c_HS_CODE_POP         iv_value = '' ).
     io_ctx->set_val( iv_name = C_MATERIAL_NAME_POP    iv_value = '' ).
     io_ctx->set_val( iv_name = C_CHEMICAL_NAME_POP    iv_value = '' ).
@@ -485,6 +512,12 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
         chem_form_load( io_ctx ).          " no id = a new owner
         io_ctx->open_popup( c_chem ).
 
+      WHEN c_evt_hist.
+*       The picker fired. Fill the dialog from the chosen declaration and
+*       leave it open - the citizen still has this shipment's own figures to
+*       type, and closing here would throw the row away.
+        history_apply( io_ctx ).
+
       WHEN c_evt_owncx.
         io_ctx->close_popup( ).
 
@@ -512,16 +545,25 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
 
     ENDCASE.
 
-    CASE iv_event(8).
-      WHEN 'OWN_EDIT'.
-        DATA(lv_id) = iv_event+9.
+*   MATCHED WITH CP, NOT WITH AN OFFSET. IV_EVENT is TYPE string, so
+*   iv_event(8) raises CX_SY_RANGE_OUT_OF_BOUNDS on anything shorter - and
+*   C_EVT_OWNOK is 'OWN_OK', six characters. The Add branch above does not
+*   RETURN, so pressing Add fell straight into this and threw. It never
+*   dumped visibly because the engine wraps ON_POPUP_EVENT in TRY/CATCH and
+*   turns it into a Warning: the row saved, the dialog closed, and the
+*   citizen got an unexplained offset error on a SUCCESSFUL Add.
+*
+*   The trailing underscore in each pattern is load-bearing - it guarantees
+*   the string is long enough for the offset that follows it.
+    IF iv_event CP 'OWN_EDIT_*'.
+        DATA(lv_id) = substring( val = iv_event off = 9 ).
         CALL METHOD chem_form_load
           EXPORTING
             io_ctx = io_ctx
             iv_id  = lv_id.
         io_ctx->open_popup( c_chem ).
-       WHEN 'OWN_DEL_'.
-         lv_id = iv_event+8.
+       ELSEIF iv_event CP 'OWN_DEL_*'.
+         lv_id = substring( val = iv_event off = 8 ).
          DATA(ls_g)  = io_ctx->get_grid_data( c_grid ).
          LOOP AT ls_g-rows INTO DATA(lt_r).
            IF VALUE string( lt_r[ 1 ] OPTIONAL ) = lv_id.
@@ -532,7 +574,7 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
            delete ls_g-rows INDEX lv_index.
             io_ctx->set_grid_data( iv_field = c_grid is_data = ls_g ).
             endif.
-    ENDCASE.
+    ENDIF.
   ENDMETHOD.
 
 
@@ -574,6 +616,17 @@ super->zif_rak_journey_logic~on_render_popup(
           io_popup   = io_popup
           iv_title   = 'Add Chemical'
           it_fields  = VALUE #(
+*                             THE HISTORY PICKER, first because it fills the
+*                             rest of the form. Empty options means this
+*                             applicant has declared nothing before, or the
+*                             lookup failed - HISTORY_OPTS( ) has already put
+*                             a Warning on screen in the second case, and
+*                             DIALOG_FORM( ) falls a SELECT with no resolved
+*                             list through to a plain input, so the dialog
+*                             never shows an empty dropdown.
+                                ( name = c_hist_pop label = 'Use a previous declaration'
+                                  type = 'SELECT' options = history_opts( io_ctx )
+                                  change_evt = c_evt_hist )
                                 ( name = c_hs_code_pop          label = 'HS Code' required = abap_true )
                                 ( name = c_material_name_pop    label = 'Material Name' )
                                 ( name = c_chemical_name_pop    label = 'Chemical Name' )
@@ -645,6 +698,130 @@ super->zif_rak_journey_logic~on_render_popup(
       WHEN OTHERS.
     ENDCASE.
   endmethod.
+
+
+  METHOD history_req.
+*   The four filters the legacy CHEMICALS_DETAILS control sends, taken from
+*   the fields this journey already collects. A blank one is dropped by
+*   FILTER( ), so a form filled only as far as the permit still gets the
+*   history that permit has.
+    rs-permit  = io_ctx->get_val( c_permit ).
+    rs-licence = io_ctx->get_val( `CO_TRADE_LICENSE` ).
+    rs-emirate = io_ctx->get_val( `CO_REG_EMIRATES` ).
+    rs-impexp  = c_impexp.
+  ENDMETHOD.
+
+
+  METHOD history_opts.
+*   THE LIST THE MIGRATION LOST. The legacy control reads ChemicalHistorySet
+*   and offers the applicant the substances they have declared before; this
+*   handler rebuilt the dialog around it and not the lookup, so an importer
+*   declaring the same twenty chemicals every month retyped thirteen fields
+*   each time, HS code and CAS number included.
+*
+*   Failure is a Warning and an empty list, never an exception: the Add
+*   Chemical dialog must still open and still work by hand if the history
+*   service is down. That is the whole point of it being a convenience.
+    TRY.
+        DATA(lo_api) = NEW zcl_rak_chem_api( ).
+        DATA(ls_res) = lo_api->history( history_req( io_ctx ) ).
+
+        IF ls_res-msg IS NOT INITIAL.
+          io_ctx->add_msg( iv_type = 'Warning'
+                           iv_text = |Previous declarations unavailable: | &&
+                                     |{ VALUE #( ls_res-msg[ 1 ]-message OPTIONAL ) }| ).
+          RETURN.
+        ENDIF.
+
+        rt = lo_api->as_options( ls_res-rows ).
+      CATCH cx_root INTO DATA(lx).
+        io_ctx->add_msg( iv_type = 'Warning'
+                         iv_text = |Previous declarations unavailable: { lx->get_text( ) }| ).
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD history_apply.
+*   Copy one previous declaration into the dialog's own fields.
+*
+*   MATCHED BY NAME, NOT BY POSITION, and not against a hard-coded list of
+*   the entity set's columns. TS_CHEMICALHISTORY could not be read from the
+*   environment this was written in, so ZCL_RAK_CHEM_API returns whatever
+*   components the structure actually has and the pairing happens here:
+*   each popup field carries the candidate names it might arrive under, and
+*   a normalised fallback catches the rest. Guessing a column name and
+*   writing it as fact is what this avoids.
+*
+*   WHAT IS NOT FILLED IS SAID OUT LOUD. A prefill that quietly leaves six
+*   of thirteen boxes empty looks like a service that returned half a row;
+*   the citizen then fills them in and never mentions it. The Warning names
+*   them, so one run turns the candidate lists below into facts.
+    DATA(lv_key) = io_ctx->get_val( c_hist_pop ).
+    IF lv_key IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    TYPES: BEGIN OF ty_map,
+             field TYPE string,
+             cands TYPE string,      " '|'-separated candidate component names
+           END OF ty_map.
+
+    DATA(lt_map) = VALUE STANDARD TABLE OF ty_map WITH EMPTY KEY (
+      ( field = c_hs_code_pop          cands = `HSCODE|HS_CODE` )
+      ( field = c_material_name_pop    cands = `MATERIALNAME|MATERIAL_NAME|MATNAME` )
+      ( field = c_chemical_name_pop    cands = `CHEMICALNAME|CHEMICAL_NAME` )
+      ( field = c_cas_pop              cands = `CAS|CASNUMBER|CAS_NUMBER|CASNO` )
+      ( field = c_chemical_formula_pop cands = `CHEMICALFORMULA|CHEMICAL_FORMULA|FORMULA` )
+      ( field = c_packaging_pop        cands = `PACKAGING|PACKING|PACKAGE` )
+      ( field = c_uom_pop              cands = `UOM|UNIT|UNITOFMEASURE` )
+      ( field = c_origin_pop           cands = `ORIGIN|COUNTRYOFORIGIN|COUNTRY_ORIGIN` ) ).
+
+    DATA lv_miss TYPE string.
+
+    TRY.
+        DATA(lo_api) = NEW zcl_rak_chem_api( ).
+        DATA(ls_res) = lo_api->history( history_req( io_ctx ) ).
+        DATA(lt_val) = lo_api->row_values( it_rows = ls_res-rows iv_key = lv_key ).
+        IF lt_val IS INITIAL.
+          RETURN.
+        ENDIF.
+
+        LOOP AT lt_map INTO DATA(ls_map).
+          SPLIT ls_map-cands AT '|' INTO TABLE DATA(lt_cand).
+          DATA lv_hit TYPE abap_bool.
+          CLEAR lv_hit.
+
+          LOOP AT lt_cand INTO DATA(lv_cand).
+            READ TABLE lt_val INTO DATA(ls_val) WITH KEY name = to_upper( lv_cand ).
+            IF sy-subrc = 0 AND ls_val-value IS NOT INITIAL.
+              io_ctx->set_val( iv_name = ls_map-field iv_value = ls_val-value ).
+              lv_hit = abap_true.
+              EXIT.
+            ENDIF.
+          ENDLOOP.
+
+          IF lv_hit = abap_false.
+            lv_miss = COND string( WHEN lv_miss IS INITIAL THEN ls_map-field
+                                   ELSE |{ lv_miss }, { ls_map-field }| ).
+          ENDIF.
+        ENDLOOP.
+
+*       QUANTITY, GROSS WEIGHT, INVOICE, END USER and BILL OF LADING are
+*       deliberately NOT prefilled. They belong to THIS shipment, not to the
+*       substance - copying last month's quantity forward is how a wrong
+*       figure gets declared without anyone retyping it.
+        IF lv_miss IS NOT INITIAL.
+          io_ctx->add_msg(
+            iv_type = 'Warning'
+            iv_text = |Previous declaration loaded; these could not be matched | &&
+                      |and need filling by hand: { lv_miss }| ).
+        ENDIF.
+
+      CATCH cx_root INTO DATA(lx).
+        io_ctx->add_msg( iv_type = 'Warning'
+                         iv_text = |Could not load that declaration: { lx->get_text( ) }| ).
+    ENDTRY.
+  ENDMETHOD.
 
 
   METHOD form_save.

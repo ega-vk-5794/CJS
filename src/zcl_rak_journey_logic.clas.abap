@@ -157,6 +157,21 @@ CLASS zcl_rak_journey_logic DEFINITION
 *            engine's VALIDATE_STEP never sees these fields.
              required    TYPE abap_bool,
              readonly    TYPE abap_bool,
+*            ---- reactivity ----------------------------------------------------
+*            Raise this popup event when the field's value changes. Blank is the
+*            old behaviour exactly: no event, no round trip.
+*
+*            It exists because a dialog could show a dropdown but never react to
+*            one, so a popup that offers a choice which should FILL THE REST OF
+*            THE FORM - pick a previous chemical declaration, pick a saved
+*            address - had no way to. The alternative was a second button, and
+*            DIALOG_FORM( ) has only OK and Cancel.
+*
+*            Same routing as F4_EVT above: it arrives at the handler's
+*            ON_POPUP_EVENT( ), so the handler decides what filling in means.
+*            Only a SELECT can raise it - an input has no settled moment to fire
+*            on, and firing per keystroke would round-trip on every letter.
+             change_evt  TYPE string,
              placeholder TYPE string,
              width       TYPE string,
              maxlen      TYPE i,
@@ -369,7 +384,12 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
         DATA(lo_cb) = lo_form->combobox( selectedkey = io_ctx->bind( ls-name )
                                          enabled     = lv_edit
                                          width       = lv_w
-                                         placeholder = ls-placeholder ).
+                                         placeholder = ls-placeholder
+*                                        Blank leaves the dropdown exactly as it
+*                                        rendered before CHANGE_EVT existed.
+                                         change      = COND string(
+                                           WHEN ls-change_evt IS NOT INITIAL
+                                           THEN io_ctx->event( ls-change_evt ) ) ).
         LOOP AT lt_opt INTO DATA(ls_o).
           lo_cb->item( key = ls_o-key text = ls_o-text ).
         ENDLOOP.
