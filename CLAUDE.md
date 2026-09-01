@@ -139,6 +139,21 @@ These raise nothing and render nothing. They account for most of the bugs found 
   draw their own, and a hand-drawn popup that calls `z2ui5_cl_xml_view->label( )` directly
   bypasses all three. Prefer `DIALOG_FORM( )` for a new popup: it sets `REQUIRED` from each
   field's own flag, so the marker cannot be forgotten.
+- **Every round trip used to repaint the whole page, and that is what "flickering" is.**
+  `VIEW_DISPLAY( )` hands the client a fresh XML view, so UI5 tears the control tree down
+  and rebuilds it - taking the scroll position and the focus with it. Picking from a
+  dropdown raises `CHANGE` (see `OPT_EVT( )`), and the round trip is *correct* - `ON_CHANGE( )`
+  has to run - but repainting afterwards when nothing moved is not. `SEND_VIEW( )` in
+  `ZCL_RAK_JOURNEY_RENDER` is now the single exit for the finished view: it hashes the
+  stringified markup against `ZCL_RAK_JOURNEY_ENGINE-MV_VIEW_SIG` and, when it matches,
+  calls `VIEW_MODEL_UPDATE( )` instead - which sets `CHECK_UPDATE_MODEL` and refreshes the
+  bound values without touching the controls, so a value `ON_CHANGE( )` wrote server-side
+  still reaches the screen. **The test is the markup itself, never a list of things that
+  might have moved**, so it cannot go stale: anything that really changes the page changes
+  the markup. `MV_QUIET_EVT` keeps the quiet path to `CHANGE_` round trips only, so
+  navigation, submit and popups always repaint; popups go out through `POPUP_DISPLAY( )`
+  regardless. Confirmed fixed on screen. If you ever need the old behaviour, do not
+  reintroduce a second `VIEW_DISPLAY( )` call - go through `SEND_VIEW( )`.
 - **A grid row written by hand is positional against the *configured* columns.**
   `SET_GRID_DATA( )` maps by name, but the `COLUMNS` a handler passes came straight back from
   `GET_GRID_DATA( )`, so the map is an identity map and cell N lands in configured column N.
