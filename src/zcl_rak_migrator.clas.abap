@@ -753,7 +753,10 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 *     ChemicalHistorySet returns the citizen's PREVIOUS declarations for a
 *     permit and trade licence. E016/E017/E018 hand-built the dialog and
 *     none of them carries this lookup.
-      ( ftype = 'CHEMICALS' api = 'CJ'       eset = 'ChemicalHistorySet' )
+*     ChemicalHistorySet is on zega_fw_fnd_srv, NOT on CUSTOMERJOURNEY -
+*     its row type is ZCL_ZEGA_FW_FND_MPC=>TS_CHEMICALHISTORY. Naming the
+*     wrong service here would send the column derivation to the wrong MPC.
+      ( ftype = 'CHEMICALS' api = 'FND'      eset = 'ChemicalHistorySet' )
 *     PortAccommodationSet and WorkersListSet are on a FIFTH service,
 *     ZEGA_EPDA_MAPLET_I_SRV, which is in no repository read so far. The
 *     binding is written so the field is not silently blank; the wrapper
