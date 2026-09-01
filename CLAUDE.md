@@ -355,10 +355,40 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
   impersonate the portal session**, because `GET_BP( )` resolves the caller by
   AES-decrypting a `ZEGA_T_CJ_US_LOG` row keyed on an `x-custom1` header. Identity
   therefore travels in `MS_CTX` and goes out as **filters**, never inferred by the DPC.
-- **Whether a Gateway DPC can be called outside its runtime context is unproven.**
-  It is the one assumption that invalidates the whole layer, which is why the first
-  two classes are read-only and touch no context. Activate them and run one journey
-  before anything else is built on top.
+- **A Gateway DPC CAN be called outside its runtime context — settled, not assumed.**
+  `ZRAK_CJ_REQCTX_DIAG` reports `BOUND` in the RAK system on
+  `/IWBEP/CL_MGW_REQUEST_UNITTST`, whose constructor is `IT_HEADERS` (mandatory)
+  plus an optional `IO_MODEL` and takes **no `IR_REQUEST_DETAILS`** — which is why
+  the subclass attempts kept failing and the unit-test context works. Headers go in
+  empty, deliberately (see the `x-custom1` note above). What is still unproven is
+  whether the *reads themselves* return the right rows for a CJS caller — activate
+  `ZCL_RAK_PROPERTY_API` and run one journey before more is built on top.
+- **`GET_EXPANDED_ENTITYSET` is NOT reachable yet, and that is what limits the layer.**
+  It calls `IO_EXPAND->GET_CHILDREN( )` unguarded, so it needs an expand object the
+  same way the entity-set reads needed a request context. Everything behind it is
+  therefore unserved: `FloorSet` (`RAK_FLOORUNIT`), `Project`, `License`, and the
+  parcel **full-details** dialog (`$expand=ToProject,ToPartner,ToMeasurement,…`).
+  `PropertiesSet` has a flat `_GET_ENTITYSET` as well, which is the one the parcel
+  **list** uses — that is why the list works and the detail view does not.
+- **A field's options now have a FOURTH source: an `API:` directive in `DEFAULT_VAL`.**
+  `ZCL_RAK_MIGRATOR->BIND_TABLE( )` writes it, `ZCL_RAK_CJ_OPTS->RESOLVE( )` reads it,
+  and `RENDER_ONE( )` consults it **ahead of the DDIC resolver** — an API-bound field
+  must never fall through to a domain that happens to share its name, because a wrong
+  list is harder to notice than no list. The composite ftypes (`PARCEL`, `PROPERTY`,
+  `TITLEDEED`, `CONTRACT`, `FLOORUNIT`, `BUILDINGS`) render through the `SELECT`
+  branch. **`RENDER_ONE( )` calls the resolver dynamically** (`CALL METHOD
+  ('ZCL_RAK_CJ_OPTS')=>('RESOLVE') PARAMETER-TABLE`) on purpose: the chain leads to
+  `ZCL_RAK_CJ_API`, which inherits the legacy DPC, and a static reference would stop
+  the renderer — every journey and the Studio — from loading whenever anything in that
+  chain is inactive. Do not "tidy" it into a static call.
+- **The fifteen M journeys already loaded carry the OLD bindings and must be re-run.**
+  Three were wrong and are fixed in `BIND_TABLE( )`/`CLASSIFY( )`: `PARCEL` pointed at
+  `FindParcelSet` (a `CREATE_DEEP_ENTITY` target that opens a ZGCF case — a selector
+  bound to it would have posted a case on every look), `TITLEDEED` at a method name,
+  `FLOORUNIT` at the wrong set; and the five partner-search controls were typed `'BP'`,
+  which is a `RENDER_POPUP( )` branch, not a field ftype, so they drew a plain input
+  box where a search belongs — they are `'SEARCH'` now. Re-run `ZRAK_M_MUNI_LOAD`
+  (teardown, then migrate) after activating; the rows do not update themselves.
 - **Never hand-write the shape of a standard SAP object you cannot open from here.**
   `ZCL_RAK_CJ_REQ_CTX` was written three times as `INHERITING FROM
   `/IWBEP/CL_MGW_REQUEST`` with `GET_REQUEST_HEADERS` redefined, and each activation
