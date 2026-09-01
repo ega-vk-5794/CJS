@@ -81,9 +81,8 @@ CLASS zcl_rak_cj_req_ctx IMPLEMENTATION.
 
 
   METHOD constructor.
-*   UNVERIFIED - see the class header. If /IWBEP/CL_MGW_REQUEST's own
-*   constructor demands parameters, activation names them and they are
-*   added here; nothing else in this class moves.
+*   Parameterless, and confirmed so at the first activation - it drew no
+*   complaint while the MT_HEADERS clash beside it did.
     super->constructor( ).
     mt_hdr = it_headers.
   ENDMETHOD.
