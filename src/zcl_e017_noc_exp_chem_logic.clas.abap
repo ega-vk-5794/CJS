@@ -58,12 +58,10 @@ private section.
 * not the lookup. See HISTORY_OPTS( ).
   constants C_HIST_POP type STRING value 'CHEM_HIST_POP' ##NO_TEXT.
   constants C_EVT_HIST type STRING value 'CHEM_HIST_PICK' ##NO_TEXT.
-* IvImpExpType - the filter that would separate EXPORT history from import
-* and transit. Blank on purpose: the three codes could not be read from
-* anything available here, FILTER( ) omits a blank rather than sending an
-* empty equality, and a guessed code returns nothing - which looks exactly
-* like an applicant with no history. Fill it in when the code is known.
-  constants C_IMPEXP type STRING value '' ##NO_TEXT.
+* IV_IMP_EXP_TYPE. Domain ZDO_EPDA_CHEM_IMP_EXP has exactly two fixed
+* values - 1 Import, 2 Export - so E017, the EXPORT NOC, sends 2 and sees
+* only export history.
+  constants C_IMPEXP type STRING value '2' ##NO_TEXT.
 
   methods HISTORY_REQ
     importing
@@ -849,14 +847,17 @@ lo_c12->combobox( selectedkey = io_ctx->bind( c_import_pop )
              cands TYPE string,
            END OF ty_map.
 
+*   EXACT NAMES NOW. Note that this handler's own C_CHEM_POP is
+*   'CHEMINAL_NAME' - the same misspelling the source carries, which is how
+*   we know these constants were copied from that service in the first place.
     DATA(lt_map) = VALUE STANDARD TABLE OF ty_map WITH EMPTY KEY (
-      ( field = c_hs_pop        cands = `HSCODE|HS_CODE` )
-      ( field = c_mat_pop       cands = `MATERIALNAME|MATERIAL_NAME|MATNAME` )
-      ( field = c_chem_pop      cands = `CHEMICALNAME|CHEMICAL_NAME` )
-      ( field = c_cas_no_pop    cands = `CAS|CASNUMBER|CAS_NUMBER|CASNO` )
-      ( field = c_chem_form_pop cands = `CHEMICALFORMULA|CHEMICAL_FORMULA|FORMULA` )
-      ( field = c_packaging_pop cands = `PACKAGING|PACKING|PACKAGE` )
-      ( field = c_unit_pop      cands = `UOM|UNIT|UNITOFMEASURE` ) ).
+      ( field = c_hs_pop        cands = `HS_CODE` )
+      ( field = c_mat_pop       cands = `MATERIAL_NAME` )
+      ( field = c_chem_pop      cands = `CHEMINAL_NAME` )
+      ( field = c_cas_no_pop    cands = `CAS_NO` )
+      ( field = c_chem_form_pop cands = `CHEMICAL_FORMULA` )
+      ( field = c_packaging_pop cands = `PACKAGING` )
+      ( field = c_unit_pop      cands = `UNIT` ) ).
 
     DATA lv_miss TYPE string.
 

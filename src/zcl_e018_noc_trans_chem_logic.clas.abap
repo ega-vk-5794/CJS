@@ -60,11 +60,12 @@ private section.
 * not the lookup. See HISTORY_OPTS( ).
   constants C_HIST_POP type STRING value 'CHEM_HIST_POP' ##NO_TEXT.
   constants C_EVT_HIST type STRING value 'CHEM_HIST_PICK' ##NO_TEXT.
-* IvImpExpType - would separate TRANSIT history from import and export.
-* Blank on purpose: the three codes could not be read from anything
-* available here, FILTER( ) omits a blank rather than sending an empty
-* equality, and a guessed code returns nothing - which looks exactly like an
-* applicant with no history. Fill it in when the code is known.
+* IV_IMP_EXP_TYPE, deliberately blank - and now for a settled reason rather
+* than an unknown one. Domain ZDO_EPDA_CHEM_IMP_EXP has exactly two fixed
+* values, 1 Import and 2 Export. There is NO transit code, so E018 sends
+* none and sees the applicant's whole history. That is the domain's answer;
+* inventing a third value would return nothing, which looks exactly like an
+* applicant who has never declared anything.
   constants C_IMPEXP type STRING value '' ##NO_TEXT.
 
 *  CONSTANTS c_hs_pop TYPE string VALUE 'HS_CODE' ##NO_TEXT.
@@ -176,15 +177,21 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
              cands TYPE string,
            END OF ty_map.
 
+*   EXACT NAMES NOW - CHEMINAL_NAME is the source's own misspelling, not a
+*   slip here, and CAS_NO carries the underscore.
     DATA(lt_map) = VALUE STANDARD TABLE OF ty_map WITH EMPTY KEY (
-      ( field = c_hs_code_pop          cands = `HSCODE|HS_CODE` )
-      ( field = c_material_name_pop    cands = `MATERIALNAME|MATERIAL_NAME|MATNAME` )
-      ( field = c_chemical_name_pop    cands = `CHEMICALNAME|CHEMICAL_NAME` )
-      ( field = c_cas_pop              cands = `CAS|CASNUMBER|CAS_NUMBER|CASNO` )
-      ( field = c_chemical_formula_pop cands = `CHEMICALFORMULA|CHEMICAL_FORMULA|FORMULA` )
-      ( field = c_packaging_pop        cands = `PACKAGING|PACKING|PACKAGE` )
-      ( field = c_uom_pop              cands = `UOM|UNIT|UNITOFMEASURE` )
-      ( field = c_origin_pop           cands = `ORIGIN|COUNTRYOFORIGIN|COUNTRY_ORIGIN` ) ).
+      ( field = c_hs_code_pop          cands = `HS_CODE` )
+      ( field = c_material_name_pop    cands = `MATERIAL_NAME` )
+      ( field = c_chemical_name_pop    cands = `CHEMINAL_NAME` )
+      ( field = c_cas_pop              cands = `CAS_NO` )
+      ( field = c_chemical_formula_pop cands = `CHEMICAL_FORMULA` )
+      ( field = c_packaging_pop        cands = `PACKAGING` )
+      ( field = c_uom_pop              cands = `UNIT` )
+      ( field = c_origin_pop           cands = `COUNTRY_ORIGIN` )
+      ( field = c_end_user_pop         cands = `POINT_OF_ENTRANCE` )
+*     E018 is the transit journey, so the carrier is part of the route the
+*     substance takes and the history is the right source for it.
+      ( field = c_trans_comp           cands = `TRANSPORT_COMPANY` ) ).
 
     DATA lv_miss TYPE string.
 
@@ -214,9 +221,8 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
           ENDIF.
         ENDLOOP.
 
-*       QUANTITY, GROSS WEIGHT, INVOICE, END USER, BILL OF LADING and
-*       TRANSPORT COMPANY are deliberately not prefilled - they belong to
-*       this shipment, not to the substance.
+*       QUANTITY, GROSS WEIGHT, INVOICE and BILL OF LADING are deliberately
+*       not prefilled - they belong to this shipment, not to the substance.
         IF lv_miss IS NOT INITIAL.
           io_ctx->add_msg(
             iv_type = 'Warning'

@@ -49,15 +49,11 @@ private section.
 * and the event its selection raises. See HISTORY_OPTS( ).
   constants C_HIST_POP type STRING value 'CHEM_HIST_POP' ##NO_TEXT.
   constants C_EVT_HIST type STRING value 'CHEM_HIST_PICK' ##NO_TEXT.
-* IvImpExpType, the filter that separates import history from export and
-* transit history. LEFT BLANK ON PURPOSE: the three codes the legacy
-* service expects could not be read from anywhere available, and FILTER( )
-* omits a blank rather than sending an empty equality. Unfiltered offers a
-* little too much history; a guessed code would offer none, and an empty
-* picker is indistinguishable from an applicant with no history. Fill this
-* in once the code is known - it is the only value in this feature that is
-* not taken from something that could be read.
-  constants C_IMPEXP type STRING value '' ##NO_TEXT.
+* IV_IMP_EXP_TYPE. Domain ZDO_EPDA_CHEM_IMP_EXP has exactly two fixed
+* values - 1 Import, 2 Export - so E016, the IMPORT NOC, sends 1 and sees
+* only import history. E018 has no value to send because the domain has no
+* transit code; that is the domain's answer, not a gap.
+  constants C_IMPEXP type STRING value '1' ##NO_TEXT.
   constants C_EVT_OWNOK type STRING value 'OWN_OK' ##NO_TEXT.
   constants C_EVT_OWNCX type STRING value 'OWN_CANCEL' ##NO_TEXT.
   constants C_OWN_ADD type STRING value 'OWNER_ADD' ##NO_TEXT.
@@ -766,15 +762,24 @@ super->zif_rak_journey_logic~on_render_popup(
              cands TYPE string,      " '|'-separated candidate component names
            END OF ty_map.
 
+*   EXACT NAMES NOW, not candidates. ZV_EPDA_CHEVHELP was unreadable when
+*   this was first written, so each field carried a list of guesses; the
+*   real columns are known and two of those lists would have missed -
+*   CHEMINAL_NAME (the source's own misspelling, which E017's constant
+*   copies) and CAS_NO. A single name per field is the honest form once the
+*   name is a fact.
     DATA(lt_map) = VALUE STANDARD TABLE OF ty_map WITH EMPTY KEY (
-      ( field = c_hs_code_pop          cands = `HSCODE|HS_CODE` )
-      ( field = c_material_name_pop    cands = `MATERIALNAME|MATERIAL_NAME|MATNAME` )
-      ( field = c_chemical_name_pop    cands = `CHEMICALNAME|CHEMICAL_NAME` )
-      ( field = c_cas_pop              cands = `CAS|CASNUMBER|CAS_NUMBER|CASNO` )
-      ( field = c_chemical_formula_pop cands = `CHEMICALFORMULA|CHEMICAL_FORMULA|FORMULA` )
-      ( field = c_packaging_pop        cands = `PACKAGING|PACKING|PACKAGE` )
-      ( field = c_uom_pop              cands = `UOM|UNIT|UNITOFMEASURE` )
-      ( field = c_origin_pop           cands = `ORIGIN|COUNTRYOFORIGIN|COUNTRY_ORIGIN` ) ).
+      ( field = c_hs_code_pop          cands = `HS_CODE` )
+      ( field = c_material_name_pop    cands = `MATERIAL_NAME` )
+      ( field = c_chemical_name_pop    cands = `CHEMINAL_NAME` )
+      ( field = c_cas_pop              cands = `CAS_NO` )
+      ( field = c_chemical_formula_pop cands = `CHEMICAL_FORMULA` )
+      ( field = c_packaging_pop        cands = `PACKAGING` )
+      ( field = c_uom_pop              cands = `UNIT` )
+      ( field = c_origin_pop           cands = `COUNTRY_ORIGIN` )
+*     Point of Entrance is a property of the route this substance takes, not
+*     of the shipment, so the history is the right place to get it from.
+      ( field = c_end_user_pop         cands = `POINT_OF_ENTRANCE` ) ).
 
     DATA lv_miss TYPE string.
 
@@ -806,10 +811,10 @@ super->zif_rak_journey_logic~on_render_popup(
           ENDIF.
         ENDLOOP.
 
-*       QUANTITY, GROSS WEIGHT, INVOICE, END USER and BILL OF LADING are
-*       deliberately NOT prefilled. They belong to THIS shipment, not to the
-*       substance - copying last month's quantity forward is how a wrong
-*       figure gets declared without anyone retyping it.
+*       QUANTITY, GROSS WEIGHT, INVOICE and BILL OF LADING are deliberately
+*       NOT prefilled. They belong to THIS shipment, not to the substance -
+*       copying last month's quantity forward is how a wrong figure gets
+*       declared without anyone retyping it.
         IF lv_miss IS NOT INITIAL.
           io_ctx->add_msg(
             iv_type = 'Warning'
