@@ -1,6 +1,6 @@
 [
   {
-    "control": "sap.f.Avatar",
+    "fullName": "sap.f.Avatar",
     "extends": "sap.m.Avatar",
     "library": "sap.f",
     "properties": [
@@ -266,7 +266,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.f.AvatarGroup",
+    "fullName": "sap.f.AvatarGroup",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -435,7 +435,7 @@
     ]
   },
   {
-    "control": "sap.f.AvatarGroupItem",
+    "fullName": "sap.f.AvatarGroupItem",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -586,7 +586,7 @@
     ]
   },
   {
-    "control": "sap.f.CalendarAppointmentInCard",
+    "fullName": "sap.f.CalendarAppointmentInCard",
     "extends": "sap.ui.unified.CalendarAppointment",
     "library": "sap.f",
     "properties": [
@@ -780,7 +780,7 @@
     ]
   },
   {
-    "control": "sap.f.CalendarInCard",
+    "fullName": "sap.f.CalendarInCard",
     "extends": "sap.ui.unified.Calendar",
     "library": "sap.f",
     "properties": [
@@ -1056,7 +1056,7 @@
     ]
   },
   {
-    "control": "sap.f.Card",
+    "fullName": "sap.f.Card",
     "extends": "sap.f.CardBase",
     "library": "sap.f",
     "properties": [
@@ -1238,7 +1238,7 @@
     ]
   },
   {
-    "control": "sap.f.CardBase",
+    "fullName": "sap.f.CardBase",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -1400,7 +1400,7 @@
     ]
   },
   {
-    "control": "sap.f.DynamicPage",
+    "fullName": "sap.f.DynamicPage",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -1626,7 +1626,7 @@
     ]
   },
   {
-    "control": "sap.f.DynamicPageAccessibleLandmarkInfo",
+    "fullName": "sap.f.DynamicPageAccessibleLandmarkInfo",
     "extends": "sap.ui.core.Element",
     "library": "sap.f",
     "properties": [
@@ -1772,7 +1772,7 @@
     ]
   },
   {
-    "control": "sap.f.DynamicPageHeader",
+    "fullName": "sap.f.DynamicPageHeader",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -1924,7 +1924,7 @@
     ]
   },
   {
-    "control": "sap.f.DynamicPageTitle",
+    "fullName": "sap.f.DynamicPageTitle",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -2157,7 +2157,7 @@
     ]
   },
   {
-    "control": "sap.f.FlexibleColumnLayout",
+    "fullName": "sap.f.FlexibleColumnLayout",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -2423,7 +2423,7 @@
     ]
   },
   {
-    "control": "sap.f.FlexibleColumnLayoutAccessibleLandmarkInfo",
+    "fullName": "sap.f.FlexibleColumnLayoutAccessibleLandmarkInfo",
     "extends": "sap.ui.core.Element",
     "library": "sap.f",
     "properties": [
@@ -2557,7 +2557,7 @@
     ]
   },
   {
-    "control": "sap.f.FlexibleColumnLayoutData",
+    "fullName": "sap.f.FlexibleColumnLayoutData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.f",
     "properties": [
@@ -2663,7 +2663,7 @@
     ]
   },
   {
-    "control": "sap.f.FlexibleColumnLayoutDataForDesktop",
+    "fullName": "sap.f.FlexibleColumnLayoutDataForDesktop",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.f",
     "properties": [
@@ -2791,7 +2791,7 @@
     ]
   },
   {
-    "control": "sap.f.FlexibleColumnLayoutDataForTablet",
+    "fullName": "sap.f.FlexibleColumnLayoutDataForTablet",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.f",
     "properties": [
@@ -2919,7 +2919,7 @@
     ]
   },
   {
-    "control": "sap.f.GridContainer",
+    "fullName": "sap.f.GridContainer",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -3164,7 +3164,7 @@
     ]
   },
   {
-    "control": "sap.f.GridContainerItemLayoutData",
+    "fullName": "sap.f.GridContainerItemLayoutData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.f",
     "properties": [
@@ -3274,7 +3274,7 @@
     ]
   },
   {
-    "control": "sap.f.GridList",
+    "fullName": "sap.f.GridList",
     "extends": "sap.m.ListBase",
     "library": "sap.f",
     "properties": [
@@ -3683,7 +3683,7 @@
     ]
   },
   {
-    "control": "sap.f.GridListItem",
+    "fullName": "sap.f.GridListItem",
     "extends": "sap.m.ListItemBase",
     "library": "sap.f",
     "properties": [
@@ -3900,7 +3900,7 @@
     ]
   },
   {
-    "control": "sap.f.HeroBanner",
+    "fullName": "sap.f.HeroBanner",
     "extends": "sap.f.gen.ui5.webcomponents_fiori.dist.HeroBanner",
     "library": "sap.f",
     "properties": [
@@ -4108,7 +4108,7 @@
     ]
   },
   {
-    "control": "sap.f.IllustratedMessage",
+    "fullName": "sap.f.IllustratedMessage",
     "extends": "sap.m.IllustratedMessage",
     "library": "sap.f",
     "properties": [
@@ -4321,7 +4321,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.f.Illustration",
+    "fullName": "sap.f.Illustration",
     "extends": "sap.m.Illustration",
     "library": "sap.f",
     "properties": [
@@ -4491,7 +4491,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.f.PlanningCalendarInCardLegend",
+    "fullName": "sap.f.PlanningCalendarInCardLegend",
     "extends": "sap.m.PlanningCalendarLegend",
     "library": "sap.f",
     "properties": [
@@ -4668,7 +4668,7 @@
     ]
   },
   {
-    "control": "sap.f.ProductSwitch",
+    "fullName": "sap.f.ProductSwitch",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -4819,7 +4819,7 @@
     ]
   },
   {
-    "control": "sap.f.ProductSwitchItem",
+    "fullName": "sap.f.ProductSwitchItem",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -4988,7 +4988,7 @@
     ]
   },
   {
-    "control": "sap.f.SearchManager",
+    "fullName": "sap.f.SearchManager",
     "extends": "sap.ui.core.Element",
     "library": "sap.f",
     "properties": [
@@ -5132,7 +5132,7 @@
     ]
   },
   {
-    "control": "sap.f.ShellBar",
+    "fullName": "sap.f.ShellBar",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -5399,7 +5399,7 @@
     ]
   },
   {
-    "control": "sap.f.SidePanel",
+    "fullName": "sap.f.SidePanel",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -5611,7 +5611,7 @@
     ]
   },
   {
-    "control": "sap.f.SidePanelItem",
+    "fullName": "sap.f.SidePanelItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.f",
     "properties": [
@@ -5747,7 +5747,7 @@
     ]
   },
   {
-    "control": "sap.f.cards.BaseHeader",
+    "fullName": "sap.f.cards.BaseHeader",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -5936,7 +5936,7 @@
     ]
   },
   {
-    "control": "sap.f.cards.Header",
+    "fullName": "sap.f.cards.Header",
     "extends": "sap.f.cards.BaseHeader",
     "library": "sap.f",
     "properties": [
@@ -6209,7 +6209,7 @@
     ]
   },
   {
-    "control": "sap.f.cards.NumericHeader",
+    "fullName": "sap.f.cards.NumericHeader",
     "extends": "sap.f.cards.BaseHeader",
     "library": "sap.f",
     "properties": [
@@ -6556,7 +6556,7 @@
     ]
   },
   {
-    "control": "sap.f.cards.NumericIndicators",
+    "fullName": "sap.f.cards.NumericIndicators",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -6738,7 +6738,7 @@
     ]
   },
   {
-    "control": "sap.f.cards.NumericSideIndicator",
+    "fullName": "sap.f.cards.NumericSideIndicator",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -6895,7 +6895,7 @@
     ]
   },
   {
-    "control": "sap.f.cards.loading.AnalyticalPlaceholder",
+    "fullName": "sap.f.cards.loading.AnalyticalPlaceholder",
     "extends": "sap.f.cards.loading.PlaceholderBase",
     "library": "sap.f",
     "properties": [
@@ -7052,7 +7052,7 @@
     ]
   },
   {
-    "control": "sap.f.cards.loading.CalendarPlaceholder",
+    "fullName": "sap.f.cards.loading.CalendarPlaceholder",
     "extends": "sap.f.cards.loading.ListPlaceholder",
     "library": "sap.f",
     "properties": [
@@ -7257,7 +7257,7 @@
     ]
   },
   {
-    "control": "sap.f.cards.loading.GenericPlaceholder",
+    "fullName": "sap.f.cards.loading.GenericPlaceholder",
     "extends": "sap.f.cards.loading.PlaceholderBase",
     "library": "sap.f",
     "properties": [
@@ -7402,7 +7402,7 @@
     ]
   },
   {
-    "control": "sap.f.cards.loading.ListPlaceholder",
+    "fullName": "sap.f.cards.loading.ListPlaceholder",
     "extends": "sap.f.cards.loading.PlaceholderBase",
     "library": "sap.f",
     "properties": [
@@ -7589,7 +7589,7 @@
     ]
   },
   {
-    "control": "sap.f.cards.loading.ObjectPlaceholder",
+    "fullName": "sap.f.cards.loading.ObjectPlaceholder",
     "extends": "sap.f.cards.loading.PlaceholderBase",
     "library": "sap.f",
     "properties": [
@@ -7746,7 +7746,7 @@
     ]
   },
   {
-    "control": "sap.f.cards.loading.PlaceholderBase",
+    "fullName": "sap.f.cards.loading.PlaceholderBase",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -7891,7 +7891,7 @@
     ]
   },
   {
-    "control": "sap.f.cards.loading.TablePlaceholder",
+    "fullName": "sap.f.cards.loading.TablePlaceholder",
     "extends": "sap.f.cards.loading.PlaceholderBase",
     "library": "sap.f",
     "properties": [
@@ -8054,7 +8054,7 @@
     ]
   },
   {
-    "control": "sap.f.cards.loading.TimelinePlaceholder",
+    "fullName": "sap.f.cards.loading.TimelinePlaceholder",
     "extends": "sap.f.cards.loading.PlaceholderBase",
     "library": "sap.f",
     "properties": [
@@ -8217,7 +8217,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.AddAction",
+    "fullName": "sap.f.semantic.AddAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -8326,7 +8326,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.CloseAction",
+    "fullName": "sap.f.semantic.CloseAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -8435,7 +8435,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.CopyAction",
+    "fullName": "sap.f.semantic.CopyAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -8544,7 +8544,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.DeleteAction",
+    "fullName": "sap.f.semantic.DeleteAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -8653,7 +8653,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.DiscussInJamAction",
+    "fullName": "sap.f.semantic.DiscussInJamAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -8762,7 +8762,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.EditAction",
+    "fullName": "sap.f.semantic.EditAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -8871,7 +8871,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.ExitFullScreenAction",
+    "fullName": "sap.f.semantic.ExitFullScreenAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -8980,7 +8980,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.FavoriteAction",
+    "fullName": "sap.f.semantic.FavoriteAction",
     "extends": "sap.f.semantic.SemanticToggleButton",
     "library": "sap.f",
     "properties": [
@@ -9095,7 +9095,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.FlagAction",
+    "fullName": "sap.f.semantic.FlagAction",
     "extends": "sap.f.semantic.SemanticToggleButton",
     "library": "sap.f",
     "properties": [
@@ -9210,7 +9210,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.FooterMainAction",
+    "fullName": "sap.f.semantic.FooterMainAction",
     "extends": "sap.f.semantic.MainAction",
     "library": "sap.f",
     "properties": [
@@ -9325,7 +9325,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.FullScreenAction",
+    "fullName": "sap.f.semantic.FullScreenAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -9434,7 +9434,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.MainAction",
+    "fullName": "sap.f.semantic.MainAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -9549,7 +9549,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.MessagesIndicator",
+    "fullName": "sap.f.semantic.MessagesIndicator",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -9658,7 +9658,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.NegativeAction",
+    "fullName": "sap.f.semantic.NegativeAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -9773,7 +9773,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.PositiveAction",
+    "fullName": "sap.f.semantic.PositiveAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -9888,7 +9888,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.PrintAction",
+    "fullName": "sap.f.semantic.PrintAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -9997,7 +9997,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.SemanticButton",
+    "fullName": "sap.f.semantic.SemanticButton",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -10106,7 +10106,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.SemanticControl",
+    "fullName": "sap.f.semantic.SemanticControl",
     "extends": "sap.ui.core.Element",
     "library": "sap.f",
     "properties": [
@@ -10204,7 +10204,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.SemanticPage",
+    "fullName": "sap.f.semantic.SemanticPage",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -10638,7 +10638,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.SemanticToggleButton",
+    "fullName": "sap.f.semantic.SemanticToggleButton",
     "extends": "sap.m.semantic.SemanticToggleButton",
     "library": "sap.f",
     "properties": [
@@ -10753,7 +10753,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.SendEmailAction",
+    "fullName": "sap.f.semantic.SendEmailAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -10862,7 +10862,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.SendMessageAction",
+    "fullName": "sap.f.semantic.SendMessageAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -10971,7 +10971,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.ShareInJamAction",
+    "fullName": "sap.f.semantic.ShareInJamAction",
     "extends": "sap.f.semantic.SemanticButton",
     "library": "sap.f",
     "properties": [
@@ -11080,7 +11080,7 @@
     ]
   },
   {
-    "control": "sap.f.semantic.TitleMainAction",
+    "fullName": "sap.f.semantic.TitleMainAction",
     "extends": "sap.f.semantic.MainAction",
     "library": "sap.f",
     "properties": [
@@ -11195,7 +11195,7 @@
     ]
   },
   {
-    "control": "sap.f.shellBar.CoPilot",
+    "fullName": "sap.f.shellBar.CoPilot",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -11333,7 +11333,7 @@
     ]
   },
   {
-    "control": "sap.f.shellBar.ControlSpacer",
+    "fullName": "sap.f.shellBar.ControlSpacer",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -11472,7 +11472,7 @@
     ]
   },
   {
-    "control": "sap.f.shellBar.Search",
+    "fullName": "sap.f.shellBar.Search",
     "extends": "sap.ui.core.Control",
     "library": "sap.f",
     "properties": [
@@ -11638,7 +11638,7 @@
     ]
   },
   {
-    "control": "sap.m.AccButton",
+    "fullName": "sap.m.AccButton",
     "extends": "sap.m.Button",
     "library": "sap.m",
     "properties": [
@@ -11884,7 +11884,7 @@
     ]
   },
   {
-    "control": "sap.m.ActionListItem",
+    "fullName": "sap.m.ActionListItem",
     "extends": "sap.m.ListItemBase",
     "library": "sap.m",
     "properties": [
@@ -12100,7 +12100,7 @@
     ]
   },
   {
-    "control": "sap.m.ActionSelect",
+    "fullName": "sap.m.ActionSelect",
     "extends": "sap.m.Select",
     "library": "sap.m",
     "properties": [
@@ -12399,7 +12399,7 @@
     ]
   },
   {
-    "control": "sap.m.ActionSheet",
+    "fullName": "sap.m.ActionSheet",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -12594,7 +12594,7 @@
     ]
   },
   {
-    "control": "sap.m.ActionTile",
+    "fullName": "sap.m.ActionTile",
     "extends": "sap.m.GenericTile",
     "library": "sap.m",
     "properties": [
@@ -12990,7 +12990,7 @@
     ]
   },
   {
-    "control": "sap.m.ActionTileContent",
+    "fullName": "sap.m.ActionTileContent",
     "extends": "sap.m.TileContent",
     "library": "sap.m",
     "properties": [
@@ -13216,7 +13216,7 @@
     ]
   },
   {
-    "control": "sap.m.AdditionalTextButton",
+    "fullName": "sap.m.AdditionalTextButton",
     "extends": "sap.m.Button",
     "library": "sap.m",
     "properties": [
@@ -13450,7 +13450,7 @@
     ]
   },
   {
-    "control": "sap.m.App",
+    "fullName": "sap.m.App",
     "extends": "sap.m.NavContainer",
     "library": "sap.m",
     "properties": [
@@ -13683,7 +13683,7 @@
     ]
   },
   {
-    "control": "sap.m.AssociativeOverflowToolbar",
+    "fullName": "sap.m.AssociativeOverflowToolbar",
     "extends": "sap.m.OverflowToolbar",
     "library": "sap.m",
     "properties": [
@@ -13888,7 +13888,7 @@
     ]
   },
   {
-    "control": "sap.m.Avatar",
+    "fullName": "sap.m.Avatar",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -14153,7 +14153,7 @@
     ]
   },
   {
-    "control": "sap.m.Bar",
+    "fullName": "sap.m.Bar",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -14339,7 +14339,7 @@
     ]
   },
   {
-    "control": "sap.m.Breadcrumbs",
+    "fullName": "sap.m.Breadcrumbs",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -14504,7 +14504,7 @@
     ]
   },
   {
-    "control": "sap.m.BusyDialog",
+    "fullName": "sap.m.BusyDialog",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -14708,7 +14708,7 @@
     ]
   },
   {
-    "control": "sap.m.BusyIndicator",
+    "fullName": "sap.m.BusyIndicator",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -14902,7 +14902,7 @@
     ]
   },
   {
-    "control": "sap.m.Button",
+    "fullName": "sap.m.Button",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -15130,7 +15130,7 @@
     ]
   },
   {
-    "control": "sap.m.Carousel",
+    "fullName": "sap.m.Carousel",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -15372,7 +15372,7 @@
     ]
   },
   {
-    "control": "sap.m.CheckBox",
+    "fullName": "sap.m.CheckBox",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -15612,7 +15612,7 @@
     ]
   },
   {
-    "control": "sap.m.ColorPalette",
+    "fullName": "sap.m.ColorPalette",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -15767,7 +15767,7 @@
     ]
   },
   {
-    "control": "sap.m.ColorPalettePopover",
+    "fullName": "sap.m.ColorPalettePopover",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -15952,7 +15952,7 @@
     ]
   },
   {
-    "control": "sap.m.Column",
+    "fullName": "sap.m.Column",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -16149,7 +16149,7 @@
     ]
   },
   {
-    "control": "sap.m.ColumnListItem",
+    "fullName": "sap.m.ColumnListItem",
     "extends": "sap.m.ListItemBase",
     "library": "sap.m",
     "properties": [
@@ -16372,7 +16372,7 @@
     ]
   },
   {
-    "control": "sap.m.ComboBox",
+    "fullName": "sap.m.ComboBox",
     "extends": "sap.m.ComboBoxBase",
     "library": "sap.m",
     "properties": [
@@ -16678,7 +16678,7 @@
     ]
   },
   {
-    "control": "sap.m.ComboBoxBase",
+    "fullName": "sap.m.ComboBoxBase",
     "extends": "sap.m.ComboBoxTextField",
     "library": "sap.m",
     "properties": [
@@ -16955,7 +16955,7 @@
     ]
   },
   {
-    "control": "sap.m.ComboBoxTextField",
+    "fullName": "sap.m.ComboBoxTextField",
     "extends": "sap.m.InputBase",
     "library": "sap.m",
     "properties": [
@@ -17196,7 +17196,7 @@
     ]
   },
   {
-    "control": "sap.m.ContentConfig",
+    "fullName": "sap.m.ContentConfig",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -17312,7 +17312,7 @@
     ]
   },
   {
-    "control": "sap.m.CustomListItem",
+    "fullName": "sap.m.CustomListItem",
     "extends": "sap.m.ListItemBase",
     "library": "sap.m",
     "properties": [
@@ -17535,7 +17535,7 @@
     ]
   },
   {
-    "control": "sap.m.CustomTile",
+    "fullName": "sap.m.CustomTile",
     "extends": "sap.m.Tile",
     "library": "sap.m",
     "properties": [
@@ -17687,7 +17687,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.m.CustomTreeItem",
+    "fullName": "sap.m.CustomTreeItem",
     "extends": "sap.m.TreeItemBase",
     "library": "sap.m",
     "properties": [
@@ -17904,7 +17904,7 @@
     ]
   },
   {
-    "control": "sap.m.DateHighZoomInputs",
+    "fullName": "sap.m.DateHighZoomInputs",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -18084,7 +18084,7 @@
     ]
   },
   {
-    "control": "sap.m.DatePicker",
+    "fullName": "sap.m.DatePicker",
     "extends": "sap.m.DateTimeField",
     "library": "sap.m",
     "properties": [
@@ -18418,7 +18418,7 @@
     ]
   },
   {
-    "control": "sap.m.DateRangeSelection",
+    "fullName": "sap.m.DateRangeSelection",
     "extends": "sap.m.DatePicker",
     "library": "sap.m",
     "properties": [
@@ -18778,7 +18778,7 @@
     ]
   },
   {
-    "control": "sap.m.DateTimeField",
+    "fullName": "sap.m.DateTimeField",
     "extends": "sap.m.InputBase",
     "library": "sap.m",
     "properties": [
@@ -19036,7 +19036,7 @@
     ]
   },
   {
-    "control": "sap.m.DateTimeInput",
+    "fullName": "sap.m.DateTimeInput",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -19271,7 +19271,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.m.DateTimePicker",
+    "fullName": "sap.m.DateTimePicker",
     "extends": "sap.m.DatePicker",
     "library": "sap.m",
     "properties": [
@@ -19635,7 +19635,7 @@
     ]
   },
   {
-    "control": "sap.m.Dialog",
+    "fullName": "sap.m.Dialog",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -19970,7 +19970,7 @@
     ]
   },
   {
-    "control": "sap.m.DisplayListItem",
+    "fullName": "sap.m.DisplayListItem",
     "extends": "sap.m.ListItemBase",
     "library": "sap.m",
     "properties": [
@@ -20198,7 +20198,7 @@
     ]
   },
   {
-    "control": "sap.m.DraftIndicator",
+    "fullName": "sap.m.DraftIndicator",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -20343,7 +20343,7 @@
     ]
   },
   {
-    "control": "sap.m.DynamicDateOption",
+    "fullName": "sap.m.DynamicDateOption",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -20447,7 +20447,7 @@
     ]
   },
   {
-    "control": "sap.m.DynamicDateRange",
+    "fullName": "sap.m.DynamicDateRange",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -20694,7 +20694,7 @@
     ]
   },
   {
-    "control": "sap.m.DynamicDateRangeListItem",
+    "fullName": "sap.m.DynamicDateRangeListItem",
     "extends": "sap.m.StandardListItem",
     "library": "sap.m",
     "properties": [
@@ -21007,7 +21007,7 @@
     ]
   },
   {
-    "control": "sap.m.DynamicDateValueHelpUIType",
+    "fullName": "sap.m.DynamicDateValueHelpUIType",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -21129,7 +21129,7 @@
     ]
   },
   {
-    "control": "sap.m.ExpandableText",
+    "fullName": "sap.m.ExpandableText",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -21310,7 +21310,7 @@
     ]
   },
   {
-    "control": "sap.m.FacetFilter",
+    "fullName": "sap.m.FacetFilter",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -21496,7 +21496,7 @@
     ]
   },
   {
-    "control": "sap.m.FacetFilterItem",
+    "fullName": "sap.m.FacetFilterItem",
     "extends": "sap.m.ListItemBase",
     "library": "sap.m",
     "properties": [
@@ -21725,7 +21725,7 @@
     ]
   },
   {
-    "control": "sap.m.FacetFilterList",
+    "fullName": "sap.m.FacetFilterList",
     "extends": "sap.m.List",
     "library": "sap.m",
     "properties": [
@@ -22211,7 +22211,7 @@
     ]
   },
   {
-    "control": "sap.m.FeedContent",
+    "fullName": "sap.m.FeedContent",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -22386,7 +22386,7 @@
     ]
   },
   {
-    "control": "sap.m.FeedInput",
+    "fullName": "sap.m.FeedInput",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -22627,7 +22627,7 @@
     ]
   },
   {
-    "control": "sap.m.FeedListItem",
+    "fullName": "sap.m.FeedListItem",
     "extends": "sap.m.ListItemBase",
     "library": "sap.m",
     "properties": [
@@ -22961,7 +22961,7 @@
     ]
   },
   {
-    "control": "sap.m.FeedListItemAction",
+    "fullName": "sap.m.FeedListItemAction",
     "extends": "sap.m.ListItemActionBase",
     "library": "sap.m",
     "properties": [
@@ -23088,7 +23088,7 @@
     ]
   },
   {
-    "control": "sap.m.FlexBox",
+    "fullName": "sap.m.FlexBox",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -23312,7 +23312,7 @@
     ]
   },
   {
-    "control": "sap.m.FlexItemData",
+    "fullName": "sap.m.FlexItemData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.m",
     "properties": [
@@ -23470,7 +23470,7 @@
     ]
   },
   {
-    "control": "sap.m.FormattedText",
+    "fullName": "sap.m.FormattedText",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -23658,7 +23658,7 @@
     ]
   },
   {
-    "control": "sap.m.GenericTag",
+    "fullName": "sap.m.GenericTag",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -23833,7 +23833,7 @@
     ]
   },
   {
-    "control": "sap.m.GenericTile",
+    "fullName": "sap.m.GenericTile",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -24193,7 +24193,7 @@
     ]
   },
   {
-    "control": "sap.m.GroupHeaderListItem",
+    "fullName": "sap.m.GroupHeaderListItem",
     "extends": "sap.m.ListItemBase",
     "library": "sap.m",
     "properties": [
@@ -24428,7 +24428,7 @@
     ]
   },
   {
-    "control": "sap.m.GrowingList",
+    "fullName": "sap.m.GrowingList",
     "extends": "sap.m.List",
     "library": "sap.m",
     "properties": [
@@ -24850,7 +24850,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.m.HBox",
+    "fullName": "sap.m.HBox",
     "extends": "sap.m.FlexBox",
     "library": "sap.m",
     "properties": [
@@ -25074,7 +25074,7 @@
     ]
   },
   {
-    "control": "sap.m.HeaderContainer",
+    "fullName": "sap.m.HeaderContainer",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -25291,7 +25291,7 @@
     ]
   },
   {
-    "control": "sap.m.HeaderContainerItemContainer",
+    "fullName": "sap.m.HeaderContainerItemContainer",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -25449,7 +25449,7 @@
     ]
   },
   {
-    "control": "sap.m.IconTabBar",
+    "fullName": "sap.m.IconTabBar",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -25704,7 +25704,7 @@
     ]
   },
   {
-    "control": "sap.m.IconTabBarSelectList",
+    "fullName": "sap.m.IconTabBarSelectList",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -25849,7 +25849,7 @@
     ]
   },
   {
-    "control": "sap.m.IconTabFilter",
+    "fullName": "sap.m.IconTabFilter",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -26027,7 +26027,7 @@
     ]
   },
   {
-    "control": "sap.m.IconTabFilterExpandButtonBadge",
+    "fullName": "sap.m.IconTabFilterExpandButtonBadge",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -26160,7 +26160,7 @@
     ]
   },
   {
-    "control": "sap.m.IconTabHeader",
+    "fullName": "sap.m.IconTabHeader",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -26367,7 +26367,7 @@
     ]
   },
   {
-    "control": "sap.m.IconTabSeparator",
+    "fullName": "sap.m.IconTabSeparator",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -26477,7 +26477,7 @@
     ]
   },
   {
-    "control": "sap.m.IllustratedMessage",
+    "fullName": "sap.m.IllustratedMessage",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -26689,7 +26689,7 @@
     ]
   },
   {
-    "control": "sap.m.Illustration",
+    "fullName": "sap.m.Illustration",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -26858,7 +26858,7 @@
     ]
   },
   {
-    "control": "sap.m.Image",
+    "fullName": "sap.m.Image",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -27120,7 +27120,7 @@
     ]
   },
   {
-    "control": "sap.m.ImageContent",
+    "fullName": "sap.m.ImageContent",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -27270,7 +27270,7 @@
     ]
   },
   {
-    "control": "sap.m.Input",
+    "fullName": "sap.m.Input",
     "extends": "sap.m.InputBase",
     "library": "sap.m",
     "properties": [
@@ -27690,7 +27690,7 @@
     ]
   },
   {
-    "control": "sap.m.InputBase",
+    "fullName": "sap.m.InputBase",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -27919,7 +27919,7 @@
     ]
   },
   {
-    "control": "sap.m.InputListItem",
+    "fullName": "sap.m.InputListItem",
     "extends": "sap.m.ListItemBase",
     "library": "sap.m",
     "properties": [
@@ -28154,7 +28154,7 @@
     ]
   },
   {
-    "control": "sap.m.Label",
+    "fullName": "sap.m.Label",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -28359,7 +28359,7 @@
     ]
   },
   {
-    "control": "sap.m.LightBox",
+    "fullName": "sap.m.LightBox",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -28499,7 +28499,7 @@
     ]
   },
   {
-    "control": "sap.m.LightBoxItem",
+    "fullName": "sap.m.LightBoxItem",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -28615,7 +28615,7 @@
     ]
   },
   {
-    "control": "sap.m.Link",
+    "fullName": "sap.m.Link",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -28873,7 +28873,7 @@
     ]
   },
   {
-    "control": "sap.m.LinkTileContent",
+    "fullName": "sap.m.LinkTileContent",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -28988,7 +28988,7 @@
     ]
   },
   {
-    "control": "sap.m.List",
+    "fullName": "sap.m.List",
     "extends": "sap.m.ListBase",
     "library": "sap.m",
     "properties": [
@@ -29391,7 +29391,7 @@
     ]
   },
   {
-    "control": "sap.m.ListBase",
+    "fullName": "sap.m.ListBase",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -29788,7 +29788,7 @@
     ]
   },
   {
-    "control": "sap.m.ListItemAction",
+    "fullName": "sap.m.ListItemAction",
     "extends": "sap.m.ListItemActionBase",
     "library": "sap.m",
     "properties": [
@@ -29904,7 +29904,7 @@
     ]
   },
   {
-    "control": "sap.m.ListItemActionBase",
+    "fullName": "sap.m.ListItemActionBase",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -30014,7 +30014,7 @@
     ]
   },
   {
-    "control": "sap.m.ListItemBase",
+    "fullName": "sap.m.ListItemBase",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -30224,7 +30224,7 @@
     ]
   },
   {
-    "control": "sap.m.MaskInput",
+    "fullName": "sap.m.MaskInput",
     "extends": "sap.m.InputBase",
     "library": "sap.m",
     "properties": [
@@ -30488,7 +30488,7 @@
     ]
   },
   {
-    "control": "sap.m.MaskInputRule",
+    "fullName": "sap.m.MaskInputRule",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -30592,7 +30592,7 @@
     ]
   },
   {
-    "control": "sap.m.Menu",
+    "fullName": "sap.m.Menu",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -30758,7 +30758,7 @@
     ]
   },
   {
-    "control": "sap.m.MenuButton",
+    "fullName": "sap.m.MenuButton",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -30986,7 +30986,7 @@
     ]
   },
   {
-    "control": "sap.m.MenuItem",
+    "fullName": "sap.m.MenuItem",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -31192,7 +31192,7 @@
     ]
   },
   {
-    "control": "sap.m.MenuItemGroup",
+    "fullName": "sap.m.MenuItemGroup",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -31297,7 +31297,7 @@
     ]
   },
   {
-    "control": "sap.m.MenuListItem",
+    "fullName": "sap.m.MenuListItem",
     "extends": "sap.m.ListItemBase",
     "library": "sap.m",
     "properties": [
@@ -31555,7 +31555,7 @@
     ]
   },
   {
-    "control": "sap.m.MenuWrapper",
+    "fullName": "sap.m.MenuWrapper",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -31722,7 +31722,7 @@
     ]
   },
   {
-    "control": "sap.m.MessageItem",
+    "fullName": "sap.m.MessageItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -31899,7 +31899,7 @@
     ]
   },
   {
-    "control": "sap.m.MessageListItem",
+    "fullName": "sap.m.MessageListItem",
     "extends": "sap.m.StandardListItem",
     "library": "sap.m",
     "properties": [
@@ -32244,7 +32244,7 @@
     ]
   },
   {
-    "control": "sap.m.MessagePage",
+    "fullName": "sap.m.MessagePage",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -32475,7 +32475,7 @@
     ]
   },
   {
-    "control": "sap.m.MessagePopover",
+    "fullName": "sap.m.MessagePopover",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -32697,7 +32697,7 @@
     ]
   },
   {
-    "control": "sap.m.MessagePopoverItem",
+    "fullName": "sap.m.MessagePopoverItem",
     "extends": "sap.m.MessageItem",
     "library": "sap.m",
     "properties": [
@@ -32875,7 +32875,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.m.MessageStrip",
+    "fullName": "sap.m.MessageStrip",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -33075,7 +33075,7 @@
     ]
   },
   {
-    "control": "sap.m.MessageView",
+    "fullName": "sap.m.MessageView",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -33282,7 +33282,7 @@
     ]
   },
   {
-    "control": "sap.m.MultiComboBox",
+    "fullName": "sap.m.MultiComboBox",
     "extends": "sap.m.ComboBoxBase",
     "library": "sap.m",
     "properties": [
@@ -33587,7 +33587,7 @@
     ]
   },
   {
-    "control": "sap.m.MultiEditField",
+    "fullName": "sap.m.MultiEditField",
     "extends": "sap.ui.core.XMLComposite",
     "library": "sap.m",
     "properties": [
@@ -33780,7 +33780,7 @@
     ]
   },
   {
-    "control": "sap.m.MultiInput",
+    "fullName": "sap.m.MultiInput",
     "extends": "sap.m.Input",
     "library": "sap.m",
     "properties": [
@@ -34231,7 +34231,7 @@
     ]
   },
   {
-    "control": "sap.m.NavContainer",
+    "fullName": "sap.m.NavContainer",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -34416,7 +34416,7 @@
     ]
   },
   {
-    "control": "sap.m.NewsContent",
+    "fullName": "sap.m.NewsContent",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -34573,7 +34573,7 @@
     ]
   },
   {
-    "control": "sap.m.NotificationList",
+    "fullName": "sap.m.NotificationList",
     "extends": "sap.m.ListBase",
     "library": "sap.m",
     "properties": [
@@ -34970,7 +34970,7 @@
     ]
   },
   {
-    "control": "sap.m.NotificationListBase",
+    "fullName": "sap.m.NotificationListBase",
     "extends": "sap.m.ListItemBase",
     "library": "sap.m",
     "properties": [
@@ -35234,7 +35234,7 @@
     ]
   },
   {
-    "control": "sap.m.NotificationListGroup",
+    "fullName": "sap.m.NotificationListGroup",
     "extends": "sap.m.NotificationListBase",
     "library": "sap.m",
     "properties": [
@@ -35543,7 +35543,7 @@
     ]
   },
   {
-    "control": "sap.m.NotificationListItem",
+    "fullName": "sap.m.NotificationListItem",
     "extends": "sap.m.NotificationListBase",
     "library": "sap.m",
     "properties": [
@@ -35844,7 +35844,7 @@
     ]
   },
   {
-    "control": "sap.m.NumericContent",
+    "fullName": "sap.m.NumericContent",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -36073,7 +36073,7 @@
     ]
   },
   {
-    "control": "sap.m.NumericInput",
+    "fullName": "sap.m.NumericInput",
     "extends": "sap.m.Input",
     "library": "sap.m",
     "properties": [
@@ -36493,7 +36493,7 @@
     ]
   },
   {
-    "control": "sap.m.ObjectAttribute",
+    "fullName": "sap.m.ObjectAttribute",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -36674,7 +36674,7 @@
     ]
   },
   {
-    "control": "sap.m.ObjectHeader",
+    "fullName": "sap.m.ObjectHeader",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -37071,7 +37071,7 @@
     ]
   },
   {
-    "control": "sap.m.ObjectIdentifier",
+    "fullName": "sap.m.ObjectIdentifier",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -37272,7 +37272,7 @@
     ]
   },
   {
-    "control": "sap.m.ObjectListItem",
+    "fullName": "sap.m.ObjectListItem",
     "extends": "sap.m.ListItemBase",
     "library": "sap.m",
     "properties": [
@@ -37604,7 +37604,7 @@
     ]
   },
   {
-    "control": "sap.m.ObjectMarker",
+    "fullName": "sap.m.ObjectMarker",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -37778,7 +37778,7 @@
     ]
   },
   {
-    "control": "sap.m.ObjectNumber",
+    "fullName": "sap.m.ObjectNumber",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -37995,7 +37995,7 @@
     ]
   },
   {
-    "control": "sap.m.ObjectStatus",
+    "fullName": "sap.m.ObjectStatus",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -38211,7 +38211,7 @@
     ]
   },
   {
-    "control": "sap.m.OverflowToolbar",
+    "fullName": "sap.m.OverflowToolbar",
     "extends": "sap.m.Toolbar",
     "library": "sap.m",
     "properties": [
@@ -38410,7 +38410,7 @@
     ]
   },
   {
-    "control": "sap.m.OverflowToolbarButton",
+    "fullName": "sap.m.OverflowToolbarButton",
     "extends": "sap.m.Button",
     "library": "sap.m",
     "properties": [
@@ -38638,7 +38638,7 @@
     ]
   },
   {
-    "control": "sap.m.OverflowToolbarLayoutData",
+    "fullName": "sap.m.OverflowToolbarLayoutData",
     "extends": "sap.m.ToolbarLayoutData",
     "library": "sap.m",
     "properties": [
@@ -38780,7 +38780,7 @@
     ]
   },
   {
-    "control": "sap.m.OverflowToolbarMenuButton",
+    "fullName": "sap.m.OverflowToolbarMenuButton",
     "extends": "sap.m.MenuButton",
     "library": "sap.m",
     "properties": [
@@ -39008,7 +39008,7 @@
     ]
   },
   {
-    "control": "sap.m.OverflowToolbarToggleButton",
+    "fullName": "sap.m.OverflowToolbarToggleButton",
     "extends": "sap.m.ToggleButton",
     "library": "sap.m",
     "properties": [
@@ -39242,7 +39242,7 @@
     ]
   },
   {
-    "control": "sap.m.OverflowToolbarTokenizer",
+    "fullName": "sap.m.OverflowToolbarTokenizer",
     "extends": "sap.m.Tokenizer",
     "library": "sap.m",
     "properties": [
@@ -39476,7 +39476,7 @@
     ]
   },
   {
-    "control": "sap.m.P13nAnyFilterItem",
+    "fullName": "sap.m.P13nAnyFilterItem",
     "extends": "sap.m.P13nFilterItem",
     "library": "sap.m",
     "properties": [
@@ -39622,7 +39622,7 @@
     ]
   },
   {
-    "control": "sap.m.P13nColumnsItem",
+    "fullName": "sap.m.P13nColumnsItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -39768,7 +39768,7 @@
     ]
   },
   {
-    "control": "sap.m.P13nColumnsPanel",
+    "fullName": "sap.m.P13nColumnsPanel",
     "extends": "sap.m.P13nPanel",
     "library": "sap.m",
     "properties": [
@@ -39986,7 +39986,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.m.P13nConditionPanel",
+    "fullName": "sap.m.P13nConditionPanel",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -40196,7 +40196,7 @@
     ]
   },
   {
-    "control": "sap.m.P13nDialog",
+    "fullName": "sap.m.P13nDialog",
     "extends": "sap.m.Dialog",
     "library": "sap.m",
     "properties": [
@@ -40578,7 +40578,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.m.P13nDimMeasureItem",
+    "fullName": "sap.m.P13nDimMeasureItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -40718,7 +40718,7 @@
     ]
   },
   {
-    "control": "sap.m.P13nDimMeasurePanel",
+    "fullName": "sap.m.P13nDimMeasurePanel",
     "extends": "sap.m.P13nPanel",
     "library": "sap.m",
     "properties": [
@@ -40935,7 +40935,7 @@
     ]
   },
   {
-    "control": "sap.m.P13nFilterItem",
+    "fullName": "sap.m.P13nFilterItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -41081,7 +41081,7 @@
     ]
   },
   {
-    "control": "sap.m.P13nFilterPanel",
+    "fullName": "sap.m.P13nFilterPanel",
     "extends": "sap.m.P13nPanel",
     "library": "sap.m",
     "properties": [
@@ -41332,7 +41332,7 @@
     ]
   },
   {
-    "control": "sap.m.P13nGroupItem",
+    "fullName": "sap.m.P13nGroupItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -41466,7 +41466,7 @@
     ]
   },
   {
-    "control": "sap.m.P13nGroupPanel",
+    "fullName": "sap.m.P13nGroupPanel",
     "extends": "sap.m.P13nPanel",
     "library": "sap.m",
     "properties": [
@@ -41694,7 +41694,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.m.P13nItem",
+    "fullName": "sap.m.P13nItem",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -41900,7 +41900,7 @@
     ]
   },
   {
-    "control": "sap.m.P13nPanel",
+    "fullName": "sap.m.P13nPanel",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -42087,7 +42087,7 @@
     ]
   },
   {
-    "control": "sap.m.P13nSelectionItem",
+    "fullName": "sap.m.P13nSelectionItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -42215,7 +42215,7 @@
     ]
   },
   {
-    "control": "sap.m.P13nSelectionPanel",
+    "fullName": "sap.m.P13nSelectionPanel",
     "extends": "sap.m.P13nPanel",
     "library": "sap.m",
     "properties": [
@@ -42414,7 +42414,7 @@
     ]
   },
   {
-    "control": "sap.m.P13nSortItem",
+    "fullName": "sap.m.P13nSortItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -42542,7 +42542,7 @@
     ]
   },
   {
-    "control": "sap.m.P13nSortPanel",
+    "fullName": "sap.m.P13nSortPanel",
     "extends": "sap.m.P13nPanel",
     "library": "sap.m",
     "properties": [
@@ -42764,7 +42764,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.m.PDFViewer",
+    "fullName": "sap.m.PDFViewer",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -42988,7 +42988,7 @@
     ]
   },
   {
-    "control": "sap.m.Page",
+    "fullName": "sap.m.Page",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -43267,7 +43267,7 @@
     ]
   },
   {
-    "control": "sap.m.PageAccessibleLandmarkInfo",
+    "fullName": "sap.m.PageAccessibleLandmarkInfo",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -43419,7 +43419,7 @@
     ]
   },
   {
-    "control": "sap.m.PagingButton",
+    "fullName": "sap.m.PagingButton",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -43581,7 +43581,7 @@
     ]
   },
   {
-    "control": "sap.m.Panel",
+    "fullName": "sap.m.Panel",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -43794,7 +43794,7 @@
     ]
   },
   {
-    "control": "sap.m.PlanningCalendar",
+    "fullName": "sap.m.PlanningCalendar",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -44167,7 +44167,7 @@
     ]
   },
   {
-    "control": "sap.m.PlanningCalendarHeader",
+    "fullName": "sap.m.PlanningCalendarHeader",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -44367,7 +44367,7 @@
     ]
   },
   {
-    "control": "sap.m.PlanningCalendarLegend",
+    "fullName": "sap.m.PlanningCalendarLegend",
     "extends": "sap.ui.unified.CalendarLegend",
     "library": "sap.m",
     "properties": [
@@ -44538,7 +44538,7 @@
     ]
   },
   {
-    "control": "sap.m.PlanningCalendarRow",
+    "fullName": "sap.m.PlanningCalendarRow",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -44757,7 +44757,7 @@
     ]
   },
   {
-    "control": "sap.m.PlanningCalendarView",
+    "fullName": "sap.m.PlanningCalendarView",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -44915,7 +44915,7 @@
     ]
   },
   {
-    "control": "sap.m.Popover",
+    "fullName": "sap.m.Popover",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -45244,7 +45244,7 @@
     ]
   },
   {
-    "control": "sap.m.ProgressIndicator",
+    "fullName": "sap.m.ProgressIndicator",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -45449,7 +45449,7 @@
     ]
   },
   {
-    "control": "sap.m.PullToRefresh",
+    "fullName": "sap.m.PullToRefresh",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -45611,7 +45611,7 @@
     ]
   },
   {
-    "control": "sap.m.QuickView",
+    "fullName": "sap.m.QuickView",
     "extends": "sap.m.QuickViewBase",
     "library": "sap.m",
     "properties": [
@@ -45793,7 +45793,7 @@
     ]
   },
   {
-    "control": "sap.m.QuickViewBase",
+    "fullName": "sap.m.QuickViewBase",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -45943,7 +45943,7 @@
     ]
   },
   {
-    "control": "sap.m.QuickViewCard",
+    "fullName": "sap.m.QuickViewCard",
     "extends": "sap.m.QuickViewBase",
     "library": "sap.m",
     "properties": [
@@ -46099,7 +46099,7 @@
     ]
   },
   {
-    "control": "sap.m.QuickViewGroup",
+    "fullName": "sap.m.QuickViewGroup",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -46210,7 +46210,7 @@
     ]
   },
   {
-    "control": "sap.m.QuickViewGroupElement",
+    "fullName": "sap.m.QuickViewGroupElement",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -46350,7 +46350,7 @@
     ]
   },
   {
-    "control": "sap.m.QuickViewPage",
+    "fullName": "sap.m.QuickViewPage",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -46548,7 +46548,7 @@
     ]
   },
   {
-    "control": "sap.m.RadioButton",
+    "fullName": "sap.m.RadioButton",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -46776,7 +46776,7 @@
     ]
   },
   {
-    "control": "sap.m.RadioButtonGroup",
+    "fullName": "sap.m.RadioButtonGroup",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -46975,7 +46975,7 @@
     ]
   },
   {
-    "control": "sap.m.RangeSlider",
+    "fullName": "sap.m.RangeSlider",
     "extends": "sap.m.Slider",
     "library": "sap.m",
     "properties": [
@@ -47222,7 +47222,7 @@
     ]
   },
   {
-    "control": "sap.m.RatingIndicator",
+    "fullName": "sap.m.RatingIndicator",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -47443,7 +47443,7 @@
     ]
   },
   {
-    "control": "sap.m.ResponsivePopover",
+    "fullName": "sap.m.ResponsivePopover",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -47746,7 +47746,7 @@
     ]
   },
   {
-    "control": "sap.m.ResponsiveScale",
+    "fullName": "sap.m.ResponsiveScale",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -47844,7 +47844,7 @@
     ]
   },
   {
-    "control": "sap.m.ScrollBar",
+    "fullName": "sap.m.ScrollBar",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -47994,7 +47994,7 @@
     ]
   },
   {
-    "control": "sap.m.ScrollContainer",
+    "fullName": "sap.m.ScrollContainer",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -48164,7 +48164,7 @@
     ]
   },
   {
-    "control": "sap.m.SearchField",
+    "fullName": "sap.m.SearchField",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -48410,7 +48410,7 @@
     ]
   },
   {
-    "control": "sap.m.SegmentedButton",
+    "fullName": "sap.m.SegmentedButton",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -48616,7 +48616,7 @@
     ]
   },
   {
-    "control": "sap.m.SegmentedButtonItem",
+    "fullName": "sap.m.SegmentedButtonItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -48755,7 +48755,7 @@
     ]
   },
   {
-    "control": "sap.m.Select",
+    "fullName": "sap.m.Select",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -49048,7 +49048,7 @@
     ]
   },
   {
-    "control": "sap.m.SelectDialog",
+    "fullName": "sap.m.SelectDialog",
     "extends": "sap.m.SelectDialogBase",
     "library": "sap.m",
     "properties": [
@@ -49313,7 +49313,7 @@
     ]
   },
   {
-    "control": "sap.m.SelectDialogBase",
+    "fullName": "sap.m.SelectDialogBase",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -49467,7 +49467,7 @@
     ]
   },
   {
-    "control": "sap.m.SelectList",
+    "fullName": "sap.m.SelectList",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -49677,7 +49677,7 @@
     ]
   },
   {
-    "control": "sap.m.SelectionDetails",
+    "fullName": "sap.m.SelectionDetails",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -49851,7 +49851,7 @@
     ]
   },
   {
-    "control": "sap.m.SelectionDetailsItem",
+    "fullName": "sap.m.SelectionDetailsItem",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -49963,7 +49963,7 @@
     ]
   },
   {
-    "control": "sap.m.SelectionDetailsItemLine",
+    "fullName": "sap.m.SelectionDetailsItemLine",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -50085,7 +50085,7 @@
     ]
   },
   {
-    "control": "sap.m.SelectionDetailsListItem",
+    "fullName": "sap.m.SelectionDetailsListItem",
     "extends": "sap.m.ListItemBase",
     "library": "sap.m",
     "properties": [
@@ -50295,7 +50295,7 @@
     ]
   },
   {
-    "control": "sap.m.Shell",
+    "fullName": "sap.m.Shell",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -50506,7 +50506,7 @@
     ]
   },
   {
-    "control": "sap.m.SimpleFixFlex",
+    "fullName": "sap.m.SimpleFixFlex",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -50659,7 +50659,7 @@
     ]
   },
   {
-    "control": "sap.m.SinglePlanningCalendar",
+    "fullName": "sap.m.SinglePlanningCalendar",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -50979,7 +50979,7 @@
     ]
   },
   {
-    "control": "sap.m.SinglePlanningCalendarDayView",
+    "fullName": "sap.m.SinglePlanningCalendarDayView",
     "extends": "sap.m.SinglePlanningCalendarView",
     "library": "sap.m",
     "properties": [
@@ -51095,7 +51095,7 @@
     ]
   },
   {
-    "control": "sap.m.SinglePlanningCalendarGrid",
+    "fullName": "sap.m.SinglePlanningCalendarGrid",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -51353,7 +51353,7 @@
     ]
   },
   {
-    "control": "sap.m.SinglePlanningCalendarMonthView",
+    "fullName": "sap.m.SinglePlanningCalendarMonthView",
     "extends": "sap.m.SinglePlanningCalendarView",
     "library": "sap.m",
     "properties": [
@@ -51469,7 +51469,7 @@
     ]
   },
   {
-    "control": "sap.m.SinglePlanningCalendarView",
+    "fullName": "sap.m.SinglePlanningCalendarView",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -51585,7 +51585,7 @@
     ]
   },
   {
-    "control": "sap.m.SinglePlanningCalendarWeekView",
+    "fullName": "sap.m.SinglePlanningCalendarWeekView",
     "extends": "sap.m.SinglePlanningCalendarView",
     "library": "sap.m",
     "properties": [
@@ -51701,7 +51701,7 @@
     ]
   },
   {
-    "control": "sap.m.SinglePlanningCalendarWorkWeekView",
+    "fullName": "sap.m.SinglePlanningCalendarWorkWeekView",
     "extends": "sap.m.SinglePlanningCalendarView",
     "library": "sap.m",
     "properties": [
@@ -51817,7 +51817,7 @@
     ]
   },
   {
-    "control": "sap.m.SlideTile",
+    "fullName": "sap.m.SlideTile",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -51998,7 +51998,7 @@
     ]
   },
   {
-    "control": "sap.m.Slider",
+    "fullName": "sap.m.Slider",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -52233,7 +52233,7 @@
     ]
   },
   {
-    "control": "sap.m.SliderTooltip",
+    "fullName": "sap.m.SliderTooltip",
     "extends": "sap.m.SliderTooltipBase",
     "library": "sap.m",
     "properties": [
@@ -52419,7 +52419,7 @@
     ]
   },
   {
-    "control": "sap.m.SliderTooltipBase",
+    "fullName": "sap.m.SliderTooltipBase",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -52552,7 +52552,7 @@
     ]
   },
   {
-    "control": "sap.m.SliderTooltipContainer",
+    "fullName": "sap.m.SliderTooltipContainer",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -52703,7 +52703,7 @@
     ]
   },
   {
-    "control": "sap.m.SplitApp",
+    "fullName": "sap.m.SplitApp",
     "extends": "sap.m.SplitContainer",
     "library": "sap.m",
     "properties": [
@@ -52973,7 +52973,7 @@
     ]
   },
   {
-    "control": "sap.m.SplitButton",
+    "fullName": "sap.m.SplitButton",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -53176,7 +53176,7 @@
     ]
   },
   {
-    "control": "sap.m.SplitContainer",
+    "fullName": "sap.m.SplitContainer",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -53434,7 +53434,7 @@
     ]
   },
   {
-    "control": "sap.m.StandardDynamicDateOption",
+    "fullName": "sap.m.StandardDynamicDateOption",
     "extends": "sap.m.DynamicDateOption",
     "library": "sap.m",
     "properties": [
@@ -53544,7 +53544,7 @@
     ]
   },
   {
-    "control": "sap.m.StandardListItem",
+    "fullName": "sap.m.StandardListItem",
     "extends": "sap.m.ListItemBase",
     "library": "sap.m",
     "properties": [
@@ -53851,7 +53851,7 @@
     ]
   },
   {
-    "control": "sap.m.StandardTile",
+    "fullName": "sap.m.StandardTile",
     "extends": "sap.m.Tile",
     "library": "sap.m",
     "properties": [
@@ -54056,7 +54056,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.m.StandardTreeItem",
+    "fullName": "sap.m.StandardTreeItem",
     "extends": "sap.m.TreeItemBase",
     "library": "sap.m",
     "properties": [
@@ -54278,7 +54278,7 @@
     ]
   },
   {
-    "control": "sap.m.StepInput",
+    "fullName": "sap.m.StepInput",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -54542,7 +54542,7 @@
     ]
   },
   {
-    "control": "sap.m.SuggestionItem",
+    "fullName": "sap.m.SuggestionItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -54670,7 +54670,7 @@
     ]
   },
   {
-    "control": "sap.m.SuggestionsList",
+    "fullName": "sap.m.SuggestionsList",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -54827,7 +54827,7 @@
     ]
   },
   {
-    "control": "sap.m.Switch",
+    "fullName": "sap.m.Switch",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -55013,7 +55013,7 @@
     ]
   },
   {
-    "control": "sap.m.TabContainer",
+    "fullName": "sap.m.TabContainer",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -55186,7 +55186,7 @@
     ]
   },
   {
-    "control": "sap.m.TabContainerItem",
+    "fullName": "sap.m.TabContainerItem",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -55326,7 +55326,7 @@
     ]
   },
   {
-    "control": "sap.m.TabStrip",
+    "fullName": "sap.m.TabStrip",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -55500,7 +55500,7 @@
     ]
   },
   {
-    "control": "sap.m.TabStripItem",
+    "fullName": "sap.m.TabStripItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -55650,7 +55650,7 @@
     ]
   },
   {
-    "control": "sap.m.Table",
+    "fullName": "sap.m.Table",
     "extends": "sap.m.ListBase",
     "library": "sap.m",
     "properties": [
@@ -56112,7 +56112,7 @@
     ]
   },
   {
-    "control": "sap.m.TablePopin",
+    "fullName": "sap.m.TablePopin",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -56204,7 +56204,7 @@
     ]
   },
   {
-    "control": "sap.m.TableSelectDialog",
+    "fullName": "sap.m.TableSelectDialog",
     "extends": "sap.m.SelectDialogBase",
     "library": "sap.m",
     "properties": [
@@ -56476,7 +56476,7 @@
     ]
   },
   {
-    "control": "sap.m.Text",
+    "fullName": "sap.m.Text",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -56663,7 +56663,7 @@
     ]
   },
   {
-    "control": "sap.m.TextArea",
+    "fullName": "sap.m.TextArea",
     "extends": "sap.m.InputBase",
     "library": "sap.m",
     "properties": [
@@ -56951,7 +56951,7 @@
     ]
   },
   {
-    "control": "sap.m.Tile",
+    "fullName": "sap.m.Tile",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -57096,7 +57096,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.m.TileAttribute",
+    "fullName": "sap.m.TileAttribute",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -57248,7 +57248,7 @@
     ]
   },
   {
-    "control": "sap.m.TileContainer",
+    "fullName": "sap.m.TileContainer",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -57428,7 +57428,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.m.TileContent",
+    "fullName": "sap.m.TileContent",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -57635,7 +57635,7 @@
     ]
   },
   {
-    "control": "sap.m.TileInfo",
+    "fullName": "sap.m.TileInfo",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -57757,7 +57757,7 @@
     ]
   },
   {
-    "control": "sap.m.TimePicker",
+    "fullName": "sap.m.TimePicker",
     "extends": "sap.m.DateTimeField",
     "library": "sap.m",
     "properties": [
@@ -58092,7 +58092,7 @@
     ]
   },
   {
-    "control": "sap.m.TimePickerClock",
+    "fullName": "sap.m.TimePickerClock",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -58320,7 +58320,7 @@
     ]
   },
   {
-    "control": "sap.m.TimePickerClocks",
+    "fullName": "sap.m.TimePickerClocks",
     "extends": "sap.m.TimePickerInternals",
     "library": "sap.m",
     "properties": [
@@ -58507,7 +58507,7 @@
     ]
   },
   {
-    "control": "sap.m.TimePickerInputs",
+    "fullName": "sap.m.TimePickerInputs",
     "extends": "sap.m.TimePickerInternals",
     "library": "sap.m",
     "properties": [
@@ -58693,7 +58693,7 @@
     ]
   },
   {
-    "control": "sap.m.TimePickerInternals",
+    "fullName": "sap.m.TimePickerInternals",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -58874,7 +58874,7 @@
     ]
   },
   {
-    "control": "sap.m.TimePickerSlider",
+    "fullName": "sap.m.TimePickerSlider",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -59048,7 +59048,7 @@
     ]
   },
   {
-    "control": "sap.m.TimePickerSliders",
+    "fullName": "sap.m.TimePickerSliders",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -59246,7 +59246,7 @@
     ]
   },
   {
-    "control": "sap.m.Title",
+    "fullName": "sap.m.Title",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -59440,7 +59440,7 @@
     ]
   },
   {
-    "control": "sap.m.ToggleButton",
+    "fullName": "sap.m.ToggleButton",
     "extends": "sap.m.Button",
     "library": "sap.m",
     "properties": [
@@ -59674,7 +59674,7 @@
     ]
   },
   {
-    "control": "sap.m.Token",
+    "fullName": "sap.m.Token",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -59869,7 +59869,7 @@
     ]
   },
   {
-    "control": "sap.m.Tokenizer",
+    "fullName": "sap.m.Tokenizer",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -60097,7 +60097,7 @@
     ]
   },
   {
-    "control": "sap.m.Toolbar",
+    "fullName": "sap.m.Toolbar",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -60290,7 +60290,7 @@
     ]
   },
   {
-    "control": "sap.m.ToolbarLayoutData",
+    "fullName": "sap.m.ToolbarLayoutData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.m",
     "properties": [
@@ -60400,7 +60400,7 @@
     ]
   },
   {
-    "control": "sap.m.ToolbarSeparator",
+    "fullName": "sap.m.ToolbarSeparator",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -60533,7 +60533,7 @@
     ]
   },
   {
-    "control": "sap.m.ToolbarSpacer",
+    "fullName": "sap.m.ToolbarSpacer",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -60672,7 +60672,7 @@
     ]
   },
   {
-    "control": "sap.m.Tree",
+    "fullName": "sap.m.Tree",
     "extends": "sap.m.ListBase",
     "library": "sap.m",
     "properties": [
@@ -61074,7 +61074,7 @@
     ]
   },
   {
-    "control": "sap.m.TreeItemBase",
+    "fullName": "sap.m.TreeItemBase",
     "extends": "sap.m.ListItemBase",
     "library": "sap.m",
     "properties": [
@@ -61284,7 +61284,7 @@
     ]
   },
   {
-    "control": "sap.m.UploadCollection",
+    "fullName": "sap.m.UploadCollection",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -61598,7 +61598,7 @@
     ]
   },
   {
-    "control": "sap.m.UploadCollectionItem",
+    "fullName": "sap.m.UploadCollectionItem",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -61814,7 +61814,7 @@
     ]
   },
   {
-    "control": "sap.m.UploadCollectionParameter",
+    "fullName": "sap.m.UploadCollectionParameter",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -61918,7 +61918,7 @@
     ]
   },
   {
-    "control": "sap.m.UploadCollectionToolbarPlaceholder",
+    "fullName": "sap.m.UploadCollectionToolbarPlaceholder",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -62051,7 +62051,7 @@
     ]
   },
   {
-    "control": "sap.m.VBox",
+    "fullName": "sap.m.VBox",
     "extends": "sap.m.FlexBox",
     "library": "sap.m",
     "properties": [
@@ -62275,7 +62275,7 @@
     ]
   },
   {
-    "control": "sap.m.ValueStateHeader",
+    "fullName": "sap.m.ValueStateHeader",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -62433,7 +62433,7 @@
     ]
   },
   {
-    "control": "sap.m.VariantItem",
+    "fullName": "sap.m.VariantItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -62609,7 +62609,7 @@
     ]
   },
   {
-    "control": "sap.m.VariantManagement",
+    "fullName": "sap.m.VariantManagement",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -62876,7 +62876,7 @@
     ]
   },
   {
-    "control": "sap.m.ViewSettingsCustomItem",
+    "fullName": "sap.m.ViewSettingsCustomItem",
     "extends": "sap.m.ViewSettingsItem",
     "library": "sap.m",
     "properties": [
@@ -63022,7 +63022,7 @@
     ]
   },
   {
-    "control": "sap.m.ViewSettingsCustomTab",
+    "fullName": "sap.m.ViewSettingsCustomTab",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -63157,7 +63157,7 @@
     ]
   },
   {
-    "control": "sap.m.ViewSettingsDialog",
+    "fullName": "sap.m.ViewSettingsDialog",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -63403,7 +63403,7 @@
     ]
   },
   {
-    "control": "sap.m.ViewSettingsFilterItem",
+    "fullName": "sap.m.ViewSettingsFilterItem",
     "extends": "sap.m.ViewSettingsItem",
     "library": "sap.m",
     "properties": [
@@ -63554,7 +63554,7 @@
     ]
   },
   {
-    "control": "sap.m.ViewSettingsItem",
+    "fullName": "sap.m.ViewSettingsItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -63687,7 +63687,7 @@
     ]
   },
   {
-    "control": "sap.m.VisibleItem",
+    "fullName": "sap.m.VisibleItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.m",
     "properties": [
@@ -63809,7 +63809,7 @@
     ]
   },
   {
-    "control": "sap.m.WheelSlider",
+    "fullName": "sap.m.WheelSlider",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -63988,7 +63988,7 @@
     ]
   },
   {
-    "control": "sap.m.WheelSliderContainer",
+    "fullName": "sap.m.WheelSliderContainer",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -64146,7 +64146,7 @@
     ]
   },
   {
-    "control": "sap.m.Wizard",
+    "fullName": "sap.m.Wizard",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -64355,7 +64355,7 @@
     ]
   },
   {
-    "control": "sap.m.WizardProgressNavigator",
+    "fullName": "sap.m.WizardProgressNavigator",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -64517,7 +64517,7 @@
     ]
   },
   {
-    "control": "sap.m.WizardStep",
+    "fullName": "sap.m.WizardStep",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -64703,7 +64703,7 @@
     ]
   },
   {
-    "control": "sap.m.internal.CustomNumericInput",
+    "fullName": "sap.m.internal.CustomNumericInput",
     "extends": "sap.m.Input",
     "library": "sap.m",
     "properties": [
@@ -65123,7 +65123,7 @@
     ]
   },
   {
-    "control": "sap.m.internal.DateTimePickerPopup",
+    "fullName": "sap.m.internal.DateTimePickerPopup",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -65276,7 +65276,7 @@
     ]
   },
   {
-    "control": "sap.m.internal.DynamicDateRangeInput",
+    "fullName": "sap.m.internal.DynamicDateRangeInput",
     "extends": "sap.m.Input",
     "library": "sap.m",
     "properties": [
@@ -65696,7 +65696,7 @@
     ]
   },
   {
-    "control": "sap.m.internal.ObjectMarkerCustomLink",
+    "fullName": "sap.m.internal.ObjectMarkerCustomLink",
     "extends": "sap.m.Link",
     "library": "sap.m",
     "properties": [
@@ -65960,7 +65960,7 @@
     ]
   },
   {
-    "control": "sap.m.internal.ObjectMarkerCustomText",
+    "fullName": "sap.m.internal.ObjectMarkerCustomText",
     "extends": "sap.m.Text",
     "library": "sap.m",
     "properties": [
@@ -66159,7 +66159,7 @@
     ]
   },
   {
-    "control": "sap.m.internal.PlanningCalendarRowListItem",
+    "fullName": "sap.m.internal.PlanningCalendarRowListItem",
     "extends": "sap.m.ColumnListItem",
     "library": "sap.m",
     "properties": [
@@ -66382,7 +66382,7 @@
     ]
   },
   {
-    "control": "sap.m.internal.TabStripSelect",
+    "fullName": "sap.m.internal.TabStripSelect",
     "extends": "sap.m.Select",
     "library": "sap.m",
     "properties": [
@@ -66675,7 +66675,7 @@
     ]
   },
   {
-    "control": "sap.m.internal.TabStripSelectList",
+    "fullName": "sap.m.internal.TabStripSelectList",
     "extends": "sap.m.SelectList",
     "library": "sap.m",
     "properties": [
@@ -66885,7 +66885,7 @@
     ]
   },
   {
-    "control": "sap.m.internal.ToggleSpinButton",
+    "fullName": "sap.m.internal.ToggleSpinButton",
     "extends": "sap.m.ToggleButton",
     "library": "sap.m",
     "properties": [
@@ -67137,7 +67137,7 @@
     ]
   },
   {
-    "control": "sap.m.plugins.CellSelector",
+    "fullName": "sap.m.plugins.CellSelector",
     "extends": "sap.m.plugins.PluginBase",
     "library": "sap.m",
     "properties": [
@@ -67246,7 +67246,7 @@
     ]
   },
   {
-    "control": "sap.m.plugins.ColumnAIAction",
+    "fullName": "sap.m.plugins.ColumnAIAction",
     "extends": "sap.m.plugins.PluginBase",
     "library": "sap.m",
     "properties": [
@@ -67349,7 +67349,7 @@
     ]
   },
   {
-    "control": "sap.m.plugins.ColumnResizer",
+    "fullName": "sap.m.plugins.ColumnResizer",
     "extends": "sap.m.plugins.PluginBase",
     "library": "sap.m",
     "properties": [
@@ -67452,7 +67452,7 @@
     ]
   },
   {
-    "control": "sap.m.plugins.ContextMenuSetting",
+    "fullName": "sap.m.plugins.ContextMenuSetting",
     "extends": "sap.m.plugins.PluginBase",
     "library": "sap.m",
     "properties": [
@@ -67556,7 +67556,7 @@
     ]
   },
   {
-    "control": "sap.m.plugins.CopyProvider",
+    "fullName": "sap.m.plugins.CopyProvider",
     "extends": "sap.m.plugins.PluginBase",
     "library": "sap.m",
     "properties": [
@@ -67689,7 +67689,7 @@
     ]
   },
   {
-    "control": "sap.m.plugins.DataStateIndicator",
+    "fullName": "sap.m.plugins.DataStateIndicator",
     "extends": "sap.m.plugins.PluginBase",
     "library": "sap.m",
     "properties": [
@@ -67819,7 +67819,7 @@
     ]
   },
   {
-    "control": "sap.m.plugins.PasteProvider",
+    "fullName": "sap.m.plugins.PasteProvider",
     "extends": "sap.m.plugins.PluginBase",
     "library": "sap.m",
     "properties": [
@@ -67928,7 +67928,7 @@
     ]
   },
   {
-    "control": "sap.m.plugins.PluginBase",
+    "fullName": "sap.m.plugins.PluginBase",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -68026,7 +68026,7 @@
     ]
   },
   {
-    "control": "sap.m.plugins.TitleProvider",
+    "fullName": "sap.m.plugins.TitleProvider",
     "extends": "sap.m.plugins.PluginBase",
     "library": "sap.m",
     "properties": [
@@ -68136,7 +68136,7 @@
     ]
   },
   {
-    "control": "sap.m.plugins.UploadSetwithTable",
+    "fullName": "sap.m.plugins.UploadSetwithTable",
     "extends": "sap.m.plugins.PluginBase",
     "library": "sap.m",
     "properties": [
@@ -68419,7 +68419,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.AddAction",
+    "fullName": "sap.m.semantic.AddAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -68528,7 +68528,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.CancelAction",
+    "fullName": "sap.m.semantic.CancelAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -68637,7 +68637,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.DeleteAction",
+    "fullName": "sap.m.semantic.DeleteAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -68746,7 +68746,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.DetailPage",
+    "fullName": "sap.m.semantic.DetailPage",
     "extends": "sap.m.semantic.ShareMenuPage",
     "library": "sap.m",
     "properties": [
@@ -69127,7 +69127,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.DiscussInJamAction",
+    "fullName": "sap.m.semantic.DiscussInJamAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -69236,7 +69236,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.EditAction",
+    "fullName": "sap.m.semantic.EditAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -69345,7 +69345,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.FavoriteAction",
+    "fullName": "sap.m.semantic.FavoriteAction",
     "extends": "sap.m.semantic.SemanticToggleButton",
     "library": "sap.m",
     "properties": [
@@ -69460,7 +69460,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.FilterAction",
+    "fullName": "sap.m.semantic.FilterAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -69569,7 +69569,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.FilterSelect",
+    "fullName": "sap.m.semantic.FilterSelect",
     "extends": "sap.m.semantic.SemanticSelect",
     "library": "sap.m",
     "properties": [
@@ -69697,7 +69697,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.FlagAction",
+    "fullName": "sap.m.semantic.FlagAction",
     "extends": "sap.m.semantic.SemanticToggleButton",
     "library": "sap.m",
     "properties": [
@@ -69812,7 +69812,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.ForwardAction",
+    "fullName": "sap.m.semantic.ForwardAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -69921,7 +69921,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.FullscreenPage",
+    "fullName": "sap.m.semantic.FullscreenPage",
     "extends": "sap.m.semantic.ShareMenuPage",
     "library": "sap.m",
     "properties": [
@@ -70302,7 +70302,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.GroupAction",
+    "fullName": "sap.m.semantic.GroupAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -70411,7 +70411,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.GroupSelect",
+    "fullName": "sap.m.semantic.GroupSelect",
     "extends": "sap.m.semantic.SemanticSelect",
     "library": "sap.m",
     "properties": [
@@ -70539,7 +70539,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.MainAction",
+    "fullName": "sap.m.semantic.MainAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -70654,7 +70654,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.MasterPage",
+    "fullName": "sap.m.semantic.MasterPage",
     "extends": "sap.m.semantic.SemanticPage",
     "library": "sap.m",
     "properties": [
@@ -70979,7 +70979,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.MessagesIndicator",
+    "fullName": "sap.m.semantic.MessagesIndicator",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -71088,7 +71088,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.MultiSelectAction",
+    "fullName": "sap.m.semantic.MultiSelectAction",
     "extends": "sap.m.semantic.SemanticToggleButton",
     "library": "sap.m",
     "properties": [
@@ -71203,7 +71203,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.NegativeAction",
+    "fullName": "sap.m.semantic.NegativeAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -71318,7 +71318,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.OpenInAction",
+    "fullName": "sap.m.semantic.OpenInAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -71427,7 +71427,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.PositiveAction",
+    "fullName": "sap.m.semantic.PositiveAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -71542,7 +71542,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.PrintAction",
+    "fullName": "sap.m.semantic.PrintAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -71651,7 +71651,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.SaveAction",
+    "fullName": "sap.m.semantic.SaveAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -71760,7 +71760,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.SemanticButton",
+    "fullName": "sap.m.semantic.SemanticButton",
     "extends": "sap.m.semantic.SemanticControl",
     "library": "sap.m",
     "properties": [
@@ -71869,7 +71869,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.SemanticControl",
+    "fullName": "sap.m.semantic.SemanticControl",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -71967,7 +71967,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.SemanticOverflowToolbarButton",
+    "fullName": "sap.m.semantic.SemanticOverflowToolbarButton",
     "extends": "sap.m.OverflowToolbarButton",
     "library": "sap.m",
     "properties": [
@@ -72195,7 +72195,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.SemanticOverflowToolbarToggleButton",
+    "fullName": "sap.m.semantic.SemanticOverflowToolbarToggleButton",
     "extends": "sap.m.OverflowToolbarToggleButton",
     "library": "sap.m",
     "properties": [
@@ -72429,7 +72429,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.SemanticPage",
+    "fullName": "sap.m.semantic.SemanticPage",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -72656,7 +72656,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.SemanticSelect",
+    "fullName": "sap.m.semantic.SemanticSelect",
     "extends": "sap.m.semantic.SemanticControl",
     "library": "sap.m",
     "properties": [
@@ -72784,7 +72784,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.SemanticToggleButton",
+    "fullName": "sap.m.semantic.SemanticToggleButton",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -72899,7 +72899,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.SendEmailAction",
+    "fullName": "sap.m.semantic.SendEmailAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -73008,7 +73008,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.SendMessageAction",
+    "fullName": "sap.m.semantic.SendMessageAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -73117,7 +73117,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.ShareInJamAction",
+    "fullName": "sap.m.semantic.ShareInJamAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -73226,7 +73226,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.ShareMenuPage",
+    "fullName": "sap.m.semantic.ShareMenuPage",
     "extends": "sap.m.semantic.SemanticPage",
     "library": "sap.m",
     "properties": [
@@ -73460,7 +73460,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.SortAction",
+    "fullName": "sap.m.semantic.SortAction",
     "extends": "sap.m.semantic.SemanticButton",
     "library": "sap.m",
     "properties": [
@@ -73569,7 +73569,7 @@
     ]
   },
   {
-    "control": "sap.m.semantic.SortSelect",
+    "fullName": "sap.m.semantic.SortSelect",
     "extends": "sap.m.semantic.SemanticSelect",
     "library": "sap.m",
     "properties": [
@@ -73697,7 +73697,7 @@
     ]
   },
   {
-    "control": "sap.m.table.Title",
+    "fullName": "sap.m.table.Title",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -73855,7 +73855,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.ActionItem",
+    "fullName": "sap.m.table.columnmenu.ActionItem",
     "extends": "sap.m.table.columnmenu.ItemBase",
     "library": "sap.m",
     "properties": [
@@ -73970,7 +73970,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.AssociativeControl",
+    "fullName": "sap.m.table.columnmenu.AssociativeControl",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -74115,7 +74115,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.Entry",
+    "fullName": "sap.m.table.columnmenu.Entry",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -74213,7 +74213,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.Item",
+    "fullName": "sap.m.table.columnmenu.Item",
     "extends": "sap.m.table.columnmenu.ItemBase",
     "library": "sap.m",
     "properties": [
@@ -74369,7 +74369,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.ItemBase",
+    "fullName": "sap.m.table.columnmenu.ItemBase",
     "extends": "sap.m.table.columnmenu.Entry",
     "library": "sap.m",
     "properties": [
@@ -74467,7 +74467,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.ItemContainer",
+    "fullName": "sap.m.table.columnmenu.ItemContainer",
     "extends": "sap.m.table.columnmenu.ItemBase",
     "library": "sap.m",
     "properties": [
@@ -74572,7 +74572,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.Menu",
+    "fullName": "sap.m.table.columnmenu.Menu",
     "extends": "sap.m.table.columnmenu.MenuBase",
     "library": "sap.m",
     "properties": [
@@ -74740,7 +74740,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.MenuBase",
+    "fullName": "sap.m.table.columnmenu.MenuBase",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -74883,7 +74883,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.QuickAction",
+    "fullName": "sap.m.table.columnmenu.QuickAction",
     "extends": "sap.m.table.columnmenu.QuickActionBase",
     "library": "sap.m",
     "properties": [
@@ -75006,7 +75006,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.QuickActionBase",
+    "fullName": "sap.m.table.columnmenu.QuickActionBase",
     "extends": "sap.m.table.columnmenu.Entry",
     "library": "sap.m",
     "properties": [
@@ -75104,7 +75104,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.QuickActionContainer",
+    "fullName": "sap.m.table.columnmenu.QuickActionContainer",
     "extends": "sap.m.table.columnmenu.QuickActionBase",
     "library": "sap.m",
     "properties": [
@@ -75209,7 +75209,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.QuickActionItem",
+    "fullName": "sap.m.table.columnmenu.QuickActionItem",
     "extends": "sap.m.table.columnmenu.Entry",
     "library": "sap.m",
     "properties": [
@@ -75319,7 +75319,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.QuickGroup",
+    "fullName": "sap.m.table.columnmenu.QuickGroup",
     "extends": "sap.m.table.columnmenu.QuickActionBase",
     "library": "sap.m",
     "properties": [
@@ -75429,7 +75429,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.QuickGroupItem",
+    "fullName": "sap.m.table.columnmenu.QuickGroupItem",
     "extends": "sap.m.table.columnmenu.QuickActionItem",
     "library": "sap.m",
     "properties": [
@@ -75545,7 +75545,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.QuickResize",
+    "fullName": "sap.m.table.columnmenu.QuickResize",
     "extends": "sap.m.table.columnmenu.QuickActionBase",
     "library": "sap.m",
     "properties": [
@@ -75654,7 +75654,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.QuickSort",
+    "fullName": "sap.m.table.columnmenu.QuickSort",
     "extends": "sap.m.table.columnmenu.QuickActionBase",
     "library": "sap.m",
     "properties": [
@@ -75764,7 +75764,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.QuickSortItem",
+    "fullName": "sap.m.table.columnmenu.QuickSortItem",
     "extends": "sap.m.table.columnmenu.QuickActionItem",
     "library": "sap.m",
     "properties": [
@@ -75880,7 +75880,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.QuickTotal",
+    "fullName": "sap.m.table.columnmenu.QuickTotal",
     "extends": "sap.m.table.columnmenu.QuickActionBase",
     "library": "sap.m",
     "properties": [
@@ -75990,7 +75990,7 @@
     ]
   },
   {
-    "control": "sap.m.table.columnmenu.QuickTotalItem",
+    "fullName": "sap.m.table.columnmenu.QuickTotalItem",
     "extends": "sap.m.table.columnmenu.QuickActionItem",
     "library": "sap.m",
     "properties": [
@@ -76106,7 +76106,7 @@
     ]
   },
   {
-    "control": "sap.m.upload.ActionsPlaceholder",
+    "fullName": "sap.m.upload.ActionsPlaceholder",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -76245,7 +76245,7 @@
     ]
   },
   {
-    "control": "sap.m.upload.Column",
+    "fullName": "sap.m.upload.Column",
     "extends": "sap.m.Column",
     "library": "sap.m",
     "properties": [
@@ -76472,7 +76472,7 @@
     ]
   },
   {
-    "control": "sap.m.upload.DynamicItemContent",
+    "fullName": "sap.m.upload.DynamicItemContent",
     "extends": "sap.ui.core.HTML",
     "library": "sap.m",
     "properties": [
@@ -76634,7 +76634,7 @@
     ]
   },
   {
-    "control": "sap.m.upload.FilePreviewDialog",
+    "fullName": "sap.m.upload.FilePreviewDialog",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -76751,7 +76751,7 @@
     ]
   },
   {
-    "control": "sap.m.upload.UploadItem",
+    "fullName": "sap.m.upload.UploadItem",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -76914,7 +76914,7 @@
     ]
   },
   {
-    "control": "sap.m.upload.UploadItemConfiguration",
+    "fullName": "sap.m.upload.UploadItemConfiguration",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -77054,7 +77054,7 @@
     ]
   },
   {
-    "control": "sap.m.upload.UploadSet",
+    "fullName": "sap.m.upload.UploadSet",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -77460,7 +77460,7 @@
     ]
   },
   {
-    "control": "sap.m.upload.UploadSetItem",
+    "fullName": "sap.m.upload.UploadSetItem",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -77663,7 +77663,7 @@
     ]
   },
   {
-    "control": "sap.m.upload.UploadSetToolbarPlaceholder",
+    "fullName": "sap.m.upload.UploadSetToolbarPlaceholder",
     "extends": "sap.ui.core.Control",
     "library": "sap.m",
     "properties": [
@@ -77796,7 +77796,7 @@
     ]
   },
   {
-    "control": "sap.m.upload.Uploader",
+    "fullName": "sap.m.upload.Uploader",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -77932,7 +77932,7 @@
     ]
   },
   {
-    "control": "sap.m.upload.UploaderTableItem",
+    "fullName": "sap.m.upload.UploaderTableItem",
     "extends": "sap.ui.core.Element",
     "library": "sap.m",
     "properties": [
@@ -78068,7 +78068,7 @@
     ]
   },
   {
-    "control": "sap.tnt.InfoLabel",
+    "fullName": "sap.tnt.InfoLabel",
     "extends": "sap.ui.core.Control",
     "library": "sap.tnt",
     "properties": [
@@ -78243,7 +78243,7 @@
     ]
   },
   {
-    "control": "sap.tnt.NavigationList",
+    "fullName": "sap.tnt.NavigationList",
     "extends": "sap.ui.core.Control",
     "library": "sap.tnt",
     "properties": [
@@ -78435,7 +78435,7 @@
     ]
   },
   {
-    "control": "sap.tnt.NavigationListGroup",
+    "fullName": "sap.tnt.NavigationListGroup",
     "extends": "sap.tnt.NavigationListItemBase",
     "library": "sap.tnt",
     "properties": [
@@ -78581,7 +78581,7 @@
     ]
   },
   {
-    "control": "sap.tnt.NavigationListItem",
+    "fullName": "sap.tnt.NavigationListItem",
     "extends": "sap.tnt.NavigationListItemBase",
     "library": "sap.tnt",
     "properties": [
@@ -78775,7 +78775,7 @@
     ]
   },
   {
-    "control": "sap.tnt.NavigationListItemBase",
+    "fullName": "sap.tnt.NavigationListItemBase",
     "extends": "sap.ui.core.Item",
     "library": "sap.tnt",
     "properties": [
@@ -78914,7 +78914,7 @@
     ]
   },
   {
-    "control": "sap.tnt.NavigationListMenuItem",
+    "fullName": "sap.tnt.NavigationListMenuItem",
     "extends": "sap.m.MenuItem",
     "library": "sap.tnt",
     "properties": [
@@ -79145,7 +79145,7 @@
     ]
   },
   {
-    "control": "sap.tnt.SideNavigation",
+    "fullName": "sap.tnt.SideNavigation",
     "extends": "sap.ui.core.Control",
     "library": "sap.tnt",
     "properties": [
@@ -79352,7 +79352,7 @@
     ]
   },
   {
-    "control": "sap.tnt.SideNavigationSearchField",
+    "fullName": "sap.tnt.SideNavigationSearchField",
     "extends": "sap.m.SearchField",
     "library": "sap.tnt",
     "properties": [
@@ -79598,7 +79598,7 @@
     ]
   },
   {
-    "control": "sap.tnt.ToolHeader",
+    "fullName": "sap.tnt.ToolHeader",
     "extends": "sap.m.OverflowToolbar",
     "library": "sap.tnt",
     "properties": [
@@ -79797,7 +79797,7 @@
     ]
   },
   {
-    "control": "sap.tnt.ToolHeaderUtilitySeparator",
+    "fullName": "sap.tnt.ToolHeaderUtilitySeparator",
     "extends": "sap.ui.core.Control",
     "library": "sap.tnt",
     "properties": [
@@ -79930,7 +79930,7 @@
     ]
   },
   {
-    "control": "sap.tnt.ToolPage",
+    "fullName": "sap.tnt.ToolPage",
     "extends": "sap.ui.core.Control",
     "library": "sap.tnt",
     "properties": [
@@ -80103,7 +80103,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.CommandExecution",
+    "fullName": "sap.ui.core.CommandExecution",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.core",
     "properties": [
@@ -80218,7 +80218,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.ComponentContainer",
+    "fullName": "sap.ui.core.ComponentContainer",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -80439,7 +80439,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.Control",
+    "fullName": "sap.ui.core.Control",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.core",
     "properties": [
@@ -80572,7 +80572,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.Element",
+    "fullName": "sap.ui.core.Element",
     "extends": "sap.ui.base.ManagedObject",
     "library": "sap.ui.core",
     "properties": [
@@ -80664,7 +80664,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.HTML",
+    "fullName": "sap.ui.core.HTML",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -80820,7 +80820,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.Icon",
+    "fullName": "sap.ui.core.Icon",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -81048,7 +81048,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.InvisibleText",
+    "fullName": "sap.ui.core.InvisibleText",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -81187,7 +81187,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.Item",
+    "fullName": "sap.ui.core.Item",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.core",
     "properties": [
@@ -81303,7 +81303,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.LayoutData",
+    "fullName": "sap.ui.core.LayoutData",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.core",
     "properties": [
@@ -81395,7 +81395,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.ListItem",
+    "fullName": "sap.ui.core.ListItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.ui.core",
     "properties": [
@@ -81523,7 +81523,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.LocalBusyIndicator",
+    "fullName": "sap.ui.core.LocalBusyIndicator",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -81669,7 +81669,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.ui.core.Message",
+    "fullName": "sap.ui.core.Message",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.core",
     "properties": [
@@ -81791,7 +81791,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.ScrollBar",
+    "fullName": "sap.ui.core.ScrollBar",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -81959,7 +81959,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.SeparatorItem",
+    "fullName": "sap.ui.core.SeparatorItem",
     "extends": "sap.ui.core.Item",
     "library": "sap.ui.core",
     "properties": [
@@ -82075,7 +82075,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.Title",
+    "fullName": "sap.ui.core.Title",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.core",
     "properties": [
@@ -82191,7 +82191,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.TooltipBase",
+    "fullName": "sap.ui.core.TooltipBase",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -82383,7 +82383,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.VariantLayoutData",
+    "fullName": "sap.ui.core.VariantLayoutData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.ui.core",
     "properties": [
@@ -82482,7 +82482,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.XMLComposite",
+    "fullName": "sap.ui.core.XMLComposite",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -82633,7 +82633,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.mvc.HTMLView",
+    "fullName": "sap.ui.core.mvc.HTMLView",
     "extends": "sap.ui.core.mvc.View",
     "library": "sap.ui.core",
     "properties": [
@@ -82818,7 +82818,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.ui.core.mvc.JSONView",
+    "fullName": "sap.ui.core.mvc.JSONView",
     "extends": "sap.ui.core.mvc.View",
     "library": "sap.ui.core",
     "properties": [
@@ -83002,7 +83002,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.mvc.JSView",
+    "fullName": "sap.ui.core.mvc.JSView",
     "extends": "sap.ui.core.mvc.View",
     "library": "sap.ui.core",
     "properties": [
@@ -83186,7 +83186,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.mvc.TemplateView",
+    "fullName": "sap.ui.core.mvc.TemplateView",
     "extends": "sap.ui.core.mvc.View",
     "library": "sap.ui.core",
     "properties": [
@@ -83370,7 +83370,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.mvc.View",
+    "fullName": "sap.ui.core.mvc.View",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -83554,7 +83554,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.mvc.XMLAfterRenderingNotifier",
+    "fullName": "sap.ui.core.mvc.XMLAfterRenderingNotifier",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -83687,7 +83687,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.mvc.XMLView",
+    "fullName": "sap.ui.core.mvc.XMLView",
     "extends": "sap.ui.core.mvc.View",
     "library": "sap.ui.core",
     "properties": [
@@ -83871,7 +83871,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.routing.Target.TitleProvider",
+    "fullName": "sap.ui.core.routing.Target.TitleProvider",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.core",
     "properties": [
@@ -83969,7 +83969,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.search.OpenSearchProvider",
+    "fullName": "sap.ui.core.search.OpenSearchProvider",
     "extends": "sap.ui.core.search.SearchProvider",
     "library": "sap.ui.core",
     "properties": [
@@ -84079,7 +84079,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.search.SearchProvider",
+    "fullName": "sap.ui.core.search.SearchProvider",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.core",
     "properties": [
@@ -84177,7 +84177,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.tmpl.DOMAttribute",
+    "fullName": "sap.ui.core.tmpl.DOMAttribute",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.core",
     "properties": [
@@ -84281,7 +84281,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.tmpl.DOMElement",
+    "fullName": "sap.ui.core.tmpl.DOMElement",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -84440,7 +84440,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.tmpl.TemplateControl",
+    "fullName": "sap.ui.core.tmpl.TemplateControl",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -84595,7 +84595,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.tooltip.Tooltip",
+    "fullName": "sap.ui.core.tooltip.Tooltip",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -84756,7 +84756,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.util.Export",
+    "fullName": "sap.ui.core.util.Export",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -84910,7 +84910,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.util.ExportCell",
+    "fullName": "sap.ui.core.util.ExportCell",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.core",
     "properties": [
@@ -85008,7 +85008,7 @@
     ]
   },
   {
-    "control": "sap.ui.core.webc.WebComponent",
+    "fullName": "sap.ui.core.webc.WebComponent",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.core",
     "properties": [
@@ -85141,7 +85141,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.AlignedFlowLayout",
+    "fullName": "sap.ui.layout.AlignedFlowLayout",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -85300,7 +85300,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.AssociativeSplitter",
+    "fullName": "sap.ui.layout.AssociativeSplitter",
     "extends": "sap.ui.layout.Splitter",
     "library": "sap.ui.layout",
     "properties": [
@@ -85469,7 +85469,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.BlockLayout",
+    "fullName": "sap.ui.layout.BlockLayout",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -85621,7 +85621,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.BlockLayoutCell",
+    "fullName": "sap.ui.layout.BlockLayoutCell",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -85804,7 +85804,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.BlockLayoutCellData",
+    "fullName": "sap.ui.layout.BlockLayoutCellData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.ui.layout",
     "properties": [
@@ -85920,7 +85920,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.BlockLayoutRow",
+    "fullName": "sap.ui.layout.BlockLayoutRow",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -86078,7 +86078,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.DynamicSideContent",
+    "fullName": "sap.ui.layout.DynamicSideContent",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -86290,7 +86290,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.FixFlex",
+    "fullName": "sap.ui.layout.FixFlex",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -86461,7 +86461,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.Grid",
+    "fullName": "sap.ui.layout.Grid",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -86649,7 +86649,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.GridData",
+    "fullName": "sap.ui.layout.GridData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.ui.layout",
     "properties": [
@@ -86930,7 +86930,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.HorizontalLayout",
+    "fullName": "sap.ui.layout.HorizontalLayout",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -87076,7 +87076,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.PaneContainer",
+    "fullName": "sap.ui.layout.PaneContainer",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.layout",
     "properties": [
@@ -87186,7 +87186,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.ResponsiveFlowLayout",
+    "fullName": "sap.ui.layout.ResponsiveFlowLayout",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -87338,7 +87338,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.ResponsiveFlowLayoutData",
+    "fullName": "sap.ui.layout.ResponsiveFlowLayoutData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.ui.layout",
     "properties": [
@@ -87460,7 +87460,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.ResponsiveSplitter",
+    "fullName": "sap.ui.layout.ResponsiveSplitter",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -87618,7 +87618,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.ResponsiveSplitterPage",
+    "fullName": "sap.ui.layout.ResponsiveSplitterPage",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -87757,7 +87757,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.SplitPane",
+    "fullName": "sap.ui.layout.SplitPane",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.layout",
     "properties": [
@@ -87868,7 +87868,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.Splitter",
+    "fullName": "sap.ui.layout.Splitter",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -88031,7 +88031,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.SplitterLayoutData",
+    "fullName": "sap.ui.layout.SplitterLayoutData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.ui.layout",
     "properties": [
@@ -88141,7 +88141,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.VerticalLayout",
+    "fullName": "sap.ui.layout.VerticalLayout",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -88293,7 +88293,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.cssgrid.CSSGrid",
+    "fullName": "sap.ui.layout.cssgrid.CSSGrid",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -88494,7 +88494,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.cssgrid.GridItemLayoutData",
+    "fullName": "sap.ui.layout.cssgrid.GridItemLayoutData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.ui.layout",
     "properties": [
@@ -88622,7 +88622,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.cssgrid.ResponsiveColumnItemLayoutData",
+    "fullName": "sap.ui.layout.cssgrid.ResponsiveColumnItemLayoutData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.ui.layout",
     "properties": [
@@ -88726,7 +88726,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.ColumnContainerData",
+    "fullName": "sap.ui.layout.form.ColumnContainerData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.ui.layout",
     "properties": [
@@ -88836,7 +88836,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.ColumnElementData",
+    "fullName": "sap.ui.layout.form.ColumnElementData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.ui.layout",
     "properties": [
@@ -88940,7 +88940,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.ColumnLayout",
+    "fullName": "sap.ui.layout.form.ColumnLayout",
     "extends": "sap.ui.layout.form.FormLayout",
     "library": "sap.ui.layout",
     "properties": [
@@ -89109,7 +89109,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.Form",
+    "fullName": "sap.ui.layout.form.Form",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -89289,7 +89289,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.FormContainer",
+    "fullName": "sap.ui.layout.form.FormContainer",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.layout",
     "properties": [
@@ -89427,7 +89427,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.FormElement",
+    "fullName": "sap.ui.layout.form.FormElement",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.layout",
     "properties": [
@@ -89540,7 +89540,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.FormLayout",
+    "fullName": "sap.ui.layout.form.FormLayout",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -89679,7 +89679,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.GridContainerData",
+    "fullName": "sap.ui.layout.form.GridContainerData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.ui.layout",
     "properties": [
@@ -89777,7 +89777,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.GridElementData",
+    "fullName": "sap.ui.layout.form.GridElementData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.ui.layout",
     "properties": [
@@ -89881,7 +89881,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.GridLayout",
+    "fullName": "sap.ui.layout.form.GridLayout",
     "extends": "sap.ui.layout.form.FormLayout",
     "library": "sap.ui.layout",
     "properties": [
@@ -90027,7 +90027,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.ui.layout.form.ResponsiveGridLayout",
+    "fullName": "sap.ui.layout.form.ResponsiveGridLayout",
     "extends": "sap.ui.layout.form.FormLayout",
     "library": "sap.ui.layout",
     "properties": [
@@ -90262,7 +90262,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.ResponsiveGridLayoutPanel",
+    "fullName": "sap.ui.layout.form.ResponsiveGridLayoutPanel",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -90414,7 +90414,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.ResponsiveLayout",
+    "fullName": "sap.ui.layout.form.ResponsiveLayout",
     "extends": "sap.ui.layout.form.FormLayout",
     "library": "sap.ui.layout",
     "properties": [
@@ -90553,7 +90553,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.ResponsiveLayoutPanel",
+    "fullName": "sap.ui.layout.form.ResponsiveLayoutPanel",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -90705,7 +90705,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.SemanticFormElement",
+    "fullName": "sap.ui.layout.form.SemanticFormElement",
     "extends": "sap.ui.layout.form.FormElement",
     "library": "sap.ui.layout",
     "properties": [
@@ -90831,7 +90831,7 @@
     ]
   },
   {
-    "control": "sap.ui.layout.form.SimpleForm",
+    "fullName": "sap.ui.layout.form.SimpleForm",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.layout",
     "properties": [
@@ -91130,7 +91130,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.AnalyticalColumn",
+    "fullName": "sap.ui.table.AnalyticalColumn",
     "extends": "sap.ui.table.Column",
     "library": "sap.ui.table",
     "properties": [
@@ -91422,7 +91422,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.AnalyticalColumnMenu",
+    "fullName": "sap.ui.table.AnalyticalColumnMenu",
     "extends": "sap.ui.table.ColumnMenu",
     "library": "sap.ui.table",
     "properties": [
@@ -91608,7 +91608,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.AnalyticalTable",
+    "fullName": "sap.ui.table.AnalyticalTable",
     "extends": "sap.ui.table.Table",
     "library": "sap.ui.table",
     "properties": [
@@ -92161,7 +92161,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.Column",
+    "fullName": "sap.ui.table.Column",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.table",
     "properties": [
@@ -92424,7 +92424,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.ColumnMenu",
+    "fullName": "sap.ui.table.ColumnMenu",
     "extends": "sap.ui.unified.Menu",
     "library": "sap.ui.table",
     "properties": [
@@ -92610,7 +92610,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.CreationRow",
+    "fullName": "sap.ui.table.CreationRow",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.table",
     "properties": [
@@ -92768,7 +92768,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.HeaderSelector",
+    "fullName": "sap.ui.table.HeaderSelector",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.table",
     "properties": [
@@ -92925,7 +92925,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.Row",
+    "fullName": "sap.ui.table.Row",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.table",
     "properties": [
@@ -93024,7 +93024,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.RowAction",
+    "fullName": "sap.ui.table.RowAction",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.table",
     "properties": [
@@ -93164,7 +93164,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.RowActionItem",
+    "fullName": "sap.ui.table.RowActionItem",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.table",
     "properties": [
@@ -93285,7 +93285,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.RowSettings",
+    "fullName": "sap.ui.table.RowSettings",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.table",
     "properties": [
@@ -93395,7 +93395,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.Table",
+    "fullName": "sap.ui.table.Table",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.table",
     "properties": [
@@ -93907,7 +93907,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.TreeTable",
+    "fullName": "sap.ui.table.TreeTable",
     "extends": "sap.ui.table.Table",
     "library": "sap.ui.table",
     "properties": [
@@ -94457,7 +94457,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.menus.AnalyticalTableContextMenu",
+    "fullName": "sap.ui.table.menus.AnalyticalTableContextMenu",
     "extends": "sap.ui.table.menus.ContextMenu",
     "library": "sap.ui.table",
     "properties": [
@@ -94556,7 +94556,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.menus.ContextMenu",
+    "fullName": "sap.ui.table.menus.ContextMenu",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.table",
     "properties": [
@@ -94655,7 +94655,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.plugins.BindingSelection",
+    "fullName": "sap.ui.table.plugins.BindingSelection",
     "extends": "sap.ui.table.plugins.SelectionPlugin",
     "library": "sap.ui.table",
     "properties": [
@@ -94764,7 +94764,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.plugins.MultiSelectionPlugin",
+    "fullName": "sap.ui.table.plugins.MultiSelectionPlugin",
     "extends": "sap.ui.table.plugins.SelectionPlugin",
     "library": "sap.ui.table",
     "properties": [
@@ -94891,7 +94891,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.plugins.ODataV4Aggregation",
+    "fullName": "sap.ui.table.plugins.ODataV4Aggregation",
     "extends": "sap.ui.table.plugins.ODataV4MultiLevel",
     "library": "sap.ui.table",
     "properties": [
@@ -94995,7 +94995,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.plugins.ODataV4Hierarchy",
+    "fullName": "sap.ui.table.plugins.ODataV4Hierarchy",
     "extends": "sap.ui.table.plugins.ODataV4MultiLevel",
     "library": "sap.ui.table",
     "properties": [
@@ -95093,7 +95093,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.plugins.ODataV4MultiLevel",
+    "fullName": "sap.ui.table.plugins.ODataV4MultiLevel",
     "extends": "sap.ui.table.plugins.PluginBase",
     "library": "sap.ui.table",
     "properties": [
@@ -95191,7 +95191,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.plugins.ODataV4MultiSelection",
+    "fullName": "sap.ui.table.plugins.ODataV4MultiSelection",
     "extends": "sap.ui.table.plugins.ODataV4Selection",
     "library": "sap.ui.table",
     "properties": [
@@ -95312,7 +95312,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.plugins.ODataV4Selection",
+    "fullName": "sap.ui.table.plugins.ODataV4Selection",
     "extends": "sap.ui.table.plugins.SelectionPlugin",
     "library": "sap.ui.table",
     "properties": [
@@ -95415,7 +95415,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.plugins.ODataV4SingleSelection",
+    "fullName": "sap.ui.table.plugins.ODataV4SingleSelection",
     "extends": "sap.ui.table.plugins.ODataV4Selection",
     "library": "sap.ui.table",
     "properties": [
@@ -95518,7 +95518,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.plugins.PluginBase",
+    "fullName": "sap.ui.table.plugins.PluginBase",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.table",
     "properties": [
@@ -95616,7 +95616,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.plugins.SelectionModelSelection",
+    "fullName": "sap.ui.table.plugins.SelectionModelSelection",
     "extends": "sap.ui.table.plugins.SelectionPlugin",
     "library": "sap.ui.table",
     "properties": [
@@ -95725,7 +95725,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.plugins.SelectionPlugin",
+    "fullName": "sap.ui.table.plugins.SelectionPlugin",
     "extends": "sap.ui.table.plugins.PluginBase",
     "library": "sap.ui.table",
     "properties": [
@@ -95828,7 +95828,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.rowmodes.Auto",
+    "fullName": "sap.ui.table.rowmodes.Auto",
     "extends": "sap.ui.table.rowmodes.RowMode",
     "library": "sap.ui.table",
     "properties": [
@@ -95950,7 +95950,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.rowmodes.Fixed",
+    "fullName": "sap.ui.table.rowmodes.Fixed",
     "extends": "sap.ui.table.rowmodes.RowMode",
     "library": "sap.ui.table",
     "properties": [
@@ -96066,7 +96066,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.rowmodes.Interactive",
+    "fullName": "sap.ui.table.rowmodes.Interactive",
     "extends": "sap.ui.table.rowmodes.RowMode",
     "library": "sap.ui.table",
     "properties": [
@@ -96194,7 +96194,7 @@
     ]
   },
   {
-    "control": "sap.ui.table.rowmodes.RowMode",
+    "fullName": "sap.ui.table.rowmodes.RowMode",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.table",
     "properties": [
@@ -96286,7 +96286,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.Calendar",
+    "fullName": "sap.ui.unified.Calendar",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -96562,7 +96562,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.CalendarAppointment",
+    "fullName": "sap.ui.unified.CalendarAppointment",
     "extends": "sap.ui.unified.DateTypeRange",
     "library": "sap.ui.unified",
     "properties": [
@@ -96745,7 +96745,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.CalendarDateInterval",
+    "fullName": "sap.ui.unified.CalendarDateInterval",
     "extends": "sap.ui.unified.Calendar",
     "library": "sap.ui.unified",
     "properties": [
@@ -97045,7 +97045,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.CalendarLegend",
+    "fullName": "sap.ui.unified.CalendarLegend",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -97197,7 +97197,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.CalendarLegendItem",
+    "fullName": "sap.ui.unified.CalendarLegendItem",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.unified",
     "properties": [
@@ -97307,7 +97307,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.CalendarMonthInterval",
+    "fullName": "sap.ui.unified.CalendarMonthInterval",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -97529,7 +97529,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.CalendarOneMonthInterval",
+    "fullName": "sap.ui.unified.CalendarOneMonthInterval",
     "extends": "sap.ui.unified.CalendarDateInterval",
     "library": "sap.ui.unified",
     "properties": [
@@ -97829,7 +97829,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.CalendarRow",
+    "fullName": "sap.ui.unified.CalendarRow",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -98130,7 +98130,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.CalendarTimeInterval",
+    "fullName": "sap.ui.unified.CalendarTimeInterval",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -98358,7 +98358,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.CalendarWeekInterval",
+    "fullName": "sap.ui.unified.CalendarWeekInterval",
     "extends": "sap.ui.unified.CalendarDateInterval",
     "library": "sap.ui.unified",
     "properties": [
@@ -98658,7 +98658,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.ColorPicker",
+    "fullName": "sap.ui.unified.ColorPicker",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -98819,7 +98819,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.ColorPickerPopover",
+    "fullName": "sap.ui.unified.ColorPickerPopover",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -98980,7 +98980,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.ContentSwitcher",
+    "fullName": "sap.ui.unified.ContentSwitcher",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -99140,7 +99140,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.ui.unified.Currency",
+    "fullName": "sap.ui.unified.Currency",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -99309,7 +99309,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.DateRange",
+    "fullName": "sap.ui.unified.DateRange",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.unified",
     "properties": [
@@ -99413,7 +99413,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.DateTypeRange",
+    "fullName": "sap.ui.unified.DateTypeRange",
     "extends": "sap.ui.unified.DateRange",
     "library": "sap.ui.unified",
     "properties": [
@@ -99541,7 +99541,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.FileUploader",
+    "fullName": "sap.ui.unified.FileUploader",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -99941,7 +99941,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.FileUploaderParameter",
+    "fullName": "sap.ui.unified.FileUploaderParameter",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.unified",
     "properties": [
@@ -100045,7 +100045,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.FileUploaderXHRSettings",
+    "fullName": "sap.ui.unified.FileUploaderXHRSettings",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.unified",
     "properties": [
@@ -100143,7 +100143,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.Menu",
+    "fullName": "sap.ui.unified.Menu",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -100329,7 +100329,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.MenuItem",
+    "fullName": "sap.ui.unified.MenuItem",
     "extends": "sap.ui.unified.MenuItemBase",
     "library": "sap.ui.unified",
     "properties": [
@@ -100488,7 +100488,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.MenuItemBase",
+    "fullName": "sap.ui.unified.MenuItemBase",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.unified",
     "properties": [
@@ -100610,7 +100610,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.MenuItemGroup",
+    "fullName": "sap.ui.unified.MenuItemGroup",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.unified",
     "properties": [
@@ -100715,7 +100715,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.MenuTextFieldItem",
+    "fullName": "sap.ui.unified.MenuTextFieldItem",
     "extends": "sap.ui.unified.MenuItemBase",
     "library": "sap.ui.unified",
     "properties": [
@@ -100861,7 +100861,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.MonthlyRecurrenceRule",
+    "fullName": "sap.ui.unified.MonthlyRecurrenceRule",
     "extends": "sap.ui.unified.RecurrenceRule",
     "library": "sap.ui.unified",
     "properties": [
@@ -100995,7 +100995,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.NonWorkingPeriod",
+    "fullName": "sap.ui.unified.NonWorkingPeriod",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.unified",
     "properties": [
@@ -101100,7 +101100,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.RecurrenceRule",
+    "fullName": "sap.ui.unified.RecurrenceRule",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.unified",
     "properties": [
@@ -101234,7 +101234,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.RecurringCalendarAppointment",
+    "fullName": "sap.ui.unified.RecurringCalendarAppointment",
     "extends": "sap.ui.unified.CalendarAppointment",
     "library": "sap.ui.unified",
     "properties": [
@@ -101442,7 +101442,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.RecurringNonWorkingPeriod",
+    "fullName": "sap.ui.unified.RecurringNonWorkingPeriod",
     "extends": "sap.ui.unified.NonWorkingPeriod",
     "library": "sap.ui.unified",
     "properties": [
@@ -101572,7 +101572,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.Shell",
+    "fullName": "sap.ui.unified.Shell",
     "extends": "sap.ui.unified.ShellLayout",
     "library": "sap.ui.unified",
     "properties": [
@@ -101813,7 +101813,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.ui.unified.ShellHeadItem",
+    "fullName": "sap.ui.unified.ShellHeadItem",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.unified",
     "properties": [
@@ -101961,7 +101961,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.ui.unified.ShellHeadUserItem",
+    "fullName": "sap.ui.unified.ShellHeadUserItem",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.unified",
     "properties": [
@@ -102083,7 +102083,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.ui.unified.ShellHeader",
+    "fullName": "sap.ui.unified.ShellHeader",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -102256,7 +102256,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.ShellLayout",
+    "fullName": "sap.ui.unified.ShellLayout",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -102429,7 +102429,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.ui.unified.ShellOverlay",
+    "fullName": "sap.ui.unified.ShellOverlay",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -102594,7 +102594,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.ui.unified.SplitContainer",
+    "fullName": "sap.ui.unified.SplitContainer",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -102767,7 +102767,7 @@
     "deprecated": true
   },
   {
-    "control": "sap.ui.unified.TimeRange",
+    "fullName": "sap.ui.unified.TimeRange",
     "extends": "sap.ui.core.Element",
     "library": "sap.ui.unified",
     "properties": [
@@ -102877,7 +102877,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.WeeklyRecurrenceRule",
+    "fullName": "sap.ui.unified.WeeklyRecurrenceRule",
     "extends": "sap.ui.unified.RecurrenceRule",
     "library": "sap.ui.unified",
     "properties": [
@@ -103011,7 +103011,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.YearlyRecurrenceRule",
+    "fullName": "sap.ui.unified.YearlyRecurrenceRule",
     "extends": "sap.ui.unified.MonthlyRecurrenceRule",
     "library": "sap.ui.unified",
     "properties": [
@@ -103145,7 +103145,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.calendar.DatesRow",
+    "fullName": "sap.ui.unified.calendar.DatesRow",
     "extends": "sap.ui.unified.calendar.Month",
     "library": "sap.ui.unified",
     "properties": [
@@ -103416,7 +103416,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.calendar.Header",
+    "fullName": "sap.ui.unified.calendar.Header",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -103669,7 +103669,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.calendar.IndexPicker",
+    "fullName": "sap.ui.unified.calendar.IndexPicker",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -103855,7 +103855,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.calendar.Month",
+    "fullName": "sap.ui.unified.calendar.Month",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -104108,7 +104108,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.calendar.OneMonthDatesRow",
+    "fullName": "sap.ui.unified.calendar.OneMonthDatesRow",
     "extends": "sap.ui.unified.calendar.DatesRow",
     "library": "sap.ui.unified",
     "properties": [
@@ -104379,7 +104379,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.calendar.WeeksRow",
+    "fullName": "sap.ui.unified.calendar.WeeksRow",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -104554,7 +104554,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.calendar.YearPicker",
+    "fullName": "sap.ui.unified.calendar.YearPicker",
     "extends": "sap.ui.core.Control",
     "library": "sap.ui.unified",
     "properties": [
@@ -104747,7 +104747,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.calendar.YearRangePicker",
+    "fullName": "sap.ui.unified.calendar.YearRangePicker",
     "extends": "sap.ui.unified.calendar.YearPicker",
     "library": "sap.ui.unified",
     "properties": [
@@ -104946,7 +104946,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.internal.CustomMonthPicker",
+    "fullName": "sap.ui.unified.internal.CustomMonthPicker",
     "extends": "sap.ui.unified.Calendar",
     "library": "sap.ui.unified",
     "properties": [
@@ -105222,7 +105222,7 @@
     ]
   },
   {
-    "control": "sap.ui.unified.internal.CustomYearPicker",
+    "fullName": "sap.ui.unified.internal.CustomYearPicker",
     "extends": "sap.ui.unified.Calendar",
     "library": "sap.ui.unified",
     "properties": [
@@ -105498,7 +105498,7 @@
     ]
   },
   {
-    "control": "sap.uxap.AnchorBar",
+    "fullName": "sap.uxap.AnchorBar",
     "extends": "sap.m.Toolbar",
     "library": "sap.uxap",
     "properties": [
@@ -105715,7 +105715,7 @@
     ]
   },
   {
-    "control": "sap.uxap.BlockBase",
+    "fullName": "sap.uxap.BlockBase",
     "extends": "sap.ui.core.Control",
     "library": "sap.uxap",
     "properties": [
@@ -105890,7 +105890,7 @@
     ]
   },
   {
-    "control": "sap.uxap.BreadCrumbs",
+    "fullName": "sap.uxap.BreadCrumbs",
     "extends": "sap.ui.core.Control",
     "library": "sap.uxap",
     "properties": [
@@ -106043,7 +106043,7 @@
     ]
   },
   {
-    "control": "sap.uxap.HierarchicalSelect",
+    "fullName": "sap.uxap.HierarchicalSelect",
     "extends": "sap.m.Select",
     "library": "sap.uxap",
     "properties": [
@@ -106342,7 +106342,7 @@
     ]
   },
   {
-    "control": "sap.uxap.ModelMapping",
+    "fullName": "sap.uxap.ModelMapping",
     "extends": "sap.ui.core.Element",
     "library": "sap.uxap",
     "properties": [
@@ -106452,7 +106452,7 @@
     ]
   },
   {
-    "control": "sap.uxap.ObjectPageAccessibleLandmarkInfo",
+    "fullName": "sap.uxap.ObjectPageAccessibleLandmarkInfo",
     "extends": "sap.ui.core.Element",
     "library": "sap.uxap",
     "properties": [
@@ -106610,7 +106610,7 @@
     ]
   },
   {
-    "control": "sap.uxap.ObjectPageDynamicHeaderContent",
+    "fullName": "sap.uxap.ObjectPageDynamicHeaderContent",
     "extends": "sap.f.DynamicPageHeader",
     "library": "sap.uxap",
     "properties": [
@@ -106762,7 +106762,7 @@
     ]
   },
   {
-    "control": "sap.uxap.ObjectPageDynamicHeaderTitle",
+    "fullName": "sap.uxap.ObjectPageDynamicHeaderTitle",
     "extends": "sap.f.DynamicPageTitle",
     "library": "sap.uxap",
     "properties": [
@@ -106995,7 +106995,7 @@
     ]
   },
   {
-    "control": "sap.uxap.ObjectPageHeader",
+    "fullName": "sap.uxap.ObjectPageHeader",
     "extends": "sap.ui.core.Control",
     "library": "sap.uxap",
     "properties": [
@@ -107301,7 +107301,7 @@
     ]
   },
   {
-    "control": "sap.uxap.ObjectPageHeaderActionButton",
+    "fullName": "sap.uxap.ObjectPageHeaderActionButton",
     "extends": "sap.m.Button",
     "library": "sap.uxap",
     "properties": [
@@ -107547,7 +107547,7 @@
     ]
   },
   {
-    "control": "sap.uxap.ObjectPageHeaderContent",
+    "fullName": "sap.uxap.ObjectPageHeaderContent",
     "extends": "sap.ui.core.Control",
     "library": "sap.uxap",
     "properties": [
@@ -107694,7 +107694,7 @@
     ]
   },
   {
-    "control": "sap.uxap.ObjectPageHeaderLayoutData",
+    "fullName": "sap.uxap.ObjectPageHeaderLayoutData",
     "extends": "sap.ui.core.LayoutData",
     "library": "sap.uxap",
     "properties": [
@@ -107822,7 +107822,7 @@
     ]
   },
   {
-    "control": "sap.uxap.ObjectPageLayout",
+    "fullName": "sap.uxap.ObjectPageLayout",
     "extends": "sap.ui.core.Control",
     "library": "sap.uxap",
     "properties": [
@@ -108168,7 +108168,7 @@
     ]
   },
   {
-    "control": "sap.uxap.ObjectPageLazyLoader",
+    "fullName": "sap.uxap.ObjectPageLazyLoader",
     "extends": "sap.ui.core.Element",
     "library": "sap.uxap",
     "properties": [
@@ -108267,7 +108267,7 @@
     ]
   },
   {
-    "control": "sap.uxap.ObjectPageSection",
+    "fullName": "sap.uxap.ObjectPageSection",
     "extends": "sap.uxap.ObjectPageSectionBase",
     "library": "sap.uxap",
     "properties": [
@@ -108475,7 +108475,7 @@
     ]
   },
   {
-    "control": "sap.uxap.ObjectPageSectionBase",
+    "fullName": "sap.uxap.ObjectPageSectionBase",
     "extends": "sap.ui.core.Control",
     "library": "sap.uxap",
     "properties": [
@@ -108639,7 +108639,7 @@
     ]
   },
   {
-    "control": "sap.uxap.ObjectPageSubSection",
+    "fullName": "sap.uxap.ObjectPageSubSection",
     "extends": "sap.uxap.ObjectPageSectionBase",
     "library": "sap.uxap",
     "properties": [
@@ -108842,7 +108842,7 @@
     ]
   },
   {
-    "control": "sap.uxap.component.ObjectPageComponentContainer",
+    "fullName": "sap.uxap.component.ObjectPageComponentContainer",
     "extends": "sap.ui.core.ComponentContainer",
     "library": "sap.uxap",
     "properties": [

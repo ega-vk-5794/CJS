@@ -24,6 +24,7 @@ private section.
 
   constants C_MIN_SEARCH_LEN type I value 3 ##NO_TEXT.
   constants C_DEFAULT_IDTYPE type STRING value 'YFS002' ##NO_TEXT.
+  constants C_LOGIN_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
 ENDCLASS.
 
 
@@ -123,42 +124,55 @@ CLASS ZCL_D025_STUD_TRANS_CERT_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_init.
-*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
-*  EXPORTING
-*    IO_CTX =
-*    .
 
     super->zif_rak_journey_logic~on_init( io_ctx = io_ctx ).
 
-    DATA(lv_user) = io_ctx->get_param( iv_name = 'USERDATA' ).
+    DATA: lv_loginbp TYPE bu_partner.
 
-    zcl_ega_cj_utility=>get_bp(
-      EXPORTING qv_key  = lv_user
-      IMPORTING loginbp = DATA(lv_loginbp)
-                rolebp  = DATA(lv_rolebp)
-                role    = DATA(lv_role) ).
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role.
 
+    IF lv_loginbp IS NOT INITIAL.
+      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+        EXPORTING
+          iv_bp_id      = lv_loginbp
+        IMPORTING
+          es_bp_details = DATA(ls_bp) ).
 
+*      "Login BP
+      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
 
-    IF lv_loginbp IS INITIAL.
-      RETURN.
     ENDIF.
-
-    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
-
-*   The signed-in citizen, read from the business partner register. What stood
-*   here was a fixed name and Emirates ID, written AFTER the real read, so every
-*   applicant saw and posted the same test person.
-    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
-      EXPORTING
-        iv_bp_id      = CONV bu_partner( lv_loginbp )
-      IMPORTING
-        es_bp_details = DATA(ls_bp_real) ).
-    io_ctx->set_val( iv_name = 'PARENTNAME' iv_value = COND #(
-      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
-      THEN CONV string( ls_bp_real-bp_name_ar )
-      ELSE CONV string( ls_bp_real-bp_name ) ) ).
-    io_ctx->set_val( iv_name = 'PARENTEID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
+*    DATA(lv_user) = io_ctx->get_param( iv_name = 'USERDATA' ).
+*
+*    zcl_ega_cj_utility=>get_bp(
+*      EXPORTING qv_key  = lv_user
+*      IMPORTING loginbp = DATA(lv_loginbp)
+*                rolebp  = DATA(lv_rolebp)
+*                role    = DATA(lv_role) ).
+*
+*
+*
+*    IF lv_loginbp IS INITIAL.
+*      RETURN.
+*    ENDIF.
+*
+*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
+*
+**   The signed-in citizen, read from the business partner register. What stood
+**   here was a fixed name and Emirates ID, written AFTER the real read, so every
+**   applicant saw and posted the same test person.
+*    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+*      EXPORTING
+*        iv_bp_id      = CONV bu_partner( lv_loginbp )
+*      IMPORTING
+*        es_bp_details = DATA(ls_bp_real) ).
+*    io_ctx->set_val( iv_name = 'PARENTNAME' iv_value = COND #(
+*      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
+*      THEN CONV string( ls_bp_real-bp_name_ar )
+*      ELSE CONV string( ls_bp_real-bp_name ) ) ).
+*    io_ctx->set_val( iv_name = 'PARENTEID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
   ENDMETHOD.
 
 

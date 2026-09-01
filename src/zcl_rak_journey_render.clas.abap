@@ -111,6 +111,10 @@ CLASS zcl_rak_journey_render DEFINITION
   PRIVATE SECTION.
     CLASS-DATA gt_f4c TYPE zif_rak_cjs_types=>tt_f4c.
     DATA mo_e TYPE REF TO zcl_rak_journey_engine.
+*   Set by RENDER_STEP( ) when it has printed the file-type hint once at the top
+*   of the step, so RENDER_UPLOADER( ) does not repeat it under every button.
+*   Recomputed per step, so a step whose uploaders disagree still gets its own.
+    DATA mv_att_hint_hide TYPE abap_bool.
     DATA mv_in_cell TYPE abap_bool.
 *   Set while rendering a FLOW cell. MV_FLOW_CELL stops RENDER_ONE forcing the
 *   control to 100%, which in a flex row would squeeze the button to nothing.
@@ -1356,50 +1360,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *     a detail, it is the reason nothing has any options.
       lv_vhsrc = 'no handler bound'.
     ENDIF.
-*   FOURTH SOURCE: a wrapper API named in DEFAULT_VAL. This is what makes
-*   a migrated composite - a parcel selector, a property list - into a
-*   working control rather than an empty box: ZCL_RAK_MIGRATOR wrote
-*   'API:PROPERTY:PropertiesSet::Type=Parcel' onto the field and
-*   ZCL_RAK_CJ_OPTS turns that into the citizen's own parcels.
-*
-*   AHEAD OF THE DDIC RESOLVER, deliberately. An API-bound field must not
-*   fall through to a domain or search help that happens to share its
-*   name - that would answer with the wrong list rather than no list, and
-*   a wrong list is the harder of the two to notice.
-*   CALLED DYNAMICALLY, AND THAT IS NOT DECORATION. ZCL_RAK_CJ_OPTS leads
-*   to ZCL_RAK_CJ_API, which INHERITS the legacy Gateway DPC. A static
-*   reference would make this class - the renderer every journey and the
-*   Studio go through - fail to load whenever anything in that chain is
-*   inactive, which is the widest possible blast radius for a layer that
-*   is still being built. Dynamically, an inactive wrapper is a caught
-*   CX_SY_DYN_CALL_ERROR on one field: no options, a note beside it, every
-*   other field on every other journey untouched.
-*
-*   The parameters go in a PARAMETER-TABLE because a dynamic class AND
-*   method name cannot carry a static EXPORTING list. LO_IF is declared
-*   rather than passing MO_E directly so the reference's type matches the
-*   formal parameter exactly - a parameter table binds by type, not by the
-*   up-cast a normal call would do for free.
-    DATA lv_apinote TYPE string.
-    IF lt_opt IS INITIAL AND strlen( is_field-default ) > 4 AND is_field-default(4) = 'API:'.
-      DATA lo_if TYPE REF TO zif_rak_journey.
-      lo_if = mo_e.
-      DATA(lt_apb) = VALUE abap_parmbind_tab(
-        ( name = 'IS_FIELD' kind = cl_abap_objectdescr=>exporting value = REF #( is_field ) )
-        ( name = 'IO_CTX'   kind = cl_abap_objectdescr=>exporting value = REF #( lo_if ) )
-        ( name = 'ET_OPT'   kind = cl_abap_objectdescr=>importing value = REF #( lt_opt ) )
-        ( name = 'EV_NOTE'  kind = cl_abap_objectdescr=>importing value = REF #( lv_apinote ) ) ).
-      TRY.
-          CALL METHOD ('ZCL_RAK_CJ_OPTS')=>('RESOLVE')
-            PARAMETER-TABLE lt_apb.
-        CATCH cx_root INTO DATA(lx_api).
-          CLEAR lt_opt.
-          lv_apinote = |{ is_field-name }: the API binding could not be resolved - { lx_api->get_text( ) }|.
-      ENDTRY.
-      lv_vhsrc = |{ lv_vhsrc } -> API { is_field-default }| &&
-                 COND string( WHEN lt_opt IS INITIAL THEN ' (empty)' ELSE `` ).
-    ENDIF.
-
     IF lt_opt IS INITIAL
        AND ( is_field-rollname IS NOT INITIAL OR is_field-shlp IS NOT INITIAL OR is_field-domname IS NOT INITIAL ).
       lt_opt = f4_opts( is_field ).
@@ -1415,19 +1375,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     ENDIF.
 
     CASE is_field-type.
-*     THE API-BACKED COMPOSITES DRAW AS A SELECT. RAKPARCELSELECTOR looks
-*     like a map widget, and the map is the part that is not the point:
-*     the citizen picks ONE parcel out of the ones they own and that id is
-*     what the journey stores. A list whose options come from
-*     ZCL_RAK_PROPERTY_API is that control, minus the map - and it is a
-*     control, where before the migration left a grey box with a label.
-*
-*     Typable rather than CLOSED_LIST on purpose: these lists can be long,
-*     and type-ahead on a parcel number is how a citizen with forty of
-*     them finds one. A journey that wants the list closed sets
-*     CLOSED_LIST on the field like any other select.
-      WHEN 'SELECT' OR 'PARCEL' OR 'PROPERTY' OR 'TITLEDEED'
-        OR 'CONTRACT' OR 'FLOORUNIT' OR 'BUILDINGS'.
+      WHEN 'SELECT'.
         req_label( io_form = io_form is_field = is_field ).
 *       CLOSED_LIST switches this one field to sap.m.Select - not typable,
 *       by design, which is the whole point of a genuinely closed list
@@ -2010,18 +1958,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         ENDIF.
     ENDCASE.
 
-*   WHY THE LIST IS EMPTY, on the screen rather than only in the trace.
-*   An API-bound field can come back with nothing for reasons that look
-*   identical otherwise - no partner on the launch, no property against
-*   that partner, or an entity set no wrapper serves yet - and the whole
-*   reason the directive exists is so those stop being the same picture.
-    IF lv_apinote IS NOT INITIAL.
-      io_form->message_strip( text     = zcl_rak_journey_util=>esc( lv_apinote )
-                              type     = 'Information'
-                              showicon = abap_true
-                              class    = 'sapUiTinyMarginTop' ).
-    ENDIF.
-
     IF is_field-has_attach = abap_true.
       render_attach( io_form = io_form is_field = is_field ).
     ENDIF.
@@ -2344,6 +2280,51 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     DATA lt_used    TYPE STANDARD TABLE OF i WITH EMPTY KEY.
     DATA lv_flex    TYPE abap_bool.
 
+*   ONE file-type hint for the step, not one under every Choose file button.
+*
+*   "PDF, JPG, PNG · up to 2 MB" repeated eleven times down a Documents page is
+*   the same sentence eleven times; it was asked for once, in the header, for
+*   every service. So the hint is emitted here when EVERY uploader on the step
+*   agrees on types and size, and RENDER_UPLOADER( ) is told to stay quiet.
+*
+*   Only when they agree. A step where one attachment takes a different type or
+*   a larger file has no single true sentence to put at the top, so those keep
+*   their own hints and nothing is printed here - a wrong hint above eleven
+*   uploaders is worse than a repeated right one.
+    CLEAR mv_att_hint_hide.
+    DATA lv_ht    TYPE string.
+    DATA lv_hm    TYPE i.
+    DATA lv_hn    TYPE i.
+    DATA lv_hsame TYPE abap_bool VALUE abap_true.
+
+    LOOP AT is_step-fields INTO DATA(ls_fh)
+         WHERE ( type = 'UPLOAD' OR has_attach = abap_true ).
+      IF mo_e->mo_rules->is_hidden( ls_fh ) = abap_true.
+        CONTINUE.
+      ENDIF.
+      lv_hn = lv_hn + 1.
+      IF lv_hn = 1.
+        lv_ht = to_upper( condense( ls_fh-attach_types ) ).
+        lv_hm = mo_e->att_max_mb( ls_fh-attach_maxmb ).
+      ELSEIF to_upper( condense( ls_fh-attach_types ) ) <> lv_ht
+          OR mo_e->att_max_mb( ls_fh-attach_maxmb ) <> lv_hm.
+        lv_hsame = abap_false.
+      ENDIF.
+    ENDLOOP.
+
+    IF lv_hn > 1 AND lv_hsame = abap_true.
+      IF lv_ht IS INITIAL.
+        lv_ht = `PDF,JPG,JPEG,PNG`.
+      ENDIF.
+      REPLACE ALL OCCURRENCES OF `,` IN lv_ht WITH `, `.
+      io_parent->message_strip(
+        text     = |{ lv_ht } · up to { lv_hm } MB|
+        type     = 'Information'
+        showicon = abap_true
+        class    = 'sapUiSmallMarginBottom' ).
+      mv_att_hint_hide = abap_true.
+    ENDIF.
+
     LOOP AT is_step-fields INTO DATA(ls_fx).
       IF zcl_rak_journey_util=>row_key( ls_fx ) IS NOT INITIAL AND mo_e->mo_rules->is_hidden( ls_fx ) = abap_false.
         lv_flex = abap_true.
@@ -2647,7 +2628,12 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     DATA(lv_hint) = to_upper( COND string( WHEN iv_types IS NOT INITIAL
                                            THEN iv_types ELSE `pdf,jpg,jpeg,png` ) ).
     REPLACE ALL OCCURRENCES OF `,` IN lv_hint WITH `, `.
-    io_box->text( text = |{ lv_hint } · up to { lv_mb } MB| class = 'rakAttHint' ).
+*   Silent when RENDER_STEP( ) has already said it once at the top of the step.
+*   A popup's uploaders keep their own hint: the strip is on the step behind the
+*   dialog, where the citizen cannot read it.
+    IF mv_att_hint_hide = abap_false OR iv_scope IS NOT INITIAL.
+      io_box->text( text = |{ lv_hint } · up to { lv_mb } MB| class = 'rakAttHint' ).
+    ENDIF.
   ENDMETHOD.
 
 

@@ -704,37 +704,14 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 *   CUSTOMERJOURNEY unless marked otherwise.
     rt = VALUE #(
 *     ---- parcels and property: ZCL_RAK_PROPERTY_API -------------------
-*     TAKEN FROM THE CONTROLS' OWN READS, not from the entity-set names.
-*     Each ShapeIt control issues one doRead for its list and that is the
-*     binding:
-*
-*       RAKPARCELSELECTOR / RAK_PARCELS / ADDPARCELS  /PropertiesSet
-*       RAK_PROPERTIES                                /PropertiesSet
-*       RAK_TITLEDEED                                 /PropertiesSet
-*       RAK_FLOORUNIT                                 /FloorSet
-*
-*     PARCEL IS NOT FINDPARCELSET, which is what this table said first and
-*     which would have been a real defect. FindParcel has no
-*     _GET_ENTITYSET at all - it is a CREATE_DEEP_ENTITY target that opens
-*     a ZGCF "I cannot find my property" case, refuses when one is already
-*     open, and takes attachments. Binding a selector to it would have
-*     posted a case every time a citizen looked at a list.
-*
-*     The three parcel controls differ only by the Type filter, which is
-*     why they share a row and carry it in DFILTER: PROPERTIESSET reads
-*     Type = 'Parcel' / 'Unit', and omits the filter for 'All'.
-      ( ftype = 'PARCEL'    api = 'PROPERTY' eset = 'PropertiesSet'
-        dfilter = 'Type=Parcel' )
+*     FindParcel and Properties are BOTH expanded reads - they have no
+*     standalone _GET_ENTITYSET method and are dispatched on iv_entity_name
+*     inside GET_EXPANDED_ENTITYSET. Floor and Unit exist ONLY as expanded
+*     children of Properties, which is why FLOORUNIT names Properties.
+      ( ftype = 'PARCEL'    api = 'PROPERTY' eset = 'FindParcelSet' )
       ( ftype = 'PROPERTY'  api = 'PROPERTY' eset = 'PropertiesSet' )
-      ( ftype = 'TITLEDEED' api = 'PROPERTY' eset = 'PropertiesSet' )
-
-*     FLOORUNIT IS BOUND BUT NOT YET SERVEABLE. FloorSet has no
-*     _GET_ENTITYSET either - it exists only inside GET_EXPANDED_ENTITYSET
-*     under iv_entity_name = GC_FLOOR, and that method dereferences
-*     IO_EXPAND->GET_CHILDREN( ), an object this layer cannot yet build.
-*     The binding is written so the field is not silently blank and so the
-*     gap is visible in config rather than only in a comment.
-      ( ftype = 'FLOORUNIT' api = 'PROPERTY' eset = 'FloorSet' )
+      ( ftype = 'FLOORUNIT' api = 'PROPERTY' eset = 'PropertiesSet' )
+      ( ftype = 'TITLEDEED' api = 'PROPERTY' eset = 'get_owner_prop_docs' )
 
 *     ---- tenancy: ZCL_RAK_TENANCY_API ---------------------------------
       ( ftype = 'CONTRACT'  api = 'TENANCY'  eset = 'LeaseContractSet' )
@@ -808,14 +785,7 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     ENDIF.
 
     rv = |API:{ ls_b-api }:{ ls_b-eset }|.
-
-*   THE SLOTS ARE POSITIONAL. PARSE_DIR( ) reads segment 3 as the domain
-*   and segment 4 as the filter, so a row that has a filter and NO domain
-*   still has to emit the empty domain slot - 'API:PROPERTY:PropertiesSet::
-*   Type=Parcel'. Skipping it would deliver the filter as the domain and
-*   the field would silently query the wrong thing, which is exactly the
-*   class of failure this file is full of.
-    IF ls_b-domain IS NOT INITIAL OR ls_b-dfilter IS NOT INITIAL.
+    IF ls_b-domain IS NOT INITIAL.
       rv = |{ rv }:{ ls_b-domain }|.
       IF ls_b-dfilter IS NOT INITIAL.
         rv = |{ rv }:{ ls_b-dfilter }|.
@@ -932,20 +902,11 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 
 *     THE ONE GROUP THAT WORKS ON FIRST MIGRATION. All five are the same
 *     business-partner search - person and company alike, which is what
-*     BusinessPartnerSet is - and the engine already draws it, fed by
-*     ZCL_RAK_BP_SEARCH. No new renderer branch, no new API.
-*
-*     'SEARCH', NOT 'BP'. This said 'BP' first, on the strength of a
-*     WHEN 'BP' in ZCL_RAK_JOURNEY_RENDER - which is in RENDER_POPUP( ),
-*     the search DIALOG, not in the field renderer. A field typed 'BP'
-*     reaches RENDER_ONE( )'s WHEN OTHERS and draws a plain input box: the
-*     citizen gets a text field where a partner search belongs, and
-*     nothing reports it. The field ftype that draws the search - id-type
-*     dropdown, input, Search and Browse, wired to SEARCH_ and BPOPEN_ -
-*     is 'SEARCH', and it is a BLOCK type, so it also gets its own row.
+*     BusinessPartnerSet is - and the engine already draws WHEN 'BP',
+*     fed by ZCL_RAK_BP_SEARCH. No new renderer branch, no new API.
       WHEN 'RAK_SINGLEID' OR 'RAK_MULTIID' OR 'CUSTOMER_IDENTIFICATION'
         OR 'RAK_VALIDATE_RB' OR 'RAK_CONTRACTORCONTROL'.
-        cs_row-ftype = 'SEARCH'.    cs_row-role = c_interact.
+        cs_row-ftype = 'BP'.        cs_row-role = c_interact.
 
 *     The journey's own progress, which the engine draws as the stage bar
 *     already. Chrome, not a field the citizen fills.
