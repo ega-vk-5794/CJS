@@ -117,6 +117,17 @@ CLASS zcl_rak_cj_api DEFINITION
 
     DATA ms_ctx TYPE ty_ctx.
 
+*   The request context handed to any DPC method that dereferences it.
+*   Built once in the constructor, because it is stateless - it answers an
+*   empty header table and nothing else. See ZCL_RAK_CJ_REQ_CTX for why
+*   empty is the right answer rather than a gap.
+*
+*   Pass it to EVERY <Set>_GET_ENTITYSET call, including the three that do
+*   not read it. They cost nothing for having it, and a domain API added
+*   later should not have to know which sets are safe - the whole point of
+*   the earlier split was that the difference is invisible in a signature.
+    DATA mo_req TYPE REF TO zcl_rak_cj_req_ctx.
+
 *   name/value -> /IWBEP/T_MGW_SELECT_OPTION, which is the only shape the
 *   DPC reads filters in. One place, so that no domain API hand-builds a
 *   select-option range and gets SIGN or OPTION subtly wrong.
@@ -154,6 +165,7 @@ CLASS zcl_rak_cj_api IMPLEMENTATION.
     IF ms_ctx-langu IS INITIAL.
       ms_ctx-langu = sy-langu.
     ENDIF.
+    mo_req = NEW zcl_rak_cj_req_ctx( ).
   ENDMETHOD.
 
 

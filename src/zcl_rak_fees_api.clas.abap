@@ -97,6 +97,9 @@ CLASS zcl_rak_fees_api IMPLEMENTATION.
             it_order                 = VALUE #( )
             iv_filter_string         = ``
             iv_search_string         = ``
+*           Harmless on these three - they never read it - but passed
+*           anyway so no caller has to remember which sets are safe.
+            io_tech_request_context  = mo_req
           IMPORTING
             et_entityset             = rs-rows ).
       CATCH cx_root INTO DATA(lx).
@@ -130,6 +133,9 @@ CLASS zcl_rak_fees_api IMPLEMENTATION.
             it_order                 = VALUE #( )
             iv_filter_string         = ``
             iv_search_string         = ``
+*           Harmless on these three - they never read it - but passed
+*           anyway so no caller has to remember which sets are safe.
+            io_tech_request_context  = mo_req
           IMPORTING
             et_entityset             = rs-rows ).
       CATCH cx_root INTO DATA(lx).
@@ -159,6 +165,9 @@ CLASS zcl_rak_fees_api IMPLEMENTATION.
             it_order                 = VALUE #( )
             iv_filter_string         = ``
             iv_search_string         = ``
+*           Harmless on these three - they never read it - but passed
+*           anyway so no caller has to remember which sets are safe.
+            io_tech_request_context  = mo_req
           IMPORTING
             et_entityset             = rs-rows ).
       CATCH cx_root INTO DATA(lx).
