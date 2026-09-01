@@ -1,7 +1,7 @@
 CLASS zcl_rak_cj_req_ctx DEFINITION
   PUBLIC
-  INHERITING FROM /iwbep/cl_mgw_request
-  CREATE PUBLIC.
+  FINAL
+  CREATE PRIVATE.
 
 *&---------------------------------------------------------------------*
 *& The request context CJS hands a Gateway DPC that has no Gateway.
@@ -31,48 +31,93 @@ CLASS zcl_rak_cj_req_ctx DEFINITION
 *& supplying a fabricated key would be worse than supplying none: it would
 *& either miss and return blank anyway, or hit somebody else's session.
 *&
-*& The headers therefore come back EMPTY unless a caller sets them, GET_BP( )
-*& returns a blank partner, and identity reaches the DPC as FILTERS instead.
-*& That is the rule written into ZCL_RAK_CJ_API and it is why this class can
-*& be as thin as it is.
+*& The headers therefore come back EMPTY, GET_BP( ) returns a blank partner,
+*& and identity reaches the DPC as FILTERS instead. That is the rule written
+*& into ZCL_RAK_CJ_API and it is why this class can be as thin as it is.
 *&
-*& SETTLED AT ACTIVATION. /IWBEP/CL_MGW_REQUEST was not readable from the
-*& environment this was written in, so whether it could be inherited and
-*& what its constructor wanted were both open. The first activation
-*& answered both: it is inheritable, super->constructor( ) takes no
-*& arguments, and the ONLY complaint was a name clash on MT_HEADERS, which
-*& the parent already owns. Hence MT_HDR below.
+*& WHY IT IS A FACTORY AND NOT A SUBCLASS, which is the part that cost real
+*& time. The first two attempts wrote it as INHERITING FROM
+*& /IWBEP/CL_MGW_REQUEST with GET_REQUEST_HEADERS redefined. Neither
+*& activated, and each failure only revealed the next unknown:
 *&
-*& If a future release changes that, the fallback is to implement
-*& /IWBEP/IF_MGW_REQ_ENTITYSET directly instead of inheriting: every method
-*& empty except GET_REQUEST_HEADERS( ). More code, no more logic, because
-*& of the single-method finding above. Do NOT work around it by making the
-*& DPC methods tolerate an unbound reference - that is the legacy
-*& namespace.
+*&   1. "There is already an attribute called MT_HEADERS"  - the parent owns it.
+*&   2. "No value was passed to the mandatory parameter IR_REQUEST_DETAILS"
+*&      - so the constructor is NOT parameterless, and its type is not
+*&        readable from the environment this is written in.
+*&   3. "Field RT_REQUEST_HEADERS is unknown" - the returning parameter is
+*&      RT_HEADER.
+*&
+*& Every one of those is the same failure mode: source that hard-codes the
+*& shape of a standard object nobody here can open. Implementing
+*& /IWBEP/IF_MGW_REQ_ENTITYSET directly instead is worse, not better - it
+*& carries ~45 methods plus its component interface, and a missing one is
+*& again an activation error rather than a runtime one.
+*&
+*& So NOTHING here names a signature. The context is created by RTTI:
+*& read the candidate class's own CONSTRUCTOR, build a PARAMETER-TABLE from
+*& whatever it declares as mandatory, and instantiate it dynamically. The
+*& class activates whatever those parameters turn out to be, and anything
+*& still wrong surfaces at runtime, catchable, with a message - not as a
+*& class that will not load.
+*&
+*& THE TWO CANDIDATES, in order:
+*&
+*&   /IWBEP/CL_MGW_REQUEST_UNITTST  "Unit test enabling Request Context",
+*&       a subclass of /IWBEP/CL_MGW_REQUEST that SAP ships for exactly this
+*&       situation - a request context for a DPC called with no HTTP request
+*&       behind it. Tried first because being constructible outside Gateway
+*&       is its whole purpose.
+*&   /IWBEP/CL_MGW_REQUEST          the base class, whose constructor is
+*&       (IR_REQUEST_DETAILS, IT_HEADERS, IO_MODEL). Tried second.
+*&
+*& If both fail, GET( ) returns an UNBOUND reference and WHY( ) says why.
+*& That is deliberate and it is not a regression: every DPC call in this
+*& layer already runs inside CATCH CX_ROOT -> TO_MSG( ), so an unbound
+*& context degrades to a message on the screen, which is what the caller
+*& would have got from a failed read anyway. DIAG( ) then prints both
+*& constructors as the system actually declares them, which is the one fact
+*& that has been missing all along - run it before theorising.
+*&
+*& Do NOT work around any of this by making the DPC methods tolerate an
+*& unbound reference. That is the legacy namespace.
 *&---------------------------------------------------------------------*
 
   PUBLIC SECTION.
 
-    METHODS constructor
-      IMPORTING it_headers TYPE tihttpnvp OPTIONAL.
+*   The context to pass as IO_TECH_REQUEST_CONTEXT. Built once per session
+*   and cached, including a failed build - retrying it on every read would
+*   turn one missing class into an RTTI call per field per round trip.
+    CLASS-METHODS get
+      RETURNING VALUE(ro) TYPE REF TO /iwbep/if_mgw_req_entityset.
 
-*   Redefined so it answers from MT_HDR rather than from a live HTTP
-*   request there is none of.
-    METHODS /iwbep/if_mgw_req_entityset~get_request_headers
-      REDEFINITION.
+*   Empty when GET( ) succeeded. Otherwise the reason, both candidates
+*   concatenated, ready to be put in a BAPIRET2 row.
+    CLASS-METHODS why
+      RETURNING VALUE(rv) TYPE string.
 
-  PROTECTED SECTION.
-*   MT_HDR, not MT_HEADERS. /IWBEP/CL_MGW_REQUEST already owns a protected
-*   MT_HEADERS, and redeclaring it fails activation with "There is already
-*   an attribute called MT_HEADERS" - which is how we learned the class
-*   inherits cleanly and takes a parameterless super->constructor( ).
-*   The inherited one is left strictly alone: its type and the parent's use
-*   of it are not documented anywhere reachable, and writing to an
-*   attribute whose owner may also write to it is how a subclass breaks a
-*   superclass quietly.
-    DATA mt_hdr TYPE tihttpnvp.
+*   Both candidate constructors as the system declares them, plus the last
+*   error. Not called by the engine - it exists so one WRITE settles what
+*   three activation rounds did not.
+    CLASS-METHODS diag
+      RETURNING VALUE(rv) TYPE string.
 
   PRIVATE SECTION.
+
+    CONSTANTS c_unittst TYPE seoclsname VALUE '/IWBEP/CL_MGW_REQUEST_UNITTST'.
+    CONSTANTS c_request TYPE seoclsname VALUE '/IWBEP/CL_MGW_REQUEST'.
+
+    CLASS-DATA gv_tried TYPE abap_bool.
+    CLASS-DATA go_ctx   TYPE REF TO /iwbep/if_mgw_req_entityset.
+    CLASS-DATA gv_why   TYPE string.
+
+    CLASS-METHODS build
+      IMPORTING iv_class  TYPE seoclsname
+      RETURNING VALUE(ro) TYPE REF TO /iwbep/if_mgw_req_entityset.
+
+    CLASS-METHODS signature
+      IMPORTING iv_class  TYPE seoclsname
+      RETURNING VALUE(rv) TYPE string.
+
 ENDCLASS.
 
 
@@ -80,20 +125,163 @@ ENDCLASS.
 CLASS zcl_rak_cj_req_ctx IMPLEMENTATION.
 
 
-  METHOD constructor.
-*   Parameterless, and confirmed so at the first activation - it drew no
-*   complaint while the MT_HEADERS clash beside it did.
-    super->constructor( ).
-    mt_hdr = it_headers.
+  METHOD get.
+    IF gv_tried = abap_true.
+      ro = go_ctx.
+      RETURN.
+    ENDIF.
+    gv_tried = abap_true.
+
+    go_ctx = build( c_unittst ).
+    IF go_ctx IS NOT INITIAL.
+      CLEAR gv_why.
+      ro = go_ctx.
+      RETURN.
+    ENDIF.
+
+*   Keep the first reason - if the second candidate also fails, the reader
+*   needs both, not just the last one.
+    DATA(lv_first) = gv_why.
+    go_ctx = build( c_request ).
+    IF go_ctx IS NOT INITIAL.
+      CLEAR gv_why.
+    ELSE.
+      gv_why = |{ lv_first } / { gv_why }|.
+    ENDIF.
+    ro = go_ctx.
   ENDMETHOD.
 
 
-  METHOD /iwbep/if_mgw_req_entityset~get_request_headers.
-*   Empty is the correct answer, not a gap. See the class header: the only
-*   header the DPC reads is 'x-custom1', and CJS cannot supply a truthful
-*   one. Returning nothing makes GET_BP( ) fall through to a blank partner,
-*   which is exactly what the filter-based identity in ZCL_RAK_CJ_API
-*   expects.
-    rt_request_headers = mt_hdr.
+  METHOD why.
+    rv = gv_why.
   ENDMETHOD.
+
+
+  METHOD build.
+    DATA lo_type TYPE REF TO cl_abap_typedescr.
+    DATA lo_cls  TYPE REF TO cl_abap_classdescr.
+    DATA lo_par  TYPE REF TO cl_abap_datadescr.
+    DATA lt_p    TYPE abap_parmbind_tab.
+    DATA ls_p    TYPE abap_parmbind.
+    DATA lo_obj  TYPE REF TO object.
+
+*   CALL METHOD, not a functional call: DESCRIBE_BY_NAME raises a CLASSICAL
+*   exception, so the result has to be read through SY-SUBRC.
+    CALL METHOD cl_abap_typedescr=>describe_by_name
+      EXPORTING  p_name         = iv_class
+      RECEIVING  p_descr_ref    = lo_type
+      EXCEPTIONS type_not_found = 1
+                 OTHERS         = 2.
+    IF sy-subrc <> 0.
+      gv_why = |{ iv_class } is not in this system|.
+      RETURN.
+    ENDIF.
+
+    TRY.
+        lo_cls ?= lo_type.
+      CATCH cx_sy_move_cast_error.
+        gv_why = |{ iv_class } is not a class|.
+        RETURN.
+    ENDTRY.
+
+*   No CONSTRUCTOR row at all means a parameterless one - LT_P stays empty
+*   and CREATE OBJECT below is the plain form.
+    READ TABLE lo_cls->methods INTO DATA(ls_m) WITH KEY name = 'CONSTRUCTOR'.
+    IF sy-subrc = 0.
+      LOOP AT ls_m-parameters INTO DATA(ls_par)
+           WHERE parm_kind   = cl_abap_objectdescr=>importing
+             AND is_optional = abap_false.
+
+*       MANDATORY ONLY, on purpose. An optional parameter left out is the
+*       constructor's own default; an optional parameter supplied initial is
+*       a value, and the two are not the same thing. IT_HEADERS is exactly
+*       that case - an empty table passed explicitly and an omitted table
+*       may take different branches inside, and empty-by-default is what we
+*       want anyway.
+        CLEAR ls_p.
+
+        CALL METHOD lo_cls->get_method_parameter_type
+          EXPORTING  p_method_name       = ls_m-name
+                     p_parameter_name    = ls_par-name
+          RECEIVING  p_descr_ref         = lo_par
+          EXCEPTIONS parameter_not_found = 1
+                     method_not_found    = 2
+                     OTHERS              = 3.
+        IF sy-subrc <> 0.
+          gv_why = |{ iv_class }: cannot type CONSTRUCTOR parameter { ls_par-name }|.
+          RETURN.
+        ENDIF.
+
+        ls_p-name = ls_par-name.
+        ls_p-kind = cl_abap_objectdescr=>exporting.
+
+*       An anonymous data object of the parameter's own declared type, left
+*       initial. For IR_REQUEST_DETAILS - a data reference - that is an
+*       initial reference, which is correct: this context describes no
+*       request. If a constructor turns out to dereference it, that is a
+*       catchable runtime error below, and WHY( ) will say so.
+        CREATE DATA ls_p-value TYPE HANDLE lo_par.
+
+        INSERT ls_p INTO TABLE lt_p.
+      ENDLOOP.
+    ENDIF.
+
+    TRY.
+        CREATE OBJECT lo_obj TYPE (iv_class) PARAMETER-TABLE lt_p.
+        ro ?= lo_obj.
+      CATCH cx_root INTO DATA(lx).
+*       Includes CREATE PRIVATE/PROTECTED, an abstract class, a parameter
+*       mismatch, and anything the constructor itself raises. All of them
+*       mean "try the next candidate", none of them mean "stop the journey".
+        CLEAR ro.
+        gv_why = |{ iv_class }: { lx->get_text( ) }|.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD signature.
+    DATA lo_type TYPE REF TO cl_abap_typedescr.
+    DATA lo_cls  TYPE REF TO cl_abap_classdescr.
+
+    CALL METHOD cl_abap_typedescr=>describe_by_name
+      EXPORTING  p_name         = iv_class
+      RECEIVING  p_descr_ref    = lo_type
+      EXCEPTIONS type_not_found = 1
+                 OTHERS         = 2.
+    IF sy-subrc <> 0.
+      rv = |{ iv_class }: not in this system|.
+      RETURN.
+    ENDIF.
+
+    TRY.
+        lo_cls ?= lo_type.
+      CATCH cx_sy_move_cast_error.
+        rv = |{ iv_class }: not a class|.
+        RETURN.
+    ENDTRY.
+
+    READ TABLE lo_cls->methods INTO DATA(ls_m) WITH KEY name = 'CONSTRUCTOR'.
+    IF sy-subrc <> 0.
+      rv = |{ iv_class } CONSTRUCTOR: none declared (parameterless)|.
+      RETURN.
+    ENDIF.
+
+    rv = |{ iv_class } CONSTRUCTOR:|.
+    LOOP AT ls_m-parameters INTO DATA(ls_par).
+      DATA(lv_opt) = COND string( WHEN ls_par-is_optional = abap_true
+                                  THEN `opt` ELSE `MANDATORY` ).
+      rv = |{ rv } { ls_par-name }[{ ls_par-parm_kind },{ lv_opt }]|.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD diag.
+    rv = |{ signature( c_unittst ) }|.
+    rv = |{ rv } // { signature( c_request ) }|.
+    IF gv_why IS NOT INITIAL.
+      rv = |{ rv } // last error: { gv_why }|.
+    ENDIF.
+  ENDMETHOD.
+
+
 ENDCLASS.

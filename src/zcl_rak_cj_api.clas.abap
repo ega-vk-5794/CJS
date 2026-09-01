@@ -122,11 +122,19 @@ CLASS zcl_rak_cj_api DEFINITION
 *   empty header table and nothing else. See ZCL_RAK_CJ_REQ_CTX for why
 *   empty is the right answer rather than a gap.
 *
+*   IT CAN BE UNBOUND, and the layer is built so that this degrades rather
+*   than dumps. The context is a standard Gateway object instantiated
+*   dynamically; if neither candidate class can be created here, GET( )
+*   returns initial and ZCL_RAK_CJ_REQ_CTX=>WHY( ) says why. Every call site
+*   in this layer already runs inside CATCH CX_ROOT -> TO_MSG( ), so the
+*   citizen gets a message on a read that failed, not a short dump - and the
+*   three sets that never touch the context keep working regardless.
+*
 *   Pass it to EVERY <Set>_GET_ENTITYSET call, including the three that do
 *   not read it. They cost nothing for having it, and a domain API added
 *   later should not have to know which sets are safe - the whole point of
 *   the earlier split was that the difference is invisible in a signature.
-    DATA mo_req TYPE REF TO zcl_rak_cj_req_ctx.
+    DATA mo_req TYPE REF TO /iwbep/if_mgw_req_entityset.
 
 *   name/value -> /IWBEP/T_MGW_SELECT_OPTION, which is the only shape the
 *   DPC reads filters in. One place, so that no domain API hand-builds a
@@ -165,7 +173,11 @@ CLASS zcl_rak_cj_api IMPLEMENTATION.
     IF ms_ctx-langu IS INITIAL.
       ms_ctx-langu = sy-langu.
     ENDIF.
-    mo_req = NEW zcl_rak_cj_req_ctx( ).
+*   ZCL_RAK_CJ_REQ_CTX is a FACTORY, not the context itself - it builds a
+*   standard Gateway request object by RTTI rather than naming a signature
+*   nothing here can read. It may come back UNBOUND; that is handled, not
+*   ignored - see the note on MO_REQ and ZCL_RAK_CJ_REQ_CTX=>WHY( ).
+    mo_req = zcl_rak_cj_req_ctx=>get( ).
   ENDMETHOD.
 
 
