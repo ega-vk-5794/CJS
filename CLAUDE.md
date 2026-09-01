@@ -139,6 +139,16 @@ These raise nothing and render nothing. They account for most of the bugs found 
   draw their own, and a hand-drawn popup that calls `z2ui5_cl_xml_view->label( )` directly
   bypasses all three. Prefer `DIALOG_FORM( )` for a new popup: it sets `REQUIRED` from each
   field's own flag, so the marker cannot be forgotten.
+- **An offset on `IV_EVENT` is an offset on a `STRING`, and a short event throws.**
+  `IV_EVENT` is `TYPE string`, so `iv_event(8)` on anything shorter raises
+  `CX_SY_RANGE_OUT_OF_BOUNDS` - and event names are short: `C_EVT_OWNOK` is `'OWN_OK'`,
+  six characters. E016 dispatched its Edit/Delete rows with `CASE iv_event(8)` after a
+  `CASE` whose Add branch did not `RETURN`, so pressing Add fell into it and threw.
+  It never dumped, which is why it survived: the engine wraps `ON_POPUP_EVENT` in
+  `TRY/CATCH cx_root` and turns it into a Warning - so the row saved, the popup closed,
+  and the citizen got an unexplained offset error on a **successful** Add. Match event
+  names with `CP` (`iv_event CP c_edit_pop`) the way D001/D004/E017/E018 do - a pattern
+  match cannot run off the end - or guard the offset with `strlen( )`.
 - **An empty redefinition is a DELETION, not a no-op.** Handlers INHERIT from
   `ZCL_RAK_JOURNEY_LOGIC`, so redefining a hook REPLACES its base body. Most of the
   interface is genuinely empty and overriding it costs nothing - but four hooks are not:

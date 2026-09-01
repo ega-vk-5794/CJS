@@ -512,6 +512,16 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
 
     ENDCASE.
 
+*   LENGTH GUARD, NOT DECORATION. IV_EVENT is TYPE STRING, so IV_EVENT(8) on
+*   anything shorter raises CX_SY_RANGE_OUT_OF_BOUNDS - and C_EVT_OWNOK is
+*   'OWN_OK', six characters. The WHEN c_evt_ownok branch above does not RETURN,
+*   so pressing Add in the chemical popup fell straight into this CASE and threw.
+*   The engine catches it (ZCL_RAK_JOURNEY_ENGINE wraps ON_POPUP_EVENT in
+*   TRY/CATCH cx_root and turns it into a Warning), so it never dumped - the row
+*   saved, the popup closed, and the citizen got an unexplained offset error on a
+*   successful Add. Nine is the shortest event this block can act on
+*   ('OWN_DEL_' + one character); anything shorter has nothing to match anyway.
+    IF strlen( iv_event ) >= 9.
     CASE iv_event(8).
       WHEN 'OWN_EDIT'.
         DATA(lv_id) = iv_event+9.
@@ -533,6 +543,7 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
             io_ctx->set_grid_data( iv_field = c_grid is_data = ls_g ).
             endif.
     ENDCASE.
+    ENDIF.
   ENDMETHOD.
 
 
