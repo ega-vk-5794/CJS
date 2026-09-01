@@ -123,11 +123,23 @@ CLASS ZCL_D004_SCHOOL_LIC_AMND_LOGIC IMPLEMENTATION.
 *
 *   The seeder runs once, and only while the editable grid is empty, so nothing
 *   the citizen has typed or deliberately deleted is ever restored underneath
-*   them. Both grids share the PARTNER / NATIONALITY / SHARE_PER /
-*   MOBILE_NUMBER / EMAIL_ADDRESS spec, so the copy is a straight name match.
+*   them.
+*
+*   OWNERS_DISP, not OWNERS_TABLE. The two are different backend reads and only
+*   one of them is laid out the way this journey's spec expects.
+*
+*   OWNERS_DISP is the read behind the grey Owners list at the top of this step,
+*   which renders correctly against the very same PARTNER / NATIONALITY /
+*   SHARE_PER / MOBILE_NUMBER / EMAIL_ADDRESS spec - that is the evidence its
+*   order matches. OWNERS_TABLE comes back as partner number, name, mobile,
+*   e-mail: its cells are positional from the BAdI's LIST_SEQUENCE in
+*   /QNV/SB_UI_DEFIN and owe nothing to the CJS column list. Seeding from it put
+*   the BP number under Owner Name, the name under Nationality and the phone
+*   under Owner Shares - the two specs share column NAMES without sharing what
+*   those names mean.
     seed_grid_from_backend( io_ctx    = io_ctx
                             iv_grid   = c_grid
-                            iv_source = 'OWNERS_TABLE' ).
+                            iv_source = 'OWNERS_DISP' ).
   ENDMETHOD.
 
 
