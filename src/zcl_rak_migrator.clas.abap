@@ -728,6 +728,79 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       WHEN 'GENERIC_CSS' OR 'HSEPARATOR'. cs_row-ftype = ''. cs_row-role = c_decor.
       WHEN 'SCRIPT'.  cs_row-ftype = 'SCRIPT'.  cs_row-role = c_backend.
       WHEN ''.        cs_row-ftype = 'BACKEND'. cs_row-role = c_backend.
+
+*     ---- ShapeIt composite controls ------------------------------------
+*     Every control below fell through to WHEN OTHERS until now, which
+*     turned a parcel selector into a text box and a signature pad into a
+*     label - and left DEFAULTED set, so the count said "reviewed" when
+*     nothing had been.
+*
+*     NONE of them may be mapped to 'TABLE', however grid-like they look.
+*     The grid pipeline at the end of MIGRATE( ) keys off ftype 'TABLE',
+*     calls GRID_SPEC( ) for the LEVEL_CON='T' descendants, and DROPS a
+*     table that yields no usable columns. Checked against the export:
+*     CHEMICALS_DETAILS, ACCOMODATIONS, RAK_BUILDINGCONTROL,
+*     RAKPARCELSELECTOR, RAK_PARCELS, RAK_PROPERTIES and RAK_CONTRACTS
+*     have ZERO 'T' children between them, because their rows come from an
+*     entity set rather than from the legacy screen definition. Calling
+*     them TABLE would delete them.
+*
+*     An ftype the engine does not draw yet is safe: ZCL_RAK_JOURNEY_RENDER
+*     ends its field CASE on an input, which is exactly what WHEN OTHERS
+*     produced before. So naming them here is never worse than the default,
+*     and the config stops being wrong - the renderer branch and the domain
+*     API can be added later WITHOUT re-migrating the journey.
+      WHEN 'RAKPARCELSELECTOR' OR 'RAK_PARCELS' OR 'ADDPARCELS'.
+        cs_row-ftype = 'PARCEL'.    cs_row-role = c_interact.
+      WHEN 'RAK_PROPERTIES'.
+        cs_row-ftype = 'PROPERTY'.  cs_row-role = c_interact.
+      WHEN 'RAK_FLOORUNIT'.
+        cs_row-ftype = 'FLOORUNIT'. cs_row-role = c_interact.
+      WHEN 'RAK_TITLEDEED'.
+        cs_row-ftype = 'TITLEDEED'. cs_row-role = c_interact.
+      WHEN 'RAK_FINDCONTRACT' OR 'RAK_CONTRACTS'.
+        cs_row-ftype = 'CONTRACT'.  cs_row-role = c_interact.
+      WHEN 'RAK_SIGNCONTRACT' OR 'RAK_SIGNATURE' OR 'SIGNATURE' OR 'SIGN_CONTRACT'.
+        cs_row-ftype = 'SIGN'.      cs_row-role = c_interact.
+      WHEN 'RAK_BUILDINGCONTROL'.
+        cs_row-ftype = 'BUILDINGS'. cs_row-role = c_interact.
+
+*     A dropdown whose options ShapeIt decides client-side. It is still a
+*     select here; the dependent behaviour belongs in a rule or on_change.
+      WHEN 'RAKSELECTUSAGETYPE' OR 'RAK_PROJECTLIST' OR 'ENTITY_SELECT'.
+        cs_row-ftype = 'SELECT'.    cs_row-role = c_interact.
+
+*     THE ONE GROUP THAT WORKS ON FIRST MIGRATION. All five are the same
+*     business-partner search - person and company alike, which is what
+*     BusinessPartnerSet is - and the engine already draws WHEN 'BP',
+*     fed by ZCL_RAK_BP_SEARCH. No new renderer branch, no new API.
+      WHEN 'RAK_SINGLEID' OR 'RAK_MULTIID' OR 'CUSTOMER_IDENTIFICATION'
+        OR 'RAK_VALIDATE_RB' OR 'RAK_CONTRACTORCONTROL'.
+        cs_row-ftype = 'BP'.        cs_row-role = c_interact.
+
+*     The journey's own progress, which the engine draws as the stage bar
+*     already. Chrome, not a field the citizen fills.
+      WHEN 'TRACKER'.
+        cs_row-ftype = 'STAGE'.     cs_row-role = c_stage.
+
+*     ---- composites on journeys ALREADY migrated -----------------------
+*     CHEMICALS_DETAILS is backed by ChemicalHistorySet, which returns the
+*     citizen's previous declarations for a permit and trade licence.
+*     E016/E017/E018 hand-built its dialog because this branch did not
+*     exist, and none of them carries the lookup. ACCOMODATIONS is the same
+*     shape on E030/E130 (PortAccommodationSet + WorkersListSet), and
+*     RAK_BOATCONTROL the same on NE001/NE002, not yet migrated.
+      WHEN 'CHEMICALS_DETAILS'.
+        cs_row-ftype = 'CHEMICALS'. cs_row-role = c_interact.
+      WHEN 'ACCOMODATIONS'.
+        cs_row-ftype = 'ACCOM'.     cs_row-role = c_interact.
+      WHEN 'RAK_BOATCONTROL'.
+        cs_row-ftype = 'BOATS'.     cs_row-role = c_interact.
+*     DATA3 = 'X' is the multiple-files flag; ZRAK_E015_LOAD found this by
+*     hand and mapped it to UPLOAD + ATTACH_MULTI. Same answer here.
+      WHEN 'MASS_UPLOADER'.
+        cs_row-ftype = 'UPLOAD'.    cs_row-role = c_interact.
+
       WHEN OTHERS.
         IF cs_row-technical_name IS NOT INITIAL OR cs_row-tosave = 'X'.
           cs_row-ftype = 'INPUT'.   cs_row-role = c_interact.
