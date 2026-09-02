@@ -1042,7 +1042,11 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     like a wrong URL - which is where six rounds went.
       lo_map->html(
         content = |<iframe id="rakPclMap" src="{ lv_base }" title="parcel map" | &&
-                  |style="width:100%;height:26rem;border:0"></iframe>|
+                  |style="width:100%;height:26rem;border:0"></iframe>| &&
+*                 A LINE THE SNIPPET FILLS IN, so the one thing that
+*                 cannot be seen from a screenshot becomes readable: the
+*                 origin the message was posted FROM. See below.
+                  |<div id="rakPclMapNote" class="rakPclHint"></div>|
         sanitizecontent = abap_false ).
 
 *     RETRIED, not sent once. The listener is attached by the page's own
@@ -1066,7 +1070,25 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         |if(e.origin===o)\{s();\}\});| &&
         |var t=setInterval(function()\{| &&
         |if(++n>10)\{clearInterval(t);return;\}s();\},500);| &&
-        |s();\}())| ).
+        |s();| &&
+*       WHOSE ORIGIN IS BEING JUDGED. gismappingIM.js validates the
+*       SENDER against its own allowlist before it reads anything:
+*
+*           if (!DefconOriginValidation(origin)) { showForbidden(); return; }
+*
+*       and that allowlist is the portal's hosts. CJS is served from the
+*       SAP application server, which is a different origin - so a
+*       correctly addressed, correctly timed message can still be thrown
+*       away, and the viewer sits on its splash screen exactly as it does
+*       when no message arrives at all. Those two are indistinguishable
+*       from the outside, which is why this line prints BOTH origins:
+*       what the frame is, and what we are to it.
+        |var N=document.getElementById("rakPclMapNote");| &&
+        |if(N)\{N.textContent="Map: posting parcel "+m.parcelId+| &&
+        |" to "+o+" from "+window.location.origin+| &&
+        |". If the viewer shows only its logo, its own origin allowlist| &&
+        | does not include this host.";\}| &&
+        |\}())| ).
 
       lo_map->link( text   = t( iv_en = `Open the map in a new tab`
                                 iv_ar = `افتح الخريطة في تبويب جديد` )

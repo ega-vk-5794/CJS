@@ -85,6 +85,19 @@ viewer, and on a retry interval that gives up after ten attempts.
 This remains the fallback path in the details dialog. It is a real page and a real map; it
 is simply not the control the parcel dialog was drawing.
 
+**And it may not be reachable from CJS at all.** `DefconReciveMessage` validates the
+**sender's** origin before it reads anything, against the viewer's own allowlist — which
+holds the portal's hosts. CJS is served from the SAP application server, a different
+origin. So a correctly addressed, correctly timed message can still be discarded, and the
+viewer then sits on its splash screen *exactly* as it does when no message arrives at all.
+The two are indistinguishable from a screenshot, which is why the frame now prints both
+origins underneath it: what the frame is, and what we are to it. If that line appears and
+the viewer still shows only its logo, the fix is on the GIS side — add the CJS host to the
+allowlist — not in this repository.
+
+The in-page ArcGIS path has no such gate: it is REST calls carrying a token, and origin
+never enters into it. That is the route worth finishing.
+
 ## Why it never worked, for six rounds
 
 Not the URL, not the token, not CSP. **A `<script>` block inside `html( )` never
