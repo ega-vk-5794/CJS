@@ -634,6 +634,42 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakPclCard\{gap:.4rem;\}| &&
         |.rakPclCard .sapMTitle\{margin:0;\}| &&
         |.rakPclHint\{color:#6a7484;font-size:.82rem;\}| &&
+*     THE WAIT OVERLAY, over the parcel map frame.
+*
+*     A framed map has a silent gap that nothing else can fill. The frame
+*     fires LOAD when the viewer page has arrived - and the viewer then
+*     authenticates, queries the layer and draws, which takes seconds
+*     more. The frame is cross-origin, so that second half is invisible:
+*     nothing can be observed, so nothing can be reported. What the
+*     citizen saw was a white rectangle with no indication that anything
+*     was happening at all.
+*
+*     So the overlay covers the frame from the moment it renders and is
+*     removed by the snippet a little after load, or the instant the
+*     viewer speaks. It sits ON TOP rather than inside: everything inside
+*     the frame belongs to the other origin and cannot be touched.
+*
+*     POINTER-EVENTS:NONE once it starts fading, so a spinner can never
+*     eat a click meant for the map underneath it.
+        |.rakPclMapWrap\{position:relative;width:100%;\}| &&
+        |.rakPclWait\{position:absolute;inset:0;display:flex;| &&
+        |flex-direction:column;align-items:center;justify-content:center;| &&
+        |gap:.7rem;background:#eef1f4;border-radius:10px;| &&
+        |color:#6a7484;font-size:.85rem;transition:opacity .3s;\}| &&
+        |.rakPclWait.rakGone\{opacity:0;pointer-events:none;\}| &&
+*     A BORDERED CIRCLE WITH ONE SIDE COLOURED, ROTATING - the whole
+*     spinner. No image, no sprite, no library: a data URI would still be
+*     a request to explain and sap.m.BusyIndicator cannot be placed over
+*     a sap.ui.core.HTML control.
+        |.rakPclSpin\{width:2.2rem;height:2.2rem;border-radius:50%;| &&
+        |border:3px solid #d6dce5;border-top-color:{ g-brand };| &&
+        |animation:rakSpin .9s linear infinite;\}| &&
+*     PREFERS-REDUCED-MOTION is honoured: the ring stops turning and
+*     stays as a static ring, so the wait is still visible to someone who
+*     has asked the system not to animate.
+        |@media (prefers-reduced-motion:reduce)\{| &&
+        |.rakPclSpin\{animation:none;\}\}| &&
+        |@keyframes rakSpin\{to\{transform:rotate(360deg);\}\}| &&
 *     THE MAP NEEDS A HEIGHT AND A BACKGROUND. An ArcGIS MapView in a box
 *     of height 0 initialises, reports nothing and draws nothing - which
 *     on screen is indistinguishable from a tab that never loaded. The

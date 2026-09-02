@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-13. Missing this line means SAP has an older copy - see
+*& BUILD map-fix-14. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -1226,7 +1226,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         |f.dataset.rakPosted=m.parcelId;| &&
         |function s()\{try\{f.contentWindow.postMessage(m,o);n++;\}catch(e)\{\}\}| &&
         |f.addEventListener("load",function()\{| &&
-        |f.dataset.rakLoaded="1";L=1;s();R();\});| &&
+        |f.dataset.rakLoaded="1";L=1;s();R();G();\});| &&
 *       WHAT THE VIEWER SAYS BACK, kept and shown. The frame is
 *       cross-origin, so its console and its DOM are both unreadable from
 *       here - a postMessage is the ONLY thing it can tell us, and until
@@ -1238,7 +1238,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         |try\{IN.push(typeof e.data==="string"?e.data| &&
         |:JSON.stringify(e.data));\}catch(x)\{IN.push("[unreadable]");\}| &&
         |if(IN.length>4)\{IN.shift();\}| &&
-        |s();R();\});| &&
+        |s();R();W();\});| &&
         |var t=setInterval(function()\{| &&
         |if(++n>10)\{clearInterval(t);return;\}s();R();\},500);| &&
 *       A RESIZE NUDGE, once, after the dialog has finished opening.
@@ -1309,9 +1309,37 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       something, and it is the only voice from inside the frame.
         |if(IN.length)\{| &&
         |N.textContent="Map: "+IN.join(" / ");return;\}| &&
-*       LOADED AND SILENT IS THE SUCCESS CASE. Say nothing.
-        |if(L)\{N.textContent="";return;\}| &&
-        |N.textContent="Loading the map...";\}| &&
+*       LOADED AND SILENT IS THE SUCCESS CASE. Say nothing - and say
+*       nothing BEFORE load either, because the overlay on top of the
+*       frame is now the thing that says the map is coming. Two "Loading
+*       the map..." lines, one over the frame and one under it, is worse
+*       than either alone.
+        |N.textContent="";\}| &&
+*       THE WAIT OVERLAY, ON AND OFF. It ships visible in the markup, so
+*       this only ever has to take it away - which means a snippet that
+*       never runs leaves the wait showing rather than a bare white box,
+*       and that is the correct outcome for that case too.
+        |function W()\{var V=document.getElementById("rakPclWait");| &&
+*       CLASSNAME rather than style.display: the fade is a CSS
+*       transition on opacity, and the class also takes pointer-events
+*       off so a faded overlay can never swallow a click meant for the
+*       map underneath.
+        |if(V)\{V.className="rakPclWait rakGone";\}\}| &&
+*       AND WHEN TO TAKE IT AWAY. Load is not the moment the map is
+*       READY - it is the moment the viewer page arrived, and the viewer
+*       then authenticates, queries its layer and draws. That second
+*       half happens inside a cross-origin frame and is unobservable, so
+*       there is no event to wait for and a grace period is the honest
+*       answer rather than a lucky one. Two and a half seconds is drawn
+*       from the observed wait on this system, and it is bounded either
+*       way: too short shows a map mid-draw, which is what the citizen
+*       would have seen anyway; too long holds a spinner over a finished
+*       map.
+        |function G()\{setTimeout(W,2500);\}| &&
+*       A REPLY MEANS THE VIEWER IS TALKING, so stop waiting immediately
+*       rather than sitting out the grace period - whatever it said,
+*       the note now carries it and the overlay would only hide it.
+        |if(L)\{G();\}| &&
 *       THE VIEWER NEVER ARRIVED. Eight seconds is well past a page load,
 *       so at that point the frame itself did not come up - a different
 *       fault from anything inside it, and the only one this line still
@@ -1321,6 +1349,10 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         |var N2=document.getElementById("rakPclMapNote");| &&
         |if(N2)\{N2.textContent="The map viewer did not load from "+o+| &&
         |". Opening it in a new tab will show what it says.";\}| &&
+*       AND STOP WAITING. A spinner that turns for ever is a worse answer
+*       than a message: the overlay comes off so whatever the frame does
+*       show is visible, and the line above says what happened.
+        |W();| &&
         |\},8000);| &&
         |R();| &&
         |\}())|.
@@ -1328,8 +1360,14 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     CHANNEL ONE: the frame's own onload attribute. Single-quoted, and
 *     the snippet is guaranteed free of single quotes - see above.
       DATA(lv_fhtml) =
+*       THE POSITIONED WRAPPER. The overlay is absolutely positioned
+*       against it, so without this it would anchor to whatever ancestor
+*       happens to be positioned - which inside a UI5 dialog is the
+*       dialog - and cover the tab strip and the Close button instead of
+*       the map.
+        |<div class="rakPclMapWrap">| &&
         |<iframe id="rakPclMap" src="{ lv_base }" title="parcel map" | &&
-        |style="width:100%;height:34rem;border:0" | &&
+        |style="width:100%;height:34rem;border:0;display:block" | &&
 *       THE STAMP GOES FIRST, and it is what tells the snippet that this
 *       channel IS the load event. Without it the snippet cannot know -
 *       the frame is cross-origin, so contentDocument.readyState is
@@ -1337,12 +1375,27 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       never arrived. THIS is the iframe inside its own onload, so the
 *       stamp is simply true.
         |onload='this.dataset.rakLoaded="1";{ lv_pjs }'></iframe>| &&
+*       THE WAIT OVERLAY, a SIBLING of the frame inside a positioned
+*       wrapper. Everything inside the frame belongs to the other origin
+*       and cannot be reached, so the only place to say "this is coming"
+*       is on top of it.
+*
+*       It ships VISIBLE in the markup rather than being switched on by
+*       the snippet, so the wait is shown even in the case where no
+*       channel runs at all - which is the one case where the citizen
+*       waits longest.
+        |<div class="rakPclWait" id="rakPclWait">| &&
+        |<div class="rakPclSpin"></div><div>| &&
+        |{ t( iv_en = `Loading the map...` iv_ar = `جارٍ تحميل الخريطة...` ) }| &&
+        |</div></div></div>| &&
 *       A LINE THE SNIPPET FILLS IN, so the one thing that cannot be seen
 *       from a screenshot becomes readable: the origin the message was
 *       posted FROM - and, by being EMPTY, that the snippet never ran at
 *       all. Both readings have now been needed.
-        |<div id="rakPclMapNote" class="rakPclHint">| &&
-        |Loading the map...</div>|.
+*       AND IT SHIPS EMPTY NOW. It used to carry "Loading the map..."
+*       because it was the only place that could say so; the overlay says
+*       it now, on top of the frame where the citizen is already looking.
+        |<div id="rakPclMapNote" class="rakPclHint"></div>|.
 
 *     BRACES ESCAPED, ONCE, OVER THE WHOLE MARKUP - and this is not
 *     optional now that a script rides in an attribute. HTML( ) sets
