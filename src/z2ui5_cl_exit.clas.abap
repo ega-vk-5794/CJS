@@ -88,14 +88,32 @@ CLASS z2ui5_cl_exit IMPLEMENTATION.
       |openui5.hana.ondemand.com *.openui5.hana.ondemand.com | &&
       |sdk.openui5.org *.sdk.openui5.org | &&
       |cdn.jsdelivr.net *.cdn.jsdelivr.net | &&
-      |cdnjs.cloudflare.com *.cdnjs.cloudflare.com schemas *.schemas; | &&
+      |cdnjs.cloudflare.com *.cdnjs.cloudflare.com schemas *.schemas | &&
+*     THE ARCGIS API AND THE RAK HOSTS. util/Map.js in the ShapeIt app
+*     renders the parcel map with the ArcGIS JS API loaded INTO the
+*     application page - it is not a framed site - so the script, its
+*     stylesheet, its fonts and its map tiles all have to be reachable
+*     from here or the map is a grey rectangle with nothing in the
+*     console but a CSP violation. Both hosts are named because a RAK
+*     system may serve the API from its own portal rather than the CDN.
+*
+*     BLOB: is for the API's web workers, which it uses for tile
+*     decoding; WORKER-SRC below already allows it and this keeps the
+*     DEFAULT-SRC fallback from refusing them first.
+      |js.arcgis.com *.arcgis.com *.arcgisonline.com | &&
+      |*.rak.ae blob:; | &&
       |connect-src 'self' | &&
       |  ui5.sap.com *.ui5.sap.com | &&
       |  sapui5.hana.ondemand.com *.sapui5.hana.ondemand.com | &&
       |  openui5.hana.ondemand.com *.openui5.hana.ondemand.com | &&
       |  sdk.openui5.org *.sdk.openui5.org | &&
       |  cdn.jsdelivr.net *.cdn.jsdelivr.net | &&
-      |  cdnjs.cloudflare.com *.cdnjs.cloudflare.com; | &&
+      |  cdnjs.cloudflare.com *.cdnjs.cloudflare.com | &&
+*     CONNECT-SRC is the one the map cannot do without: every feature
+*     query, every token check and every tile request is an XHR to the
+*     RAK GIS server or to ArcGIS's own services.
+      |  js.arcgis.com *.arcgis.com *.arcgisonline.com | &&
+      |  *.rak.ae; | &&
 *     FRAME-SRC, or the parcel map is a grey rectangle. The Property
 *     Details dialog embeds the RAK GIS viewer, and with no frame-src of
 *     its own the browser falls back to DEFAULT-SRC - which lists this

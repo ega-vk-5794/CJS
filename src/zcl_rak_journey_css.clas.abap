@@ -634,6 +634,16 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakPclCard\{gap:.4rem;\}| &&
         |.rakPclCard .sapMTitle\{margin:0;\}| &&
         |.rakPclHint\{color:#6a7484;font-size:.82rem;\}| &&
+*     THE MAP NEEDS A HEIGHT AND A BACKGROUND. An ArcGIS MapView in a box
+*     of height 0 initialises, reports nothing and draws nothing - which
+*     on screen is indistinguishable from a tab that never loaded. The
+*     height comes from the inline style ZCL_RAK_CJ_GIS writes, because it
+*     differs between the dialog and the selector; what belongs here is
+*     the frame around it and the message the loader falls back to.
+        |.rakGisMap\{border:1px solid { g-line_clr };border-radius:10px;| &&
+        |overflow:hidden;background:#eef1f4;\}| &&
+        |.rakGisErr\{padding:1rem;color:#6a7484;font-size:.9rem;| &&
+        |display:flex;align-items:center;justify-content:center;height:100%;\}| &&
 *     WIDE - the unlaid path's half of ZCL_RAK_JOURNEY_RENDER->WIDE_FIELD( ).
 *     rakRowCn pins every child of a multi-column row to a fixed fraction of
 *     it; a composite control and a paragraph claim the whole line back. The

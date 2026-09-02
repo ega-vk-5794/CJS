@@ -14,6 +14,7 @@ rather than read, it says so.
 | [controls/shapeit-census.md](controls/shapeit-census.md) | All 110 ShapeIt control types against what the migrator does with each |
 | [migration/sources.md](migration/sources.md) | **Start here for any journey.** The seven artifacts a journey is built from, what only each one carries, and what skipping it has cost |
 | [controls/shapeit-reads.md](controls/shapeit-reads.md) | Which entity set each composite control reads, and with which filters |
+| [controls/gis-map.md](controls/gis-map.md) | The parcel map — that there are **two** of them, which one the details dialog draws, and the four endpoints that are configuration rather than code |
 | [journeys/m016-change-building-regulations.md](journeys/m016-change-building-regulations.md) | One legacy journey walked end to end on the live portal — three steps, every field, the payment screen and a defect |
 | [gaps/open-questions.md](gaps/open-questions.md) | What is still missing, and which of it is blocked on access rather than effort |
 | [gaps/abapgit-operations.md](gaps/abapgit-operations.md) | Pull and stage hazards observed in this repository, with the evidence |

@@ -19,6 +19,7 @@ or a control's source — most of it is already written down:
 | [`doc/services/request-context.md`](doc/services/request-context.md) | calling a Gateway DPC with no Gateway |
 | [`doc/controls/shapeit-census.md`](doc/controls/shapeit-census.md) | all 110 control types against what the migrator does with each |
 | [`doc/controls/shapeit-reads.md`](doc/controls/shapeit-reads.md) | what each composite control reads, and with which filters |
+| [`doc/controls/gis-map.md`](doc/controls/gis-map.md) | the parcel map: `RakMap.Map` is an ArcGIS view **in the page**, not an iframe — and the framed Defcon viewer is a different map |
 | [`doc/gaps/open-questions.md`](doc/gaps/open-questions.md) | what is still missing, and which of it is blocked on access |
 | [`doc/gaps/abapgit-operations.md`](doc/gaps/abapgit-operations.md) | pull and stage hazards, with the evidence |
 

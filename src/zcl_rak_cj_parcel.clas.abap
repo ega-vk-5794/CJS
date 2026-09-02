@@ -99,6 +99,18 @@ CLASS zcl_rak_cj_parcel DEFINITION
     DATA mv_fld  TYPE string.
     DATA mv_mine TYPE abap_bool.
 
+*   The list/map toggle. MAP draws the same owned parcels as ArcGIS
+*   features and takes the selection from a click on the map, which is
+*   what RakMap.Map does in the ShapeIt app; LIST is the card list and
+*   stays the default, because a map needs a working GIS configuration
+*   and the list needs nothing.
+    CONSTANTS c_vlist TYPE string VALUE 'LIST'.
+    CONSTANTS c_vmap  TYPE string VALUE 'MAP'.
+    METHODS view RETURNING VALUE(rv) TYPE string.
+*   The map, drawn from the parcels currently in view.
+    METHODS map_block IMPORTING io_box TYPE REF TO z2ui5_cl_xml_view
+                                it_hit TYPE zcl_rak_property_api=>tt_prop_rows.
+
 *   The read is cached for the round trip, and the cache is keyed by what
 *   the read actually depends on. Two selectors in one round trip can ask
 *   for two different modes, and an unkeyed flag handed the second one the
@@ -195,6 +207,19 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
   METHOD term.
     IF mv_mine = abap_true.
       rv = mo_e->mv_pcl_term.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD view.
+*   LIST unless this list owns the state AND asked for the map AND the
+*   GIS endpoints are configured. Three conditions, and the last one is
+*   why: ZCL_RAK_CJ_GIS refuses to draw without a feature service, and a
+*   toggle that silently lands on an empty box is worse than no toggle.
+    rv = c_vlist.
+    IF mv_mine = abap_true AND mo_e->mv_pcl_view = c_vmap
+       AND zcl_rak_cj_gis=>ready( ) = abap_true.
+      rv = c_vmap.
     ENDIF.
   ENDMETHOD.
 
@@ -403,6 +428,17 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   ---- the map, when it is the chosen view ---------------------------
+*   Every hit goes to the map at once rather than a page of five: a map
+*   is not paginated, and the whole point of it is seeing which of your
+*   parcels is where. The cost is the id list, not the geometry - the
+*   features are fetched by the browser from the feature service.
+    IF view( ) = c_vmap.
+      map_block( io_box = lo_box it_hit = lt_hit ).
+      rv_drawn = abap_true.
+      RETURN.
+    ENDIF.
+
 *   ---- pages. THE ONLY ROWS THAT REACH THE VIEW ----------------------
     DATA(lv_pages) = lv_n DIV c_page_size.
     IF lv_n MOD c_page_size > 0.
@@ -501,6 +537,21 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       type  = COND #( WHEN fav( ) = abap_true THEN 'Emphasized' ELSE 'Transparent' )
       class = 'sapUiTinyMarginBegin'
       press = ev( `FAV` ) ).
+
+*   LIST / MAP. Offered only where the GIS endpoints are configured -
+*   see VIEW( ). A button rather than a second SegmentedButton: the
+*   segmented control on the left already means "whose properties", and
+*   two of them side by side read as one four-way choice.
+    IF zcl_rak_cj_gis=>ready( ) = abap_true.
+      lo_bar->button(
+        icon  = COND #( WHEN view( ) = c_vmap THEN 'sap-icon://list' ELSE 'sap-icon://map' )
+        text  = COND #( WHEN view( ) = c_vmap THEN t( iv_en = `List` iv_ar = `قائمة` )
+                                              ELSE t( iv_en = `Map`  iv_ar = `خريطة` ) )
+        type  = 'Transparent'
+        class = 'sapUiTinyMarginBegin'
+        press = ev( COND #( WHEN view( ) = c_vmap THEN |VIEW_{ c_vlist }|
+                            ELSE |VIEW_{ c_vmap }| ) ) ).
+    ENDIF.
 
     lo_bar->search_field(
       value       = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_term )
@@ -605,6 +656,77 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD map_block.
+
+*   THE IDS THE MAP MAY SHOW, unpadded. Map.js holds envProxy
+*   .ownedProperties in the form the citizen reads and builds
+*   "PARCELID IN (...)" straight out of it, so the GIS side of the join
+*   is the trimmed number - not the 00000000000507060119 the DPC returns.
+*   PICK( ) converts back, so what a map click STORES is still the
+*   service's own form and a draft written here and one written by
+*   ShapeIt hold the same value.
+    DATA lt_ids TYPE string_table.
+    LOOP AT it_hit INTO DATA(ls_r).
+      DATA(lv_k) = cell( is_row = ls_r iv_comp = 'PARCELID' ).
+      IF lv_k IS INITIAL.
+        CONTINUE.
+      ENDIF.
+      SHIFT lv_k LEFT DELETING LEADING '0'.
+      IF lv_k IS NOT INITIAL.
+        APPEND lv_k TO lt_ids.
+      ENDIF.
+    ENDLOOP.
+
+*   The token is read per parcel, so the focused one is asked for; with
+*   nothing chosen yet the first row does, because MapUrlSet's filter is
+*   mandatory and any owned parcel mints a token for the same server.
+    DATA(lv_sel) = mo_e->val_get( mv_fld ).
+    DATA(lv_foc) = lv_sel.
+    SHIFT lv_foc LEFT DELETING LEADING '0'.
+
+    DATA ls_map TYPE zcl_rak_property_api=>ty_map_res.
+    TRY.
+        ls_map = api( )->map_url( iv_parcel = COND #(
+          WHEN lv_sel IS NOT INITIAL THEN lv_sel
+          ELSE VALUE #( lt_ids[ 1 ] OPTIONAL ) ) ).
+      CATCH cx_root ##NO_HANDLER.
+    ENDTRY.
+
+    DATA(lv_html) = zcl_rak_cj_gis=>block(
+      iv_portal = ls_map-url
+      iv_server = ls_map-gisurl
+      iv_token  = ls_map-token
+      iv_div    = |rakGis{ to_upper( mv_fld ) }|
+      it_ids    = lt_ids
+      iv_focus  = lv_foc
+*     A click on a parcel the citizen owns is a selection, exactly as it
+*     is on a card. The event name is the card's own, so both paths meet
+*     in PICK( ) and neither can drift from the other.
+      iv_event  = |{ c_pfx }PICK_{ mv_fld }|
+      iv_ctrl   = 'oController'
+      iv_height = '30rem' ).
+
+*   NEVER AN EMPTY BOX. BLOCK( ) answers blank when the GIS endpoints are
+*   not configured; VIEW( ) already refuses the map in that case, so this
+*   is the belt to that brace rather than the expected path.
+    IF lv_html IS INITIAL.
+      io_box->message_strip(
+        text     = t( iv_en = `The map is not configured on this system.`
+                      iv_ar = `الخريطة غير مهيأة على هذا النظام.` )
+        type     = 'Information'
+        showicon = abap_true ).
+      RETURN.
+    ENDIF.
+    io_box->html( content = lv_html sanitizecontent = abap_false ).
+
+    io_box->text(
+      text  = t( iv_en = `Tap a parcel on the map to select it.`
+                 iv_ar = `اضغط على القطعة في الخريطة لاختيارها.` )
+      class = 'rakPclHint sapUiTinyMarginTop' ).
+
+  ENDMETHOD.
+
+
   METHOD pager.
     DATA(lv_p) = page( ).
     DATA(lo_g) = io_box->hbox( alignitems = 'Center' justifycontent = 'Center' ).
@@ -637,7 +759,38 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     IF lv_f IS INITIAL.
       RETURN.
     ENDIF.
-    mo_e->val_set( iv_name = lv_f iv_value = iv_key ).
+
+*   WHAT IS STORED IS ALWAYS THE SERVICE'S OWN FORM. A card press carries
+*   the padded PARCELID the DPC returned; a MAP click carries the trimmed
+*   one, because that is what the GIS feature service holds and what
+*   Map.js compares against. Storing whichever arrived would mean a draft
+*   saved from the map and one saved from the list held different values
+*   for the same parcel - the divergence 4.3 is about, arriving through
+*   the back door.
+*
+*   So an incoming key is matched against the rows and replaced by the
+*   row's own key. A key that matches nothing is stored as it came: this
+*   resolves, it does not validate.
+    DATA(lv_key) = iv_key.
+    IF lv_key IS NOT INITIAL.
+      LOOP AT rows( ) INTO DATA(ls_pr).
+        DATA(lv_pk) = cell( is_row = ls_pr iv_comp = 'PARCELID' ).
+        IF lv_pk IS INITIAL.
+          lv_pk = cell( is_row = ls_pr iv_comp = 'BUILDING' ).
+        ENDIF.
+        IF lv_pk IS INITIAL.
+          CONTINUE.
+        ENDIF.
+        DATA(lv_pt) = lv_pk.
+        SHIFT lv_pt LEFT DELETING LEADING '0'.
+        IF lv_pk = lv_key OR lv_pt = lv_key.
+          lv_key = lv_pk.
+          EXIT.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+
+    mo_e->val_set( iv_name = lv_f iv_value = lv_key ).
     mo_e->set_field_state( iv_name = lv_f iv_state = 'None' iv_text = '' ).
     IF mo_e->mo_logic IS BOUND.
       TRY.
@@ -682,7 +835,8 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       and the mode go, because the new list opens on Owned where the
 *       owner dropdown is not even drawn.
         mo_e->mv_pcl_field = lv_own.
-        CLEAR: mo_e->mv_pcl_mode, mo_e->mv_pcl_owner, mo_e->mv_pcl_fav.
+        CLEAR: mo_e->mv_pcl_mode, mo_e->mv_pcl_owner,
+               mo_e->mv_pcl_fav,  mo_e->mv_pcl_view.
         mo_e->mv_pcl_page = 1.
       ENDIF.
     ENDIF.
@@ -702,6 +856,9 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     ELSEIF lv = 'FAV'.
       mo_e->mv_pcl_fav  = xsdbool( mo_e->mv_pcl_fav = abap_false ).
       mo_e->mv_pcl_page = 1.
+
+    ELSEIF lv CP 'VIEW_*'.
+      mo_e->mv_pcl_view = substring( val = lv off = 5 ).
 
     ELSEIF lv CP 'PAGE_*'.
       DATA(lv_n) = substring( val = lv off = 5 ).
@@ -802,7 +959,32 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                                  WHEN ls_map-url NP 'http*'       THEN ls_map-url ).
     DATA(lv_pid)  = mo_e->mv_pcl_pid.
 
-    IF lv_base IS NOT INITIAL AND lv_tok IS NOT INITIAL AND lv_pid IS NOT INITIAL.
+*   ---- THE REAL CONTROL FIRST, the iframe only as a fallback.
+*   util/Map.js settles what RakMap.Map is: an ArcGIS MapView rendered
+*   INSIDE the application page, not a framed site. Where the feature
+*   service is configured, CJS draws the same thing.
+*
+*   The iframe below is the OTHER map - gismappingIM.js, the standalone
+*   Defcon viewer, which takes parcelId/token/lang by postMessage. It is
+*   a real page and a real fallback, so it stays; it is simply not what
+*   this dialog's map tab was.
+    IF zcl_rak_cj_gis=>ready( ) = abap_true AND lv_pid IS NOT INITIAL.
+
+      DATA(lv_gis) = zcl_rak_cj_gis=>block(
+        iv_portal = ls_map-url
+        iv_server = ls_map-gisurl
+        iv_token  = ls_map-token
+        iv_div    = |rakGisDet{ to_upper( lv_pid ) }|
+        it_ids    = VALUE string_table( ( lv_pid ) )
+        iv_focus  = lv_pid
+*       NO CLICK EVENT. This map shows one parcel that is already chosen;
+*       there is nothing here for a press to select.
+        iv_event  = ``
+        iv_ctrl   = 'oControllerPopup'
+        iv_height = '26rem' ).
+      lo_map->html( content = lv_gis sanitizecontent = abap_false ).
+
+    ELSEIF lv_base IS NOT INITIAL AND lv_tok IS NOT INITIAL AND lv_pid IS NOT INITIAL.
 *     The frame's own origin, which postMessage needs as its target. Sent
 *     explicitly rather than as '*' - the token is a credential and a
 *     wildcard target hands it to whatever happens to be framed.

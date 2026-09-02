@@ -106,6 +106,10 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mv_pcl_det   TYPE string.
     DATA mv_pcl_pid   TYPE string.
     DATA mv_pcl_tab   TYPE string.
+*   LIST or MAP. The ninth scalar, and the same reasoning as the other
+*   eight: which view the citizen chose is state, the features behind it
+*   are not.
+    DATA mv_pcl_view  TYPE string.
 
 *   The control that draws it. An INTERFACE reference on purpose - the
 *   implementing class reaches the generated legacy DPC through
