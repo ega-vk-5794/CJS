@@ -484,13 +484,28 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
   `USERDATA` launch parameter at runtime. The diag builds `TY_CTX` by hand and
   deliberately bypasses it. Run one migrated journey with a PARCEL field to
   close that.
-- **`GET_EXPANDED_ENTITYSET` is NOT reachable yet, and that is what limits the layer.**
-  It calls `IO_EXPAND->GET_CHILDREN( )` unguarded, so it needs an expand object the
-  same way the entity-set reads needed a request context. Everything behind it is
-  therefore unserved: `FloorSet` (`RAK_FLOORUNIT`), `Project`, `License`, and the
-  parcel **full-details** dialog (`$expand=ToProject,ToPartner,ToMeasurement,…`).
-  `PropertiesSet` has a flat `_GET_ENTITYSET` as well, which is the one the parcel
-  **list** uses — that is why the list works and the detail view does not.
+- **The parcel full-details dialog is `GET_EXPANDED_ENTITY`, SINGULAR — this file
+  said `ENTITYSET` and that was wrong.** The live URL settles it:
+
+  ```
+  PropertiesSet(Intreno='I800100108658',
+                Partnerguid=guid'6aa93cf9-0402-1ed6-b5ca-421c803dd3ad')
+    ?$expand=ToProject,ToPartner,ToMeasurement,ToLandUse,ToDevelopment,ToAttachment
+  ```
+
+  A key in the path decides the method: `EntitySet?$expand=` routes to
+  `GET_EXPANDED_ENTITYSET`, `EntitySet(key)?$expand=` to `GET_EXPANDED_ENTITY`. So the
+  six empty tabs were being chased through a method the dialog never calls. **CJS
+  already holds both key parts** — `Intreno` from the parcel row, `Partnerguid` from
+  `MS_CTX` — so nothing new has to be resolved. Whether the singular method wants
+  `IO_EXPAND` at all is **unread**: only the plural one is known to dereference
+  `GET_CHILDREN( )` unguarded. Run **`ZRAK_CJ_EXPAND_DIAG`** — it prints the DPC's own
+  signature for every method whose name mentions EXPAND, which answers it in one run.
+  `PropertiesSet` also has a flat `_GET_ENTITYSET`, which is what the parcel **list**
+  uses, and that is why the list works.
+- **`GET_EXPANDED_ENTITYSET`, the plural one, is still unreached** and still holds
+  `FloorSet` (`RAK_FLOORUNIT`) — which exists *only* inside it, under
+  `iv_entity_name = gc_floor` — plus `Project` and `License`.
 - **A field's options now have a FOURTH source: an `API:` directive in `DEFAULT_VAL`.**
   `ZCL_RAK_MIGRATOR->BIND_TABLE( )` writes it, `ZCL_RAK_CJ_OPTS->RESOLVE( )` reads it,
   and `RENDER_ONE( )` consults it **ahead of the DDIC resolver** — an API-bound field

@@ -50,16 +50,38 @@ CLASS zcl_rak_property_api DEFINITION
 *& other Municipality journey selects with TR0800.
 *&
 *& WHAT IS DELIBERATELY NOT HERE.
-*&   - The full-details dialog. It reads PropertiesSet with
-*&     $expand=ToProject,ToPartner,ToMeasurement,ToLandUse,ToDevelopment,
-*&     ToAttachment, which routes to GET_EXPANDED_ENTITYSET, and that
-*&     method calls IO_EXPAND->GET_CHILDREN( ) unguarded. Supplying an
-*&     expand object is the same class of problem ZCL_RAK_CJ_REQ_CTX
-*&     solved for the request context and it has not been solved for this
-*&     one yet. The list works without it.
-*&   - FloorSet, for the same reason: it exists ONLY inside
-*&     GET_EXPANDED_ENTITYSET (iv_entity_name = gc_floor). RAK_FLOORUNIT
-*&     therefore has no flat read to wrap and stays unbound.
+*&   - The full-details dialog. IT IS GET_EXPANDED_ENTITY, SINGULAR, and
+*&     this comment said ENTITYSET until the live URL was read:
+*&
+*&       PropertiesSet(Intreno='I800100108658',
+*&                     Partnerguid=guid'6aa93cf9-0402-1ed6-b5ca-421c803dd3ad')
+*&         ?$expand=ToProject,ToPartner,ToMeasurement,ToLandUse,
+*&                  ToDevelopment,ToAttachment
+*&
+*&     A KEY IN THE PATH MAKES IT AN ENTITY READ. Gateway routes
+*&     `EntitySet?$expand=` to GET_EXPANDED_ENTITYSET and
+*&     `EntitySet(key)?$expand=` to GET_EXPANDED_ENTITY - different
+*&     method, different parameters - so a wrapper written against the
+*&     plural one would have called something the dialog never calls.
+*&     That is why the six tabs are the ONE read this URL performs and
+*&     the reason it was thought to need a set read at all was a guess.
+*&
+*&     AND CJS ALREADY HOLDS BOTH KEY PARTS. Intreno is on the row the
+*&     card was drawn from - the parcel list reads it - and Partnerguid is
+*&     MS_CTX-PARTNERGUID, derived once by ZCL_RAK_CJ_CTX. So nothing new
+*&     has to be resolved; what is missing is only the method call and
+*&     whatever it wants for IO_EXPAND.
+*&
+*&     WHETHER IO_EXPAND IS STILL NEEDED IS NOT ESTABLISHED. The plural
+*&     method dereferences it unguarded; the singular one has not been
+*&     read. ZRAK_CJ_EXPAND_DIAG prints the DPC's own signature for both,
+*&     which settles it in one run - and guessing at a standard method's
+*&     parameters is what cost three activation rounds on
+*&     ZCL_RAK_CJ_REQ_CTX.
+*&   - FloorSet: it exists ONLY inside GET_EXPANDED_ENTITYSET
+*&     (iv_entity_name = gc_floor) - the PLURAL one - so it is behind the
+*&     expand-object question in a way the details dialog may not be.
+*&     RAK_FLOORUNIT therefore still has no flat read to wrap.
 *&---------------------------------------------------------------------*
 
   PUBLIC SECTION.
