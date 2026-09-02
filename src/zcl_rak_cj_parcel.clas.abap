@@ -599,9 +599,12 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   CONTENTHEIGHT because of the map. A dialog sized to its content gives
+*   an iframe no room to be - the frame collapses and the tab looks empty.
     DATA(lo_dlg) = io_popup->dialog(
-      title        = t( iv_en = `Property Details` iv_ar = `تفاصيل العقار` )
-      contentwidth = '54rem' ).
+      title         = t( iv_en = `Property Details` iv_ar = `تفاصيل العقار` )
+      contentwidth  = '58rem'
+      contentheight = '34rem' ).
     DATA(lo_c) = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
 
 *   NO select EVENT. An IconTabBar switches tabs in the browser, and every
@@ -627,16 +630,37 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         ls_map = api( )->map_url( iv_parcel = mo_e->mv_pcl_det ).
       CATCH cx_root ##NO_HANDLER.
     ENDTRY.
-    IF ls_map-gisurl IS NOT INITIAL OR ls_map-url IS NOT INITIAL.
-*     A LINK, not an embedded frame. The GIS viewer is a third-party page
-*     that sets its own frame policy, and a blocked iframe renders as a
-*     blank rectangle with nothing to tell the citizen why.
-      lo_map->link( text   = t( iv_en = `Open the parcel on the map`
-                                iv_ar = `افتح القطعة على الخريطة` )
-                    href   = COND #( WHEN ls_map-gisurl IS NOT INITIAL
-                                     THEN ls_map-gisurl ELSE ls_map-url )
+    DATA(lv_src) = COND string( WHEN ls_map-gisurl IS NOT INITIAL
+                                THEN ls_map-gisurl ELSE ls_map-url ).
+    IF lv_src IS NOT INITIAL.
+*     EMBEDDED, the way the legacy dialog draws it - the citizen sees the
+*     parcel outlined on the map inside the tab, not a link that takes them
+*     somewhere else. SANITIZECONTENT must be OFF or the iframe is stripped
+*     and the tab renders blank; the engine already does exactly this for
+*     its own OPEN_URL_HTML( ).
+*
+*     The URL goes into an HTML attribute, so a double quote in it would
+*     close the attribute early and let the rest of the string become
+*     markup. It is percent-encoded rather than trusted - the value comes
+*     from a backend read, not from this code.
+      DATA(lv_esc) = lv_src.
+      REPLACE ALL OCCURRENCES OF '"' IN lv_esc WITH '%22'.
+      lo_map->html(
+        content         = |<iframe src="{ lv_esc }" title="parcel map" | &&
+                          |style="width:100%;height:26rem;border:0"></iframe>|
+        sanitizecontent = abap_false ).
+
+*     AND THE LINK STAYS, underneath. The GIS viewer is a third-party page
+*     that sets its own frame policy: if it refuses to be framed the iframe
+*     is a blank rectangle with nothing to explain it, and this line is the
+*     way out. It costs one row and it is the difference between "the map
+*     is broken" and "the map opens in a tab".
+      lo_map->link( text   = t( iv_en = `Open the map in a new tab`
+                                iv_ar = `افتح الخريطة في تبويب جديد` )
+                    href   = lv_src
                     target = '_blank'
-                    icon   = 'sap-icon://map' ).
+                    icon   = 'sap-icon://map'
+                    class  = 'sapUiTinyMarginTop' ).
     ELSE.
       lo_map->message_strip( text = t( iv_en = `No map is registered for this parcel`
                                        iv_ar = `لا توجد خريطة مسجلة لهذه القطعة` )
