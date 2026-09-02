@@ -50,6 +50,7 @@ PARAMETERS p_user TYPE zega_t_cj_us_log-id.
 SELECTION-SCREEN END OF BLOCK b01.
 
 SELECTION-SCREEN BEGIN OF BLOCK b02 WITH FRAME TITLE TEXT-b02.
+PARAMETERS p_list  AS CHECKBOX.
 PARAMETERS p_write AS CHECKBOX.
 PARAMETERS p_deact AS CHECKBOX.
 SELECTION-SCREEN END OF BLOCK b02.
@@ -68,6 +69,60 @@ START-OF-SELECTION.
 
   DATA lv_user TYPE zega_t_cj_us_log-id.
   DATA lv_bp   TYPE bu_partner.
+
+* ---------------------------------------------------------------------
+* 0. What does the table already hold?
+*
+*    "No internet user found" has two very different causes - the table
+*    has rows but none for this partner, or the table is empty in this
+*    system. They need opposite next steps and look identical from the
+*    outside, so this shows which.
+*
+*    It also answers the more useful question: if this partner cannot be
+*    tested with, WHICH ONE CAN.
+* ---------------------------------------------------------------------
+  IF p_list = abap_true.
+    SELECT id, user_key, active, usertype, date_init
+      FROM zega_t_cj_us_log
+      ORDER BY date_init DESCENDING
+      INTO TABLE @DATA(lt_all)
+      UP TO 100 ROWS.
+
+    IF lt_all IS INITIAL.
+      WRITE: / 'ZEGA_T_CJ_US_LOG is EMPTY in', sy-sysid, '- nobody has logged in'.
+      WRITE: / 'through the portal on this system, so there is no row to copy and'.
+      WRITE: / 'no internet user to find. Supply one by hand, or use a system'.
+      WRITE: / 'where the portal has been used.'.
+      RETURN.
+    ENDIF.
+
+    WRITE: /  'Internet user', 32 'Active', 41 'Type', 48 'Created', 60 'Resolves to BP'.
+    ULINE.
+    LOOP AT lt_all INTO DATA(ls_all).
+      CLEAR lv_bp.
+      IF ls_all-id IS NOT INITIAL AND ls_all-id <> 'ANON'.
+        TRY.
+            CALL FUNCTION 'ZFM_EGA_GET_BP_FROM_INTERNET_U'
+              EXPORTING
+                iv_internet_user    = ls_all-id
+              IMPORTING
+                ev_business_partner = lv_bp.
+          CATCH cx_root.
+            CLEAR lv_bp.
+        ENDTRY.
+      ENDIF.
+      WRITE: /  ls_all-id,
+             32 ls_all-active,
+             41 ls_all-usertype,
+             48 ls_all-date_init,
+             60 lv_bp.
+    ENDLOOP.
+    SKIP.
+    WRITE: / 'Pick a row whose Active is X and whose BP is not blank, then run'.
+    WRITE: / 'again with that BP - or with that internet user in the second field.'.
+    WRITE: / 'A blank BP means the function module does not know that user.'.
+    RETURN.
+  ENDIF.
 
   lv_user = p_user.
 
@@ -105,8 +160,13 @@ START-OF-SELECTION.
 
     IF lv_user IS INITIAL.
       WRITE: / 'No internet user found for partner', p_bp.
-      WRITE: / 'ZEGA_T_CJ_US_LOG has no row whose ID maps to it. Supply the'.
-      WRITE: / 'internet user by hand in the second field.'.
+      WRITE: / 'ZEGA_T_CJ_US_LOG has no row whose ID maps to it.'.
+      SKIP.
+      WRITE: / 'Two ways on:'.
+      WRITE: / '  - tick "List what the table holds" to see which partners CAN'.
+      WRITE: / '    be tested with on this system'.
+      WRITE: / '  - or type the internet user for this partner in the second'.
+      WRITE: / '    field. It is the portal login, not the SAP user.'.
       RETURN.
     ENDIF.
     WRITE: / 'Found internet user', lv_user, 'for partner', p_bp.

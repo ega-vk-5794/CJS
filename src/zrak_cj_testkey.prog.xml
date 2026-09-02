@@ -42,6 +42,12 @@
     </item>
     <item>
      <ID>S</ID>
+     <KEY>P_LIST</KEY>
+     <ENTRY>List what the table holds</ENTRY>
+     <LENGTH>33</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
      <KEY>P_WRITE</KEY>
      <ENTRY>Write the row (default is a dry run)</ENTRY>
      <LENGTH>44</LENGTH>
