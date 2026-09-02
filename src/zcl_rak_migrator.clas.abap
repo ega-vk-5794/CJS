@@ -179,6 +179,23 @@ CLASS zcl_rak_migrator DEFINITION
     " so the UI journey code never collides with the legacy raw code space.
     CONSTANTS c_sandbox TYPE string VALUE 'MIG_'.
 
+*   The portal tile is NOT the CJS journey id, and it is far shorter.
+*   ZEGA_T_CJ_GRP-JOURNEYID and ZRAK_T_JNY-TILE_CODE are both
+*   ZDE_CJ_JOURNEYID = CHAR(4), so the old <prefix><code> form
+*   ('MIG_' && 'M011') was cut to 'MIG_' ON THE INSERT, silently: every
+*   journey in a batch wrote the SAME tile and each MODIFY overwrote the
+*   one before it, which is why a fifteen-journey run left one leaf.
+*   TILE_CODE( ) builds a real four-character code instead.
+    CONSTANTS c_tile_pfx TYPE string VALUE 'AI'.
+    CONSTANTS c_tile_len TYPE i      VALUE 4.
+
+*   Default portal group for migrated journeys. NEVER default this to a code
+*   that already exists: '901' - the old default - is a live group carrying
+*   ~25 production journeys, and the previous MODIFY relabelled it
+*   "AI Driven Journeys" and rewrote its LEVELNO/ORDERNO from blank to 0/99.
+*   MIGRATE( ) now refuses any group it did not create.
+    CONSTANTS c_main_grp TYPE string VALUE 'AI00'.
+
     " one row per journey to migrate in a batch
     TYPES:
       BEGIN OF ty_job,
@@ -200,8 +217,9 @@ CLASS zcl_rak_migrator DEFINITION
     METHODS migrate_many
       IMPORTING it_jobs   TYPE tt_job
                 iv_dept   TYPE string
-                iv_main   TYPE string DEFAULT '901'
-                iv_prefix TYPE string DEFAULT c_sandbox
+                iv_main     TYPE string DEFAULT c_main_grp
+                iv_prefix   TYPE string DEFAULT c_sandbox
+                iv_tile_pfx TYPE string DEFAULT c_tile_pfx
       EXPORTING et_report TYPE tt_report
                 ev_log    TYPE string.
 
@@ -219,8 +237,9 @@ CLASS zcl_rak_migrator DEFINITION
                 iv_title_ar      TYPE string
                 iv_tile          TYPE string
                 iv_dept          TYPE string
-                iv_main          TYPE string DEFAULT '901'
+                iv_main          TYPE string DEFAULT c_main_grp
                 iv_prefix        TYPE string DEFAULT c_sandbox
+                iv_tile_pfx      TYPE string DEFAULT c_tile_pfx
                 iv_steps         TYPE string DEFAULT ''   " optional step titles, positional
 *               One legacy SCREEN_NAME (e.g. 'E023') can carry more than one
 *               sub-flow under the SAME journey_of_screen( ) code - NE014_1_*
@@ -240,6 +259,18 @@ CLASS zcl_rak_migrator DEFINITION
     METHODS teardown
       IMPORTING iv_cjs_id TYPE string
       EXPORTING ev_msg    TYPE string.
+
+*   Four-character portal tile code for a legacy journey code, e.g.
+*   'M011' -> 'AI11', 'E023' -> 'AI23'. The prefix names the space the tile
+*   lives in; whatever room is left is filled from the END of the code,
+*   because that is the part that distinguishes one journey from the next.
+*   The result is never longer than C_TILE_LEN, so nothing is truncated by
+*   the INSERT - and MIGRATE( ) refuses a code that is already taken rather
+*   than writing over it.
+    CLASS-METHODS tile_code
+      IMPORTING iv_journey TYPE string
+                iv_prefix  TYPE string DEFAULT c_tile_pfx
+      RETURNING VALUE(rv)  TYPE string.
     " Post-projection layout pass. Pairs fields onto shared rows (ROW: tokens
     " in FGROUP - see the engine's row_key( )) and settles the step column
     " count. iv_two_up = abap_false restricts pairing to affinity pairs only
@@ -1471,12 +1502,70 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     " ---- ENFORCE the UI journey-name prefix (never the raw legacy code)
     DATA(pfx)  = COND string( WHEN iv_prefix IS INITIAL THEN c_sandbox ELSE iv_prefix ).
     DATA(jid)  = to_upper( pfx && iv_cjs_id ).
-    DATA(tile) = to_upper( pfx && iv_tile ).
+*   The journey id is CHAR(30) and keeps the long prefix; the TILE is a
+*   separate CHAR(4) namespace and must be built, not concatenated.
+    DATA(tile) = tile_code( iv_journey = iv_tile iv_prefix = iv_tile_pfx ).
     IF jid IS INITIAL OR tile IS INITIAL.
       ev_msg = 'CJS journey ID and tile code are required'. RETURN.
     ENDIF.
+    IF strlen( tile ) > c_tile_len.
+      ev_msg = |Tile { tile } is longer than { c_tile_len } characters - | &&
+               |ZDE_CJ_JOURNEYID would truncate it. Shorten the tile prefix.|.
+      RETURN.
+    ENDIF.
     SELECT SINGLE @abap_true FROM zrak_t_jny WHERE journey_id = @jid INTO @DATA(lv_ex).
     IF lv_ex = abap_true. ev_msg = |{ jid } already exists - teardown first|. RETURN. ENDIF.
+
+*   ---- the portal tables are the LIVE portal's, so every write below has to
+*   prove the row is ours first. Nothing here is a MODIFY over an unknown key.
+    DATA(lv_tile4) = CONV zrak_t_jny-tile_code( tile ).
+    SELECT SINGLE journey_id FROM zrak_t_jny WHERE tile_code = @lv_tile4
+      INTO @DATA(lv_towner).
+    IF sy-subrc = 0.
+      ev_msg = |Tile { tile } is already used by { lv_towner } - two journeys | &&
+               |cannot share one portal code. Teardown first, or migrate under | &&
+               |a different tile prefix.|.
+      RETURN.
+    ENDIF.
+    SELECT SINGLE @abap_true FROM zega_t_cj_id WHERE journeyid = @lv_tile4
+      INTO @DATA(lv_tex).
+    IF lv_tex = abap_true.
+      ev_msg = |Tile { tile } exists in the portal and was not created by CJS - | &&
+               |refusing to write over a live journey.|.
+      RETURN.
+    ENDIF.
+
+*   ---- and the group it will hang under. A group CJS did not create keeps
+*   its own rows: this is the check that '901' needed and did not have.
+    DATA(lv_dept4) = CONV zega_t_cj_grp-department( iv_dept ).
+    DATA(lv_main4) = CONV zega_t_cj_grp-journeyid( iv_main ).
+    IF lv_main4 IS INITIAL.
+      ev_msg = 'Portal group code (IV_MAIN) is required'. RETURN.
+    ENDIF.
+    IF strlen( iv_main ) > c_tile_len.
+      ev_msg = |Portal group { iv_main } is longer than { c_tile_len } characters | &&
+               |- it would be truncated to { lv_main4 }.|.
+      RETURN.
+    ENDIF.
+    DATA lv_alien TYPE i.
+    SELECT journeyid FROM zega_t_cj_grp WHERE groupid = @lv_main4
+      INTO TABLE @DATA(lt_kids).
+    IF lt_kids IS NOT INITIAL.
+      SELECT tile_code FROM zrak_t_jny WHERE tile_code <> @space
+        INTO TABLE @DATA(lt_ours).
+      LOOP AT lt_kids INTO DATA(lv_kid).
+        IF NOT line_exists( lt_ours[ table_line = lv_kid ] ).
+          lv_alien = lv_alien + 1.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+    IF lv_alien > 0.
+      ev_msg = |Portal group { lv_main4 } already carries { lv_alien } journey(s) | &&
+               |CJS did not migrate - it is a live group, and relabelling it would | &&
+               |rename what is already on the citizen's home screen. Pass a free | &&
+               |code in IV_MAIN (the default is { c_main_grp }).|.
+      RETURN.
+    ENDIF.
 
     DATA(lt) = extract_rows( iv_category = iv_category iv_journey = iv_journey
                              iv_screen_prefix = iv_screen_prefix ).
@@ -1966,26 +2055,45 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       ENDIF.
     ENDLOOP.
 
-    " ---- portal: main "AI Driven Journeys" tile (99, idempotent) + leaf
-    MODIFY zega_t_cj_grp FROM @( VALUE #(
-      mandt = sy-mandt department = iv_dept groupid = ''
-      journeyid = iv_main levelno = 0 orderno = 99 drilldown = 'Y' ) ).
-    MODIFY zega_t_cj_id  FROM @( VALUE #(
-      mandt = sy-mandt journeyid = iv_main sip_code = iv_main ) ).
-    MODIFY zega_t_cj_idt FROM @( VALUE #(
-      mandt = sy-mandt spras = 'E' journeyid = iv_main description = 'AI Driven Journeys' ) ).
-    MODIFY zega_t_cj_idt FROM @( VALUE #(
-      mandt = sy-mandt spras = 'A' journeyid = iv_main description = |الرحلات الرقمية الذكية| ) ).
+    " ---- portal: main "AI Driven Journeys" tile - INSERTED ONCE, never
+    " written over. It was checked free (or CJS-owned) at the top of the
+    " method; an existing group keeps its own description, LEVELNO and
+    " ORDERNO, because those belong to whoever created it.
+    SELECT SINGLE @abap_true FROM zega_t_cj_grp
+      WHERE department = @lv_dept4 AND groupid = @space AND journeyid = @lv_main4
+      INTO @DATA(lv_mgrp).
+    IF lv_mgrp <> abap_true.
+      INSERT zega_t_cj_grp FROM @( VALUE #(
+        mandt = sy-mandt department = lv_dept4 groupid = ''
+        journeyid = lv_main4 levelno = 0 orderno = 99 drilldown = 'Y' ) ).
+    ENDIF.
+    SELECT SINGLE @abap_true FROM zega_t_cj_id WHERE journeyid = @lv_main4
+      INTO @DATA(lv_mid).
+    IF lv_mid <> abap_true.
+      INSERT zega_t_cj_id  FROM @( VALUE #(
+        mandt = sy-mandt journeyid = lv_main4 sip_code = lv_main4 ) ).
+      INSERT zega_t_cj_idt FROM @( VALUE #(
+        mandt = sy-mandt spras = 'E' journeyid = lv_main4
+        description = 'AI Driven Journeys' ) ).
+      INSERT zega_t_cj_idt FROM @( VALUE #(
+        mandt = sy-mandt spras = 'A' journeyid = lv_main4
+        description = |الرحلات الرقمية الذكية| ) ).
+    ENDIF.
 
+*   ---- this journey's own leaf. LEVELNO is the depth of the ROW, not a
+*   constant: a journey sitting directly under a top-level group is level 1,
+*   the way every child of 901/280/282 is in the live table. It was written
+*   as 2 here, which is the depth of a journey under a SUB-group (D001 under
+*   R160 under 280) - one level too deep to be found under its own parent.
     MODIFY zega_t_cj_grp FROM @( VALUE #(
-      mandt = sy-mandt department = iv_dept groupid = iv_main
-      journeyid = tile levelno = 2 orderno = lv_stepno * 10 drilldown = 'N' ) ).
+      mandt = sy-mandt department = lv_dept4 groupid = lv_main4
+      journeyid = lv_tile4 levelno = 1 orderno = lv_stepno * 10 drilldown = 'N' ) ).
     MODIFY zega_t_cj_id  FROM @( VALUE #(
-      mandt = sy-mandt journeyid = tile sip_code = tile ) ).
+      mandt = sy-mandt journeyid = lv_tile4 sip_code = lv_tile4 ) ).
     MODIFY zega_t_cj_idt FROM @( VALUE #(
-      mandt = sy-mandt spras = 'E' journeyid = tile description = iv_title ) ).
+      mandt = sy-mandt spras = 'E' journeyid = lv_tile4 description = iv_title ) ).
     MODIFY zega_t_cj_idt FROM @( VALUE #(
-      mandt = sy-mandt spras = 'A' journeyid = tile description = iv_title_ar ) ).
+      mandt = sy-mandt spras = 'A' journeyid = lv_tile4 description = iv_title_ar ) ).
 
     COMMIT WORK.
     ev_ok = abap_true.
@@ -2380,6 +2488,26 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
         ev_ar   = l-text_ar.
       ENDIF.
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD tile_code.
+    DATA(lv_p) = to_upper( COND string( WHEN iv_prefix IS INITIAL
+                                        THEN c_tile_pfx ELSE iv_prefix ) ).
+    DATA(lv_j) = to_upper( iv_journey ).
+*   '_' and '-' are legal in a CJS journey id and meaningless in a tile.
+    REPLACE ALL OCCURRENCES OF REGEX '[^A-Z0-9]' IN lv_j WITH ``.
+    IF strlen( lv_p ) >= c_tile_len.
+      rv = substring( val = lv_p off = 0 len = c_tile_len ).
+      RETURN.
+    ENDIF.
+    DATA(lv_room) = c_tile_len - strlen( lv_p ).
+    IF strlen( lv_j ) > lv_room.
+*     keep the TAIL: 'M011' and 'M035' differ in their last characters,
+*     their heads are identical.
+      lv_j = substring( val = lv_j off = strlen( lv_j ) - lv_room len = lv_room ).
+    ENDIF.
+    rv = lv_p && lv_j.
   ENDMETHOD.
 
 

@@ -111,8 +111,17 @@ DATA gt_svc TYPE tt_svc.
 
 SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-b01.
 PARAMETERS p_dept TYPE zega_t_cj_grp-department OBLIGATORY.
-PARAMETERS p_main TYPE zega_t_cj_grp-journeyid DEFAULT '901'.
+* P_MAIN is a LIVE portal group code, CHAR(4). It defaulted to '901' - which
+* is a real production group carrying ~25 journeys - and the migrator wrote it
+* with MODIFY, so a run relabelled that group "AI Driven Journeys" and reset
+* its LEVELNO/ORDERNO. The migrator now refuses any group it did not create,
+* and the default is a code of its own.
+PARAMETERS p_main TYPE zega_t_cj_grp-journeyid DEFAULT 'AI00'.
 PARAMETERS p_pfx  TYPE c LENGTH 10 DEFAULT 'MIG_'.
+* The CJS journey id is CHAR(30) and keeps P_PFX; the PORTAL TILE is CHAR(4)
+* and cannot. P_TPFX names the tile space instead - 'AI' + the tail of each
+* code, so M011 -> AI11 ... M035 -> AI35.
+PARAMETERS p_tpfx TYPE c LENGTH 2 DEFAULT 'AI'.
 SELECTION-SCREEN END OF BLOCK b1.
 
 SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-b02.
@@ -244,7 +253,8 @@ START-OF-SELECTION.
   WRITE: / 'MUNICIPALITY BATCH',
         30 COND string( WHEN p_test = abap_true THEN 'TEST RUN - nothing written'
                                                 ELSE 'LIVE - journeys will be created' ).
-  WRITE: / |prefix { lv_pfx }, portal dept { p_dept }, tile group { p_main }, | &&
+  WRITE: / |prefix { lv_pfx }, tiles { p_tpfx }nn, portal dept { p_dept }, | &&
+           |tile group { p_main }, | &&
            |later stages { COND string( WHEN p_st2 = abap_true THEN 'INCLUDED' ELSE 'excluded' ) }|.
   ULINE.
   WRITE: /  'Journey', 16 'Cat', 24 'Screen family', 42 'Scr', 47 'Rows', 54 'Note'.
@@ -308,6 +318,7 @@ START-OF-SELECTION.
         iv_dept          = CONV string( p_dept )
         iv_main          = CONV string( p_main )
         iv_prefix        = lv_pfx
+        iv_tile_pfx      = CONV string( p_tpfx )
         iv_screen_prefix = ls_m-pfx           " never the default N<code>_*
       IMPORTING
         ev_ok            = lv_ok
