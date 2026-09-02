@@ -1432,6 +1432,26 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *     CLOSED_LIST on the field like any other select.
       WHEN 'SELECT' OR 'PARCEL' OR 'PROPERTY' OR 'TITLEDEED'
         OR 'CONTRACT' OR 'FLOORUNIT' OR 'BUILDINGS' OR 'ACCOM'.
+
+*       THE PARCEL FAMILY IS NOT A DROPDOWN when the real control is
+*       available. RAKPARCELSELECTOR is a paginated card list with an
+*       owner switch, a favourites toggle and a search box - a citizen can
+*       hold hundreds of parcels, and a ComboBox of them is both unusable
+*       and hundreds of items of XML in every round trip. MO_PCL draws one
+*       page. It answers ABAP_FALSE when it has nothing to draw, and is
+*       UNBOUND whenever the wrapper chain is inactive, so the ComboBox
+*       below stays the fallback rather than being replaced by it.
+        IF mo_e->mo_pcl IS BOUND
+           AND ( is_field-type = 'PARCEL' OR is_field-type = 'PROPERTY'
+                 OR is_field-type = 'TITLEDEED' ).
+          TRY.
+              IF mo_e->mo_pcl->render( io_view = io_form is_field = is_field ) = abap_true.
+                RETURN.
+              ENDIF.
+            CATCH cx_root ##NO_HANDLER.
+          ENDTRY.
+        ENDIF.
+
         req_label( io_form = io_form is_field = is_field ).
 *       CLOSED_LIST switches this one field to sap.m.Select - not typable,
 *       by design, which is the whole point of a genuinely closed list
@@ -2073,6 +2093,24 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     DATA(lo_pop) = z2ui5_cl_xml_view=>factory_popup( ).
 
     CASE mo_e->mv_popup.
+      WHEN 'PCLDET'.
+*       ZCL_RAK_CJ_PARCEL=>C_POPUP, as a literal: naming the constant here
+*       would be a static reference to the class the engine deliberately
+*       reaches only by name. An unbound control cannot have set it.
+        IF mo_e->mo_pcl IS NOT BOUND.
+          CLEAR mo_e->mv_popup.
+          RETURN.
+        ENDIF.
+        TRY.
+            IF mo_e->mo_pcl->render_popup( lo_pop ) = abap_false.
+              CLEAR mo_e->mv_popup.
+              RETURN.
+            ENDIF.
+          CATCH cx_root.
+            CLEAR: mo_e->mv_popup, mo_e->mv_pcl_det.
+            RETURN.
+        ENDTRY.
+
       WHEN 'CUST'.
         IF mo_e->mo_logic IS NOT BOUND.
           CLEAR: mo_e->mv_popup, mo_e->mv_popup_id.

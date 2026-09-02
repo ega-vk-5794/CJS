@@ -36,6 +36,25 @@ CLASS zcl_rak_cj_ctx DEFINITION
 *& back to the value as given when it is not JSON - so a launch that ever
 *& carries the bare key still works.
 *&
+*& AND ON E10 CLIENT 200 ONLY, THERE IS A SIMULATED IDENTITY.
+*&
+*& A journey launched from the CJS Studio or straight from SE38 carries no
+*& &userdata= at all, so every property, fee and tenancy read answers an
+*& empty table - not because the layer is wrong but because nobody is
+*& logged in. Testing that through the portal means a portal launch for
+*& every round trip, which is not how this is being developed.
+*&
+*& SIMULATE( ) therefore fills a MISSING session key from
+*& ZEGA_T_CJ_US_LOG, exactly as a portal login would have left it: the
+*& active row for C_SIM_USER, or for whatever &simuser= names. It reads
+*& that table and never writes it - the rule is to mimic the portal, not
+*& to create rows it would have created.
+*&
+*& IT IS FENCED, TIGHTLY. SY-SYSID must be E10 and SY-MANDT 200; anywhere
+*& else the method returns having done nothing, so a transport into QA or
+*& production cannot resolve an identity nobody authenticated. It also
+*& only ever fills what is BLANK - a real launch always wins.
+*&
 *& DEPARTMENT IS NOT ON THE JOURNEY. ZRAK_T_JNY carries a backend CATEGORY
 *& (MML, TEN, GRANTS...) which is not the portal department FeesSet filters
 *& on - that is a ZEGA_T_CJ_GRP-DEPARTMENT, supplied at launch. It is read
@@ -65,6 +84,24 @@ CLASS zcl_rak_cj_ctx DEFINITION
       RETURNING VALUE(rv)   TYPE string.
 
   PRIVATE SECTION.
+
+*   The one system and client the simulation is allowed in. Both are
+*   checked; E10 alone is not enough, because 200 is the CJS development
+*   client and the others are not.
+    CONSTANTS c_sim_sysid TYPE sy-sysid VALUE 'E10'.
+    CONSTANTS c_sim_mandt TYPE sy-mandt VALUE '200'.
+
+*   The internet user whose portal session is borrowed. HISHAM.M resolves
+*   to partner 3000401630 on E10 and owns the parcels every property read
+*   is tested against. Override per launch with &simuser=.
+    CONSTANTS c_sim_user  TYPE zega_t_cj_us_log-id VALUE 'HISHAM.M'.
+
+*   Fill a missing identity from ZEGA_T_CJ_US_LOG. E10/200 only, read
+*   only, and only what the launch left blank.
+    CLASS-METHODS simulate
+      IMPORTING io_ctx TYPE REF TO zif_rak_journey
+      CHANGING  cs     TYPE zcl_rak_cj_api=>ty_ctx.
+
 ENDCLASS.
 
 
@@ -158,6 +195,64 @@ CLASS zcl_rak_cj_ctx IMPLEMENTATION.
     rs-screen     = VALUE #( ls_cfg-steps[ io_ctx->get_step( ) + 1 ]-bknd_screen OPTIONAL ).
     rs-department = io_ctx->get_param( 'DEPARTMENT' ).
     rs-langu      = sy-langu.
+
+*   LAST, so a real launch is never overwritten - see the header. Outside
+*   E10/200 this is a no-op and the blanks stay blank, which is the honest
+*   answer for a journey nobody logged into.
+    simulate( EXPORTING io_ctx = io_ctx CHANGING cs = rs ).
+  ENDMETHOD.
+
+
+  METHOD simulate.
+    IF sy-sysid <> c_sim_sysid OR sy-mandt <> c_sim_mandt.
+      RETURN.
+    ENDIF.
+    IF cs-session_key IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA lv_user TYPE zega_t_cj_us_log-id.
+    lv_user = to_upper( io_ctx->get_param( 'SIMUSER' ) ).
+    IF lv_user IS INITIAL.
+      lv_user = c_sim_user.
+    ENDIF.
+
+*   The ACTIVE row, which is the one the DPC's GET_BP( ) matches. An
+*   inactive row is a previous session and resolves nobody.
+    SELECT SINGLE user_key FROM zega_t_cj_us_log
+      WHERE id = @lv_user AND active = @abap_true
+      INTO @cs-session_key.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+*   And the partner behind that user, so the FILTERS agree with the header.
+*   The two are read the same way the portal reads them and could disagree
+*   only if the log row were stale.
+    IF cs-partner IS INITIAL.
+*     IV_INTERNET_USER refuses a variable typed ZEGA_T_CJ_US_LOG-ID - the
+*     parameter is TYPE STRING and the binding is by reference, so the
+*     types must match. A ZRAK_CJ_TESTKEY run once read that refusal as
+*     "E10 resolves nobody". It resolves everybody; the call was wrong.
+      DATA lv_fm_user TYPE string.
+      DATA lv_bp      TYPE bu_partner.
+      lv_fm_user = lv_user.
+      TRY.
+          CALL FUNCTION 'ZFM_EGA_GET_BP_FROM_INTERNET_U'
+            EXPORTING  iv_internet_user    = lv_fm_user
+            IMPORTING  ev_business_partner = lv_bp.
+        CATCH cx_root.
+          CLEAR lv_bp.
+      ENDTRY.
+      IF lv_bp IS NOT INITIAL.
+        cs-partner = |{ lv_bp ALPHA = OUT }|.
+        CONDENSE cs-partner.
+      ENDIF.
+    ENDIF.
+
+    IF cs-partnerguid IS INITIAL.
+      cs-partnerguid = guid_of( cs-partner ).
+    ENDIF.
   ENDMETHOD.
 
 

@@ -92,6 +92,27 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mv_closed      TYPE abap_bool.
     DATA mt_bp_hits     TYPE tt_bp_hit.
     DATA mt_attach      TYPE tt_att.
+
+*   ---- parcel selector state. EIGHT SCALARS, and deliberately not the
+*   rows: a citizen can hold hundreds of parcels and the list is re-read
+*   per round trip rather than carried in the serialized app state. See
+*   ZCL_RAK_CJ_PARCEL's header for why that is the cheaper half.
+    DATA mv_pcl_field TYPE string.
+    DATA mv_pcl_mode  TYPE string.
+    DATA mv_pcl_owner TYPE string.
+    DATA mv_pcl_fav   TYPE abap_bool.
+    DATA mv_pcl_term  TYPE string.
+    DATA mv_pcl_page  TYPE i.
+    DATA mv_pcl_det   TYPE string.
+    DATA mv_pcl_tab   TYPE string.
+
+*   The control that draws it. An INTERFACE reference on purpose - the
+*   implementing class reaches the generated legacy DPC through
+*   ZCL_RAK_PROPERTY_API, and naming it here would put that whole chain in
+*   the engine's load graph. It is created dynamically in ENSURE_PARTS( )
+*   and stays UNBOUND when the chain is not active, which is a journey
+*   that renders its parcel field as a plain dropdown - not one that dies.
+    DATA mo_pcl    TYPE REF TO zif_rak_cj_control.
     DATA mo_css    TYPE REF TO zcl_rak_journey_css.
     DATA mo_grid   TYPE REF TO zcl_rak_journey_grid.
     DATA mo_render TYPE REF TO zcl_rak_journey_render.
@@ -447,6 +468,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         mv_close_page = abap_true.
       ENDIF.
 
+    ELSEIF mo_pcl IS BOUND AND strlen( lv_event ) > 3
+           AND substring( val = lv_event len = 3 ) = 'PCL'
+           AND mo_pcl->on_event( lv_event ) = abap_true.
+*     Handled by the parcel control. The prefix is tested HERE as well as
+*     inside the control so an unbound control costs one comparison, and
+*     ON_EVENT( ) still answers false for a PCL event it does not know -
+*     in which case this branch is not taken and the chain continues.
+
     ELSEIF strlen( lv_event ) > 7 AND substring( val = lv_event len = 7 ) = 'BPOPEN_'.
       mv_pop_field = substring( val = lv_event off = 7 ).
       mv_popup = 'BP'.
@@ -612,7 +641,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
           zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-delete
                                iv_step_no = mv_step
                                iv_case    = mv_case_guid ).
-        WHEN 'POPCLOSE'. CLEAR: mv_popup, mt_bp_hits.
+        WHEN 'POPCLOSE'. CLEAR: mv_popup, mt_bp_hits, mv_pcl_det.
         WHEN 'BPGO'.     bp_search( ).
       ENDCASE.
     ENDIF.
@@ -645,7 +674,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     zcl_rak_cj_evt=>flush( ).
 
     CLEAR ms_config.
-    CLEAR: mo_css, mo_grid, mo_render, mo_be, mo_rules.
+    CLEAR: mo_css, mo_grid, mo_render, mo_be, mo_rules, mo_pcl.
     CLEAR ms_handle-token.
   ENDMETHOD.
 
@@ -2073,6 +2102,17 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     CREATE OBJECT mo_render EXPORTING io_engine = me.
     CREATE OBJECT mo_be EXPORTING io_engine = me.
     CREATE OBJECT mo_rules EXPORTING io_engine = me.
+
+*   DYNAMIC, AND ALLOWED TO FAIL. Same reason RENDER_ONE( ) calls
+*   ZCL_RAK_CJ_OPTS=>RESOLVE( ) with CALL METHOD (...): everything behind
+*   this class inherits the legacy DPC, and one inactive object down there
+*   must not stop every journey and the Studio from loading.
+    TRY.
+        CREATE OBJECT mo_pcl TYPE ('ZCL_RAK_CJ_PARCEL')
+          EXPORTING io_engine = me.
+      CATCH cx_root.
+        CLEAR mo_pcl.
+    ENDTRY.
   ENDMETHOD.
 
 
