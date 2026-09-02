@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_gis DEFINITION
 *&---------------------------------------------------------------------*
 *& RakMap.Map, rebuilt as a CJS renderer.
 *&
-*& BUILD map-fix-3.  Missing this line means SAP has an older copy - see
+*& BUILD map-fix-4.  Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-3 contains: VALUE IS INITIAL on the two blank string constants
 *& (VALUE '' does not activate, and the class then has no active version,
@@ -33,8 +33,7 @@ CLASS zcl_rak_cj_gis DEFINITION
 *&
 *& WHAT COMES FROM WHERE:
 *&
-*&   MapUrlSet ..... PORTAL_URL, SERVER_URL and TOKEN, read per parcel
-*&                   through ZCL_RAK_PROPERTY_API->MAP_URL( ).
+*&   MapUrlSet ..... THE TOKEN, and nothing else this class can use.
 *&   this class .... the ArcGIS API to load and the feature service the
 *&                   parcels live in. Map.js takes those from an envProxy
 *&                   the ShapeIt app assembles from its own configuration,
@@ -44,6 +43,26 @@ CLASS zcl_rak_cj_gis DEFINITION
 *&                   wrong feature service URL draws an empty map with no
 *&                   error, which is the most expensive failure of the
 *&                   three the map already has.
+*&
+*& MAPURLSET'S FIELDS ARE NOT WHAT THEIR NAMES SAY, and this is measured,
+*& not assumed - ZRAK_CJ_MAP_DIAG on E10/200, partner 3000401630:
+*&
+*&     URL     len 236   4gat2CeMnEV2TYJvpD11wTXEDOeWXs4zd2F-4rVdBIJhsi...
+*&     GISURL  len 44    https://rakgisstg.rak.ae/CustomerJourneyMap/
+*&     TOKEN   len 0
+*&
+*& URL is THE TOKEN. GISURL is the VIEWER PAGE. TOKEN is empty and appears
+*& to be always empty. So a caller must never hand -URL to something
+*& expecting a URL or -TOKEN to something expecting a token; TOKEN_OF( )
+*& and VIEWER_OF( ) below are the one place that knows this, and both
+*& decide by SHAPE rather than by field name, so a system that fills the
+*& three columns the way their names suggest still works.
+*&
+*& AND THE ARCGIS SERVER IS NOT IN THAT ANSWER AT ALL. /CustomerJourneyMap
+*& is a web application path, not a REST root. The server the token is
+*& good for is therefore derived from GIS_PARCELS' own origin, which is
+*& the only place it is actually known - one less value to configure, and
+*& one less that can be configured inconsistently.
 *&
 *& CONFIGURED IN TWO PLACES, code last. CFG( ) reads ZRAK_T_CJ_TXT rows
 *& GIS_API / GIS_CSS / GIS_PARCELS / GIS_PROPERTIES first, so the
@@ -113,6 +132,22 @@ CLASS zcl_rak_cj_gis DEFINITION
 *   caller should fall back - it is never a reason to draw an empty box.
     CLASS-METHODS ready RETURNING VALUE(rv) TYPE abap_bool.
 
+*   WHICH OF MAPURLSET'S THREE STRINGS IS THE TOKEN, AND WHICH IS THE
+*   VIEWER. Decided by shape, never by field name - see the header for the
+*   measurement that made this necessary. Hand all three in; these answer
+*   what they are, and a system that fills the columns as their names
+*   suggest gets the same answer.
+    CLASS-METHODS token_of
+      IMPORTING iv_url    TYPE string
+                iv_gisurl TYPE string
+                iv_token  TYPE string
+      RETURNING VALUE(rv) TYPE string.
+
+    CLASS-METHODS viewer_of
+      IMPORTING iv_url    TYPE string
+                iv_gisurl TYPE string
+      RETURNING VALUE(rv) TYPE string.
+
 *   THE MARKUP. Goes to Z2UI5_CL_XML_VIEW->HTML( ). It carries no script -
 *   see the header for why one there would never run - and it carries a
 *   visible "loading" line, so a grey box means the markup never reached
@@ -144,15 +179,13 @@ CLASS zcl_rak_cj_gis DEFINITION
 *   IV_CTRL    which z2ui5 controller carries that event - 'oController'
 *              in the page, 'oControllerPopup' inside a dialog.
 *
-*   NOT TYPED ON ZCL_RAK_PROPERTY_API. Three plain strings instead of its
+*   NOT TYPED ON ZCL_RAK_PROPERTY_API. A plain string instead of its
 *   TY_MAP_RES: that class inherits the generated legacy DPC, and a static
 *   reference to anything in that chain stops THIS class loading whenever
 *   any link in it is inactive. The caller already lives inside the
 *   dynamic zone and can unpack the read itself.
     CLASS-METHODS script
-      IMPORTING iv_portal    TYPE string
-                iv_server    TYPE string
-                iv_token     TYPE string
+      IMPORTING iv_token     TYPE string
                 iv_div       TYPE string
                 it_ids       TYPE string_table
                 iv_focus     TYPE string OPTIONAL
@@ -256,6 +289,38 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD token_of.
+*   An explicit TOKEN wins, if a system ever fills it. Otherwise the
+*   token is whichever of the two remaining strings is NOT a URL - on E10
+*   that is URL, 236 characters of opaque ArcGIS token, while GISURL
+*   holds https://rakgisstg.rak.ae/CustomerJourneyMap/.
+    rv = condense( iv_token ).
+    IF rv IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+    IF iv_url IS NOT INITIAL AND iv_url NP 'http*'.
+      rv = condense( iv_url ).
+      RETURN.
+    ENDIF.
+    IF iv_gisurl IS NOT INITIAL AND iv_gisurl NP 'http*'.
+      rv = condense( iv_gisurl ).
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD viewer_of.
+*   And the viewer is whichever one IS a URL. GISURL first, because that
+*   is where it sits on every system measured so far.
+    IF iv_gisurl CP 'http*'.
+      rv = condense( iv_gisurl ).
+      RETURN.
+    ENDIF.
+    IF iv_url CP 'http*'.
+      rv = condense( iv_url ).
+    ENDIF.
+  ENDMETHOD.
+
+
   METHOD in_list.
 *   DOUBLE quotes. The array is JS source; the SQL-style single quotes
 *   the where clause needs are added at RUNTIME by the snippet, from
@@ -296,11 +361,12 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-*   PORTAL AND SERVER OUT OF MAPURLSET. Map.js sets esriConfig.portalUrl
-*   from envProxy.portalUrl and registers the token against
-*   envProxy.serverUrl - two different hosts in the general case, which is
-*   why MapUrlSet answers URL and GISURL and not one of them. Whichever
-*   arrives is used; a blank one is simply not set.
+*   NO PORTAL AND NO SERVER FROM MAPURLSET. That service answers a token
+*   and a viewer page; the ArcGIS server it is good for is not in it, and
+*   /CustomerJourneyMap is a web application path rather than a REST root.
+*   The origin is taken from GIS_PARCELS instead - the one place the
+*   server is genuinely known - which is one fewer value to configure and
+*   one fewer that can be configured inconsistently.
 *
 *   The token is a credential. It reaches the page as a JS string, the
 *   same place the ShapeIt app puts it, and never as a URL parameter
@@ -308,7 +374,6 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
     DATA(lv_c) =
       |var C=\{api:"{ jsq( ls_cfg-api ) }",css:"{ jsq( ls_cfg-css ) }",| &&
       |parcels:"{ jsq( ls_cfg-parcels ) }",props:"{ jsq( ls_cfg-properties ) }",| &&
-      |portal:"{ jsq( iv_portal ) }",server:"{ jsq( iv_server ) }",| &&
       |token:"{ jsq( iv_token ) }",ids:[{ in_list( it_ids ) }],| &&
       |focus:"{ jsq( iv_focus ) }",evt:"{ jsq( iv_event ) }",| &&
       |ctrl:"{ jsq( iv_ctrl ) }",div:"{ jsq( iv_div ) }"\};|.
@@ -343,10 +408,13 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
       |"esri/views/MapView","esri/layers/FeatureLayer"| &&
       |],function(cf,IM,M,MV,FL)\{try\{| &&
       |D.textContent="";| &&
-      |if(C.portal)\{cf.portalUrl=C.portal;\}| &&
-      |if(C.token&&C.server)\{| &&
-      |IM.registerToken(\{server:C.server,token:C.token,ssl:true\});| &&
-      |cf.request.interceptors.push(\{urls:C.server,before:function(p)\{| &&
+*     THE SERVER IS THE PARCEL LAYER'S OWN ORIGIN. indexOf from 8 skips
+*     past https:// so the first slash found is the one after the host.
+      |var p8=C.parcels.indexOf("/",8);| &&
+      |var O=p8>0?C.parcels.substring(0,p8):C.parcels;| &&
+      |if(C.token)\{| &&
+      |IM.registerToken(\{server:C.parcels,token:C.token,ssl:true\});| &&
+      |cf.request.interceptors.push(\{urls:O,before:function(p)\{| &&
       |if(!p.requestOptions.query)\{p.requestOptions.query=\{\};\}| &&
       |if(!p.requestOptions.query.token)\{p.requestOptions.query.token=C.token;\}| &&
       |\}\});\}|.

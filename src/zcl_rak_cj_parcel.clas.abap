@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-3.  Missing this line means SAP has an older copy - see
+*& BUILD map-fix-4.  Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& This class will not compile until ZCL_RAK_CJ_GIS is ACTIVE: a class
 *& with no active version has no methods, so its callers report
@@ -705,10 +705,14 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   this map so far - see ZCL_RAK_CJ_GIS's header.
     DATA(lv_div) = |rakGis{ to_upper( mv_fld ) }|.
 
+*   TOKEN_OF( ), not -TOKEN. MapUrlSet answers the token in URL and the
+*   viewer page in GISURL, and leaves TOKEN empty - measured on E10, see
+*   ZCL_RAK_CJ_GIS's header. Reading the columns by name hands the map a
+*   blank token and a token where a URL belongs.
     DATA(lv_js) = zcl_rak_cj_gis=>script(
-      iv_portal = ls_map-url
-      iv_server = ls_map-gisurl
-      iv_token  = ls_map-token
+      iv_token  = zcl_rak_cj_gis=>token_of( iv_url    = ls_map-url
+                                            iv_gisurl = ls_map-gisurl
+                                            iv_token  = ls_map-token )
       iv_div    = lv_div
       it_ids    = lt_ids
       iv_focus  = lv_foc
@@ -969,10 +973,15 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   Six URL shapes were tried against this and none of them could ever
 *   have worked - the viewer was sitting on its splash screen waiting for
 *   a message that never came.
-    DATA(lv_base) = COND string( WHEN ls_map-gisurl CP 'http*' THEN ls_map-gisurl
-                                 WHEN ls_map-url CP 'http*'    THEN ls_map-url ).
-    DATA(lv_tok)  = COND string( WHEN ls_map-token IS NOT INITIAL THEN ls_map-token
-                                 WHEN ls_map-url NP 'http*'       THEN ls_map-url ).
+*   ONE PLACE KNOWS WHICH COLUMN IS WHICH, and it is not here. This used
+*   to work out the base and the token inline, by the same shape test, and
+*   the ArcGIS path next to it read the columns by name and got them
+*   backwards. Both go through the helpers now.
+    DATA(lv_base) = zcl_rak_cj_gis=>viewer_of( iv_url    = ls_map-url
+                                               iv_gisurl = ls_map-gisurl ).
+    DATA(lv_tok)  = zcl_rak_cj_gis=>token_of( iv_url    = ls_map-url
+                                              iv_gisurl = ls_map-gisurl
+                                              iv_token  = ls_map-token ).
     DATA(lv_pid)  = mo_e->mv_pcl_pid.
 
 *   ---- THE REAL CONTROL FIRST, the iframe only as a fallback.
@@ -994,9 +1003,9 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     calls _runPendingCustomJs( ) in its finally block - so the div this
 *     script looks for is in the DOM by the time it looks.
       mo_e->mo_client->follow_up_action( zcl_rak_cj_gis=>script(
-        iv_portal = ls_map-url
-        iv_server = ls_map-gisurl
-        iv_token  = ls_map-token
+        iv_token  = zcl_rak_cj_gis=>token_of( iv_url    = ls_map-url
+                                              iv_gisurl = ls_map-gisurl
+                                              iv_token  = ls_map-token )
         iv_div    = lv_dvd
         it_ids    = VALUE string_table( ( lv_pid ) )
         iv_focus  = lv_pid

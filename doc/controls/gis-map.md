@@ -56,10 +56,44 @@ offered and the details dialog falls back to the iframe below. That is deliberat
 guessed feature-service URL draws an empty map in silence, which is the most expensive of
 the three failures this map has already had.
 
-Identity comes from `MapUrlSet` (`ZCL_RAK_PROPERTY_API->MAP_URL( )`), filtered by
-`Partnerguid` and `Parcel`: `URL` → `esriConfig.portalUrl`, `GISURL` → the token's server,
-`TOKEN` → the token. The token reaches the page as a JS string, the same place the ShapeIt
-app puts it, and never as a URL parameter.
+### `MapUrlSet`'s columns do not mean what their names say
+
+Measured, not assumed — `ZRAK_CJ_MAP_DIAG` on E10/200, partner `3000401630`:
+
+```
+URL     len 236   4gat2CeMnEV2TYJvpD11wTXEDOeWXs4zd2F-4rVdBIJhsiLj742A2Rspl...
+GISURL  len 44    https://rakgisstg.rak.ae/CustomerJourneyMap/
+TOKEN   len 0
+```
+
+**`URL` is the token. `GISURL` is the viewer page. `TOKEN` is empty.** Reading the three
+columns by name hands the map a blank token and a token where a URL belongs — which is
+exactly what the first version of `ZCL_RAK_CJ_GIS` did. `TOKEN_OF( )` and `VIEWER_OF( )`
+are the one place that knows this, and both decide by **shape**, so a system that fills
+the columns as their names suggest still works.
+
+**The ArcGIS server is not in that answer at all.** `/CustomerJourneyMap` is a web
+application path, not a REST root. So the server the token is good for is derived from
+`GIS_PARCELS`' own origin — the only place it is genuinely known, one fewer value to
+configure and one fewer that can be configured inconsistently.
+
+The token reaches the page as a JS string, the same place the ShapeIt app puts it, and
+never as a URL parameter.
+
+### SAP cannot reach the GIS host, and that does not block the map
+
+```
+base https://rakgisstg.rak.ae/CustomerJourneyMap
+  /rest/info   HTTP 0 receive failed: Direct connect to rakgisstg.rak.ae:443
+               failed: NIECONN_REFUSED(-10)
+```
+
+No route from the application server to the GIS host. This blocks the **discovery** in
+`ZRAK_CJ_MAP_DIAG` and nothing else: when the map runs it is the **browser** that talks to
+the GIS server, and the browser reaches it perfectly well — the viewer's own page loads in
+the dialog. So `GIS_PARCELS` has to be read off the live ShapeIt screen instead: open the
+legacy parcel control, network tab, and take the `.../FeatureServer/<n>/query` request's
+URL up to the layer number.
 
 ## `gismappingIM.js` — the standalone Defcon viewer
 

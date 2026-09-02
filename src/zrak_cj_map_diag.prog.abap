@@ -1,17 +1,17 @@
 *&---------------------------------------------------------------------*
 *& Report ZRAK_CJ_MAP_DIAG
 *&
-*& BUILD map-fix-3.  IF THIS LINE IS NOT ON YOUR SCREEN, SAP HAS AN OLDER
+*& BUILD map-fix-4.  IF THIS LINE IS NOT ON YOUR SCREEN, SAP HAS AN OLDER
 *& COPY and the errors you are looking at were fixed in git. abapGit's
 *& pull dialog pre-ticks only 'Add local object' rows; every 'Overwrite
 *& local object' row arrives UNTICKED and the ticks reset each time the
 *& dialog opens - so an object that already exists is skipped unless it is
 *& ticked by hand, and the pull still reports success.
 *&
-*& map-fix-3 contains: CONV string( ) on BAPIRET2-MESSAGE (a DDIC CHAR 220
-*& bound by reference to a TYPE string parameter), the probe's six result
-*& variables declared up front instead of inline inside a functional call,
-*& and PREFERRED PARAMETER on CUT( ) and WRAP( ).
+*& map-fix-4 contains: MapUrlSet read BY SHAPE rather than by column name
+*& (URL holds the token, GISURL the viewer page, TOKEN is empty), the
+*& ArcGIS roots probed alongside the viewer path, and a refused connection
+*& reported as what it is - a limit on THIS REPORT, not on the map.
 *&---------------------------------------------------------------------*
 * THE MAP HAS FAILED SEVEN TIMES AND EVERY ATTEMPT WAS A GUESS. This
 * report stops guessing. It prints what MapUrlSet actually answers, then
@@ -307,6 +307,25 @@ START-OF-SELECTION.
   lcl=>say( iv_label = '  url has token='
             iv_value = COND #( WHEN lv_url_tok = abap_true THEN 'YES' ELSE 'no' ) ).
 
+* WHICH COLUMN IS WHICH, decided by shape. Measured on E10/200: URL holds
+* a 236-character token, GISURL holds https://rakgisstg.rak.ae/
+* CustomerJourneyMap/ and TOKEN is empty - so the three columns do NOT
+* mean what their names say, and anything reading them by name gets a
+* blank token and a token where a URL belongs.
+  DATA(lv_tok_r) = zcl_rak_cj_gis=>token_of( iv_url    = ls_mp-url
+                                             iv_gisurl = ls_mp-gisurl
+                                             iv_token  = ls_mp-token ).
+  DATA(lv_view_r) = zcl_rak_cj_gis=>viewer_of( iv_url    = ls_mp-url
+                                               iv_gisurl = ls_mp-gisurl ).
+  ULINE.
+  WRITE: / '  READ BY SHAPE, not by column name'.
+  lcl=>say( iv_label = '    token is'
+            iv_value = COND #( WHEN lv_tok_r IS INITIAL THEN '** NONE FOUND **'
+                               ELSE |{ strlen( lv_tok_r ) } characters| ) ).
+  lcl=>say( iv_label = '    viewer is'
+            iv_value = COND #( WHEN lv_view_r IS INITIAL THEN '** NONE FOUND **'
+                               ELSE lv_view_r ) ).
+
 * ---------------------------------------------------------------- 2
   ULINE.
   WRITE: / '2. CJS CONFIGURATION'.
@@ -332,10 +351,27 @@ START-OF-SELECTION.
 *   Both strings are tried as a base. Which one is the ArcGIS server is
 *   exactly what is not known, so both are asked rather than one being
 *   assumed and the other blamed.
+*   ONLY THE STRING THAT IS ACTUALLY A URL. Probing the other one meant
+*   sending a 236-character token to CREATE_BY_URL as if it were a host.
     DATA lt_base TYPE string_table.
-    IF ls_mp-gisurl CP 'http*'. APPEND ls_mp-gisurl TO lt_base. ENDIF.
-    IF ls_mp-url CP 'http*' AND ls_mp-url <> ls_mp-gisurl.
-      APPEND ls_mp-url TO lt_base.
+    IF lv_view_r IS NOT INITIAL.
+      APPEND lv_view_r TO lt_base.
+    ENDIF.
+
+*   AND THE ARCGIS ROOTS THAT COULD SIT ON THE SAME HOST.
+*   /CustomerJourneyMap is a web application path, not a REST root, so
+*   the directory is never under it. These four are where an ArcGIS
+*   Server or Portal normally lives; each costs one request and a wrong
+*   guess simply answers 404 rather than misleading anyone.
+    IF lv_view_r IS NOT INITIAL.
+      DATA(lv_p8) = find( val = lv_view_r sub = '/' occ = 3 ).
+      IF lv_p8 > 0.
+        DATA(lv_host) = substring( val = lv_view_r len = lv_p8 ).
+        APPEND |{ lv_host }/server| TO lt_base.
+        APPEND |{ lv_host }/arcgis| TO lt_base.
+        APPEND |{ lv_host }/portal| TO lt_base.
+        APPEND lv_host TO lt_base.
+      ENDIF.
     ENDIF.
 
     IF lt_base IS INITIAL.
@@ -381,17 +417,29 @@ START-OF-SELECTION.
         lcl=>wrap( lcl=>cut( iv = lv_info iv_len = 400 ) ).
       ENDIF.
       IF lv_st <> 200.
-*       Not a failure of the map - a failure to REACH the map. An
-*       untrusted certificate is the usual one and shows as a send
-*       error rather than an HTTP status.
-        WRITE: / '    ** this system cannot read that endpoint. Check STRUST'.
-        WRITE: / '       for the GIS host certificate and SM59 for a proxy.'.
+*       NOT A FAILURE OF THE MAP - a failure to reach the map FROM HERE.
+*       The distinction matters more than it looks: the browser is what
+*       talks to the GIS server when the map runs, not this system, and
+*       the browser demonstrably reaches it (the viewer's own page loads
+*       in the dialog). A refusal here therefore blocks THIS REPORT'S
+*       discovery and nothing else.
+        IF lv_er CS 'NIECONN_REFUSED' OR lv_er CS 'ICM_HTTP_CONNECTION_FAILED'.
+          WRITE: / '    ** no route from SAP to that host. This blocks only the'.
+          WRITE: / '       discovery below - the MAP itself is drawn by the'.
+          WRITE: / '       browser, which reaches the host perfectly well.'.
+          WRITE: / '       Fix by hand: read GIS_PARCELS off the live ShapeIt'.
+          WRITE: / '       screen (network tab, the .../FeatureServer/<n>/query'.
+          WRITE: / '       request) and put it in ZRAK_T_CJ_TXT.'.
+        ELSE.
+          WRITE: / '    ** this system cannot read that endpoint. Check STRUST'.
+          WRITE: / '       for the GIS host certificate and SM59 for a proxy.'.
+        ENDIF.
         CONTINUE.
       ENDIF.
 
 *     ---- the service directory
       lv_dir = lcl=>get( EXPORTING iv_url   = |{ lv_root }/rest/services|
-                                   iv_token = ls_mp-token
+                                   iv_token = lv_tok_r
                          IMPORTING ev_status = lv_st
                                    ev_err    = lv_er ).
       WRITE: / '    /rest/services', 24 |HTTP { lv_st } { lv_er }|.
@@ -436,7 +484,7 @@ START-OF-SELECTION.
           lv_slist = lv_dir.
         ELSE.
           lv_slist = lcl=>get( EXPORTING iv_url   = |{ lv_root }/rest/services{ lv_path }|
-                                         iv_token = ls_mp-token
+                                         iv_token = lv_tok_r
                                IMPORTING ev_status = lv_st ).
         ENDIF.
 
@@ -464,7 +512,7 @@ START-OF-SELECTION.
 *         answer ("Folder/Service"), so it is not prefixed again.
           DATA(lv_svc) = |{ lv_root }/rest/services/{ lv_sname }/{ lv_stype }|.
           lv_sj = lcl=>get( EXPORTING iv_url   = lv_svc
-                                      iv_token = ls_mp-token
+                                      iv_token = lv_tok_r
                             IMPORTING ev_status = lv_st ).
           WRITE: / |    { lv_stype } { lv_sname }|, 70 |HTTP { lv_st }|.
           IF lv_st <> 200.
@@ -484,7 +532,7 @@ START-OF-SELECTION.
             lv_probes = lv_probes + 1.
             DATA(lv_lurl) = |{ lv_svc }/{ lv_lid }|.
             lv_lj = lcl=>get( EXPORTING iv_url   = lv_lurl
-                                        iv_token = ls_mp-token
+                                        iv_token = lv_tok_r
                               IMPORTING ev_status = lv_st ).
             IF lv_st <> 200.
               CONTINUE.
@@ -562,9 +610,7 @@ START-OF-SELECTION.
     WRITE: / '  container:'.
     lcl=>wrap( zcl_rak_cj_gis=>container( iv_div = 'rakGisDiag' ) ).
     DATA(lv_block) = zcl_rak_cj_gis=>script(
-      iv_portal = ls_mp-url
-      iv_server = ls_mp-gisurl
-      iv_token  = ls_mp-token
+      iv_token  = lv_tok_r
       iv_div    = 'rakGisDiag'
       it_ids    = VALUE string_table( ( lv_show ) )
       iv_focus  = lv_show ).
@@ -576,8 +622,8 @@ START-OF-SELECTION.
                                && ' run as a frontend action, not as code **'
                                ELSE 'no single quote (correct)' ) }|.
 *     The token is IN this markup. Masked unless it was asked for.
-      IF p_tok = abap_false AND ls_mp-token IS NOT INITIAL.
-        REPLACE ALL OCCURRENCES OF ls_mp-token IN lv_block WITH '<TOKEN>'.
+      IF p_tok = abap_false AND lv_tok_r IS NOT INITIAL.
+        REPLACE ALL OCCURRENCES OF lv_tok_r IN lv_block WITH '<TOKEN>'.
       ENDIF.
       lcl=>wrap( lv_block ).
     ENDIF.
