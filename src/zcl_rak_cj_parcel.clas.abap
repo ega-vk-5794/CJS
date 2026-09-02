@@ -492,9 +492,15 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   read is addressed with. A row without one gets no link rather than a
 *   link that opens an empty dialog.
     IF lv_int IS NOT INITIAL.
+*     BOTH IDS TRAVEL. The tabs are addressed by INTRENO - it is the
+*     entity key the $expand read wants - but MapUrlSet filters on a
+*     property called Parcel, and a parcel has two identifiers. Carrying
+*     both means the map read can be pointed at either without a second
+*     round trip to find out which.
       lo_r->link( text  = t( iv_en = `Full Details` iv_ar = `التفاصيل الكاملة` )
                   class = 'sapUiTinyMarginBegin'
-                  press = mo_e->mo_client->_event( |{ c_pfx }DET_{ lv_int }| ) ).
+                  press = mo_e->mo_client->_event(
+                            |{ c_pfx }DET_{ lv_int }~{ lv_key }| ) ).
     ENDIF.
   ENDMETHOD.
 
@@ -581,12 +587,13 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       pick( iv_field = lv_fld iv_key = lv_key ).
 
     ELSEIF lv CP 'DET_*'.
-      mo_e->mv_pcl_det = substring( val = lv off = 4 ).
+      SPLIT substring( val = lv off = 4 ) AT '~' INTO mo_e->mv_pcl_det
+                                                      mo_e->mv_pcl_pid.
       mo_e->mv_pcl_tab = 'MAP'.
       mo_e->mv_popup   = c_popup.
 
     ELSEIF lv = 'CLOSE'.
-      CLEAR: mo_e->mv_pcl_det, mo_e->mv_pcl_tab, mo_e->mv_popup.
+      CLEAR: mo_e->mv_pcl_det, mo_e->mv_pcl_pid, mo_e->mv_pcl_tab, mo_e->mv_popup.
 
     ELSE.
       CLEAR rv_handled.
@@ -627,7 +634,16 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       key = 'MAP' text = t( iv_en = `Map` iv_ar = `الخريطة` ) )->content( )->vbox( ).
     DATA ls_map TYPE zcl_rak_property_api=>ty_map_res.
     TRY.
-        ls_map = api( )->map_url( iv_parcel = mo_e->mv_pcl_det ).
+*       THE PARCEL NUMBER, not the INTRENO. MapUrlSet's filter is called
+*       Parcel and a parcel has two identifiers - the internal object id
+*       the tabs are addressed by, and the number the citizen reads. The
+*       intreno was tried and the viewer answered with its own splash
+*       screen: a token was minted, so the read succeeded, but it encoded
+*       no parcel. The number is the other candidate and the only one
+*       left that is not a guess about URL formatting.
+        ls_map = api( )->map_url( iv_parcel = COND #(
+          WHEN mo_e->mv_pcl_pid IS NOT INITIAL THEN mo_e->mv_pcl_pid
+          ELSE mo_e->mv_pcl_det ) ).
       CATCH cx_root ##NO_HANDLER.
     ENDTRY.
 *   URL IS NOT A URL. It is the TOKEN, and the property named TOKEN is

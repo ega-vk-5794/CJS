@@ -104,6 +104,7 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mv_pcl_term  TYPE string.
     DATA mv_pcl_page  TYPE i.
     DATA mv_pcl_det   TYPE string.
+    DATA mv_pcl_pid   TYPE string.
     DATA mv_pcl_tab   TYPE string.
 
 *   The control that draws it. An INTERFACE reference on purpose - the
