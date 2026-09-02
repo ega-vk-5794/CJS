@@ -157,6 +157,20 @@ CLASS zcl_rak_cj_req_ctx DEFINITION
       IMPORTING ir_tab      TYPE REF TO data
                 iv_userdata TYPE string.
 
+*   Give a reference-typed constructor parameter something to point at, and
+*   put the session key inside it where the standard code looks for it.
+*   Does nothing for a parameter that is not a data reference, and nothing
+*   for a reference to a class or interface - those cannot be fabricated.
+    CLASS-METHODS bind_ref
+      IMPORTING ir_slot     TYPE REF TO data
+                iv_userdata TYPE string.
+
+*   Where /IWBEP/CL_MGW_REQUEST keeps the headers inside the request
+*   details, read off its own GET_REQUEST_HEADERS( ):
+*       rt_header = mr_request->*-technical_request-request_header.
+    CONSTANTS c_tech_comp TYPE string VALUE 'TECHNICAL_REQUEST'.
+    CONSTANTS c_hdr_comp  TYPE string VALUE 'REQUEST_HEADER'.
+
 *   'x-custom1' is compared CASE-SENSITIVELY by GET_BP( ) -
 *   READ TABLE ... WITH KEY name = 'x-custom1' against a STRING component.
 *   Upper-casing it here would send a header nothing reads.
@@ -272,9 +286,24 @@ CLASS zcl_rak_cj_req_ctx IMPLEMENTATION.
 *       catchable runtime error below, and WHY( ) will say so.
         CREATE DATA ls_p-value TYPE HANDLE lo_par.
 
-*       The one parameter that is given a value rather than left initial.
-*       Everything else the constructor declares mandatory stays blank -
-*       see the note above the loop.
+*       A REFERENCE PARAMETER GETS SOMETHING TO POINT AT.
+*
+*       This was the whole failure. CREATE DATA on a REF TO <struct>
+*       parameter makes an INITIAL reference - a null pointer - and
+*       /IWBEP/CL_MGW_REQUEST's own GET_REQUEST_HEADERS( ) does
+*
+*           rt_header = mr_request->*-technical_request-request_header.
+*
+*       straight into it. DATREF_NOT_ASSIGNED, and NOT catchable: a TRY
+*       around the call does not stop it. So the context constructed
+*       perfectly and dumped the moment anything used it - which means
+*       every DPC read through this layer would have dumped too, header or
+*       no header. Construction succeeding proved nothing.
+        bind_ref( ir_slot = ls_p-value iv_userdata = iv_userdata ).
+
+*       IT_HEADERS as well, where the constructor takes one. Kept because
+*       /IWBEP/CL_MGW_REQUEST_UNITTST declares it mandatory and may read it
+*       in preference to the request details.
         IF iv_userdata IS NOT INITIAL AND to_upper( CONV string( ls_par-name ) ) = c_hdr_parm.
           fill_header( ir_tab = ls_p-value iv_userdata = iv_userdata ).
         ENDIF.
@@ -293,6 +322,67 @@ CLASS zcl_rak_cj_req_ctx IMPLEMENTATION.
         CLEAR ro.
         gv_why = |{ iv_class }: { lx->get_text( ) }|.
     ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD bind_ref.
+    FIELD-SYMBOLS <slot> TYPE any.
+
+    ASSIGN ir_slot->* TO <slot>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    DATA lo_dd TYPE REF TO cl_abap_datadescr.
+
+    TRY.
+        DATA(lo_ref) = CAST cl_abap_refdescr(
+                         cl_abap_typedescr=>describe_by_data( <slot> ) ).
+*       A reference to a CLASS or INTERFACE cannot be given a target - there
+*       is nothing to create. Only a data reference can.
+        lo_dd = CAST cl_abap_datadescr( lo_ref->get_referenced_type( ) ).
+      CATCH cx_root.
+        RETURN.
+    ENDTRY.
+
+*   CREATE DATA onto the field symbol, which IS the reference variable.
+*   That is what makes the parameter bound rather than null, and it needs no
+*   cast: the created object takes the type the reference already declares.
+    TRY.
+        CREATE DATA <slot> TYPE HANDLE lo_dd.
+      CATCH cx_root.
+        RETURN.
+    ENDTRY.
+
+    IF iv_userdata IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   And the session key, into the component the standard getter reads.
+*   Every step is guarded: a structure without these components simply keeps
+*   an empty request, which is still infinitely better than a null one.
+    FIELD-SYMBOLS <req>  TYPE any.
+    FIELD-SYMBOLS <tech> TYPE any.
+    FIELD-SYMBOLS <hdr>  TYPE ANY TABLE.
+
+    ASSIGN <slot>->* TO <req>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    ASSIGN COMPONENT c_tech_comp OF STRUCTURE <req> TO <tech>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    ASSIGN COMPONENT c_hdr_comp OF STRUCTURE <tech> TO <hdr>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    DATA lr_hdr TYPE REF TO data.
+    GET REFERENCE OF <hdr> INTO lr_hdr.
+    fill_header( ir_tab = lr_hdr iv_userdata = iv_userdata ).
   ENDMETHOD.
 
 

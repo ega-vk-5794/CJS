@@ -66,6 +66,40 @@ START-OF-SELECTION.
     RETURN.
   ENDIF.
 
+* THE FALLBACK LIST, PRINTED FIRST - on purpose.
+*
+* GET_REQUEST_HEADERS( ) below can dump with DATREF_NOT_ASSIGNED, and that
+* one is NOT catchable: a TRY around the call does not stop it. If it does,
+* everything after it is lost - so the thing we would need next is printed
+* before the risk, not after.
+*
+* What we would need next is this list. If a standard request context cannot
+* be made to answer GET_REQUEST_HEADERS( ), the remaining route is a class
+* of our own implementing /IWBEP/IF_MGW_REQ_ENTITYSET - every method empty
+* except that one. Implementing an interface method needs only its NAME, so
+* this list is the whole specification for that class.
+  SKIP.
+  WRITE: / '--- /IWBEP/IF_MGW_REQ_ENTITYSET, for the fallback route ---'.
+  DATA lo_itf TYPE REF TO cl_abap_typedescr.
+  CALL METHOD cl_abap_typedescr=>describe_by_name
+    EXPORTING  p_name         = '/IWBEP/IF_MGW_REQ_ENTITYSET'
+    RECEIVING  p_descr_ref    = lo_itf
+    EXCEPTIONS type_not_found = 1
+               OTHERS         = 2.
+  IF sy-subrc <> 0.
+    WRITE: / '  not in this system'.
+  ELSE.
+    TRY.
+        DATA(lo_id) = CAST cl_abap_intfdescr( lo_itf ).
+        LOOP AT lo_id->methods INTO DATA(ls_im).
+          WRITE: / '  ', ls_im-name.
+        ENDLOOP.
+        WRITE: / '  (', lines( lo_id->methods ), 'methods )'.
+      CATCH cx_root INTO DATA(lx_itf).
+        WRITE: / '  ', lx_itf->get_text( ).
+    ENDTRY.
+  ENDIF.
+
 * Does the header actually reach the context? This is the whole question the
 * identity change turns on: GET_BP( ) reads 'x-custom1' off exactly this
 * table, so if it is not here, the DPC resolves nobody and says nothing.
