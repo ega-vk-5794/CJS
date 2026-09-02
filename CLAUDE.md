@@ -293,6 +293,18 @@ These raise nothing and render nothing. They account for most of the bugs found 
 - **An inline `DATA( )` in the IMPORTING part of a functional call that is itself the
   source of an assignment** is refused: *the inline declaration is not possible in this
   position*. Declare the variables first.
+- **An uploader's DOCUMENT TYPE rides `DEFAULT_VAL` behind `DTYPE:`.** Every legacy
+  uploader carries `DATA2` = 1/2/3 in `/QNV/SB_UI_DEFIN` and the BAdI files it as
+  `ZDT_EGA_CJ_ATTR-DIFFCRT`. `ATTACHMENTS_FOR_BACKEND( )` sent only `identifier1/2`,
+  the name and the content, so `DIFFCRT` arrived blank — and `CREATE_ATTACHMENT` only
+  checks `OBJTRG`/`OBJSRC`, so it passed silently and the case could not tell a title deed
+  from an Emirates ID. The value now goes out through `ASSIGN COMPONENT` over a candidate
+  list (`DIFFCRT`, `DOCTYPE`, `DOC_TYPE`, `IDENTIFIER3`, `DATA2`), because
+  `/QNV/SBUILD_ATTACHMENTS_TT` cannot be opened from here — the trace names which one
+  answered, so one run cuts the list down. **It does not unlock `ATTACH_MULTI`**: two files
+  on one field share a field and so share a type, and `GET_ATTACHMENT( )` de-duplicates on
+  `(objsrc, diffcrt, objsrctype, objtrgtype)`. Multi-file needs the occurrence key in
+  `identifier1`, which is a different mechanism.
 - **A guidance paragraph must never become a caption.** `PAIR_LABELS( )` used to leave a long
   DISPLAY row pending and attach it to the next control, so the wording landed in `ZLABEL`
   (CHAR 150), was cut mid-word, and `MT_CONSUMED` hid the row it came from — the full text

@@ -37,6 +37,26 @@ INTERFACE zif_rak_cjs_types
 "          already reads an occurrence out of identifier1 - see OWNERS_SEARCH_<n>
 "          in ZCL_EGA_CJ_DOK_ABS - so the key is appended there as FIELD_KEY.
            okey  TYPE string,
+"          THE LEGACY DOCUMENT TYPE, and the reason a case cannot currently
+"          tell a title deed from an Emirates ID.
+"
+"          Every legacy uploader carries DATA2 = 1/2/3 in
+"          /QNV/SB_UI_DEFIN and the BAdI files it as ZDT_EGA_CJ_ATTR-DIFFCRT.
+"          ATTACHMENTS_FOR_BACKEND( ) sent only identifier1/2, file_name and
+"          file_content, so DIFFCRT arrived blank - and CREATE_ATTACHMENT
+"          only checks OBJTRG and OBJSRC, so it passed silently.
+"
+"          It is worse than a missing label. GET_ATTACHMENT( ) de-duplicates
+"          on (objsrc, diffcrt, objsrctype, objtrgtype), so with DIFFCRT
+"          blank on every file, two documents on ONE field come back as one.
+"          That is why ATTACH_MULTI is off on every migrated uploader.
+"
+"          Carried in the field's DEFAULT_VAL behind a DTYPE: prefix - the
+"          same convention as TEXT: and API:, and for the same reason: an
+"          uploader has no use for a default value, and a new DDIC column
+"          would need an activation and a table adjust before anything
+"          could use it.
+           dtype TYPE string,
          END OF ty_att,
          tt_att TYPE STANDARD TABLE OF ty_att WITH EMPTY KEY.
 

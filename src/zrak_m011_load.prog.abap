@@ -250,8 +250,32 @@ START-OF-SELECTION.
 *   REVIEW-TEXT: its caption comes from the LABEL3 row through
 *   /QNV/SB_LABELT, which is not in the export dump. "Supporting document"
 *   is a neutral stand-in, not the live wording.
+*   DTYPE: IS THE LEGACY DOCUMENT TYPE, read from the export rather than
+*   assigned. Each uploader row carries DATA2 and the BAdI files it as
+*   ZDT_EGA_CJ_ATTR-DIFFCRT; without it every file arrives typed blank and
+*   the case cannot tell one document from another - and CREATE_ATTACHMENT
+*   only checks OBJTRG and OBJSRC, so it passes silently.
+*
+*   The type belongs to the UPLOADER row, not to the container the CJS
+*   field is named after, and both screens agree:
+*
+*     UPLOADER1  parent NOCCONT     DATA2=1   -> field NOCCONT
+*     UPLOADER2  parent LETTERCONT  DATA2=2   -> field LETTERCONT
+*     UPLOADER3  parent PART2       DATA2=3   -> field UPLOADER3
+*     UPLOADER   no DATA2                     -> no DTYPE:, deliberately
+*
+*   It rides DEFAULT_VAL behind a prefix, the same convention as TEXT: and
+*   API:, and for the same reason: an uploader has no use for a default
+*   value, and a new DDIC column would need an activation and a table
+*   adjust first. The engine's seeding guard skips all three prefixes.
+*
+*   IT DOES NOT UNLOCK ATTACH_MULTI. Two files on the SAME field share a
+*   field and therefore share a type, and GET_ATTACHMENT( ) de-duplicates
+*   on (objsrc, diffcrt, objsrctype, objtrgtype). Multi-file needs the
+*   occurrence key in identifier1, which is a different mechanism.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
       field_name = 'UPLOADER3' ftype = 'UPLOAD'
+      default_val = 'DTYPE:3'
       zsection = 'Attachments'
       zlabel = 'Supporting document' zlabel_ar = 'مستند مؤيد'
       has_attach = 'X' attach_label = 'Add document'
@@ -292,7 +316,8 @@ START-OF-SELECTION.
 *   one cannot block the step. Verified in that method rather than assumed,
 *   because the alternative failure is a step nobody can leave.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 30
-      field_name = 'NOCCONT' ftype = 'UPLOAD' required = 'X'
+      field_name = 'NOCCONT' ftype = 'UPLOAD'
+      default_val = 'DTYPE:1' required = 'X'
       zsection = 'Attachments'
       zlabel = 'NOC from the bank' zlabel_ar = 'شهادة عدم اعتراض من البنك'
       msg = 'A mortgaged parcel needs the bank''s no-objection certificate'
@@ -300,7 +325,8 @@ START-OF-SELECTION.
       has_attach = 'X' attach_label = 'Attach NOC from bank'
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 40
-      field_name = 'LETTERCONT' ftype = 'UPLOAD' required = 'X'
+      field_name = 'LETTERCONT' ftype = 'UPLOAD'
+      default_val = 'DTYPE:2' required = 'X'
       zsection = 'Attachments'
       zlabel = 'Letter of consent' zlabel_ar = 'خطاب موافقة'
       msg = 'A parcel with more than one owner needs the other owners'' consent'

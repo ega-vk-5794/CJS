@@ -229,8 +229,15 @@ START-OF-SELECTION.
 *   then dropped on re-read and the citizen sees one document where they
 *   attached two, with nothing anywhere reporting it.
 *
-*   One file per field is the shape that survives the round trip until the
-*   document type is carried. See REVIEW-BE.
+*   ATTACH_MULTI STAYS OFF, and carrying the document type does not change
+*   that. ZCL_RAK_JOURNEY_BE now sends DIFFCRT where the field declares one
+*   - which is what lets a case tell a title deed from an Emirates ID - but
+*   two files on the SAME field share a field and therefore share a type,
+*   so they still de-duplicate to one on re-read. Multi-file needs the
+*   OCCURRENCE key in identifier1, which is a different mechanism.
+*
+*   NMERGE_1_2's single UPLOADER carries no DATA2 at all, so this field
+*   declares no DTYPE: rather than inventing one.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 30
       field_name = 'UPLOADER' ftype = 'UPLOAD'
       zsection = 'Attachments'

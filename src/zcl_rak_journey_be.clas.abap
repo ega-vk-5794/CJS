@@ -66,7 +66,42 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
       APPEND VALUE #( identifier1  = lv_id1
                       identifier2  = ls_a-tech
                       file_name    = ls_a-name
-                      file_content = lv_b64 ) TO rt.
+                      file_content = lv_b64 ) TO rt
+             ASSIGNING FIELD-SYMBOL(<ls_att>).
+
+*     THE DOCUMENT TYPE, BY NAME, AND ONLY WHEN THE FIELD DECLARED ONE.
+*
+*     Every legacy uploader carries DATA2 = 1/2/3 and the BAdI files it as
+*     ZDT_EGA_CJ_ATTR-DIFFCRT. This method sent identifier1/2, the name and
+*     the content and nothing else, so DIFFCRT arrived blank on every file
+*     - and CREATE_ATTACHMENT only checks OBJTRG and OBJSRC, so it passed
+*     silently. The case then cannot tell a title deed from an Emirates ID.
+*
+*     WRITTEN THROUGH ASSIGN COMPONENT over a candidate list, not named in
+*     a MOVE. /QNV/SBUILD_ATTACHMENTS_TT is a legacy DDIC type that cannot
+*     be opened from the environment this was written in, so the column
+*     that carries the type is not known here with certainty - DIFFCRT is
+*     what the BAdI ends up filling, but whether the row handed to the FM
+*     spells it that way, or IDENTIFIER3, or DOCTYPE, is not. A name that
+*     is not a component of this release's structure is skipped rather
+*     than failing activation, and the trace below says which one answered
+*     - so ONE run settles it and this list can be cut down to the answer.
+      IF ls_a-dtype IS NOT INITIAL.
+        DATA(lv_put) = ``.
+        LOOP AT VALUE string_table( ( `DIFFCRT` ) ( `DOCTYPE` ) ( `DOC_TYPE` )
+                                    ( `IDENTIFIER3` ) ( `DATA2` ) )
+             INTO DATA(lv_cand).
+          ASSIGN COMPONENT lv_cand OF STRUCTURE <ls_att> TO FIELD-SYMBOL(<v>).
+          IF sy-subrc = 0.
+            <v>     = ls_a-dtype.
+            lv_put  = lv_cand.
+            EXIT.
+          ENDIF.
+        ENDLOOP.
+        mo_e->trace( |ATTACH  { ls_a-field } dtype { ls_a-dtype } -> | &&
+                     COND string( WHEN lv_put IS NOT INITIAL THEN lv_put
+                                  ELSE '** no component on this release takes it **' ) ).
+      ENDIF.
     ENDLOOP.
   ENDMETHOD.
 
