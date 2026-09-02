@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-19. Missing this line means SAP has an older copy - see
+*& BUILD map-fix-20. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -98,7 +98,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   the thing being looked at is the thing that was just written, which
 *   is the question that has to be answered FIRST every time and until
 *   now could only be inferred. Bump it with the header stamp.
-    CONSTANTS c_build TYPE string VALUE 'map-fix-19'.
+    CONSTANTS c_build TYPE string VALUE 'map-fix-20'.
 
     METHODS constructor
       IMPORTING io_engine TYPE REF TO zcl_rak_journey_engine.
@@ -1441,16 +1441,28 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         |" from "+window.location.origin+| &&
         |(IN.length?(", viewer replied: "+IN.join(" / "))| &&
         |:", viewer replied nothing");| &&
-*       A REPLY IS ALWAYS WORTH SHOWING - the viewer has volunteered
-*       something, and it is the only voice from inside the frame.
-        |if(IN.length)\{| &&
-        |N.textContent="Map: "+IN.join(" / ");return;\}| &&
-*       LOADED AND SILENT IS THE SUCCESS CASE. Say nothing - and say
-*       nothing BEFORE load either, because the overlay on top of the
-*       frame is now the thing that says the map is coming. Two "Loading
-*       the map..." lines, one over the frame and one under it, is worse
-*       than either alone.
-        |N.textContent="";\}| &&
+*       AND NOW IT COUNTS OUT LOUD, because the hover was not enough.
+*
+*       Which parcel draws has now REVERSED between two builds that did
+*       not touch the messaging: 313030024 failed while two others drew,
+*       then 313030024 drew while those two failed. A missing boundary in
+*       the GIS layer cannot alternate, so the parcel data is not the
+*       cause and neither is anything parcel-specific in this class. It
+*       is a race - and five rounds have gone into reasoning about which
+*       delivery channel fires without ever MEASURING whether one did.
+*
+*       So the counts go on screen, not in a title nobody can screenshot.
+*       Terse and factual rather than a warning: this is the number that
+*       says whether the snippet ran for THIS open and how many posts
+*       reached the frame, and it is the one fact that separates "the
+*       viewer was never told" from "the viewer was told and drew
+*       nothing". A blank line has been ambiguous in both directions
+*       often enough to have cost more than a few grey characters do.
+*
+*       It comes off once this is settled.
+        |var Z="map: "+n+"x/"+k+(L?" L":" -");| &&
+        |if(IN.length)\{Z=Z+" - "+IN.join(" / ");\}| &&
+        |N.textContent=Z;\}| &&
 *       THE WAIT OVERLAY, ON AND OFF. It ships visible in the markup, so
 *       this only ever has to take it away - which means a snippet that
 *       never runs leaves the wait showing rather than a bare white box,
