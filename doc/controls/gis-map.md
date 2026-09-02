@@ -230,6 +230,31 @@ quote character at runtime with `String.fromCharCode(39)`. The snippet must also
 **expression**, because it is evaluated as `Function("return " + snippet)()` — hence the
 IIFE.
 
+### The basemap is not evidence
+
+The `satellite` basemap comes from Esri's own public services, not from RAK. A map that
+draws beautiful imagery therefore proves one thing only: **the ArcGIS API loaded**. It says
+nothing about whether the parcel layer answered — and a refused proxy call, a wrong layer
+alias and a `PARCELID` that does not match all look exactly the same: a lovely satellite
+view of Ras Al Khaimah at the default extent, with no parcel on it.
+
+So the snippet writes its outcome into a status line under the map — a sibling of the map
+div, because the `MapView` owns everything inside its own container and wipes it the moment
+it draws:
+
+| what the line says | what it means |
+| --- | --- |
+| *(empty)* | the map worked; nothing to report |
+| `3 parcel(s) drawn, zoomed to 313030024` | the layer answered and the view moved |
+| `No feature matched PARCELID IN ('…') - showing all instead` | the layer is reachable but that id is not in it — usually zero-padding |
+| `The parcel layer refused the query: …` | the proxy or the service said no, in its own words |
+
+And it zooms to the **extent**, expanded by 60%, rather than to the features: `goTo(features)`
+frames a single parcel edge to edge with no margin, so it reads as a shape rather than as a
+place. The geometry is requested in the view's own spatial reference rather than 4326,
+because unioning and expanding extents is arithmetic and must not cross a projection half
+way through.
+
 ### Telling the three failures apart
 
 `CONTAINER( )` ships with a visible "Loading the map…" line, because otherwise the three

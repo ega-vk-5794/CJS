@@ -650,6 +650,12 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     failed. Without it all three look identical.
         |.rakGisErr\{padding:1rem;color:#6a7484;font-size:.9rem;text-align:center;| &&
         |display:flex;align-items:center;justify-content:center;height:100%;\}| &&
+*     The status line UNDER the map. It is a sibling rather than content,
+*     because the MapView owns everything inside its own container and
+*     wipes it the moment it draws - which is exactly when there is
+*     something worth saying. Empty until the snippet fills it, and empty
+*     is the normal state on a map that simply worked.
+        |.rakGisNote\{color:#6a7484;font-size:.8rem;padding:.35rem .1rem 0;\}| &&
 *     WIDE - the unlaid path's half of ZCL_RAK_JOURNEY_RENDER->WIDE_FIELD( ).
 *     rakRowCn pins every child of a multi-column row to a fixed fraction of
 *     it; a composite control and a paragraph claim the whole line back. The

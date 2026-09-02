@@ -413,7 +413,11 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
 
     rv = |<div id="{ iv_div }" class="rakGisMap" | &&
          |style="width:100%;height:{ iv_height };">| &&
-         |<div class="rakGisErr">Loading the map...</div>|.
+         |<div class="rakGisErr">Loading the map...</div></div>| &&
+*        OUTSIDE THE MAP, deliberately. The MapView takes the whole of its
+*        container, so a status line inside it is wiped the instant the
+*        map draws - which is precisely when there is something to say.
+         |<div id="{ iv_div }_n" class="rakGisNote"></div>|.
 
 *   THE 1x1 TRANSPARENT GIF whose onload runs the snippet. A data: URI, so
 *   it costs no request and cannot fail to arrive; display:none, and an
@@ -426,7 +430,6 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
         |onload='{ iv_script }'>|.
     ENDIF.
 
-    rv = rv && |</div>|.
 
 *   BRACES ESCAPED, OR UI5 READS THEM AS DATA BINDINGS. This markup
 *   travels as an XML view ATTRIBUTE - sap.ui.core.HTML's content - and
@@ -486,6 +489,11 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
       |D.dataset.rakGis="1";| &&
 *     textContent, so no quoted markup is needed inside a quoted string.
       |function F(m)\{D.textContent=m;\}| &&
+*     THE NOTE LINE, a sibling of the map rather than its content: the
+*     MapView owns everything inside D, so anything written there is
+*     destroyed the moment the map draws.
+      |var NT=document.getElementById(C.div+"_n");| &&
+      |function N(m)\{if(NT)\{NT.textContent=m;\}\}| &&
       |D.textContent="Loading the map library...";|.
 
 *   LOADED BY SCRIPT ELEMENT. The API is a normal external script; it is
@@ -556,18 +564,56 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
 *   two things through queryFeatures, view.highlight and view.goTo. The
 *   difference is only that a details dialog asks for ONE parcel and the
 *   selector asks for all of them.
+*   ZOOMING TO THE EXTENT, NOT TO THE FEATURES, and saying what happened.
+*
+*   goTo( features ) frames a single parcel edge to edge with no margin,
+*   so it reads as a shape rather than as a place. Unioning the extents
+*   and expanding by 60% is what puts the surrounding streets back in.
+*   A geometry with no extent - a point - has nothing to expand, so that
+*   one case asks for a zoom level instead.
+*
+*   THE SPATIAL REFERENCE IS THE VIEW'S, not 4326. Map.js asks for 4326
+*   and hands whole FEATURES to goTo, which reprojects them; unioning and
+*   expanding extents means doing arithmetic on them, and that must not
+*   cross a projection half way through.
+*
+*   AND EVERY OUTCOME IS WRITTEN INTO THE NOTE LINE. A satellite basemap
+*   proves only that the ArcGIS API loaded - it comes from Esri, not from
+*   RAK - so a map that draws beautifully and shows no parcel is exactly
+*   what a refused proxy call, a wrong layer alias and a PARCELID that
+*   does not match all look like. N( ) is the difference between those
+*   three and another round of guessing.
     DATA(lv_go) =
       |vw.when(function()\{| &&
       |var q=C.focus?("PARCELID IN ("+Q+C.focus+Q+")"):W;| &&
-      |P.queryFeatures(\{where:q,outFields:["*"],returnGeometry:true,| &&
-      |outSpatialReference:4326\}).then(function(r)\{| &&
+      |function Z(w,again)\{| &&
+      |P.queryFeatures(\{where:w,outFields:["*"],returnGeometry:true,| &&
+      |outSpatialReference:vw.spatialReference\}).then(function(r)\{| &&
 *     \|\| - a literal pipe ends an ABAP string template, so JavaScript
 *     OR has to be escaped inside one. Unescaped, the literal closes
 *     mid-expression and the class will not activate.
-      |if(!r.features\|\|!r.features.length)\{return;\}| &&
-      |vw.goTo(\{target:r.features\});| &&
-      |vw.whenLayerView(P).then(function(lv)\{lv.highlight(r.features);\});| &&
-      |\}).catch(function()\{\});|.
+      |if(!r.features\|\|!r.features.length)\{| &&
+*     THE FOCUSED PARCEL MATCHED NOTHING. Fall back to the whole owned
+*     set once rather than leaving the map at its default extent with no
+*     highlight and no explanation - and say so, because a stored value
+*     and a GIS layer disagreeing about zero-padding looks identical to
+*     a layer that answered nothing at all.
+      |N("No feature matched "+w+(again?" - showing all instead":""));| &&
+      |if(again)\{Z(W,false);\}return;\}| &&
+      |var ex=null;| &&
+      |for(var i=0;i<r.features.length;i++)\{| &&
+      |var g=r.features[i].geometry;if(!g\|\|!g.extent)\{continue;\}| &&
+      |ex=ex?ex.union(g.extent):g.extent.clone();\}| &&
+      |var opt=ex?\{target:ex.expand(1.6)\}:\{target:r.features,zoom:18\};| &&
+      |vw.goTo(opt).catch(function()\{\});| &&
+      |vw.whenLayerView(P).then(function(lv)\{| &&
+      |lv.highlight(r.features);\}).catch(function()\{\});| &&
+      |N(r.features.length+" parcel(s) drawn"+| &&
+      |(C.focus?", zoomed to "+C.focus:""));| &&
+      |\}).catch(function(e)\{| &&
+      |N("The parcel layer refused the query: "+(e&&e.message?e.message:e));| &&
+      |\});\}| &&
+      |Z(q,C.focus?true:false);|.
 
 *   THE CLICK, with the one guard Map.js also has: a parcel the citizen
 *   does NOT own is ignored rather than selected. eB is z2ui5's backend
