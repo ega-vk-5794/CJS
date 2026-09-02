@@ -13,6 +13,7 @@ rather than read, it says so.
 | [services/request-context.md](services/request-context.md) | How to call a Gateway DPC with no Gateway, and the three failures that taught it |
 | [controls/shapeit-census.md](controls/shapeit-census.md) | All 110 ShapeIt control types against what the migrator does with each |
 | [controls/shapeit-reads.md](controls/shapeit-reads.md) | Which entity set each composite control reads, and with which filters |
+| [journeys/m016-change-building-regulations.md](journeys/m016-change-building-regulations.md) | One legacy journey walked end to end on the live portal — three steps, every field, the payment screen and a defect |
 | [gaps/open-questions.md](gaps/open-questions.md) | What is still missing, and which of it is blocked on access rather than effort |
 | [gaps/abapgit-operations.md](gaps/abapgit-operations.md) | Pull and stage hazards observed in this repository, with the evidence |
 

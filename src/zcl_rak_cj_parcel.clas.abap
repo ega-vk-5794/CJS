@@ -332,6 +332,13 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       pager( io_box = lo_box iv_pages = lv_pages ).
     ENDIF.
 
+*   The live list closes with this line. No link: the portal points it at a
+*   Home Page CJS has no address for, and a dead link is worse than none.
+    lo_box->text(
+      text  = t( iv_en = `Can't find a parcel? Your properties are listed on your home page.`
+                 iv_ar = `لا تجد القطعة؟ عقاراتك مدرجة في صفحتك الرئيسية.` )
+      class = 'sapUiTinyMarginTop' ).
+
     rv_drawn = abap_true.
   ENDMETHOD.
 
@@ -414,7 +421,34 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     DATA(lv_int) = cell( is_row = is_row iv_comp = 'INTRENO' ).
     DATA(lv_sec) = cell( is_row = is_row iv_comp = 'SECTORTEXT' ).
     DATA(lv_use) = cell( is_row = is_row iv_comp = 'LANDUSE' ).
+    DATA(lv_typ) = cell( is_row = is_row iv_comp = 'TYPE' ).
     DATA(lv_sel) = xsdbool( mo_e->val_get( mo_e->mv_pcl_field ) = lv_key ).
+
+*   THE LIVE CARD SHOWS 507060119, NOT 00000000000507060119. PropertiesSet
+*   returns the padded form and the legacy control strips it for display.
+*   Display only - LV_KEY, the value the citizen's press STORES, is left
+*   exactly as the service returned it, because a draft written by ShapeIt
+*   and one written by CJS have to hold the same value and which form
+*   ShapeIt stores could not be read off a screenshot. See
+*   doc/journeys/m016-change-building-regulations.md.
+    DATA(lv_show) = lv_key.
+    SHIFT lv_show LEFT DELETING LEADING '0'.
+    IF lv_show IS INITIAL.
+      lv_show = lv_key.
+    ENDIF.
+
+*   The badge the live card carries top right - Legacy / Waiver / Purchase
+*   on the three test parcels. An acquisition or ownership type whose
+*   component name is NOT confirmed against TS_PROPERTIES yet, so the
+*   candidates are tried in order and a miss simply draws no badge. Confirm
+*   the real name from ZRAK_CJ_API_DIAG's RTTI dump and cut this list down.
+    DATA(lv_badge) = cell( is_row = is_row iv_comp = 'ACQUISITIONTYPE' ).
+    IF lv_badge IS INITIAL.
+      lv_badge = cell( is_row = is_row iv_comp = 'OWNERSHIPTYPE' ).
+    ENDIF.
+    IF lv_badge IS INITIAL.
+      lv_badge = cell( is_row = is_row iv_comp = 'PARCELSTATUS' ).
+    ENDIF.
 
     DATA(lo_p) = io_box->panel(
       class          = 'sapUiTinyMarginBottom'
@@ -422,9 +456,23 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     DATA(lo_h) = lo_p->hbox( alignitems = 'Center' class = 'sapUiSmallMarginBeginEnd' ).
 
     DATA(lo_l) = lo_h->vbox( ).
-    lo_l->title( text = lv_key level = 'H5' ).
-    lo_l->text( text = |{ lv_sec }{ COND string( WHEN lv_sec IS NOT INITIAL AND lv_use IS NOT INITIAL
-                                                 THEN ` - ` ) }{ lv_use }| ).
+    DATA(lo_top) = lo_l->hbox( alignitems = 'Center' ).
+    lo_top->title( text = lv_show level = 'H5' ).
+    IF lv_badge IS NOT INITIAL.
+      lo_top->object_status( text  = lv_badge
+                             state = 'Information'
+                             class = 'sapUiTinyMarginBegin' ).
+    ENDIF.
+
+*   ONE meta line, pipe separated, the way the live card draws it: area,
+*   land use, type. Blank parts are dropped rather than leaving a stranded
+*   separator.
+    DATA lt_meta TYPE string_table.
+    IF lv_sec IS NOT INITIAL. APPEND lv_sec TO lt_meta. ENDIF.
+    IF lv_use IS NOT INITIAL. APPEND lv_use TO lt_meta. ENDIF.
+    IF lv_typ IS NOT INITIAL. APPEND lv_typ TO lt_meta. ENDIF.
+    DATA(lv_meta) = concat_lines_of( table = lt_meta sep = ` | ` ).
+    lo_l->text( text = lv_meta ).
 
     DATA(lo_r) = lo_h->hbox( alignitems = 'Center' justifycontent = 'End' class = 'sapUiTinyMarginBegin' ).
     lo_r->button(
