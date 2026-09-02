@@ -78,6 +78,33 @@ GET_BP partner: 3000401630
 
 Session key from `ZRAK_CJ_TESTKEY`, E10, September 2026.
 
+### And the run that proved the reads
+
+Construction and identity are one thing; rows are another. `ZRAK_CJ_API_DIAG`,
+same system, partner `3000401630`, guid derived from BUT000, key 64 characters:
+
+```
+request ctx  BOUND
+FeesSet     (ZCL_RAK_FEES_API->FEES)     0 row(s)
+TrackerSet  (ZCL_RAK_FEES_API->TRACKER)  0 row(s)
+ProjectSet  (ZCL_RAK_FEES_API->PROJECTS) 0 row(s)
+PropertiesSet Type=Parcel (->PARCELS)    3 row(s)
+  [1] PARCELID=00000000000313030024  LANDUSE=Residential And Commercial  PARCELSTATUS=Created ...
+  [2] PARCELID=00000000000202040187  LANDUSE=Residential And Commercial  SECTOR=2 ...
+  [3] PARCELID=00000000000507060119  LANDUSE=Residential - Private       SECTOR=5 ...
+```
+
+So `PROPERTIESSET_GET_ENTITYSET` — the method that dereferences the request
+context on its sixteenth line — runs to completion outside Gateway and returns
+the citizen's own parcels. The three zero-row reads are not failures: no case,
+journey or screen was passed, so `Intreno`/`JourneyId`/`ScreenId` filtered to
+nothing. A read that answers 0 rows with no message is a filter question.
+
+**One link is still untested.** The diag fills `TY_CTX` from its selection
+screen. A journey fills it in `ZCL_RAK_CJ_CTX=>BUILD( io_ctx )`, from
+`get_param( 'USERDATA' )` and `get_case( )`. Everything downstream of that
+structure is now proven; the structure's own construction at runtime is not.
+
 ### The fallback that turned out not to be needed
 
 `/IWBEP/IF_MGW_REQ_ENTITYSET` has **41 methods**. Implementing it directly —

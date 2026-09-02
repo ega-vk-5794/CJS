@@ -394,9 +394,19 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
   real structure and the session key written into
   `TECHNICAL_REQUEST-REQUEST_HEADER`. **Verified on E10**: `x-custom1` reaches the
   context and `GET_BP( )` returns `HISHAM.M` / `3000401630`. Construction proves
-  nothing — only a read does. What is still unproven is whether the *reads
-  themselves* return the right rows for a CJS caller — activate
-  `ZCL_RAK_PROPERTY_API` and run one journey before more is built on top.
+  nothing — only a read does.
+- **And the reads answer real rows. Settled too, on E10.** `ZRAK_CJ_API_DIAG`,
+  partner `3000401630`, guid derived from BUT000, session key 64 characters:
+  `PropertiesSet Type=Parcel` returned **three parcels** with `PARCELID`,
+  `LANDUSE`, `PARCELSTATUS`, `SECTOR` and validity dates filled — a real read
+  through `ZCL_RAK_PROPERTY_API`, through the request context, outside Gateway.
+  `FeesSet`/`TrackerSet`/`ProjectSet` answered 0 rows in the same run, which is
+  correct: no case, journey or screen was supplied, so their filters matched
+  nothing. **What is still unproven is the last link only** —
+  `ZCL_RAK_CJ_CTX=>BUILD( io_ctx )` reading the key out of the journey's own
+  `USERDATA` launch parameter at runtime. The diag builds `TY_CTX` by hand and
+  deliberately bypasses it. Run one migrated journey with a PARCEL field to
+  close that.
 - **`GET_EXPANDED_ENTITYSET` is NOT reachable yet, and that is what limits the layer.**
   It calls `IO_EXPAND->GET_CHILDREN( )` unguarded, so it needs an expand object the
   same way the entity-set reads needed a request context. Everything behind it is
