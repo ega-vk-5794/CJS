@@ -59,43 +59,70 @@ START-OF-SELECTION.
   ULINE.
 
 * ---------------------------------------------------------------- who
-* SEOMETAREL is the class/interface relation table. RELTYPE 1 is an
-* interface IMPLEMENTATION (2 is inheritance), and VERSION 1 is the active
-* version.
+* SEOMETAREL is the class/interface relation table.
 *
-* UNVERIFIED FROM THE ENVIRONMENT THIS WAS WRITTEN IN: the RELTYPE and
-* VERSION codes above are the documented ones but could not be confirmed
-* against a live system. If this prints nothing, drop the RELTYPE filter
-* first - a wrong constant here answers "no implementers" for an interface
-* that has plenty, which is the misleading direction.
-  SELECT clsname FROM seometarel
+* SELECT * AND ASSIGN COMPONENT, NOT NAMED COLUMNS - and after two shape
+* errors in this one file that is proportionate rather than fussy.
+*
+* Naming RELTYPE or VERSION in the SELECT list or the WHERE would put this
+* report's ability to COMPILE on my memory of a DDIC table I cannot open
+* from here. A column that turns out not to exist is not a wrong answer, it
+* is a syntax error - the same outcome IS_ABSTRACT and LS_PAR-TYPE just
+* produced. ASSIGN COMPONENT moves that to runtime, where a missing column
+* is reported and the report still runs.
+*
+* REFCLSNAME is the one column named, because it is what the table exists
+* for: SEOMETAREL relates a class to an interface or superclass. If even
+* that is wrong nothing here can work and the SELECT says so plainly.
+  SELECT * FROM seometarel
     WHERE refclsname = @p_intf
-      AND reltype    = 1
-      AND version    = 1
-    ORDER BY clsname
-    INTO TABLE @DATA(lt_impl).
+    ORDER BY PRIMARY KEY
+    INTO TABLE @DATA(lt_rel).
 
-  IF lt_impl IS INITIAL.
-    WRITE: / 'No implementers found with RELTYPE = 1 AND VERSION = 1.'.
-    WRITE: / 'Retrying without either filter - see the note in the source.'.
-    SKIP.
-    SELECT clsname, reltype, version FROM seometarel
-      WHERE refclsname = @p_intf
-      ORDER BY clsname
-      INTO TABLE @DATA(lt_any).
-    LOOP AT lt_any INTO DATA(ls_any).
-      lv_txt = |{ ls_any-clsname } (reltype { ls_any-reltype }, version { ls_any-version })|.
-      WRITE: / lv_txt.
-    ENDLOOP.
-    IF lt_any IS INITIAL.
-      WRITE: / 'Nothing at all. Check the interface name.'.
-    ENDIF.
+  IF lt_rel IS INITIAL.
+    WRITE: / 'No rows in SEOMETAREL for that name at all. Check the spelling.'.
     RETURN.
   ENDIF.
 
-  DESCRIBE TABLE lt_impl LINES lv_n.
-  lv_txt = |{ lv_n } implementer(s)|.
+  DESCRIBE TABLE lt_rel LINES lv_n.
+  lv_txt = |{ lv_n } SEOMETAREL row(s) referencing it|.
   WRITE: / lv_txt.
+  SKIP.
+
+* RELTYPE 1 is an interface IMPLEMENTATION and 2 is inheritance; VERSION 1
+* is active. Both are read through ASSIGN COMPONENT and both are REPORTED
+* rather than filtered on - so a row that is not what those codes are
+* believed to mean is still listed, with its codes visible, instead of
+* being silently dropped. A filter here answering "no implementers" for an
+* interface that has plenty is the misleading direction, and the one this
+* report exists to avoid.
+  DATA lt_impl TYPE TABLE OF seoclsname.
+
+  LOOP AT lt_rel ASSIGNING FIELD-SYMBOL(<rel>).
+    ASSIGN COMPONENT 'CLSNAME' OF STRUCTURE <rel> TO FIELD-SYMBOL(<cls>).
+    IF sy-subrc <> 0.
+      WRITE: / 'SEOMETAREL has no CLSNAME component - cannot continue.'.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_rt) = `?`.
+    DATA(lv_vr) = `?`.
+    ASSIGN COMPONENT 'RELTYPE' OF STRUCTURE <rel> TO FIELD-SYMBOL(<rt>).
+    IF sy-subrc = 0.
+      lv_rt = condense( CONV string( <rt> ) ).
+    ENDIF.
+    ASSIGN COMPONENT 'VERSION' OF STRUCTURE <rel> TO FIELD-SYMBOL(<vr>).
+    IF sy-subrc = 0.
+      lv_vr = condense( CONV string( <vr> ) ).
+    ENDIF.
+
+    lv_txt = |{ <cls> } · reltype { lv_rt } (1=implements, 2=inherits)| &&
+             | · version { lv_vr } (1=active)|.
+    WRITE: / lv_txt.
+
+    APPEND CONV seoclsname( <cls> ) TO lt_impl.
+  ENDLOOP.
+
   SKIP.
 
 * ------------------------------------------------- and what each one wants
@@ -111,7 +138,7 @@ START-OF-SELECTION.
   LOOP AT lt_impl INTO DATA(ls_impl).
 
     ULINE.
-    WRITE: / ls_impl-clsname.
+    WRITE: / ls_impl.
 
     DATA lo_cls TYPE REF TO cl_abap_classdescr.
     DATA lo_any TYPE REF TO cl_abap_typedescr.
@@ -122,7 +149,7 @@ START-OF-SELECTION.
 *   this report down with it.
     TRY.
         CALL METHOD cl_abap_typedescr=>describe_by_name
-          EXPORTING  p_name         = ls_impl-clsname
+          EXPORTING  p_name         = ls_impl
           RECEIVING  p_descr_ref    = lo_any
           EXCEPTIONS type_not_found = 1
                      OTHERS         = 2.
@@ -136,10 +163,21 @@ START-OF-SELECTION.
         CONTINUE.
     ENDTRY.
 
-*   ABSTRACT and the creation visibility decide whether it can be made at
-*   all, before any parameter matters.
-    lv_txt = |   abstract: { lo_cls->is_abstract } · create visibility: { lo_cls->create_visibility }|.
-    WRITE: / lv_txt.
+*   ABSTRACT AND THE CREATION VISIBILITY ARE NOT PRINTED, and the reason is
+*   the point of this whole report.
+*
+*   The first version read LO_CLS->IS_ABSTRACT and
+*   LO_CLS->CREATE_VISIBILITY. Neither is a component of
+*   CL_ABAP_CLASSDESCR - "Field IS_ABSTRACT is unknown" - so this report,
+*   written to stop a standard object's shape being guessed at, would not
+*   activate because its own author guessed at one. Only the components
+*   ZCL_RAK_CJ_REQ_CTX already proves in working code are used now:
+*   METHODS, and NAME / PARM_KIND / IS_OPTIONAL on a parameter row.
+*
+*   Nothing is lost that matters. A class that cannot be instantiated fails
+*   at the CREATE OBJECT the real factory will do, inside a TRY, and says
+*   so - which is the same answer one step later and does not depend on
+*   reading an attribute correctly.
 
     READ TABLE lo_cls->methods INTO DATA(ls_m) WITH KEY name = 'CONSTRUCTOR'.
     IF sy-subrc <> 0.
@@ -156,9 +194,40 @@ START-OF-SELECTION.
 
     WRITE: / '   CONSTRUCTOR:'.
     LOOP AT ls_m-parameters INTO DATA(ls_par).
+
+*     THE TYPE COMES FROM GET_METHOD_PARAMETER_TYPE( ), not from a
+*     component of the parameter row. LS_PAR has NAME, PARM_KIND and
+*     IS_OPTIONAL - the three ZCL_RAK_CJ_REQ_CTX reads - and no TYPE:
+*     "The data object LS_PAR does not have a component called TYPE."
+*     Same mistake as IS_ABSTRACT above, in the same report, on the same
+*     object. Once is carelessness; twice in one file is a habit, and the
+*     habit is writing against a remembered shape instead of the one the
+*     working code next door demonstrates.
+      DATA lo_par TYPE REF TO cl_abap_typedescr.
+      DATA lv_type TYPE string.
+      CLEAR: lo_par, lv_type.
+
+      CALL METHOD lo_cls->get_method_parameter_type
+        EXPORTING  p_method_name       = ls_m-name
+                   p_parameter_name    = ls_par-name
+        RECEIVING  p_descr_ref         = lo_par
+        EXCEPTIONS parameter_not_found = 1
+                   method_not_found    = 2
+                   OTHERS              = 3.
+      IF sy-subrc = 0 AND lo_par IS BOUND.
+*       ABSOLUTE_NAME rather than a formatted type: it is the one string
+*       that names any type unambiguously, including a local or generated
+*       one, and it is what a factory would have to be able to CREATE DATA
+*       against. If it reads \CLASS=... or \TYPE=%_T00... that parameter is
+*       the reason this candidate is unusable.
+        lv_type = lo_par->absolute_name.
+      ELSE.
+        lv_type = '(type not readable)'.
+      ENDIF.
+
       lv_txt = |     { ls_par-name } · kind { ls_par-parm_kind }| &&
                | · optional { ls_par-is_optional }| &&
-               | · type { ls_par-type_kind } { ls_par-type }|.
+               | · { lv_type }|.
       WRITE: / lv_txt.
     ENDLOOP.
 
