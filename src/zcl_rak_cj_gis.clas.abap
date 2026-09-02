@@ -210,10 +210,19 @@ CLASS zcl_rak_cj_gis DEFINITION
     CONSTANTS c_parcels    TYPE string VALUE IS INITIAL.
     CONSTANTS c_properties TYPE string VALUE IS INITIAL.
 
-*   The public ArcGIS CDN. Overridable the same way, because a RAK system
-*   that serves the API from its own portal will not reach this one.
-    CONSTANTS c_api TYPE string VALUE 'https://js.arcgis.com/4.29/'.
-    CONSTANTS c_css TYPE string VALUE 'https://js.arcgis.com/4.29/esri/themes/light/main.css'.
+*   The public ArcGIS CDN, pinned to 4.24 - the version the LIVE ShapeIt
+*   map loads, observed in its own network trace:
+*
+*     https://js.arcgis.com/4.24/esri/views/2d/layers/FeatureLayerView2D.js
+*
+*   Matching it is not cosmetic. The layer definitions, the token
+*   handshake and the renderer JSON all move between 4.x minors, and
+*   running the same layers on a different version is a difference nobody
+*   would think to look for. It also settles that the browser reaches
+*   js.arcgis.com directly, so the CDN is the right default rather than a
+*   portal-hosted copy. Overridable through ZRAK_T_CJ_TXT either way.
+    CONSTANTS c_api TYPE string VALUE 'https://js.arcgis.com/4.24/'.
+    CONSTANTS c_css TYPE string VALUE 'https://js.arcgis.com/4.24/esri/themes/light/main.css'.
 
 *   Map.js's own view constants.
     CONSTANTS c_lon  TYPE string VALUE '55.9504'.
