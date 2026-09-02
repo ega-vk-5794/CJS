@@ -156,11 +156,19 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
     mo_e->trace( |CREATE  screen { ls_step-bknd_screen } · blank guid · { lines( lt_ci ) } items| ).
 
     DATA(lv_t0) = mo_e->tick( ).
+*   THE PARTNER GOES WITH IT, and on the create it is not optional in
+*   practice. ZCL_EGA_CJ_FW_RO_ABS_V1->MAPPER( ) derives both Municipality
+*   partners from a BP item, and CREATE( ) validates the TR0800 one BEFORE
+*   creating the RE rental object - so a blank partner stops the create,
+*   nothing comes back, and the trace three lines below prints
+*   "returned draft (NOTHING)" while the citizen is told the application
+*   cannot be started. The bridge builds the BP item from this.
     mo_e->mo_bridge->post(
       EXPORTING
-        iv_screen = ls_step-bknd_screen
-        iv_guid   = ``
-        it_items  = lt_ci
+        iv_screen  = ls_step-bknd_screen
+        iv_guid    = ``
+        it_items   = lt_ci
+        iv_loginbp = mo_e->mv_loginbp
       IMPORTING
         ev_guid   = DATA(lv_guid)
         et_msg    = DATA(lt_m) ).

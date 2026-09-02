@@ -11,6 +11,21 @@ CLASS zcl_rak_qnv_bridge DEFINITION
                 it_items       TYPE zif_rak_journey=>tt_item
                 it_tables      TYPE /qnv/sb_tabl_def_tt OPTIONAL
                 it_attachments TYPE /qnv/sbuild_attachments_tt OPTIONAL
+"               The partner this session resolved, for the same reason READ
+"               needed it - and on POST the consequence is larger.
+"
+"               ZCL_EGA_CJ_FW_RO_ABS_V1->MAPPER( ) derives BOTH Municipality
+"               partners from an item called BP and nothing else, and
+"               CREATE( ) validates the TR0800 one BEFORE creating the RE
+"               rental object. A blank partner therefore stops the create
+"               (ZMSG_EGA_CJ 009 and 010), no INTRENO comes back, and the
+"               engine reports "The backend did not return a draft
+"               reference. The application cannot be started." - which names
+"               none of the cause.
+"
+"               Optional, and blank falls back to LOGINBP_DEV, so a journey
+"               that never passes it sends exactly what it sent before.
+                iv_loginbp     TYPE string OPTIONAL
       EXPORTING ev_guid        TYPE string
 "               The container case number, when THIS post created one. Blank on every
 "               post that did not - which is every post on a journey with no case, and
@@ -210,6 +225,60 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
        AND ms_config-backend-loginbp_dev IS NOT INITIAL.
       APPEND VALUE #( fieldname = 'LOGINBP_DEV' technicalname = 'LOGINBP_DEV'
                       value = ms_config-backend-loginbp_dev ) TO lt_item.
+    ENDIF.
+
+*   ---- BP: the item the Municipality BAdI derives its partners FROM ----
+*
+*   WITHOUT THIS A MUNICIPALITY JOURNEY CANNOT START AT ALL, and the error
+*   names none of it: "The backend did not return a draft reference. The
+*   application cannot be started."
+*
+*   The chain, end to end, in ZCL_EGA_CJ_FW_RO_ABS_V1:
+*
+*     MAPPER( )   derives BOTH partners from ONE item and nothing else -
+*                   mt_partner = VALUE #(
+*                     ( role_type = 'TR0800'
+*                       partner = VALUE #( mt_item_data[
+*                                   technicalname = 'BP' ]-value OPTIONAL ) )
+*                     ( role_type = 'TR0640' partner = ...same... ) ).
+*     CREATE( )   calls validate( mode = 'C' ) FIRST
+*     VALIDATE( ) with a blank TR0800 partner appends ZMSG_EGA_CJ 009, and
+*                   ZCL_EGA_MUN_CJ_ODATA_API( partner = blank )->properties
+*                   is then empty too, which appends 010
+*     CREATE( )   raise_message( ) -> stop -> RETURN, BEFORE create( )
+*
+*   so no RE rental object is created, no INTRENO comes back, the
+*   INTRENO_JOURNEY item below stays blank, and the engine correctly
+*   reports that it has no draft reference. Every symptom is one missing
+*   item.
+*
+*   THE PAYLOAD CARRIED CJS_LOGINBP AND NOT BP. Those are not the same
+*   name and the BAdI reads only the second. LOGINBP_DEV, CJS_ROLEBP and
+*   CJS_ROLE were all here; the one the Municipality abstract actually
+*   keys on was not.
+*
+*   IV_LOGINBP FIRST, LOGINBP_DEV SECOND. IV_LOGINBP is the partner the
+*   engine resolved for this session; LOGINBP_DEV is the dev-only
+*   `&loginbp=` override and is what CJS_LOGINBP above sends. Preferring
+*   the resolved one means a real session posts the real partner and a dev
+*   override still works.
+*
+*   GUARDED, so a journey that configures its own BP field wins. A second
+*   item with the same technical name would make
+*   `mt_item_data[ technicalname = 'BP' ]` ambiguous - it reads the FIRST -
+*   and which one that is would depend on insertion order.
+*
+*   SAFE FOR THE OTHER FAMILIES. The DOK and EPDA abstracts map items to
+*   characteristics through their own config table by TECHNICALNAME, so an
+*   item no row names is ignored rather than written anywhere.
+    IF NOT line_exists( lt_item[ technicalname = 'BP' ] ).
+      DATA(lv_bp) = COND string( WHEN iv_loginbp IS NOT INITIAL
+                                 THEN iv_loginbp
+                                 ELSE ms_config-backend-loginbp_dev ).
+      IF lv_bp IS NOT INITIAL.
+        APPEND VALUE #( fieldname = 'BP' technicalname = 'BP'
+                        value = lv_bp ) TO lt_item.
+      ENDIF.
     ENDIF.
 
     APPEND VALUE #( fieldname = 'CJS_LOGINBP' technicalname = 'CJS_LOGINBP'

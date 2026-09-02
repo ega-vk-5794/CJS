@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD mun-2. Missing this line means SAP has an older copy - see
+*& BUILD mun-3. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -98,7 +98,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   the thing being looked at is the thing that was just written, which
 *   is the question that has to be answered FIRST every time and until
 *   now could only be inferred. Bump it with the header stamp.
-    CONSTANTS c_build TYPE string VALUE 'mun-2'.
+    CONSTANTS c_build TYPE string VALUE 'mun-3'.
 
     METHODS constructor
       IMPORTING io_engine TYPE REF TO zcl_rak_journey_engine.
@@ -1882,10 +1882,20 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   none of these", which is a different statement from "CJS cannot fetch
 *   them yet" - and the second one is true.
     lo_v->message_strip(
+*     GET_EXPANDED_ENTITY, SINGULAR - and this line said ENTITYSET, which
+*     is how a wrong claim ends up on a citizen's screen. The live URL
+*     carries a KEY:
+*
+*       PropertiesSet(Intreno='…',Partnerguid=guid'…')?$expand=…
+*
+*     and a key in the path routes to GET_EXPANDED_ENTITY. The plural
+*     method is the one known to dereference IO_EXPAND->GET_CHILDREN( )
+*     unguarded; whether the singular one wants an expand object at all is
+*     unread, so this no longer asserts that it does.
       text     = |{ t( iv_en = `Not available yet: ` iv_ar = `غير متاح بعد: ` ) }| &&
                  |{ iv_exp } | &&
-                 |{ t( iv_en = `is read through GET_EXPANDED_ENTITYSET, which needs an expand object.`
-                       iv_ar = `يُقرأ عبر GET_EXPANDED_ENTITYSET ويحتاج إلى كائن توسيع.` ) }|
+                 |{ t( iv_en = `comes from the PropertiesSet(key) $expand read, which is not wired yet.`
+                       iv_ar = `يأتي من قراءة PropertiesSet(key) بـ $expand، وهي غير مُهيأة بعد.` ) }|
       type     = 'Information'
       showicon = abap_true
       class    = 'sapUiTinyMarginTop' ).
