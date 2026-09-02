@@ -630,14 +630,41 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         ls_map = api( )->map_url( iv_parcel = mo_e->mv_pcl_det ).
       CATCH cx_root ##NO_HANDLER.
     ENDTRY.
-*   URL FIRST, GISURL SECOND. MapUrlSet answers three properties and they
-*   are not interchangeable: the read is filtered on Parcel, so URL is the
-*   one that can carry it, while GISURL is the viewer's own address - which
-*   is why framing GISURL rendered the GIS application's splash logo and no
-*   parcel. If a deployment only fills GISURL the frame still works, it
-*   just opens the viewer at its default extent.
-    DATA(lv_src) = COND string( WHEN ls_map-url IS NOT INITIAL
-                                THEN ls_map-url ELSE ls_map-gisurl ).
+*   COMPOSE, DO NOT CHOOSE. MapUrlSet answers three properties and neither
+*   of the two addresses is usable on its own:
+*
+*     GISURL  absolute, the viewer's own address - framed alone it opens
+*             the GIS application at its default extent, which is the
+*             splash logo and no parcel
+*     URL     the parcel's path WITHIN that viewer, and RELATIVE - framed
+*             alone the browser resolves it against this SAP host and gets
+*             SAP's own 404 page inside the dialog
+*
+*   Both were tried in that order and each produced its own wrong answer.
+*   So: whichever is absolute is the base, and a relative sibling is hung
+*   off it. Tested by scheme rather than by which property it came from,
+*   because a deployment that fills URL absolutely then still works.
+    DATA(lv_src) = ``.
+    DATA(lv_abs) = COND string( WHEN ls_map-url CP 'http*' THEN ls_map-url
+                                WHEN ls_map-gisurl CP 'http*' THEN ls_map-gisurl ).
+    DATA(lv_rel) = COND string( WHEN ls_map-url CP 'http*' THEN ``
+                                WHEN ls_map-url IS NOT INITIAL THEN ls_map-url ).
+
+    IF lv_abs IS NOT INITIAL AND lv_rel IS NOT INITIAL.
+*     Exactly one slash at the join, whichever side brought it.
+      DATA(lv_base) = lv_abs.
+      WHILE strlen( lv_base ) > 0 AND substring( val = lv_base
+                                                 off = strlen( lv_base ) - 1 ) = '/'.
+        lv_base = substring( val = lv_base len = strlen( lv_base ) - 1 ).
+      ENDWHILE.
+      DATA(lv_tail) = lv_rel.
+      WHILE strlen( lv_tail ) > 0 AND substring( val = lv_tail len = 1 ) = '/'.
+        lv_tail = substring( val = lv_tail off = 1 ).
+      ENDWHILE.
+      lv_src = |{ lv_base }/{ lv_tail }|.
+    ELSE.
+      lv_src = lv_abs.
+    ENDIF.
 
 *   The token rides the URL when the viewer expects one and the URL does
 *   not already carry it. Appended with the right separator rather than
@@ -687,14 +714,22 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     is broken" and "the map opens in a tab".
       lo_map->link( text   = t( iv_en = `Open the map in a new tab`
                                 iv_ar = `افتح الخريطة في تبويب جديد` )
-                    href   = lv_src
+                    href   = lv_esc
                     target = '_blank'
                     icon   = 'sap-icon://map'
                     class  = 'sapUiTinyMarginTop' ).
     ELSE.
-      lo_map->message_strip( text = t( iv_en = `No map is registered for this parcel`
-                                       iv_ar = `لا توجد خريطة مسجلة لهذه القطعة` )
-                             type = 'Information' showicon = abap_true ).
+*     NAMED, not blank. MapUrlSet answered something - it just could not
+*     be composed into an address, and the three values say which of them
+*     is missing far faster than another round trip would.
+      lo_map->message_strip(
+        text     = |{ t( iv_en = `No map is registered for this parcel`
+                         iv_ar = `لا توجد خريطة مسجلة لهذه القطعة` ) }| &&
+                   | (url={ ls_map-url } gis={ ls_map-gisurl }| &&
+                   | token={ COND string( WHEN ls_map-token IS NOT INITIAL
+                                          THEN 'yes' ELSE 'no' ) })|
+        type     = 'Information'
+        showicon = abap_true ).
     ENDIF.
 
 *   ---- the six behind GET_EXPANDED_ENTITYSET. Drawn with the LIVE
