@@ -100,7 +100,8 @@ CLASS zcl_rak_cj_parcel DEFINITION
                               is_row TYPE any.
     METHODS pager   IMPORTING io_box   TYPE REF TO z2ui5_cl_xml_view
                               iv_pages TYPE i.
-    METHODS pick    IMPORTING iv_key TYPE string.
+    METHODS pick    IMPORTING iv_field TYPE string
+                              iv_key   TYPE string.
 
 *   One tab of the details dialog whose data is not reachable yet. The
 *   COLUMNS are the live dialog's own headers, so the tab that appears
@@ -262,7 +263,8 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                       icon  = 'sap-icon://decline'
                       type  = 'Transparent'
                       class = 'sapUiTinyMarginBegin'
-                      press = mo_e->mo_client->_event( |{ c_pfx }PICK_| ) ).
+                      press = mo_e->mo_client->_event(
+                                |{ c_pfx }PICK_{ is_field-name }~| ) ).
     ENDIF.
 
     IF is_field-readonly = abap_true.
@@ -430,7 +432,13 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                                               ELSE t( iv_en = `Select`   iv_ar = `اختيار` ) )
       icon  = COND #( WHEN lv_sel = abap_true THEN 'sap-icon://accept' ELSE '' )
       type  = COND #( WHEN lv_sel = abap_true THEN 'Success' ELSE 'Emphasized' )
-      press = mo_e->mo_client->_event( |{ c_pfx }PICK_{ lv_key }| ) ).
+*     THE FIELD TRAVELS WITH THE EVENT. A step can carry more than one of
+*     these - M012 draws PARCELSELECTOR and ADDPRCLCTL side by side - and
+*     MV_PCL_FIELD holds only the one that rendered LAST, so a press on the
+*     first list would have written the second list's field. The name is in
+*     the event instead, and MV_PCL_FIELD is only the fallback.
+      press = mo_e->mo_client->_event(
+                |{ c_pfx }PICK_{ mo_e->mv_pcl_field }~{ lv_key }| ) ).
 
 *   Full Details needs the INTRENO, which is the entity key the $expand
 *   read is addressed with. A row without one gets no link rather than a
@@ -468,14 +476,18 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 
 
   METHOD pick.
-    IF mo_e->mv_pcl_field IS INITIAL.
+    DATA(lv_f) = iv_field.
+    IF lv_f IS INITIAL.
+      lv_f = mo_e->mv_pcl_field.
+    ENDIF.
+    IF lv_f IS INITIAL.
       RETURN.
     ENDIF.
-    mo_e->val_set( iv_name = mo_e->mv_pcl_field iv_value = iv_key ).
-    mo_e->set_field_state( iv_name = mo_e->mv_pcl_field iv_state = 'None' iv_text = '' ).
+    mo_e->val_set( iv_name = lv_f iv_value = iv_key ).
+    mo_e->set_field_state( iv_name = lv_f iv_state = 'None' iv_text = '' ).
     IF mo_e->mo_logic IS BOUND.
       TRY.
-          mo_e->mo_logic->on_change( io_ctx = mo_e iv_field = mo_e->mv_pcl_field ).
+          mo_e->mo_logic->on_change( io_ctx = mo_e iv_field = lv_f ).
         CATCH cx_root ##NO_HANDLER.
       ENDTRY.
     ENDIF.
@@ -516,8 +528,9 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       ENDIF.
 
     ELSEIF lv CP 'PICK_*'.
-*     'PCLPICK_' with nothing after it is the Clear button.
-      pick( substring( val = lv off = 5 ) ).
+*     <field>~<key>. A trailing empty key is the Clear button.
+      SPLIT substring( val = lv off = 5 ) AT '~' INTO DATA(lv_fld) DATA(lv_key).
+      pick( iv_field = lv_fld iv_key = lv_key ).
 
     ELSEIF lv CP 'DET_*'.
       mo_e->mv_pcl_det = substring( val = lv off = 4 ).
@@ -547,13 +560,20 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   tab's content is already in this view - a round trip here would repaint
 *   the page to show markup the client already has. SELECTEDKEY only says
 *   which tab opens first.
+*   ->ITEMS( ) AGAIN, for the same class of reason as the SegmentedButton
+*   below: UI5's XML parser reports "Cannot add direct child without
+*   default aggregation defined for control sap.m.IconTabBar", so a filter
+*   written as a direct child kills the whole fragment. Both aggregations
+*   here are named explicitly rather than relying on a default - a control
+*   that HAS one loses nothing by being told, and one that has not takes
+*   the app down.
     DATA(lo_bar) = lo_c->icon_tab_bar(
-      selectedkey = COND #( WHEN mo_e->mv_pcl_tab IS INITIAL THEN 'MAP' ELSE mo_e->mv_pcl_tab ) ).
+      selectedkey = COND #( WHEN mo_e->mv_pcl_tab IS INITIAL THEN 'MAP' ELSE mo_e->mv_pcl_tab ) )->items( ).
 
 *   ---- Map. The ONLY tab CJS can serve today, because MapUrlSet has a
 *   flat _GET_ENTITYSET and the other six are $expand children.
     DATA(lo_map) = lo_bar->icon_tab_filter(
-      key = 'MAP' text = t( iv_en = `Map` iv_ar = `الخريطة` ) )->vbox( ).
+      key = 'MAP' text = t( iv_en = `Map` iv_ar = `الخريطة` ) )->content( )->vbox( ).
     DATA ls_map TYPE zcl_rak_property_api=>ty_map_res.
     TRY.
         ls_map = api( )->map_url( iv_parcel = mo_e->mv_pcl_det ).
@@ -604,7 +624,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 
 
   METHOD blocked_tab.
-    DATA(lo_v) = io_bar->icon_tab_filter( key = iv_key text = iv_text )->vbox( ).
+    DATA(lo_v) = io_bar->icon_tab_filter( key = iv_key text = iv_text )->content( )->vbox( ).
 
     DATA(lo_t) = lo_v->table( ).
     DATA(lo_h) = lo_t->columns( ).

@@ -770,8 +770,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *       consent paragraph as the checkbox's value and the box renders ticked
 *       and satisfies its own required check - the citizen consents to the
 *       declaration by loading the page, and nothing anywhere says so.
+*       An API: directive is the field's SOURCE, never its value - exactly
+*       as TEXT: is its wording. Seeded, a migrated parcel selector opened
+*       showing "API:PROPERTY:PropertiesSet::Type=Parcel" as the citizen's
+*       current selection, and would have posted that string as the chosen
+*       parcel. Same guard, same reason, one line apart.
         IF ls_field-default IS NOT INITIAL
            AND ls_field-default NP 'TEXT:*'
+           AND ls_field-default NP 'API:*'
            AND ls_field-type <> 'LINK'
            AND ls_field-type <> 'EDITABLE_TABLE'
            AND ls_field-type <> 'RO_PANEL'
