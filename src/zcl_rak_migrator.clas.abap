@@ -2342,6 +2342,20 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
             ENDIF.
           WHEN c_container.
             " keep pending - a label often sits in an HBOX just before its field
+
+          WHEN c_backend OR c_stage.
+*           AN INVISIBLE ROW DOES NOT BREAK A PAIR. A legacy screen
+*           interleaves its JOURNEYTYPE / INTRENO_JOURNEY carriers and its
+*           stage list between the visible controls. Clearing the pending
+*           caption on one of those is how "Parcel Selection:" ended up
+*           rendering as a field of its own - a grey disabled box - while
+*           RAKPARCELSELECTOR next to it was labelled "Parcelselector",
+*           from its own field name, because it never received the caption
+*           sitting two rows above it.
+*
+*           The citizen cannot see these rows, so they cannot be what
+*           separates a caption from the control it belongs to.
+
           WHEN OTHERS.
             CLEAR has_pend.
         ENDCASE.

@@ -217,6 +217,24 @@ CLASS zcl_rak_journey_engine DEFINITION
       RETURNING VALUE(rv) TYPE abap_bool.
 
   PRIVATE SECTION.
+
+*   ---- E10 CLIENT 200 ONLY: a borrowed portal session -----------------
+*   A journey opened from the Studio or straight from the URL carries no
+*   &userdata= and no &loginbp=, so RESOLVE_IDENTITY( ) resolves nobody -
+*   and then EVERY backend call goes out anonymous. The legacy CREATE
+*   answers cleanly with no draft reference, which surfaces as "The
+*   backend did not return a draft reference", and every wrapper API read
+*   filters on a blank partner and returns nothing. Neither says why.
+*
+*   SIM_USERDATA( ) borrows the active ZEGA_T_CJ_US_LOG row for C_SIM_USER
+*   - read only, never written; the rule is to mimic a portal login, not
+*   to create one. Both SY-SYSID and SY-MANDT are checked, so a transport
+*   anywhere else resolves nobody exactly as before.
+    CONSTANTS c_sim_sysid TYPE sy-sysid VALUE 'E10'.
+    CONSTANTS c_sim_mandt TYPE sy-mandt VALUE '200'.
+    CONSTANTS c_sim_user  TYPE zega_t_cj_us_log-id VALUE 'HISHAM.M'.
+
+    METHODS sim_userdata RETURNING VALUE(rv) TYPE string.
 *   IV_NAME shape '<GRID_FIELD>.<COL>#<ROW>' - the same compound name
 *   ON_CHANGE already receives for a grid cell (see the GRIDCHG_ branch
 *   in Z2UI5_IF_APP~MAIN). SET_FIELD_STATE( ) dispatches here whenever
@@ -1830,6 +1848,37 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD sim_userdata.
+    IF sy-sysid <> c_sim_sysid OR sy-mandt <> c_sim_mandt.
+      RETURN.
+    ENDIF.
+
+    DATA lv_user TYPE zega_t_cj_us_log-id.
+    lv_user = to_upper( VALUE #( mt_param[ key = 'SIMUSER' ]-value OPTIONAL ) ).
+    IF lv_user IS INITIAL.
+      lv_user = c_sim_user.
+    ENDIF.
+
+*   The ACTIVE row. An inactive one is a previous session and matches
+*   nothing on the way back.
+    SELECT SINGLE user_key FROM zega_t_cj_us_log
+      WHERE id = @lv_user AND active = @abap_true
+      INTO @DATA(lv_key).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+*   THE ENVELOPE, NOT THE BARE KEY. Two classes are called GET_BP( ) and
+*   they take different things: ZCL_EGA_CJ_UTILITY - the one the engine
+*   calls just below, and the one the legacy BAdI calls - deserializes
+*   &userdata= as JSON and matches ZEGA_T_CJ_US_LOG on its EBP member,
+*   while the DPC's own GET_BP( ) takes the key verbatim. Handing the bare
+*   key to the first matches no row and resolves nobody, silently.
+*   ZCL_RAK_CJ_CTX=>SESSION_KEY_OF( ) unwraps this again for the second.
+    rv = |\{"ebp":"{ lv_key }","rolebp":"","rolename":""\}|.
+  ENDMETHOD.
+
+
   METHOD set_field_state.
 *   A grid cell, not a scalar field - '<GRID_FIELD>.<COL>#<ROW>', the
 *   same compound name ON_CHANGE already gets for one (see GRIDCHG_ in
@@ -2364,6 +2413,25 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD resolve_identity.
+
+*   FIRST, so everything below - GET_BP( ), MV_LOGINBP, and the USERDATA
+*   the bridge posts to the legacy backend - runs off it exactly as it
+*   would from a real portal launch. Nothing downstream knows the
+*   difference, which is the point: the simulated path must not be a
+*   second code path.
+    IF mv_userdata IS INITIAL.
+      DATA(lv_sim) = sim_userdata( ).
+      IF lv_sim IS NOT INITIAL.
+        mv_userdata = lv_sim.
+        READ TABLE mt_param ASSIGNING FIELD-SYMBOL(<sim>) WITH KEY key = 'USERDATA'.
+        IF sy-subrc = 0.
+          <sim>-value = lv_sim.
+        ELSE.
+          APPEND VALUE #( key = 'USERDATA' value = lv_sim ) TO mt_param.
+        ENDIF.
+        trace( |IDENT   simulated session for { c_sim_user } - { c_sim_sysid }/{ c_sim_mandt } only| ).
+      ENDIF.
+    ENDIF.
 
     mv_loginbp = bp_of( VALUE #( mt_param[ key = 'LOGINBP' ]-value OPTIONAL ) ).
     mv_rolebp  = bp_of( VALUE #( mt_param[ key = 'ROLEBP' ]-value OPTIONAL ) ).
