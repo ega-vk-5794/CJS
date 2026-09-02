@@ -103,9 +103,15 @@ early and the read comes back empty rather than dumping. `GET( )` also caches on
 the key, not just on the object: a context carries its headers from
 construction, so one built for a blank key cannot answer for a real one.
 
-### The launch value is an envelope, not the key
+### What the launch carries — CJS and the portal differ
 
-**`&userdata=` is JSON, and the two `GET_BP( )`s disagree about it.**
+**A CJS journey launch passes the RAW KEY.** That is the normal case and it
+goes straight into `x-custom1` with no processing. Nothing below applies to it.
+
+The rest of this section is about the legacy shape, which the same parameter
+carries on a portal launch.
+
+**`&userdata=` is JSON there, and the two `GET_BP( )`s disagree about it.**
 
 `ZCL_EGA_CJ_UTILITY=>GET_BP( qv_key )` — the one the *engine* already calls —
 deserializes it into `{ ebp, rolebp, rolename }` and matches
@@ -123,6 +129,13 @@ still works.
 
 This was got wrong once, in the commit that first added the header, and caught
 by asking whether an existing class already did the job.
+
+**Note the asymmetry it leaves.** The JSON envelope also carries `ROLEBP` and
+`ROLENAME`, and `ZCL_EGA_CJ_UTILITY=>GET_BP( )` returns both straight out of it
+without touching the database. A CJS launch passing only the key does not carry
+them, so `ZCL_RAK_CJ_CTX` takes the role from `GET_PARAM( 'ROLE' )` instead. If
+a DPC path is ever found that needs the role **BP** specifically, it will not
+come from the session.
 
 ### There is a second door
 
