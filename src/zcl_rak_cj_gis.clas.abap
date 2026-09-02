@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_gis DEFINITION
 *&---------------------------------------------------------------------*
 *& RakMap.Map, rebuilt as a CJS renderer.
 *&
-*& BUILD map-fix-8.  Missing this line means SAP has an older copy - see
+*& BUILD map-fix-9.  Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-8 contains: the proxy registered as a urlUtils.addProxyRule( )
 *& rather than as cf.request.alwaysUseProxy, which is a 3.x property that
@@ -14,6 +14,14 @@ CLASS zcl_rak_cj_gis DEFINITION
 *& fetched direct from a dotless alias and died as "Failed to fetch". The
 *& note line now also reports e.details.url, which is what tells a rule
 *& that did not apply from a proxy that refused.
+*& map-fix-9 contains: the PROXY STATE on that same note line. The URL
+*& alone was one round short - a blank proxy, a refused rule and a rule
+*& on the wrong host all end as the same "Failed to fetch" against the
+*& layer host, and it is not established whether ArcGIS reports
+*& DETAILS.URL before or after its own proxy rewrite. PX says which of
+*& the three it was, and asks GETPROXYRULE( ) whether the rule really
+*& covers the layer URL rather than trusting that ADDPROXYRULE( )
+*& returning quietly means it matched.
 *& map-fix-3 contains: VALUE IS INITIAL on the two blank string constants
 *& (VALUE '' does not activate, and the class then has no active version,
 *& so every CALLER reports "Method X is unknown"), one ENDMETHOD after
@@ -554,9 +562,33 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
 *     prefix and matches on what follows the scheme, so H goes in rather
 *     than O. A rule carrying https:// matches nothing, and fails every
 *     bit as silently as the flag it replaces.
+*     AND THE PROXY STATE IS REPORTED, not assumed. Three things can go
+*     wrong here and the first round of this fix could not tell them
+*     apart, because every one of them ends as the same "Failed to
+*     fetch" against the layer host:
+*
+*       C.proxy is blank      - MapUrlSet answered no viewer page, so
+*                               there is nothing to route THROUGH. The
+*                               whole block below is skipped and no rule
+*                               is ever added.
+*       the rule was refused  - addProxyRule threw. The first version
+*                               caught that into an empty block, which
+*                               made a refused rule and a missing proxy
+*                               identical on screen. That was a blind
+*                               spot of this class's own making.
+*       the rule did not match- registered, but not against the host the
+*                               layer is actually fetched from.
+*
+*     PX carries whichever it was into the failure note. GETPROXYRULE( )
+*     is asked whether the rule really covers the layer URL - the only
+*     answer that comes from the API rather than from our own hopes -
+*     and guarded on TYPEOF because it is not worth another activation
+*     round if this version does not expose it.
+      |var PX="no proxy configured - nothing to route through";| &&
       |if(C.proxy)\{cf.request.proxyUrl=C.proxy;| &&
-      |try\{UU.addProxyRule(\{urlPrefix:H,proxyUrl:C.proxy\});\}| &&
-      |catch(e2)\{\}| &&
+      |try\{UU.addProxyRule(\{urlPrefix:H,proxyUrl:C.proxy\});| &&
+      |PX="rule "+H+" -> "+C.proxy;\}| &&
+      |catch(e2)\{PX="rule refused: "+(e2&&e2.message?e2.message:e2);\}| &&
 *     And the property layer, when it sits on a different host. The same
 *     host is the normal case, and a duplicate rule is refused, so this
 *     is guarded rather than assumed.
@@ -565,7 +597,10 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
       |var H2=O2.substring(O2.indexOf("//")+2);| &&
       |if(H2&&H2!==H)\{| &&
       |try\{UU.addProxyRule(\{urlPrefix:H2,proxyUrl:C.proxy\});\}| &&
-      |catch(e3)\{\}\}\}\}| &&
+      |catch(e3)\{\}\}\}| &&
+      |if(typeof UU.getProxyRule==="function")\{| &&
+      |PX=PX+(UU.getProxyRule(C.parcels)?" (matched)":" (NOT matched)");\}| &&
+      |\}| &&
 *     The token as well, when there is one. Belt and braces: the proxy is
 *     what actually authenticates on this system, and MapUrlSet's TOKEN
 *     column is empty - but a system that does answer one should use it.
@@ -667,7 +702,11 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
       |N("The parcel layer refused the query: "+| &&
       |(e&&e.message?e.message:e)+| &&
       |(dt.httpStatus?" (HTTP "+dt.httpStatus+")":"")+| &&
-      |(dt.url?" - tried "+dt.url:" - no URL reported"));| &&
+      |(dt.url?" - tried "+dt.url:" - no URL reported")+| &&
+*     AND THE PROXY STATE. The URL alone said "the rule did not apply"
+*     but not why, which is one round short: a blank proxy, a refused
+*     rule and a rule on the wrong host all reach this same line.
+      |" - proxy: "+PX);| &&
       |\});\}| &&
       |Z(q,C.focus?true:false);|.
 
