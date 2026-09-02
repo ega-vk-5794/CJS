@@ -6,6 +6,13 @@ CLASS zcl_rak_cj_gis DEFINITION
 *&---------------------------------------------------------------------*
 *& RakMap.Map, rebuilt as a CJS renderer.
 *&
+*& BUILD map-fix-3.  Missing this line means SAP has an older copy - see
+*& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
+*& map-fix-3 contains: VALUE IS INITIAL on the two blank string constants
+*& (VALUE '' does not activate, and the class then has no active version,
+*& so every CALLER reports "Method X is unknown"), one ENDMETHOD after
+*& SCRIPT( ) rather than two, and PREFERRED PARAMETER on CONTAINER( ).
+*&
 *& THE LEGACY MAP IS NOT AN IFRAME. That was the assumption for six
 *& rounds and it was wrong. util/Map.js in the ShapeIt app is a
 *& sap.ui.core.Control whose renderer writes one bare <div> and whose

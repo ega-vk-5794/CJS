@@ -6,6 +6,12 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
+*& BUILD map-fix-3.  Missing this line means SAP has an older copy - see
+*& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
+*& This class will not compile until ZCL_RAK_CJ_GIS is ACTIVE: a class
+*& with no active version has no methods, so its callers report
+*& "Method SCRIPT is unknown or PROTECTED or PRIVATE" instead.
+*&
 *& THE LEGACY CONTROL IS NOT A DROPDOWN, and that is the whole reason this
 *& class exists. Screenshots of the live control (doc/controls/
 *& shapeit-reads.md) show a paginated card list with Owned / Property

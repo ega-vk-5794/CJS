@@ -1,5 +1,17 @@
 *&---------------------------------------------------------------------*
 *& Report ZRAK_CJ_MAP_DIAG
+*&
+*& BUILD map-fix-3.  IF THIS LINE IS NOT ON YOUR SCREEN, SAP HAS AN OLDER
+*& COPY and the errors you are looking at were fixed in git. abapGit's
+*& pull dialog pre-ticks only 'Add local object' rows; every 'Overwrite
+*& local object' row arrives UNTICKED and the ticks reset each time the
+*& dialog opens - so an object that already exists is skipped unless it is
+*& ticked by hand, and the pull still reports success.
+*&
+*& map-fix-3 contains: CONV string( ) on BAPIRET2-MESSAGE (a DDIC CHAR 220
+*& bound by reference to a TYPE string parameter), the probe's six result
+*& variables declared up front instead of inline inside a functional call,
+*& and PREFERRED PARAMETER on CUT( ) and WRAP( ).
 *&---------------------------------------------------------------------*
 * THE MAP HAS FAILED SEVEN TIMES AND EVERY ATTEMPT WAS A GUESS. This
 * report stops guessing. It prints what MapUrlSet actually answers, then
