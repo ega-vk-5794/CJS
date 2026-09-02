@@ -114,8 +114,21 @@ CLASS zcl_rak_qnv_bridge DEFINITION
 
 *   One definition row's field control, flattened into KV rows. The shape
 *   is READ( )'s business and nobody else's.
+*   TYPED, not generic. IS_DEF was TYPE ANY and the static read of
+*   IS_DEF-FIELDNAME is then illegal - "does not have a structure and
+*   therefore does not have a component called FIELDNAME".
+*
+*   LINE OF the TABLE type, never a guessed row-type name. The table type
+*   is already named in READ( )'s own LT_DEF, so it is proven to exist;
+*   /QNV/SBUILD_DEFINITION_ST would only be the conventional spelling of
+*   its row, and this environment cannot open a /QNV/ object to check. The
+*   rule that keeps being re-learned here: do not hand-write the shape of
+*   a standard object you cannot open - derive it.
+*
+*   The columns this method is UNCERTAIN of stay dynamic. That was always
+*   the point of ASSIGN COMPONENT here, not the parameter's type.
     METHODS ctrl_of
-      IMPORTING is_def  TYPE any
+      IMPORTING is_def  TYPE LINE OF /qnv/sbuild_definition_tt
       CHANGING  ct_ctrl TYPE zif_rak_journey=>tt_kv.
 
     CONSTANTS c_fm_read_table TYPE string VALUE 'ZFM_EGA_CJ_FW_READ_TABLE_DATAN'.
