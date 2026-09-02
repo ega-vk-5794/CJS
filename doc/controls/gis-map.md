@@ -85,6 +85,75 @@ viewer, and on a retry interval that gives up after ten attempts.
 This remains the fallback path in the details dialog. It is a real page and a real map; it
 is simply not the control the parcel dialog was drawing.
 
+## Why it never worked, for six rounds
+
+Not the URL, not the token, not CSP. **A `<script>` block inside `html( )` never
+executes.** `Z2UI5_CL_XML_VIEW->HTML( )` sets the `content` property of
+`sap.ui.core.HTML`, which reaches the DOM as innerHTML, and a script element inserted
+through innerHTML is inert by specification — parsed, kept, never run. Nothing is logged
+and nothing is thrown.
+
+So the iframe rendered, the viewer sat on its splash screen waiting for a `postMessage`
+that was never sent, and that is indistinguishable on screen from a wrong URL. Six rounds
+went into the URL.
+
+This repository already knew: `ZCL_RAK_JOURNEY_RENDER->RENDER_UPLOADER( )` puts its
+FileReader in an `onchange=` **attribute** — an inline event attribute does run — and
+the engine carries a message that says "inline scripts are blocked".
+
+**The channel that works** is `Z2UI5_IF_CLIENT->FOLLOW_UP_ACTION( )`. The frontend stashes
+the snippet as `pendingCustomJs` and runs it in the `finally` block of
+`_processAfterRendering`, which is *after* the view and *after* any popup fragment have
+rendered. Hence two calls: `ZCL_RAK_CJ_GIS=>CONTAINER( )` for `html( )`, and
+`=>SCRIPT( )` for `follow_up_action( )`. Rendering one without the other gives a grey box
+or a script with nothing to draw into.
+
+**And not one single quote may appear in the snippet.** `Server._runCustomJs` splits the
+text on `'` and, if it finds any, calls `oController.eF(...args)` with the pieces —
+a *frontend action*, not the code:
+
+```js
+const parts = item.split("'");
+const args = parts.filter((_, index) => index % 2 === 1);
+if (args.length > 0) { oController.eF(...args); }
+else { Function("return " + parts[0])(); }
+```
+
+One stray quote turns the whole map into a call to an action that does not exist. Every
+string in `SCRIPT( )` is double-quoted; the SQL-style `PARCELID IN ('…')` list builds its
+quote character at runtime with `String.fromCharCode(39)`. The snippet must also be an
+**expression**, because it is evaluated as `Function("return " + snippet)()` — hence the
+IIFE.
+
+### Telling the three failures apart
+
+`CONTAINER( )` ships with a visible "Loading the map…" line, because otherwise the three
+ways this can fail look identical on a screenshot:
+
+| what you see | what happened |
+| --- | --- |
+| bare grey box | the markup never reached the page |
+| "Loading the map…", stuck | the markup arrived, the script did not run |
+| a sentence | both ran; the API or the layer failed, and it says which |
+
+## Diagnosis: `ZRAK_CJ_MAP_DIAG`
+
+Run it before theorising. It prints `URL`, `GISURL` and `TOKEN` **in full** — every theory
+about this map has been a theory about the shape of those three strings, and none of them
+had been read out loud — then asks the GIS server directly:
+
+1. `/rest/info` — can this SAP system reach the host at all? An untrusted certificate or a
+   missing proxy shows up here as a status, rather than as a blank map three layers away.
+2. `/rest/services` — the folders and services.
+3. each `FeatureServer` / `MapServer`, then each layer, looking for one that carries a
+   **`PARCELID`** field. That layer is `GIS_PARCELS`.
+4. the markup and the snippet CJS would emit, with the token masked, and whether the
+   snippet contains a single quote.
+
+`P_WRITE` stores what it found into `ZRAK_T_CJ_TXT`. So the two endpoints `Map.js` takes
+from the ShapeIt app's own configuration are discoverable from the same token the map
+already gets — they never needed the UI5 repository.
+
 ## CSP
 
 `Z2UI5_CL_EXIT` grants `js.arcgis.com`, `*.arcgis.com`, `*.arcgisonline.com`, `*.rak.ae`

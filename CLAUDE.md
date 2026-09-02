@@ -257,6 +257,23 @@ These raise nothing and render nothing. They account for most of the bugs found 
   line-broken cell (`rakWide` on the unlaid path, where `rakRowCn` pins each child to a
   fraction of the row). It overrides two shapes, never the grid — a cell an author placed by
   hand in the Design tab stays where they put it.
+- **A `<script>` block inside `html( )` NEVER RUNS.** `Z2UI5_CL_XML_VIEW->HTML( )` sets
+  `sap.ui.core.HTML`'s `content`, which reaches the DOM as innerHTML, and a script
+  inserted that way is inert by specification - parsed, kept, never executed, nothing
+  logged. This cost the parcel map six rounds: the iframe rendered and the viewer sat on
+  its splash screen waiting for a `postMessage` that never left, which looks exactly like
+  a wrong URL. An inline event **attribute** does run, which is why
+  `RENDER_UPLOADER( )`'s `onchange=` FileReader has always worked. For anything else use
+  `mo_client->follow_up_action( )`, which the frontend runs after the view and after any
+  popup fragment have rendered - **and put not one single quote in the snippet**:
+  `_runCustomJs` splits on `'` and, finding any, calls a frontend action with the pieces
+  instead of running the code. Double quotes throughout, `String.fromCharCode(39)` where a
+  quote character is genuinely needed, and the whole thing an expression (an IIFE),
+  because it is evaluated as `Function("return " + snippet)()`.
+- **A literal `|` must be escaped `\|` inside an ABAP string template**, so JavaScript's
+  `||` is written `\|\|`. Unescaped it closes the literal mid-expression and the class
+  will not activate. Three of these were caught in one file by extracting the generated
+  JS and running `node --check` on it - worth doing for any non-trivial embedded script.
 - **A guidance paragraph must never become a caption.** `PAIR_LABELS( )` used to leave a long
   DISPLAY row pending and attach it to the next control, so the wording landed in `ZLABEL`
   (CHAR 150), was cut mid-word, and `MT_CONSUMED` hid the row it came from — the full text
