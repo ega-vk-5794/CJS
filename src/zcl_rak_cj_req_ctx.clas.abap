@@ -196,7 +196,26 @@ CLASS zcl_rak_cj_req_ctx IMPLEMENTATION.
     gv_key   = iv_userdata.
     CLEAR go_ctx.
 
-    go_ctx = build( iv_class = c_unittst iv_userdata = iv_userdata ).
+*   /IWBEP/CL_MGW_REQUEST FIRST, and _UNITTST only as a fallback. That is
+*   the reverse of what it was, and the reason is the difference between
+*   constructing and WORKING.
+*
+*   _UNITTST constructs beautifully - its constructor is IT_HEADERS plus an
+*   optional IO_MODEL, nothing else to supply - which is why it was tried
+*   first and why ZRAK_CJ_REQCTX_DIAG reported BOUND. But it does not
+*   redefine GET_REQUEST_HEADERS( ), so the inherited one runs:
+*
+*       rt_header = mr_request->*-technical_request-request_header.
+*
+*   and nothing in _UNITTST's constructor sets MR_REQUEST. There is no
+*   IR_REQUEST_DETAILS parameter to bind, so BIND_REF( ) has nothing to work
+*   with either. It dumps, uncatchably, the first time it is used.
+*
+*   /IWBEP/CL_MGW_REQUEST does take IR_REQUEST_DETAILS, which BIND_REF( )
+*   can point at a real structure - and then fill the header into
+*   TECHNICAL_REQUEST-REQUEST_HEADER, the very component that getter reads.
+*   A harder class to construct, and the only one that answers.
+    go_ctx = build( iv_class = c_request iv_userdata = iv_userdata ).
     IF go_ctx IS NOT INITIAL.
       CLEAR gv_why.
       ro = go_ctx.
@@ -206,9 +225,13 @@ CLASS zcl_rak_cj_req_ctx IMPLEMENTATION.
 *   Keep the first reason - if the second candidate also fails, the reader
 *   needs both, not just the last one.
     DATA(lv_first) = gv_why.
-    go_ctx = build( iv_class = c_request iv_userdata = iv_userdata ).
+    go_ctx = build( iv_class = c_unittst iv_userdata = iv_userdata ).
     IF go_ctx IS NOT INITIAL.
       CLEAR gv_why.
+*     Constructed, but see above: this one cannot answer
+*     GET_REQUEST_HEADERS( ). It is here so a caller that never reads a
+*     header still gets a context rather than nothing.
+      gv_why = 'built on /IWBEP/CL_MGW_REQUEST_UNITTST - headers will NOT work'.
     ELSE.
       gv_why = |{ lv_first } / { gv_why }|.
     ENDIF.

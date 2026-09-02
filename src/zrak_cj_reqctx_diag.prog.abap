@@ -24,6 +24,16 @@ REPORT zrak_cj_reqctx_diag.
 * and fixed-length - so this is CHAR 132 and converted on the way in.
 PARAMETERS p_key TYPE c LENGTH 132 LOWER CASE.
 
+* GET_REQUEST_HEADERS( ) can dump with DATREF_NOT_ASSIGNED, and that is NOT
+* catchable - a TRY around the call does not stop it. A dump also discards
+* everything this report has already written, so "print the useful part
+* first" does not survive one either.
+*
+* So the risky call is off by default. Run it once without this to get the
+* diagnosis and the interface method list; tick it only when you want to
+* know whether the header path itself works.
+PARAMETERS p_hdr AS CHECKBOX.
+
 START-OF-SELECTION.
 
 * Everything reaches WRITE through a variable. WRITE takes data objects,
@@ -103,6 +113,13 @@ START-OF-SELECTION.
 * Does the header actually reach the context? This is the whole question the
 * identity change turns on: GET_BP( ) reads 'x-custom1' off exactly this
 * table, so if it is not here, the DPC resolves nobody and says nothing.
+  IF p_hdr = abap_false.
+    SKIP.
+    WRITE: / 'Header check skipped. Tick "Try get_request_headers( )" to run it -'.
+    WRITE: / 'it can dump, uncatchably, if the context cannot answer.'.
+    RETURN.
+  ENDIF.
+
   SKIP.
   DATA lv_hdr TYPE string.
   TRY.
