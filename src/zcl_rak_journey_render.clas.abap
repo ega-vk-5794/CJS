@@ -1493,7 +1493,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *     and type-ahead on a parcel number is how a citizen with forty of
 *     them finds one. A journey that wants the list closed sets
 *     CLOSED_LIST on the field like any other select.
-      WHEN 'SELECT' OR 'PARCEL' OR 'PROPERTY' OR 'TITLEDEED'
+      WHEN 'SELECT' OR 'PARCEL' OR 'PARCELS' OR 'PROPERTY' OR 'TITLEDEED'
         OR 'CONTRACT' OR 'FLOORUNIT' OR 'BUILDINGS' OR 'ACCOM'.
 
 *       THE PARCEL FAMILY IS NOT A DROPDOWN when the real control is
@@ -1505,7 +1505,8 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       UNBOUND whenever the wrapper chain is inactive, so the ComboBox
 *       below stays the fallback rather than being replaced by it.
         IF mo_e->mo_pcl IS BOUND
-           AND ( is_field-type = 'PARCEL' OR is_field-type = 'PROPERTY'
+           AND ( is_field-type = 'PARCEL' OR is_field-type = 'PARCELS'
+                 OR is_field-type = 'PROPERTY'
                  OR is_field-type = 'TITLEDEED' ).
           TRY.
               IF mo_e->mo_pcl->render( io_view = io_form is_field = is_field ) = abap_true.

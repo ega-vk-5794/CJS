@@ -125,8 +125,25 @@ START-OF-SELECTION.
 * VALIDATE( ) is what refuses it - a worse round trip than the legacy
 * control, and the reason this is flagged rather than quietly shipped.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
+*   FTYPE 'PARCELS' - PLURAL - IS THE MULTI-SELECT ONE. It draws a
+*   CHECKBOX on every card instead of a Select button and stores a '-'
+*   separated list, which is the same form the backend already keeps the
+*   parcel list in: ZIF_EGA_FW_CJI~UPDATE( ) builds the CJ02 note as
+*   parcel && '-' && ui_table_column1 and splits it back the same way.
+*
+*   M011 and M016 stay on 'PARCEL' - one parcel, one Select button.
+*   Nothing about them changes.
+*
+*   THIS REPLACED AN ACCUMULATE-IN-THE-HANDLER APPROACH THAT WAS WRONG.
+*   The first version kept the single-select control and had
+*   ZCL_M012_MERGE_LOGIC move each pick into the grid from ON_CHANGE. It
+*   worked in principle and was wrong on screen: the card showed nothing
+*   selected afterwards, and there was no way to UNPICK a parcel. A
+*   checkbox is the only affordance that says "several, and you can
+*   change your mind" - which is what the legacy control does with its
+*   own bMulti flag.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 10
-      field_name = 'PARCELSELECTOR' ftype = 'PARCEL'
+      field_name = 'PARCELSELECTOR' ftype = 'PARCELS'
       zlabel = 'Your parcels' zlabel_ar = 'قطعك'
       default_val = 'API:PROPERTY:PropertiesSet::Type=Parcel'
       tech_name = 'INTRENO_PARCEL' )
@@ -181,7 +198,24 @@ START-OF-SELECTION.
 * the post discards.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 10
-      field_name = 'RAKPARCELS' ftype = 'TABLE' readonly = 'X'
+*   EDITABLE_TABLE, NOT TABLE - AND THE ENGINE SAID SO OUT LOUD:
+*
+*     Grid RAKPARCELS: FTYPE is TABLE, not EDITABLE_TABLE.
+*     Only an editable grid has rows to read or write.
+*
+*   three times on one screen, followed by "Added. 0 parcel(s) selected."
+*   GET_GRID_DATA( ) and SET_GRID_DATA( ) work only on an EDITABLE_TABLE,
+*   so with TABLE the handler's read answered nothing and its write went
+*   nowhere - and the count it printed was honest.
+*
+*   FIELD-LEVEL READONLY IS OFF, AND PER-COLUMN READONLY IS ON INSTEAD.
+*   The intent was never that the citizen types parcel details - those come
+*   from GET_PL_TABLE( ) on the backend read - it was that the grid should
+*   not be typable. ZRAK_T_JNY_COL-READONLY does exactly that, per column,
+*   and leaves the grid itself editable so the handler can write rows and
+*   the citizen gets a delete button per row. READONLY on the FIELD takes
+*   the rows away from both of them.
+      field_name = 'RAKPARCELS' ftype = 'EDITABLE_TABLE'
       zsection = 'Parcels to merge'
       zlabel = 'Parcels to merge' zlabel_ar = 'القطع المطلوب دمجها'
       default_val = 'PARCELID:Parcel:TEXT'          &&
@@ -266,6 +300,50 @@ START-OF-SELECTION.
       zlabel = 'I would like to donate five dirhams to Ajer Charity Foundation.'
       zlabel_ar = 'أود التبرع لمؤسسة آجر الخيرية بمبلغ خمسة دراهم.'
       tech_name = 'DONATE' ) ) ).
+
+
+* ------------------------------------------- STP2 grid columns
+* READONLY ON EVERY COLUMN, which is how the grid stays editable as a
+* TABLE while none of its CELLS is typable.
+*
+* ZRAK_T_JNY_COL-READONLY is one of the four column properties that is
+* actually enforced (WIDTH is applied too; PINNED and DECIMALS are inert
+* and the Studio labels them so). The FIELD is EDITABLE_TABLE because
+* only an editable grid has rows the handler can read or write - see the
+* note on the field above - and per-column READONLY is what stops that
+* editability reaching the citizen's keyboard.
+*
+* THE ORDER IS GET_PL_TABLE( )'s FIELD1..FIELD7 and must stay that way.
+* These rows are read in preference to the pipe spec on the field itself
+* (ZCL_RAK_JOURNEY_GRID->GRID_COLS( )), so the two must agree - and cell
+* N still lands in configured column N at both ends.
+*
+* NO REQUIRED ANYWHERE. It IS enforced, against every row that already
+* exists - and every one of these cells is filled by the backend read,
+* not by the citizen, so a required column would refuse a row the moment
+* it was added and before the read could fill it.
+  INSERT zrak_t_jny_col FROM TABLE @( VALUE #(
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' field_name = 'RAKPARCELS'
+      col_name = 'PARCELID'  seqnr = 1 zlabel = 'Parcel' zlabel_ar = 'القطعة'
+      ctrl = 'INPUT' readonly = 'X' width = '9rem' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' field_name = 'RAKPARCELS'
+      col_name = 'OWNSTATE'  seqnr = 2 zlabel = 'Ownership' zlabel_ar = 'الملكية'
+      ctrl = 'INPUT' readonly = 'X' width = '9rem' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' field_name = 'RAKPARCELS'
+      col_name = 'LOCATION'  seqnr = 3 zlabel = 'Location' zlabel_ar = 'الموقع'
+      ctrl = 'INPUT' readonly = 'X' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' field_name = 'RAKPARCELS'
+      col_name = 'ADDRESS'   seqnr = 4 zlabel = 'Address' zlabel_ar = 'العنوان'
+      ctrl = 'INPUT' readonly = 'X' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' field_name = 'RAKPARCELS'
+      col_name = 'OWNMETHOD' seqnr = 5 zlabel = 'Ownership method' zlabel_ar = 'طريقة الملكية'
+      ctrl = 'INPUT' readonly = 'X' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' field_name = 'RAKPARCELS'
+      col_name = 'GRANTTYPE' seqnr = 6 zlabel = 'Grant type' zlabel_ar = 'نوع المنحة'
+      ctrl = 'INPUT' readonly = 'X' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' field_name = 'RAKPARCELS'
+      col_name = 'ACTIONREQ' seqnr = 7 zlabel = 'Action required' zlabel_ar = 'الإجراء المطلوب'
+      ctrl = 'INPUT' readonly = 'X' ) ) ).
 
   COMMIT WORK AND WAIT.
   zcl_rak_cj_cfg_cache=>invalidate( iv_journey = CONV #( c_jny ) ).

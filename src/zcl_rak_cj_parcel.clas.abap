@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-21. Missing this line means SAP has an older copy - see
+*& BUILD mun-1. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -98,7 +98,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   the thing being looked at is the thing that was just written, which
 *   is the question that has to be answered FIRST every time and until
 *   now could only be inferred. Bump it with the header stamp.
-    CONSTANTS c_build TYPE string VALUE 'map-fix-21'.
+    CONSTANTS c_build TYPE string VALUE 'mun-1'.
 
     METHODS constructor
       IMPORTING io_engine TYPE REF TO zcl_rak_journey_engine.
@@ -144,6 +144,31 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   multi-select list rather than two.
     DATA mv_fld  TYPE string.
     DATA mv_mine TYPE abap_bool.
+
+*   ---- MULTI-SELECT, WHICH IS WHAT BACKLOG 4.4 ABOVE ASKED FOR --------
+*
+*   FTYPE 'PARCELS' - plural - draws a CHECKBOX on every card instead of a
+*   Select button, and the field then holds a '-' separated list rather
+*   than one key. 'PARCEL', 'PROPERTY' and 'TITLEDEED' are unchanged and
+*   still single-select, so no existing journey moves.
+*
+*   THE DELIMITER IS '-' BECAUSE THE BACKEND ALREADY USES IT.
+*   ZIF_EGA_FW_CJI~UPDATE( ) builds the CJ02 note as
+*       parcel = parcel && '-' && <fs_data>-ui_table_column1
+*   and GET_PL_TABLE( ) / CREATE_DUMMY_CASE( ) both SPLIT it back at '-'.
+*   So a multi-selection written in this form is the same string the
+*   legacy path stores, and a parcel number cannot contain one.
+*
+*   WHY THE CONTROL AND NOT THE HANDLER. M012 first accumulated picks into
+*   the grid from ON_CHANGE, which worked in principle and was wrong in
+*   practice: a card press stored one key and the handler moved it, so the
+*   cards showed nothing selected and the citizen had no way to UNPICK.
+*   The legacy control has bMulti and checkboxes; a checkbox is the only
+*   affordance that says "several, and you can change your mind".
+    CONSTANTS c_ftype_multi TYPE string VALUE 'PARCELS'.
+    CONSTANTS c_sep         TYPE string VALUE '-'.
+
+    DATA mv_multi TYPE abap_bool.
 
 *   The list/map toggle. MAP draws the same owned parcels as ArcGIS
 *   features and takes the selection from a click on the map, which is
@@ -200,6 +225,22 @@ CLASS zcl_rak_cj_parcel DEFINITION
                               iv_pages TYPE i.
     METHODS pick    IMPORTING iv_field TYPE string
                               iv_key   TYPE string.
+
+*   ---- the multi-select trio -----------------------------------------
+*   SEL_LIST( ) splits the field's stored value; IS_SEL( ) answers
+*   membership for a card's checkbox; TOGGLE( ) adds or removes one key
+*   and writes the list back.
+*
+*   All three compare UNPADDED. The card press carries the service's
+*   padded PARCELID and a map click carries the trimmed one - PICK( )'s
+*   own header explains why - so a list built from both forms would hold
+*   the same parcel twice and show neither as ticked. What is STORED is
+*   still the service's own form, exactly as PICK( ) stores it.
+    METHODS sel_list RETURNING VALUE(rt) TYPE string_table.
+    METHODS is_sel   IMPORTING iv_key    TYPE string
+                     RETURNING VALUE(rv) TYPE abap_bool.
+    METHODS toggle   IMPORTING iv_field  TYPE string
+                               iv_key    TYPE string.
 
 *   One tab of the details dialog whose data is not reachable yet. The
 *   COLUMNS are the live dialog's own headers, so the tab that appears
@@ -404,6 +445,13 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   a paint - the first selector to be drawn claims it only when nothing
 *   holds it yet.
     mv_fld = is_field-name.
+
+*   MULTI OR SINGLE, decided from the ftype and remembered for CARD( ).
+*   Read here rather than passed down because CARD( ) is called per row
+*   from two places and threading a flag through both is one more thing to
+*   get wrong.
+    mv_multi = xsdbool( is_field-type = c_ftype_multi ).
+
     IF mo_e->mv_pcl_field IS INITIAL.
       mo_e->mv_pcl_field = is_field-name.
     ENDIF.
@@ -625,7 +673,15 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     DATA(lv_sec) = cell( is_row = is_row iv_comp = 'SECTORTEXT' ).
     DATA(lv_use) = cell( is_row = is_row iv_comp = 'LANDUSE' ).
     DATA(lv_typ) = cell( is_row = is_row iv_comp = 'TYPE' ).
-    DATA(lv_sel) = xsdbool( mo_e->val_get( mv_fld ) = lv_key ).
+*   SELECTED - membership in multi mode, equality in single mode. The
+*   single-mode comparison is left exactly as it was so no existing
+*   journey changes behaviour.
+    DATA lv_sel TYPE abap_bool.
+    IF mv_multi = abap_true.
+      lv_sel = is_sel( lv_key ).
+    ELSE.
+      lv_sel = xsdbool( mo_e->val_get( mv_fld ) = lv_key ).
+    ENDIF.
 
 *   THE LIVE CARD SHOWS 507060119, NOT 00000000000507060119. PropertiesSet
 *   returns the padded form and the legacy control strips it for display.
@@ -692,6 +748,30 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                               |{ c_pfx }DET_{ lv_int }~{ lv_show }| ) ).
     ENDIF.
 
+*   A CHECKBOX WHEN SEVERAL PARCELS ARE WANTED, a button when one is.
+*
+*   The checkbox carries the caption rather than sitting beside a label,
+*   because a bare box at the end of a card row does not say what ticking
+*   it means. SELECTED is bound from the stored list, so the tick survives
+*   paging, searching and a round trip - it is not client-side state.
+*
+*   THE EVENT IS A TOGGLE, NOT A PICK. PICK_ replaces the whole value,
+*   which is right for one parcel and is exactly what stopped a merge
+*   being assembled; PCLTOG_ adds or removes one key and leaves the rest.
+    IF mv_multi = abap_true.
+      lo_act->checkbox(
+        text     = COND #( WHEN lv_sel = abap_true
+                           THEN t( iv_en = `Selected` iv_ar = `محددة` )
+                           ELSE t( iv_en = `Select`   iv_ar = `اختيار` ) )
+*       XSDBOOL, the idiom the renderer's own checkboxes use - a COND #
+*       here would take its type from a CLIKE formal parameter and there
+*       is no reason to be the one place that differs.
+        selected = xsdbool( lv_sel = abap_true )
+        select   = mo_e->mo_client->_event(
+                     |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
+      RETURN.
+    ENDIF.
+
     lo_act->button(
       text  = COND #( WHEN lv_sel = abap_true THEN t( iv_en = `Selected` iv_ar = `محددة` )
                                               ELSE t( iv_en = `Select`   iv_ar = `اختيار` ) )
@@ -699,6 +779,119 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       type  = COND #( WHEN lv_sel = abap_true THEN 'Success' ELSE 'Emphasized' )
       press = mo_e->mo_client->_event(
                 |{ c_pfx }PICK_{ mv_fld }~{ lv_key }| ) ).
+  ENDMETHOD.
+
+
+  METHOD sel_list.
+    DATA(lv_v) = mo_e->val_get( mv_fld ).
+    IF lv_v IS INITIAL.
+      RETURN.
+    ENDIF.
+    SPLIT lv_v AT c_sep INTO TABLE rt.
+*   A leading or trailing separator, or a double one, leaves blanks -
+*   which would otherwise count as a selected parcel with no number.
+    DELETE rt WHERE table_line IS INITIAL.
+  ENDMETHOD.
+
+
+  METHOD is_sel.
+    DATA(lv_k) = iv_key.
+    SHIFT lv_k LEFT DELETING LEADING '0'.
+    IF lv_k IS INITIAL.
+      RETURN.
+    ENDIF.
+    LOOP AT sel_list( ) INTO DATA(lv_h).
+      SHIFT lv_h LEFT DELETING LEADING '0'.
+      IF lv_h = lv_k.
+        rv = abap_true.
+        RETURN.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD toggle.
+    DATA(lv_f) = iv_field.
+    IF lv_f IS INITIAL.
+      lv_f = mv_fld.
+    ENDIF.
+    IF lv_f IS INITIAL OR iv_key IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   MV_FLD IS SET HERE, AND IT MATTERS. This method runs from the event
+*   dispatch, which is BEFORE any RENDER( ) on this round trip - and the
+*   control is created fresh every round trip in
+*   ZCL_RAK_JOURNEY_ENGINE->ENSURE_PARTS( ), so MV_FLD is still blank at
+*   this point. SEL_LIST( ) and IS_SEL( ) both read the field through
+*   MV_FLD, so without this they would read a blank field name, find no
+*   selection, and every tick would look like a first tick: the toggle
+*   would only ever add and an untick would silently re-add.
+*
+*   PICK( ) does not need this because it never reads the current value -
+*   it replaces it.
+    mv_fld = lv_f.
+
+*   RESOLVE TO THE SERVICE'S OWN FORM FIRST, for the reason PICK( )'s
+*   header sets out: a card press carries the padded PARCELID and a map
+*   click the trimmed one, and storing whichever arrived would put the
+*   same parcel in the list twice under two spellings.
+    DATA(lv_key) = iv_key.
+    LOOP AT rows( ) INTO DATA(ls_pr).
+      DATA(lv_pk) = cell( is_row = ls_pr iv_comp = 'PARCELID' ).
+      IF lv_pk IS INITIAL.
+        lv_pk = cell( is_row = ls_pr iv_comp = 'BUILDING' ).
+      ENDIF.
+      IF lv_pk IS INITIAL.
+        CONTINUE.
+      ENDIF.
+      DATA(lv_pt) = lv_pk.
+      SHIFT lv_pt LEFT DELETING LEADING '0'.
+      IF lv_pk = lv_key OR lv_pt = lv_key.
+        lv_key = lv_pk.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+
+*   REBUILT RATHER THAN EDITED IN PLACE, so removing the only entry
+*   leaves a genuinely empty value and not a lone separator.
+    DATA(lv_was) = is_sel( lv_key ).
+    DATA(lv_cmp) = lv_key.
+    SHIFT lv_cmp LEFT DELETING LEADING '0'.
+
+    DATA lt_out TYPE string_table.
+    LOOP AT sel_list( ) INTO DATA(lv_h).
+      DATA(lv_ht) = lv_h.
+      SHIFT lv_ht LEFT DELETING LEADING '0'.
+      IF lv_ht <> lv_cmp.
+        APPEND lv_h TO lt_out.
+      ENDIF.
+    ENDLOOP.
+    IF lv_was = abap_false.
+      APPEND lv_key TO lt_out.
+    ENDIF.
+
+    DATA lv_new TYPE string.
+    LOOP AT lt_out INTO DATA(lv_o).
+      IF lv_new IS INITIAL.
+        lv_new = lv_o.
+      ELSE.
+        lv_new = |{ lv_new }{ c_sep }{ lv_o }|.
+      ENDIF.
+    ENDLOOP.
+
+    mo_e->val_set( iv_name = lv_f iv_value = lv_new ).
+    mo_e->set_field_state( iv_name = lv_f iv_state = 'None' iv_text = '' ).
+
+*   ON_CHANGE LAST, as PICK( ) does it, so a handler that mirrors the
+*   selection somewhere else sees the finished list rather than the one
+*   before this tick.
+    IF mo_e->mo_logic IS BOUND.
+      TRY.
+          mo_e->mo_logic->on_change( io_ctx = mo_e iv_field = lv_f ).
+        CATCH cx_root ##NO_HANDLER.
+      ENDTRY.
+    ENDIF.
   ENDMETHOD.
 
 
@@ -933,6 +1126,22 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       IF lv_n CO '0123456789' AND lv_n IS NOT INITIAL.
         mo_e->mv_pcl_page = CONV i( lv_n ).
       ENDIF.
+
+    ELSEIF lv CP 'TOG_*'.
+*     <field>~<key>, same payload as PICK_ and the same ownership move: a
+*     tick is an interaction with that list, so it claims the shared
+*     browse state without resetting the page the citizen is looking at.
+*
+*     BEFORE 'PICK_*' IN THIS CHAIN? It does not matter - 'TOG_' and
+*     'PICK_' cannot both match, they are different prefixes. What DOES
+*     matter is that the offset below is 4 and not 5: 'TOG_' is four
+*     characters where 'PICK_' is five, and an offset taken on the wrong
+*     one silently eats the first character of the field name.
+      SPLIT substring( val = lv off = 4 ) AT '~' INTO DATA(lv_tfld) DATA(lv_tkey).
+      IF lv_tfld IS NOT INITIAL.
+        mo_e->mv_pcl_field = lv_tfld.
+      ENDIF.
+      toggle( iv_field = lv_tfld iv_key = lv_tkey ).
 
     ELSEIF lv CP 'PICK_*'.
 *     <field>~<key>. A trailing empty key is the Clear button.
