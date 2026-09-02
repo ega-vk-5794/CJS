@@ -234,6 +234,33 @@ These raise nothing and render nothing. They account for most of the bugs found 
   `ZRAK_T_JNY_FLD-DEFAULT_VAL` for the grid field — read it before adding or reordering a
   field in an Add-a-row popup's save. E016/E017/E018 each carry this note at their save method,
   and their orders legitimately differ from each other because their specs do.
+- **A handler override OUTRANKS a rule, not the other way round.** `set_hidden( )`,
+  `set_readonly( )` and `set_required( )` all write `MT_OVR`, and
+  `ZCL_RAK_JOURNEY_RULES->IS_HIDDEN( )` / `IS_READONLY( )` check that table **before**
+  `MT_RULEHIDE` and before the configured flag — a handler spoke deliberately, so it wins.
+  The trap is calling one of them with a value you did not mean as an instruction:
+  `set_required( iv_on = abap_false )` does not "leave it alone", it forces the field
+  optional and silently removes a configured required marker. `ZCL_RAK_JOURNEY_BE->APPLY_CTRL( )`
+  did exactly that for every field the BAdI did not name, on every screen it answered.
+  The fix is upstream: `ZCL_RAK_QNV_BRIDGE->SEED_CTRL( )` sends the journey's own config
+  into `ZIF_EGA_FW_CJI~READ`, `READ( )` keeps a copy of what went out, and `CTRL_OF( )`
+  reports `MANDATORY`/`ENABLED`/`VISIBLE` **only where the BAdI changed them** — so what
+  reaches an override is an instruction and never an echo. Move that gate and every
+  rule-hidden field on a BAdI-answering screen un-hides.
+- **A migrated layout is DERIVED, not designed.** `ZCL_RAK_MIGRATOR` pairs a legacy caption
+  row with the control it captions and drops the two into two cells of the twelve-column
+  `ZRAK_CJ_LAY` grid, because that is the shape of the `/QNV/` definition. Right for an input
+  and its label; wrong for a composite (`PARCEL`, `PROPERTY`, `TITLEDEED`, `CONTRACT`,
+  `FLOORUNIT`, `BUILDINGS`, `ACCOM`), which is a full-width card list, and wrong for a DISPLAY
+  paragraph. `ZCL_RAK_JOURNEY_RENDER->WIDE_FIELD( )` forces those two shapes to a full-width,
+  line-broken cell (`rakWide` on the unlaid path, where `rakRowCn` pins each child to a
+  fraction of the row). It overrides two shapes, never the grid — a cell an author placed by
+  hand in the Design tab stays where they put it.
+- **A guidance paragraph must never become a caption.** `PAIR_LABELS( )` used to leave a long
+  DISPLAY row pending and attach it to the next control, so the wording landed in `ZLABEL`
+  (CHAR 150), was cut mid-word, and `MT_CONSUMED` hid the row it came from — the full text
+  then appeared nowhere. `IS_NOTICE( )` now gates it, which also restores the real caption:
+  the short row above stays pending and reaches the control.
 
 ## Conventions
 
