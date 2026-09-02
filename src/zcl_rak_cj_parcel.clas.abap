@@ -692,24 +692,30 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       CATCH cx_root ##NO_HANDLER.
     ENDTRY.
 
-    DATA(lv_html) = zcl_rak_cj_gis=>block(
+*   TWO CALLS, AND BOTH ARE REQUIRED. The markup goes through HTML( );
+*   the code goes through FOLLOW_UP_ACTION( ), because a <script> written
+*   into HTML( )'s content is inserted as innerHTML and a script inserted
+*   that way NEVER EXECUTES. That is the defect behind every version of
+*   this map so far - see ZCL_RAK_CJ_GIS's header.
+    DATA(lv_div) = |rakGis{ to_upper( mv_fld ) }|.
+
+    DATA(lv_js) = zcl_rak_cj_gis=>script(
       iv_portal = ls_map-url
       iv_server = ls_map-gisurl
       iv_token  = ls_map-token
-      iv_div    = |rakGis{ to_upper( mv_fld ) }|
+      iv_div    = lv_div
       it_ids    = lt_ids
       iv_focus  = lv_foc
 *     A click on a parcel the citizen owns is a selection, exactly as it
 *     is on a card. The event name is the card's own, so both paths meet
 *     in PICK( ) and neither can drift from the other.
       iv_event  = |{ c_pfx }PICK_{ mv_fld }|
-      iv_ctrl   = 'oController'
-      iv_height = '30rem' ).
+      iv_ctrl   = 'oController' ).
 
-*   NEVER AN EMPTY BOX. BLOCK( ) answers blank when the GIS endpoints are
-*   not configured; VIEW( ) already refuses the map in that case, so this
-*   is the belt to that brace rather than the expected path.
-    IF lv_html IS INITIAL.
+*   NEVER AN EMPTY BOX. SCRIPT( ) answers blank when the GIS endpoints
+*   are not configured; VIEW( ) already refuses the map in that case, so
+*   this is the belt to that brace rather than the expected path.
+    IF lv_js IS INITIAL.
       io_box->message_strip(
         text     = t( iv_en = `The map is not configured on this system.`
                       iv_ar = `الخريطة غير مهيأة على هذا النظام.` )
@@ -717,7 +723,11 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         showicon = abap_true ).
       RETURN.
     ENDIF.
-    io_box->html( content = lv_html sanitizecontent = abap_false ).
+
+    io_box->html( content = zcl_rak_cj_gis=>container( iv_div    = lv_div
+                                                       iv_height = '30rem' )
+                  sanitizecontent = abap_false ).
+    mo_e->mo_client->follow_up_action( lv_js ).
 
     io_box->text(
       text  = t( iv_en = `Tap a parcel on the map to select it.`
@@ -970,19 +980,24 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   this dialog's map tab was.
     IF zcl_rak_cj_gis=>ready( ) = abap_true AND lv_pid IS NOT INITIAL.
 
-      DATA(lv_gis) = zcl_rak_cj_gis=>block(
+      DATA(lv_dvd) = |rakGisDet{ to_upper( lv_pid ) }|.
+      lo_map->html( content = zcl_rak_cj_gis=>container( lv_dvd )
+                    sanitizecontent = abap_false ).
+*     FOLLOW_UP_ACTION( ) runs AFTER the popup fragment is displayed -
+*     Z2UI5_CL_APP_VIEW1_JS awaits _displayPendingViews( ) and only then
+*     calls _runPendingCustomJs( ) in its finally block - so the div this
+*     script looks for is in the DOM by the time it looks.
+      mo_e->mo_client->follow_up_action( zcl_rak_cj_gis=>script(
         iv_portal = ls_map-url
         iv_server = ls_map-gisurl
         iv_token  = ls_map-token
-        iv_div    = |rakGisDet{ to_upper( lv_pid ) }|
+        iv_div    = lv_dvd
         it_ids    = VALUE string_table( ( lv_pid ) )
         iv_focus  = lv_pid
 *       NO CLICK EVENT. This map shows one parcel that is already chosen;
 *       there is nothing here for a press to select.
         iv_event  = ``
-        iv_ctrl   = 'oControllerPopup'
-        iv_height = '26rem' ).
-      lo_map->html( content = lv_gis sanitizecontent = abap_false ).
+        iv_ctrl   = 'oControllerPopup' ) ).
 
     ELSEIF lv_base IS NOT INITIAL AND lv_tok IS NOT INITIAL AND lv_pid IS NOT INITIAL.
 *     The frame's own origin, which postMessage needs as its target. Sent
@@ -994,42 +1009,58 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         lv_org = substring( val = lv_org len = lv_p3 ).
       ENDIF.
 
-*     Single quotes and backslashes cannot reach a JS string literal
-*     intact. None of these three values should contain either, but they
-*     come from a backend read rather than from this code.
+*     DOUBLE QUOTES ONLY, and no single quote anywhere - this snippet
+*     goes to FOLLOW_UP_ACTION( ), and _runCustomJs splits on the single
+*     quote character and treats what it finds as arguments to a frontend
+*     action rather than as code. Backslash and double quote are escaped
+*     because these values come from a backend read, not from this code;
+*     a single quote in a URL, a token or a parcel number would break the
+*     snippet, and none of the three can legitimately contain one.
       DATA(lv_jtok) = lv_tok.
       DATA(lv_jpid) = lv_pid.
+      DATA(lv_jorg) = lv_org.
       REPLACE ALL OCCURRENCES OF `\` IN lv_jtok WITH `\\`.
-      REPLACE ALL OCCURRENCES OF `'` IN lv_jtok WITH `\'`.
+      REPLACE ALL OCCURRENCES OF `"` IN lv_jtok WITH `\"`.
       REPLACE ALL OCCURRENCES OF `\` IN lv_jpid WITH `\\`.
-      REPLACE ALL OCCURRENCES OF `'` IN lv_jpid WITH `\'`.
+      REPLACE ALL OCCURRENCES OF `"` IN lv_jpid WITH `\"`.
+      REPLACE ALL OCCURRENCES OF `\` IN lv_jorg WITH `\\`.
+      REPLACE ALL OCCURRENCES OF `"` IN lv_jorg WITH `\"`.
       DATA(lv_lang) = COND string( WHEN sy-langu = 'A' THEN `ar` ELSE `en` ).
+
+*     THE FRAME IS MARKUP, THE POST IS NOT. This used to be one HTML( )
+*     call with a <script> block in it, and that script never ran once:
+*     HTML( ) sets sap.ui.core.HTML's content, which reaches the DOM as
+*     innerHTML, and a script inserted that way is inert by
+*     specification. The frame rendered, the viewer sat on its splash
+*     screen waiting for a message nobody sent, and that read exactly
+*     like a wrong URL - which is where six rounds went.
+      lo_map->html(
+        content = |<iframe id="rakPclMap" src="{ lv_base }" title="parcel map" | &&
+                  |style="width:100%;height:26rem;border:0"></iframe>|
+        sanitizecontent = abap_false ).
 
 *     RETRIED, not sent once. The listener is attached by the page's own
 *     script, which may not have run when the frame fires load - a single
 *     post would then arrive before anything was listening and the viewer
 *     would wait for ever. Ten attempts half a second apart, then it stops
 *     rather than polling for the life of the dialog.
-      lo_map->html(
-        content = |<iframe id="rakPclMap" src="{ lv_base }" title="parcel map" | &&
-                  |style="width:100%;height:26rem;border:0"></iframe>| &&
-                  |<script>(function()\{var f=document.getElementById("rakPclMap");| &&
-                  |if(!f)return;var m=\{parcelId:'{ lv_jpid }',token:'{ lv_jtok }',| &&
-                  |lang:'{ lv_lang }'\};var o='{ lv_org }';var n=0;| &&
-                  |function s()\{try\{f.contentWindow.postMessage(m,o);\}catch(e)\{\}\}| &&
-                  |f.addEventListener("load",s);| &&
-*                 AND AGAIN WHENEVER THE FRAME SPEAKS FIRST. A viewer that
-*                 announces itself when its listener is ready gets an
-*                 immediate answer instead of waiting out the interval, and
-*                 one that never speaks loses nothing. Origin-checked: a
-*                 message from anywhere but the viewer is ignored, so this
-*                 cannot be used to make the page re-post the token
-*                 somewhere else.
-                  |window.addEventListener("message",function(e)\{| &&
-                  |if(e.origin===o)\{s();\}\});| &&
-                  |var t=setInterval(function()\{if(++n>10)\{clearInterval(t);return;\}s();\},500);| &&
-                  |\})();</script>|
-        sanitizecontent = abap_false ).
+*
+*     AND AGAIN WHENEVER THE FRAME SPEAKS FIRST, origin-checked: a viewer
+*     that announces itself when its listener is ready gets an immediate
+*     answer, and a message from anywhere but the viewer is ignored - so
+*     this cannot be used to make the page re-post the token elsewhere.
+      mo_e->mo_client->follow_up_action(
+        |(function()\{var f=document.getElementById("rakPclMap");| &&
+        |if(!f)\{return;\}| &&
+        |var m=\{parcelId:"{ lv_jpid }",token:"{ lv_jtok }",lang:"{ lv_lang }"\};| &&
+        |var o="{ lv_jorg }";var n=0;| &&
+        |function s()\{try\{f.contentWindow.postMessage(m,o);\}catch(e)\{\}\}| &&
+        |f.addEventListener("load",s);| &&
+        |window.addEventListener("message",function(e)\{| &&
+        |if(e.origin===o)\{s();\}\});| &&
+        |var t=setInterval(function()\{| &&
+        |if(++n>10)\{clearInterval(t);return;\}s();\},500);| &&
+        |s();\}())| ).
 
       lo_map->link( text   = t( iv_en = `Open the map in a new tab`
                                 iv_ar = `افتح الخريطة في تبويب جديد` )

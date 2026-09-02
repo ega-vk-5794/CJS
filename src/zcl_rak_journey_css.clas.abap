@@ -642,7 +642,13 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     the frame around it and the message the loader falls back to.
         |.rakGisMap\{border:1px solid { g-line_clr };border-radius:10px;| &&
         |overflow:hidden;background:#eef1f4;\}| &&
-        |.rakGisErr\{padding:1rem;color:#6a7484;font-size:.9rem;| &&
+*     rakGisErr is the container's OWN first child, holding "Loading the
+*     map..." until the script replaces it. Three states, three different
+*     things on screen: a bare grey box means the markup never reached
+*     the page, a stuck "Loading" means the markup arrived and the script
+*     did not, and a sentence means both ran and the API or the layer
+*     failed. Without it all three look identical.
+        |.rakGisErr\{padding:1rem;color:#6a7484;font-size:.9rem;text-align:center;| &&
         |display:flex;align-items:center;justify-content:center;height:100%;\}| &&
 *     WIDE - the unlaid path's half of ZCL_RAK_JOURNEY_RENDER->WIDE_FIELD( ).
 *     rakRowCn pins every child of a multi-column row to a fixed fraction of
