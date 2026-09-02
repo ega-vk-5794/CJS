@@ -63,6 +63,12 @@ CLASS zcl_rak_cj_api DEFINITION
     TYPES: BEGIN OF ty_ctx,
              partner     TYPE string,   " engine mv_loginbp
              partnerguid TYPE string,
+*            The portal session key from the launch URL (&userdata=). It is
+*            NOT another way of saying "partner" - it is the key GET_BP( )
+*            uses to resolve the caller inside the DPC, and it is what makes
+*            the twelve XPARTNER-dependent code paths work at all. Identity
+*            still goes out as filters as well; these are belt and braces.
+             userdata    TYPE string,
              role        TYPE string,
              intreno     TYPE string,   " io_ctx->get_case( ) - never a cached id
              journey     TYPE string,
@@ -177,7 +183,11 @@ CLASS zcl_rak_cj_api IMPLEMENTATION.
 *   standard Gateway request object by RTTI rather than naming a signature
 *   nothing here can read. It may come back UNBOUND; that is handled, not
 *   ignored - see the note on MO_REQ and ZCL_RAK_CJ_REQ_CTX=>WHY( ).
-    mo_req = zcl_rak_cj_req_ctx=>get( ).
+*
+*   The session key goes in with it. Without it every GET_BP( ) inside the
+*   DPC resolves nothing and the dozen places that use the resolved partner
+*   - IM_BP, IV_PAY_PARTNER, LOGINBP, WHERE PARTNER = - silently get blank.
+    mo_req = zcl_rak_cj_req_ctx=>get( ms_ctx-userdata ).
   ENDMETHOD.
 
 

@@ -20,6 +20,13 @@ CLASS zcl_rak_cj_ctx DEFINITION
 *& lookup on BUT000, once, and a journey launched with &partnerguid= is
 *& believed ahead of it.
 *&
+*& THE SESSION KEY TRAVELS TOO. MS_CTX-USERDATA carries the launch URL's
+*& &userdata=, which is the value the portal puts in the 'x-custom1' header.
+*& ZCL_RAK_CJ_REQ_CTX puts it back there, so GET_BP( ) inside the DPC
+*& resolves the real caller. Filters remain the primary identity - this
+*& reaches the paths a filter cannot, the ones that consume the partner
+*& GET_BP( ) resolves rather than one the caller supplied.
+*&
 *& DEPARTMENT IS NOT ON THE JOURNEY. ZRAK_T_JNY carries a backend CATEGORY
 *& (MML, TEN, GRANTS...) which is not the portal department FeesSet filters
 *& on - that is a ZEGA_T_CJ_GRP-DEPARTMENT, supplied at launch. It is read
@@ -78,6 +85,15 @@ CLASS zcl_rak_cj_ctx IMPLEMENTATION.
 
     rs-partner = io_ctx->get_param( 'LOGINBP' ).
     rs-role    = io_ctx->get_param( 'ROLE' ).
+
+*   THE PORTAL SESSION KEY, and the reason this class exists at all now.
+*   It arrives on the launch URL as &userdata= and the engine already keeps
+*   it in MV_USERDATA - ZCL_RAK_JOURNEY_ENGINE resolves the login BP with
+*   exactly this value, ZCL_EGA_CJ_UTILITY=>GET_BP( qv_key = mv_userdata ).
+*   The same value is what the portal sends the DPC as the 'x-custom1'
+*   header, so handing it to ZCL_RAK_CJ_REQ_CTX is not impersonation: it is
+*   the citizen's own session, in the form the DPC already expects.
+    rs-userdata = io_ctx->get_param( 'USERDATA' ).
 
 *   A guid supplied at launch wins - it is what the portal actually
 *   authenticated, and re-deriving it would only be able to agree.

@@ -24,16 +24,35 @@ CLASS zcl_rak_cj_req_ctx DEFINITION
 *& not a simulation of a Gateway request. It is a header table with an
 *& object around it.
 *&
-*& WHAT IT DELIBERATELY DOES NOT CARRY. The header the DPC looks for is
-*& 'x-custom1', which GET_BP( ) uses as a key into ZEGA_T_CJ_US_LOG and
-*& then AES-decrypts to recover the portal user. CJS has no such row - it
-*& knows the partner directly, from the journey's launch parameter - so
-*& supplying a fabricated key would be worse than supplying none: it would
-*& either miss and return blank anyway, or hit somebody else's session.
+*& THE ONE HEADER IT CARRIES, and why that is not a fabrication. The header
+*& the DPC looks for is 'x-custom1'. GET_BP( ) uses it as the key into
+*& ZEGA_T_CJ_US_LOG, reads the row where ACTIVE = 'X', AES-decrypts
+*& ENCRYPT_KEY with USER_KEY to recover the internet user, and resolves the
+*& partner from there.
 *&
-*& The headers therefore come back EMPTY, GET_BP( ) returns a blank partner,
-*& and identity reaches the DPC as FILTERS instead. That is the rule written
-*& into ZCL_RAK_CJ_API and it is why this class can be as thin as it is.
+*& CJS ALREADY HOLDS THAT KEY. It arrives on the launch URL as &userdata=,
+*& the engine keeps it in MV_USERDATA, and the engine already resolves the
+*& login BP with it - ZCL_EGA_CJ_UTILITY=>GET_BP( qv_key = mv_userdata ).
+*& So this is not a fabricated session: it is the citizen's own portal
+*& session, created by the portal at login, passed back in the form the DPC
+*& expects.
+*&
+*& This corrects an earlier decision recorded here. While no key was known,
+*& sending nothing was right - a made-up one would either miss or hit
+*& somebody else's session. That reasoning ended when MV_USERDATA turned out
+*& to be exactly the value 'x-custom1' carries.
+*&
+*& WHAT IT BUYS. GET_BP( ) is called from 25 <Set>_GET_ENTITYSET methods,
+*& and the partner it resolves is used downstream in about a dozen places
+*& that are not the PORTAL1/RAKDIGI_USER gate - passed as IM_BP to
+*& sub-methods, as IV_PAY_PARTNER, written to LOGINBP, and used in a
+*& WHERE PARTNER = clause. Every one of those received BLANK before, and
+*& said nothing about it. None of them can be reached through a filter.
+*&
+*& Blank is still handled, not assumed away: an expired or logged-out
+*& session has no ACTIVE row, GET_BP( ) returns early, and the read comes
+*& back empty rather than dumping. Identity ALSO still travels as filters -
+*& the two are belt and braces, not alternatives.
 *&
 *& WHY IT IS A FACTORY AND NOT A SUBCLASS, which is the part that cost real
 *& time. The first two attempts wrote it as INHERITING FROM
@@ -87,8 +106,13 @@ CLASS zcl_rak_cj_req_ctx DEFINITION
 *   The context to pass as IO_TECH_REQUEST_CONTEXT. Built once per session
 *   and cached, including a failed build - retrying it on every read would
 *   turn one missing class into an RTTI call per field per round trip.
+*   IV_USERDATA is the portal session key from the launch URL - the engine's
+*   MV_USERDATA, reachable as GET_PARAM( 'USERDATA' ). Blank still works and
+*   still gives a usable context; it just resolves no user, which is the old
+*   behaviour exactly.
     CLASS-METHODS get
-      RETURNING VALUE(ro) TYPE REF TO /iwbep/if_mgw_req_entityset.
+      IMPORTING iv_userdata TYPE string OPTIONAL
+      RETURNING VALUE(ro)   TYPE REF TO /iwbep/if_mgw_req_entityset.
 
 *   Empty when GET( ) succeeded. Otherwise the reason, both candidates
 *   concatenated, ready to be put in a BAPIRET2 row.
@@ -109,14 +133,35 @@ CLASS zcl_rak_cj_req_ctx DEFINITION
     CLASS-DATA gv_tried TYPE abap_bool.
     CLASS-DATA go_ctx   TYPE REF TO /iwbep/if_mgw_req_entityset.
     CLASS-DATA gv_why   TYPE string.
+*   The key the cached context was built WITH. A context carries its headers
+*   from construction, so one built for a blank key cannot answer for a real
+*   one - caching on the object alone would hand the second journey in a
+*   session the first journey's identity, or none at all.
+    CLASS-DATA gv_key   TYPE string.
 
     CLASS-METHODS build
-      IMPORTING iv_class  TYPE seoclsname
-      RETURNING VALUE(ro) TYPE REF TO /iwbep/if_mgw_req_entityset.
+      IMPORTING iv_class    TYPE seoclsname
+                iv_userdata TYPE string
+      RETURNING VALUE(ro)   TYPE REF TO /iwbep/if_mgw_req_entityset.
 
     CLASS-METHODS signature
       IMPORTING iv_class  TYPE seoclsname
       RETURNING VALUE(rv) TYPE string.
+
+*   Put one row into whatever table IT_HEADERS turns out to be. Done through
+*   RTTI and ASSIGN COMPONENT rather than by naming TIHTTPNVP, for the same
+*   reason as everything else in this class: the type is a standard one this
+*   environment cannot open, and a wrong guess about it should be a caught
+*   runtime error, not a class that will not load.
+    CLASS-METHODS fill_header
+      IMPORTING ir_tab      TYPE REF TO data
+                iv_userdata TYPE string.
+
+*   'x-custom1' is compared CASE-SENSITIVELY by GET_BP( ) -
+*   READ TABLE ... WITH KEY name = 'x-custom1' against a STRING component.
+*   Upper-casing it here would send a header nothing reads.
+    CONSTANTS c_hdr_name TYPE string VALUE 'x-custom1'.
+    CONSTANTS c_hdr_parm TYPE string VALUE 'IT_HEADERS'.
 
 ENDCLASS.
 
@@ -126,13 +171,18 @@ CLASS zcl_rak_cj_req_ctx IMPLEMENTATION.
 
 
   METHOD get.
-    IF gv_tried = abap_true.
+*   Rebuilt when the key changes, not only on the first call. The headers are
+*   fixed at construction, so a context built for one session cannot serve
+*   another.
+    IF gv_tried = abap_true AND gv_key = iv_userdata.
       ro = go_ctx.
       RETURN.
     ENDIF.
     gv_tried = abap_true.
+    gv_key   = iv_userdata.
+    CLEAR go_ctx.
 
-    go_ctx = build( c_unittst ).
+    go_ctx = build( iv_class = c_unittst iv_userdata = iv_userdata ).
     IF go_ctx IS NOT INITIAL.
       CLEAR gv_why.
       ro = go_ctx.
@@ -142,7 +192,7 @@ CLASS zcl_rak_cj_req_ctx IMPLEMENTATION.
 *   Keep the first reason - if the second candidate also fails, the reader
 *   needs both, not just the last one.
     DATA(lv_first) = gv_why.
-    go_ctx = build( c_request ).
+    go_ctx = build( iv_class = c_request iv_userdata = iv_userdata ).
     IF go_ctx IS NOT INITIAL.
       CLEAR gv_why.
     ELSE.
@@ -222,6 +272,13 @@ CLASS zcl_rak_cj_req_ctx IMPLEMENTATION.
 *       catchable runtime error below, and WHY( ) will say so.
         CREATE DATA ls_p-value TYPE HANDLE lo_par.
 
+*       The one parameter that is given a value rather than left initial.
+*       Everything else the constructor declares mandatory stays blank -
+*       see the note above the loop.
+        IF iv_userdata IS NOT INITIAL AND to_upper( CONV string( ls_par-name ) ) = c_hdr_parm.
+          fill_header( ir_tab = ls_p-value iv_userdata = iv_userdata ).
+        ENDIF.
+
         INSERT ls_p INTO TABLE lt_p.
       ENDLOOP.
     ENDIF.
@@ -236,6 +293,48 @@ CLASS zcl_rak_cj_req_ctx IMPLEMENTATION.
         CLEAR ro.
         gv_why = |{ iv_class }: { lx->get_text( ) }|.
     ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD fill_header.
+    FIELD-SYMBOLS <tab> TYPE ANY TABLE.
+    FIELD-SYMBOLS <row> TYPE any.
+    DATA lr_row TYPE REF TO data.
+
+    ASSIGN ir_tab->* TO <tab>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    TRY.
+        DATA(lo_tt) = CAST cl_abap_tabledescr(
+                        cl_abap_typedescr=>describe_by_data( <tab> ) ).
+        CREATE DATA lr_row TYPE HANDLE lo_tt->get_table_line_type( ).
+      CATCH cx_root.
+*       Not a table, or a line type that cannot be created. The context is
+*       still built, just without a header - which is where this class
+*       started, so it degrades to the old behaviour rather than failing.
+        RETURN.
+    ENDTRY.
+
+    ASSIGN lr_row->* TO <row>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    ASSIGN COMPONENT 'NAME' OF STRUCTURE <row> TO FIELD-SYMBOL(<n>).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    ASSIGN COMPONENT 'VALUE' OF STRUCTURE <row> TO FIELD-SYMBOL(<v>).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    <n> = c_hdr_name.
+    <v> = iv_userdata.
+
+    INSERT <row> INTO TABLE <tab>.
   ENDMETHOD.
 
 

@@ -17,6 +17,13 @@
 *&---------------------------------------------------------------------*
 REPORT zrak_cj_reqctx_diag.
 
+* The portal session key, if you want to test the identity path as well as
+* the context. Paste the &userdata= value from a journey launch URL.
+*
+* PARAMETERS cannot be TYPE STRING - a selection-screen field has to be flat
+* and fixed-length - so this is CHAR 132 and converted on the way in.
+PARAMETERS p_key TYPE c LENGTH 132 LOWER CASE.
+
 START-OF-SELECTION.
 
 * Everything reaches WRITE through a variable. WRITE takes data objects,
@@ -26,7 +33,7 @@ START-OF-SELECTION.
   DATA lv_diag  TYPE string.
   DATA lv_why   TYPE string.
 
-  DATA(lo_ctx) = zcl_rak_cj_req_ctx=>get( ).
+  DATA(lo_ctx) = zcl_rak_cj_req_ctx=>get( CONV string( p_key ) ).
 
   IF lo_ctx IS BOUND.
     lv_state = 'BOUND - the wrapper layer has its context'.
@@ -48,4 +55,48 @@ START-OF-SELECTION.
     lv_why = zcl_rak_cj_req_ctx=>why( ).
     SKIP.
     WRITE: / 'Why:', lv_why.
+    RETURN.
+  ENDIF.
+
+* Does the header actually reach the context? This is the whole question the
+* identity change turns on: GET_BP( ) reads 'x-custom1' off exactly this
+* table, so if it is not here, the DPC resolves nobody and says nothing.
+  SKIP.
+  DATA lv_hdr TYPE string.
+  TRY.
+      DATA(lt_hdr) = lo_ctx->get_request_headers( ).
+      READ TABLE lt_hdr INTO DATA(ls_hdr) WITH KEY name = 'x-custom1'.
+      IF sy-subrc = 0.
+        lv_hdr = |x-custom1 IS on the context, { strlen( ls_hdr-value ) } characters|.
+      ELSE.
+        lv_hdr = COND string( WHEN p_key IS INITIAL
+                              THEN 'no x-custom1 - no key was entered, so this is expected'
+                              ELSE 'no x-custom1 - the key did NOT reach the context' ).
+      ENDIF.
+    CATCH cx_root INTO DATA(lx).
+      lv_hdr = |get_request_headers failed: { lx->get_text( ) }|.
+  ENDTRY.
+  WRITE: / 'Headers:', lv_hdr.
+
+* And does the DPC resolve a caller from it? This is the payoff - the dozen
+* code paths that consume the resolved partner rather than a filter.
+  IF p_key IS INITIAL.
+    RETURN.
+  ENDIF.
+
+  SKIP.
+  DATA lv_user TYPE string.
+  DATA lv_bp   TYPE bu_partner.
+  TRY.
+      zcl_zega_cj_utility_dpc_ext=>get_bp(
+        EXPORTING io_tech_request_context = lo_ctx
+        IMPORTING user                    = lv_user
+                  partner                 = lv_bp ).
+    CATCH cx_root INTO DATA(lx_bp).
+      lv_user = lx_bp->get_text( ).
+  ENDTRY.
+  WRITE: / 'GET_BP user:   ', lv_user.
+  WRITE: / 'GET_BP partner:', lv_bp.
+  IF lv_bp IS INITIAL.
+    WRITE: / 'A blank partner means no ACTIVE row in ZEGA_T_CJ_US_LOG for that key'.
   ENDIF.

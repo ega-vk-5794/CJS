@@ -52,16 +52,70 @@ supplied one is a value.
 Candidates in order: `/IWBEP/CL_MGW_REQUEST_UNITTST`, then `/IWBEP/CL_MGW_REQUEST`.
 Confirmed **BOUND** on the first in the RAK system.
 
-## The headers are empty on purpose
+## The header, and a correction
 
-The only header the DPC reads is `x-custom1`, which `GET_BP( )` uses as a key
-into `ZEGA_T_CJ_US_LOG` and then AES-decrypts to recover the portal user. CJS has
-no such row — it knows the partner directly, from the journey's launch parameter.
-A fabricated key would either miss and return blank anyway, or hit somebody
+**This page previously said the headers were deliberately empty. That was wrong
+from the moment we looked properly, and it is worth recording why the wrong
+answer was reasonable.**
+
+The only header the DPC reads is `x-custom1`. `GET_BP( )` uses it as the key
+into `ZEGA_T_CJ_US_LOG`, takes the row where `ACTIVE = 'X'`, AES-decrypts
+`ENCRYPT_KEY` using `USER_KEY`, recovers the internet user, and resolves the
+partner through `ZFM_EGA_GET_BP_FROM_INTERNET_U`. While no key was known,
+sending nothing was right: a fabricated one would either miss or hit somebody
 else's session.
 
-So identity reaches the DPC as **filters**, never inferred from a session. That
-is the rule `ZCL_RAK_CJ_API` is built on.
+**CJS already holds that key.** It arrives on the launch URL as `&userdata=`,
+the engine keeps it in `MV_USERDATA`, and the engine *already* resolves the
+login BP with it — `ZCL_EGA_CJ_UTILITY=>GET_BP( qv_key = mv_userdata )`. It is
+the citizen's own portal session, created by the portal at login. Passing it
+back is not impersonation; it is the same value by the route the DPC expects.
+
+`ZCL_RAK_CJ_REQ_CTX=>GET( iv_userdata )` now puts one row into `IT_HEADERS`,
+built through RTTI and `ASSIGN COMPONENT` rather than by naming `TIHTTPNVP` —
+same reason as the rest of the class.
+
+**`'x-custom1'` is compared case-sensitively** (`READ TABLE ... WITH KEY
+name = 'x-custom1'` against a `STRING` component). Upper-casing it sends a
+header nothing reads.
+
+### What it buys, and why filters were never enough
+
+`GET_BP( )` is called from **25** `<Set>_GET_ENTITYSET` methods. The partner it
+resolves is consumed downstream in about a dozen places that are *not* the
+`PORTAL1` / `RAKDIGI_USER` gate — passed as `IM_BP` to sub-methods, as
+`IV_PAY_PARTNER`, written to `LOGINBP`, and used in `WHERE PARTNER = @xpartner`.
+**Every one of those received blank, and none of them said so.** No filter can
+reach them: they consume the partner `GET_BP( )` resolves, not one the caller
+supplies.
+
+The `PORTAL1` gate itself was never the problem. `new` is only set when
+`x-custom1` is present, so with empty headers it stays initial and the inner
+`RETURN` never fires — and a CJS dialog user is not `PORTAL1` anyway.
+
+### Identity now travels both ways, deliberately
+
+Filters remain primary — `Partnerguid`, `Partner`, `Partnerrole`. The header
+reaches what filters cannot. Neither replaces the other.
+
+An expired or logged-out session has no `ACTIVE` row, so `GET_BP( )` returns
+early and the read comes back empty rather than dumping. `GET( )` also caches on
+the key, not just on the object: a context carries its headers from
+construction, so one built for a blank key cannot answer for a real one.
+
+### There is a second door
+
+`GET_BP( )` takes `KEY TYPE XSTRING OPTIONAL` as an alternative to the context.
+The `<Set>_GET_ENTITYSET` methods do not expose it — they always pass the
+context — which is why the header is the injection point. But for direct calls
+to `GET_BP( )` the key can go straight in.
+
+### And a lookup that is not possible
+
+`ZEGA_T_CJ_US_LOG` has no partner column. The mapping is one-way: key →
+encrypted internet user → BP. **You cannot find a session row from a business
+partner**, so "look up the row for this user" is not an option; the key has to
+be carried in from the launch.
 
 ## If GET( ) returns unbound
 

@@ -16,6 +16,12 @@
      <ENTRY>Which request context can a DPC be called with here</ENTRY>
      <LENGTH>51</LENGTH>
     </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_KEY</KEY>
+     <ENTRY>Portal session key (userdata)</ENTRY>
+     <LENGTH>29</LENGTH>
+    </item>
    </TPOOL>
   </asx:values>
  </asx:abap>
