@@ -33,7 +33,15 @@ START-OF-SELECTION.
   DATA lv_diag  TYPE string.
   DATA lv_why   TYPE string.
 
-  DATA(lo_ctx) = zcl_rak_cj_req_ctx=>get( CONV string( p_key ) ).
+* Either form works. Paste the raw USER_KEY that ZRAK_CJ_TESTKEY prints, or
+* the whole &userdata= JSON off a launch URL - SESSION_KEY_OF( ) unwraps the
+* second and passes the first through. The DPC's GET_BP( ) only ever accepts
+* the raw key, so this is where the difference has to be resolved.
+  DATA(lv_key) = zcl_rak_cj_ctx=>session_key_of( CONV string( p_key ) ).
+  IF lv_key <> CONV string( p_key ).
+    WRITE: / 'Unwrapped &userdata= to the session key inside it.'.
+  ENDIF.
+  DATA(lo_ctx) = zcl_rak_cj_req_ctx=>get( lv_key ).
 
   IF lo_ctx IS BOUND.
     lv_state = 'BOUND - the wrapper layer has its context'.
@@ -69,7 +77,7 @@ START-OF-SELECTION.
       IF sy-subrc = 0.
         lv_hdr = |x-custom1 IS on the context, { strlen( ls_hdr-value ) } characters|.
       ELSE.
-        lv_hdr = COND string( WHEN p_key IS INITIAL
+        lv_hdr = COND string( WHEN lv_key IS INITIAL
                               THEN 'no x-custom1 - no key was entered, so this is expected'
                               ELSE 'no x-custom1 - the key did NOT reach the context' ).
       ENDIF.
@@ -80,7 +88,7 @@ START-OF-SELECTION.
 
 * And does the DPC resolve a caller from it? This is the payoff - the dozen
 * code paths that consume the resolved partner rather than a filter.
-  IF p_key IS INITIAL.
+  IF lv_key IS INITIAL.
     RETURN.
   ENDIF.
 

@@ -103,6 +103,27 @@ early and the read comes back empty rather than dumping. `GET( )` also caches on
 the key, not just on the object: a context carries its headers from
 construction, so one built for a blank key cannot answer for a real one.
 
+### The launch value is an envelope, not the key
+
+**`&userdata=` is JSON, and the two `GET_BP( )`s disagree about it.**
+
+`ZCL_EGA_CJ_UTILITY=>GET_BP( qv_key )` — the one the *engine* already calls —
+deserializes it into `{ ebp, rolebp, rolename }` and matches
+`ZEGA_T_CJ_US_LOG` on **`EBP`**.
+
+`ZCL_ZEGA_CJ_UTILITY_DPC_EXT=>GET_BP( )` — the one the *DPC* calls — takes the
+`x-custom1` header value **as** the key, with no unwrapping:
+`WHERE user_key EQ @l_key`.
+
+Two classes, the same method name, different input formats. Passing the
+envelope where the raw key belongs matches no row and resolves nobody, and
+nothing says so. `ZCL_RAK_CJ_CTX=>SESSION_KEY_OF( )` unwraps it, and returns
+the input unchanged when it is not JSON — so a launch carrying the bare key
+still works.
+
+This was got wrong once, in the commit that first added the header, and caught
+by asking whether an existing class already did the job.
+
 ### There is a second door
 
 `GET_BP( )` takes `KEY TYPE XSTRING OPTIONAL` as an alternative to the context.

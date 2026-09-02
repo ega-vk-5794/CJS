@@ -63,12 +63,15 @@ CLASS zcl_rak_cj_api DEFINITION
     TYPES: BEGIN OF ty_ctx,
              partner     TYPE string,   " engine mv_loginbp
              partnerguid TYPE string,
-*            The portal session key from the launch URL (&userdata=). It is
-*            NOT another way of saying "partner" - it is the key GET_BP( )
-*            uses to resolve the caller inside the DPC, and it is what makes
-*            the twelve XPARTNER-dependent code paths work at all. Identity
-*            still goes out as filters as well; these are belt and braces.
-             userdata    TYPE string,
+*            The portal session key - ZEGA_T_CJ_US_LOG-USER_KEY, which the
+*            DPC's GET_BP( ) matches on directly.
+*
+*            NOT the launch URL's &userdata= value. That is a JSON envelope,
+*            { ebp, rolebp, rolename }, and the key is its EBP member;
+*            ZCL_RAK_CJ_CTX unwraps it. Handing the envelope over whole
+*            would match no row and resolve nobody, silently - which is
+*            exactly the failure this field exists to end.
+             session_key TYPE string,
              role        TYPE string,
              intreno     TYPE string,   " io_ctx->get_case( ) - never a cached id
              journey     TYPE string,
@@ -187,7 +190,7 @@ CLASS zcl_rak_cj_api IMPLEMENTATION.
 *   The session key goes in with it. Without it every GET_BP( ) inside the
 *   DPC resolves nothing and the dozen places that use the resolved partner
 *   - IM_BP, IV_PAY_PARTNER, LOGINBP, WHERE PARTNER = - silently get blank.
-    mo_req = zcl_rak_cj_req_ctx=>get( ms_ctx-userdata ).
+    mo_req = zcl_rak_cj_req_ctx=>get( ms_ctx-session_key ).
   ENDMETHOD.
 
 

@@ -20,12 +20,21 @@ CLASS zcl_rak_cj_ctx DEFINITION
 *& lookup on BUT000, once, and a journey launched with &partnerguid= is
 *& believed ahead of it.
 *&
-*& THE SESSION KEY TRAVELS TOO. MS_CTX-USERDATA carries the launch URL's
-*& &userdata=, which is the value the portal puts in the 'x-custom1' header.
-*& ZCL_RAK_CJ_REQ_CTX puts it back there, so GET_BP( ) inside the DPC
-*& resolves the real caller. Filters remain the primary identity - this
-*& reaches the paths a filter cannot, the ones that consume the partner
-*& GET_BP( ) resolves rather than one the caller supplied.
+*& THE SESSION KEY TRAVELS TOO, AND IT IS NOT &userdata= VERBATIM.
+*&
+*& The launch URL's &userdata= is a JSON envelope. ZCL_EGA_CJ_UTILITY=>
+*& GET_BP( ) - the one the engine already uses - deserializes it into
+*& { ebp, rolebp, rolename } and then matches ZEGA_T_CJ_US_LOG on EBP.
+*&
+*& The DPC's OWN GET_BP( ), on ZCL_ZEGA_CJ_UTILITY_DPC_EXT, does no such
+*& thing: it takes the 'x-custom1' header value AS the key -
+*& WHERE user_key EQ @l_key - with no unwrapping at all.
+*&
+*& Two classes, the same method name, different input formats. Passing the
+*& envelope where the raw key belongs matches no row and resolves nobody,
+*& and nothing anywhere says so. SESSION_KEY_OF( ) unwraps it, and falls
+*& back to the value as given when it is not JSON - so a launch that ever
+*& carries the bare key still works.
 *&
 *& DEPARTMENT IS NOT ON THE JOURNEY. ZRAK_T_JNY carries a backend CATEGORY
 *& (MML, TEN, GRANTS...) which is not the portal department FeesSet filters
@@ -47,6 +56,13 @@ CLASS zcl_rak_cj_ctx DEFINITION
     CLASS-METHODS guid_of
       IMPORTING iv_partner TYPE string
       RETURNING VALUE(rv)  TYPE string.
+
+*   The launch URL's &userdata= JSON -> the ZEGA_T_CJ_US_LOG-USER_KEY inside
+*   it. Returns the input unchanged when it is not JSON, and blank for
+*   blank. See the class header for why the two GET_BP( )s disagree.
+    CLASS-METHODS session_key_of
+      IMPORTING iv_userdata TYPE string
+      RETURNING VALUE(rv)   TYPE string.
 
   PRIVATE SECTION.
 ENDCLASS.
@@ -80,20 +96,44 @@ CLASS zcl_rak_cj_ctx IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD session_key_of.
+*   The same three members ZCL_EGA_CJ_UTILITY=>GET_BP( ) deserializes into.
+*   Named exactly as it names them, because /UI2/CL_JSON matches on the
+*   component name.
+    TYPES: BEGIN OF ty_env,
+             ebp      TYPE string,
+             rolebp   TYPE string,
+             rolename TYPE string,
+           END OF ty_env.
+
+    IF iv_userdata IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA ls_env TYPE ty_env.
+
+    TRY.
+        /ui2/cl_json=>deserialize( EXPORTING json = iv_userdata
+                                   CHANGING  data = ls_env ).
+      CATCH cx_root.
+        CLEAR ls_env.
+    ENDTRY.
+
+*   Not JSON, or JSON without an EBP: treat what we were given as the key
+*   itself. Better a value that might work than a blank that cannot.
+    rv = COND string( WHEN ls_env-ebp IS NOT INITIAL THEN ls_env-ebp
+                      ELSE iv_userdata ).
+  ENDMETHOD.
+
+
   METHOD build.
     DATA(ls_cfg) = io_ctx->get_config( ).
 
     rs-partner = io_ctx->get_param( 'LOGINBP' ).
     rs-role    = io_ctx->get_param( 'ROLE' ).
 
-*   THE PORTAL SESSION KEY, and the reason this class exists at all now.
-*   It arrives on the launch URL as &userdata= and the engine already keeps
-*   it in MV_USERDATA - ZCL_RAK_JOURNEY_ENGINE resolves the login BP with
-*   exactly this value, ZCL_EGA_CJ_UTILITY=>GET_BP( qv_key = mv_userdata ).
-*   The same value is what the portal sends the DPC as the 'x-custom1'
-*   header, so handing it to ZCL_RAK_CJ_REQ_CTX is not impersonation: it is
-*   the citizen's own session, in the form the DPC already expects.
-    rs-userdata = io_ctx->get_param( 'USERDATA' ).
+*   THE PORTAL SESSION KEY - unwrapped, not passed on whole.
+    rs-session_key = session_key_of( io_ctx->get_param( 'USERDATA' ) ).
 
 *   A guid supplied at launch wins - it is what the portal actually
 *   authenticated, and re-deriving it would only be able to agree.
