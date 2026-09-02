@@ -2567,7 +2567,26 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
                 CLEAR has_pend.
               ELSE.
                 DATA(cap) = COND string( WHEN r-lbl_en IS NOT INITIAL THEN r-lbl_en ELSE r-text_en ).
-                IF cap IS NOT INITIAL AND is_code_label( cap ) = abap_false.
+*               A PARAGRAPH IS NOT A CAPTION, and consuming one as a caption
+*               loses it twice over. IS_NOTICE( ) is the same predicate the
+*               field loop uses to decide a row is guidance text rather than
+*               a label; a row it answers TRUE for is written as a DISPLAY
+*               row with the wording in DEFAULT_VAL (CHAR 1000) precisely
+*               because ZLABEL is CHAR(150) and would cut it.
+*
+*               Left pending, that row became the NEXT control's ZLABEL - so
+*               M011's "Please select the property from the different lists.
+*               Notes: - If the property is mortgaged..." arrived as the
+*               parcel selector's label, cut mid-word at 150 characters,
+*               sitting in its own grid cell beside a selector squeezed into
+*               the other half of the row. Worse, MT_CONSUMED then hid the
+*               row, so the full wording appeared nowhere at all.
+*
+*               Skipping it also RESTORES the real caption: the short
+*               "Parcel Selection:" row above stays pending and reaches the
+*               control, which is what it was always meant to label.
+                IF cap IS NOT INITIAL AND is_code_label( cap ) = abap_false
+                   AND is_notice( cap ) = abap_false.
                   pend_raw = to_upper( r-field_name ).
                   pend_en  = cap.
                   pend_ar  = COND string( WHEN r-lbl_ar IS NOT INITIAL THEN r-lbl_ar ELSE r-text_ar ).

@@ -122,6 +122,11 @@ CLASS zcl_rak_journey_render DEFINITION
 *   label stays ABOVE while the control and the button pair up beside it.
     DATA mv_flow_cell TYPE abap_bool.
     DATA mo_lbl_tgt   TYPE REF TO z2ui5_cl_xml_view.
+*   A field that must own its row whatever the layout says - see the
+*   implementation for which those are and why the layout cannot be trusted
+*   to know it.
+    METHODS wide_field IMPORTING is_field     TYPE zif_rak_journey=>ty_field
+                       RETURNING VALUE(rv_on) TYPE abap_bool.
     METHODS pay_field IMPORTING iv_index       TYPE i
                       RETURNING VALUE(rv_name) TYPE string.
 *   {FIELDNAME} in a resolved LONG_TEXT( ) - e.g. a declaration reading
@@ -856,6 +861,56 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD wide_field.
+
+*   A COMPOSITE CONTROL, AND A PARAGRAPH, OWN THE WHOLE ROW.
+*
+*   The layout rows a migrated journey arrives with are DERIVED, not designed:
+*   ZCL_RAK_MIGRATOR pairs a legacy caption row with the control it captions
+*   and drops the two into two cells of the twelve-column grid, because that
+*   is what the /QNV/ definition looks like. For an input and its label that
+*   is right. For RAKPARCELSELECTOR it is not: the live control is a
+*   full-width card list, and half a row turns it into a column of squeezed
+*   cards next to a dead grey box holding the instruction text.
+*
+*   So the two cases that are never legitimately half-width are forced here
+*   rather than in the layout: a composite that draws its own list, and a
+*   DISPLAY paragraph long enough that it is prose rather than a value. An
+*   author who lays a step out by hand in the Design tab keeps every other
+*   cell exactly as they placed it - this overrides two shapes, not the grid.
+    CASE is_field-type.
+      WHEN 'PARCEL' OR 'PROPERTY' OR 'TITLEDEED'
+        OR 'CONTRACT' OR 'FLOORUNIT' OR 'BUILDINGS' OR 'ACCOM'.
+        rv_on = abap_true.
+        RETURN.
+      WHEN 'DISPLAY'.
+*       Prose, not a value. A DISPLAY row takes its paragraph from
+*       DEFAULT_VAL - that is where ZCL_RAK_MIGRATOR puts a guidance notice,
+*       and where a TEXT: reference to ZRAK_T_CJ_TXT sits - so the length
+*       test has to look there as well as at the label. Ninety characters
+*       is comfortably longer than any caption and comfortably shorter than
+*       the shortest notice on the migrated journeys.
+        IF strlen( is_field-label ) > 90
+           OR strlen( is_field-default ) > 90
+           OR is_field-default CP 'TEXT:*'.
+          rv_on = abap_true.
+        ENDIF.
+        RETURN.
+      WHEN 'READONLY'.
+*       A READONLY field is a VALUE, so only its label can make it prose -
+*       DEFAULT_VAL there is the value itself and a long one is still a
+*       field, not a paragraph.
+        IF strlen( is_field-label ) > 90.
+          rv_on = abap_true.
+        ENDIF.
+        RETURN.
+      WHEN OTHERS.
+        RETURN.
+    ENDCASE.
+
+  ENDMETHOD.
+
+
   METHOD render_cell.
 
     DATA(lv_align) = COND string( WHEN is_cell-attr-align = zcl_rak_cj_lay=>c_align-center THEN 'Center'
@@ -885,9 +940,17 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                      width      = lv_width
                                      alignitems = lv_align ).
 
+    DATA(lv_wide) = wide_field( is_field ).
+
+*   A wide cell also forces the line break. Spanning twelve columns while
+*   still sitting on the previous row would push the cell beside it out of
+*   the grid entirely rather than onto its own line.
     lo_cell->layout_data( )->grid_data(
-      span      = zcl_rak_cj_lay=>span_str( is_cell-attr-col_span )
-      linebreak = COND string( WHEN iv_break = abap_true THEN 'true' ELSE 'false' ) ).
+      span      = COND string( WHEN lv_wide = abap_true
+                               THEN 'XL12 L12 M12 S12'
+                               ELSE zcl_rak_cj_lay=>span_str( is_cell-attr-col_span ) )
+      linebreak = COND string( WHEN iv_break = abap_true OR lv_wide = abap_true
+                               THEN 'true' ELSE 'false' ) ).
 
     mv_in_cell = abap_true.
     before_field( io_view = lo_cell is_field = is_field ).
@@ -2651,7 +2714,12 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         IF mo_e->mo_rules->is_hidden( ls_rf ) = abap_true.
           CONTINUE.
         ENDIF.
-        lo_cell = lo_row->vbox( class = 'rakCell' ).
+*       rakWide is the unlaid path's half of WIDE_FIELD( ): this row is a
+*       flex box with rakRowCn fixing every child to a fraction of it, so a
+*       composite needs the class to claim the whole line back.
+        lo_cell = lo_row->vbox( class = COND string(
+                                  WHEN wide_field( ls_rf ) = abap_true
+                                  THEN 'rakCell rakWide' ELSE 'rakCell' ) ).
         mv_in_cell = xsdbool( lv_eqc IS NOT INITIAL ).
         before_field( io_view = lo_cell is_field = ls_rf ).
         render_one( io_form = lo_cell is_field = ls_rf ).

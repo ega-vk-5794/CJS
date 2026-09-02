@@ -619,9 +619,27 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakPclBadge\{margin-inline-start:auto;padding:.12rem .55rem;| &&
         |border-radius:999px;background:rgba(0,122,194,.10);\}| &&
         |.rakPclMeta\{color:#6a7484;font-size:.85rem;\}| &&
+*     The actions row. Full Details is a LINK and Select is a filled button,
+*     so without a rule between them the link's icon sits hard against its
+*     own text and the two controls touch. A hairline above the row is what
+*     the live card uses to separate the actions from the meta line.
         |.rakPclAct\{width:100%;justify-content:flex-end;align-items:center;| &&
-        |gap:.75rem;margin-top:.35rem;\}| &&
+        |gap:1.25rem;margin-top:.55rem;padding-top:.55rem;flex-wrap:wrap;| &&
+        |border-top:1px solid { g-line_clr };\}| &&
+        |.rakPclAct .sapMLnk .sapUiIcon\{margin-inline-end:.4rem;\}| &&
+        |.rakPclAct .sapMLnk\{white-space:nowrap;\}| &&
+        |.rakPclAct .sapMBtn\{margin:0;\}| &&
+*     The card's own vertical rhythm. It is a VBox, so gap is the only thing
+*     holding the number, the meta line and the actions apart.
+        |.rakPclCard\{gap:.4rem;\}| &&
+        |.rakPclCard .sapMTitle\{margin:0;\}| &&
         |.rakPclHint\{color:#6a7484;font-size:.82rem;\}| &&
+*     WIDE - the unlaid path's half of ZCL_RAK_JOURNEY_RENDER->WIDE_FIELD( ).
+*     rakRowCn pins every child of a multi-column row to a fixed fraction of
+*     it; a composite control and a paragraph claim the whole line back. The
+*     !important is against rakRowCn's own >* rule, which is equally specific
+*     and declared after this one in some variants.
+        |.rakRow>.rakWide\{flex:0 0 100%!important;max-width:100%;\}| &&
         |.rakRow\{flex-wrap:wrap!important;width:100%;gap:.75rem;\}| &&
         |.rakRow>*\{flex:0 1 auto;min-width:0;max-width:100%;\}| &&
         |.rakCell\{min-width:0;gap:.25rem;\}| &&
