@@ -652,11 +652,36 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     POINTER-EVENTS:NONE once it starts fading, so a spinner can never
 *     eat a click meant for the map underneath it.
         |.rakPclMapWrap\{position:relative;width:100%;\}| &&
+*     IT REMOVES ITSELF, IN CSS, AND THAT IS NOT BELT AND BRACES.
+*
+*     This overlay is OPAQUE and covers the map. So an overlay that is
+*     not taken away is not a missing spinner - it is a blank grey panel
+*     where the map should be, which is indistinguishable from every
+*     other way this map has failed. Its removal was JavaScript-only,
+*     which made a decoration capable of hiding the content it decorates
+*     whenever the snippet did not run.
+*
+*     A decoration must never be able to do that. The animation fades it
+*     out after nine seconds with no script involved at all, so the worst
+*     case is a spinner that ran too long rather than a map nobody can
+*     see. W( ) still removes it in well under a second on the normal
+*     path; this only ever fires when nothing else did.
+*
+*     FORWARDS, so it holds the faded state instead of snapping back, and
+*     VISIBILITY as well as opacity so it stops taking pointer events
+*     even without the class.
+*
+*     NOT disabled under prefers-reduced-motion - unlike the spinner
+*     below, this animation is a safety rather than an effect, and
+*     switching it off would restore exactly the failure it exists to
+*     prevent.
         |.rakPclWait\{position:absolute;inset:0;display:flex;| &&
         |flex-direction:column;align-items:center;justify-content:center;| &&
         |gap:.7rem;background:#eef1f4;border-radius:10px;| &&
-        |color:#6a7484;font-size:.85rem;transition:opacity .3s;\}| &&
-        |.rakPclWait.rakGone\{opacity:0;pointer-events:none;\}| &&
+        |color:#6a7484;font-size:.85rem;transition:opacity .3s;| &&
+        |animation:rakWaitOut .4s ease 9s forwards;\}| &&
+        |@keyframes rakWaitOut\{to\{opacity:0;visibility:hidden;\}\}| &&
+        |.rakPclWait.rakGone\{opacity:0;visibility:hidden;pointer-events:none;\}| &&
 *     A BORDERED CIRCLE WITH ONE SIDE COLOURED, ROTATING - the whole
 *     spinner. No image, no sprite, no library: a data URI would still be
 *     a request to explain and sap.m.BusyIndicator cannot be placed over

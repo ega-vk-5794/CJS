@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-15. Missing this line means SAP has an older copy - see
+*& BUILD map-fix-16. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -80,6 +80,25 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   an offset past the end of a STRING raises CX_SY_RANGE_OUT_OF_BOUNDS,
 *   and event names are short.
     CONSTANTS c_pfx TYPE string VALUE 'PCL'.
+
+*   THE BUILD, ON SCREEN. Not decoration - it ends a specific and
+*   expensive kind of round trip.
+*
+*   There is no ADT connection from where this is written, so a change
+*   reaches SAP as: push, abapGit Pull with the 'Overwrite local object'
+*   row ticked by hand, then activate. Any of those three can silently
+*   not happen. A pull that was not ticked, and a pull that landed but
+*   failed to activate, both leave the PREVIOUS ACTIVE VERSION running -
+*   and CLAUDE.md is explicit that this is indistinguishable on screen
+*   from code that ran and did nothing. Several rounds here have been
+*   spent re-diagnosing behaviour that came from a build no longer in
+*   the repository.
+*
+*   So the dialog states which build drew it. One glance settles whether
+*   the thing being looked at is the thing that was just written, which
+*   is the question that has to be answered FIRST every time and until
+*   now could only be inferred. Bump it with the header stamp.
+    CONSTANTS c_build TYPE string VALUE 'map-fix-16'.
 
     METHODS constructor
       IMPORTING io_engine TYPE REF TO zcl_rak_journey_engine.
@@ -1151,20 +1170,28 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     parcel, and genuinely the same for the same one - which is also
 *     what makes reopening on an unchanged parcel free.
       DATA(lv_sfx) = to_upper( lv_pid ).
-*     ID-SAFE. A parcel number is digits today, but this value arrives
-*     through an event string and an id with a space or a quote in it
-*     would break the markup rather than the map - and silently, because
-*     getElementById would simply answer nothing.
-      DATA(lv_ok) = `0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_`.
-      DATA lv_cl TYPE string.
-      DATA lv_ch TYPE c LENGTH 1.
-      DO strlen( lv_sfx ) TIMES.
-        lv_ch = substring( val = lv_sfx off = sy-index - 1 len = 1 ).
-        IF lv_ok CS lv_ch.
-          lv_cl = |{ lv_cl }{ lv_ch }|.
-        ENDIF.
-      ENDDO.
-      lv_sfx = lv_cl.
+*     ID-SAFE, WITH PLAIN STATEMENTS ONLY.
+*
+*     The first version of this filtered the string character by
+*     character with DO strlen( lv_sfx ) TIMES. That is a SYNTAX ERROR:
+*     DO ... TIMES takes a data object, not a functional expression, and
+*     it is not a general expression position. Same family as the
+*     TYPE HANDLE and VALUE traps in CLAUDE.md - the message names where
+*     the parser gave up, not what is wrong - and the cost is the one
+*     that file warns about: the class does not activate, the runtime
+*     keeps the previous ACTIVE version, and nothing on screen changes,
+*     so it reads exactly like a pull that never happened.
+*
+*     CONDENSE and REPLACE are statements and cannot fail that way. The
+*     four characters removed are the only ones that could end the id
+*     attribute early or inject markup; a parcel number contains none of
+*     them, which is why the ArcGIS branch above gets away with no
+*     filtering at all.
+      CONDENSE lv_sfx NO-GAPS.
+      REPLACE ALL OCCURRENCES OF `"` IN lv_sfx WITH ``.
+      REPLACE ALL OCCURRENCES OF `'` IN lv_sfx WITH ``.
+      REPLACE ALL OCCURRENCES OF `<` IN lv_sfx WITH ``.
+      REPLACE ALL OCCURRENCES OF `>` IN lv_sfx WITH ``.
 
       DATA(lv_idf) = |rakPclMap{ lv_sfx }|.
       DATA(lv_idn) = |rakPclNote{ lv_sfx }|.
@@ -1496,6 +1523,15 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     blocked_tab( io_bar = lo_bar iv_key = 'DOC'  iv_exp = 'ToAttachment'
                  iv_text = t( iv_en = `Documents` iv_ar = `المستندات` )
                  iv_cols = `Number^Department^Issuing date^Expiry Date` ).
+
+*   WHICH BUILD DREW THIS. Outside the tab bar, so it is there whichever
+*   tab is open and whichever map path was taken - including the branch
+*   that draws only a message. See C_BUILD: this answers "is the code on
+*   screen the code that was just written" by observation instead of by
+*   inference, which is the question that has had to be asked first in
+*   every round of this and never had an honest answer.
+    lo_c->text( text  = |CJS { c_build }|
+                class = 'rakPclHint' ).
 
     lo_dlg->buttons( )->button( text  = t( iv_en = `Close` iv_ar = `إغلاق` )
                                 press = mo_e->mo_client->_event( |{ c_pfx }CLOSE| ) ).
