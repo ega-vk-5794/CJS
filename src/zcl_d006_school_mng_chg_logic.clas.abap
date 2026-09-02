@@ -310,6 +310,7 @@ CLASS ZCL_D006_SCHOOL_MNG_CHG_LOGIC IMPLEMENTATION.
 *
 **    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
 *    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
+    io_ctx->set_val( iv_name = 'NEWMANAGERSEARCH_IDTYPE' iv_value = CONV #( 'YFS002' ) ).
   ENDMETHOD.
 
 

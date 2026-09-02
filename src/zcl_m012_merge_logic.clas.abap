@@ -1,8 +1,8 @@
-CLASS zcl_m012_merge_logic DEFINITION
-  PUBLIC
-  INHERITING FROM zcl_rak_mun_logic
-  FINAL
-  CREATE PUBLIC.
+class ZCL_M012_MERGE_LOGIC definition
+  public
+  inheriting from ZCL_RAK_MUN_LOGIC
+  final
+  create public .
 
 *&---------------------------------------------------------------------*
 *& M012 - Request for Plots Merge (legacy NMERGE_1_1..1_4).
@@ -44,57 +44,56 @@ CLASS zcl_m012_merge_logic DEFINITION
 *& is stricter than the service it replaces and that is a decision for the
 *& owning team, not a defect to fix quietly.
 *&---------------------------------------------------------------------*
-
-  PUBLIC SECTION.
+public section.
 
 *   A merge needs two. Named rather than inline so the number is findable.
-    CONSTANTS c_min_parcels TYPE i VALUE 2.
-
+  constants C_MIN_PARCELS type I value 2 ##NO_TEXT.
 *   The add-a-parcel-you-do-not-own input. ADDPRCLCTL is the legacy
 *   FIELD_NAME - the export's CONTROL_TYPE there is ADDPARCELS - and the
 *   field control is keyed on the FIELD_NAME. See ZCL_RAK_MUN_LOGIC's
 *   constants note.
-    CONSTANTS c_fld_add TYPE string VALUE 'ADDPRCLCTL'.
-
+  constants C_FLD_ADD type STRING value 'ADDPRCLCTL' ##NO_TEXT.
 *   The separator the selector stores its list with, and the one the
 *   backend already uses for the CJ02 note. Repeated here rather than
 *   reached for on ZCL_RAK_CJ_PARCEL, because a static reference to that
 *   class would put the whole wrapper-API chain in this handler's load
 *   graph - the reason the engine creates it dynamically in the first
 *   place.
-    CONSTANTS c_sep TYPE string VALUE '-'.
-
-    METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
+  constants C_SEP type STRING value '-' ##NO_TEXT.
 
 *   WHY ON_CHANGE. ZCL_RAK_CJ_PARCEL->TOGGLE( ) writes the list and then
 *   calls ON_CHANGE for the field, exactly as PICK( ) always has - so this
 *   fires on every tick and untick with the finished list already stored.
-    METHODS zif_rak_journey_logic~on_change REDEFINITION.
-
-  PROTECTED SECTION.
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
+    redefinition .
+protected section.
 
 *   The selected parcels, in the order the citizen picked them.
-    METHODS parcel_keys
-      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
-      RETURNING VALUE(rt) TYPE string_table.
-
+  methods PARCEL_KEYS
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+    returning
+      value(RT) type STRING_TABLE .
 *   Rebuild RAKPARCELS from the selection. Idempotent.
-    METHODS sync_grid
-      IMPORTING io_ctx TYPE REF TO zif_rak_journey.
-
+  methods SYNC_GRID
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY .
 *   Append one key to the selection unless it is already there. Answers
 *   whether it was added.
-    METHODS add_key
-      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
-                iv_key    TYPE string
-      RETURNING VALUE(rv) TYPE abap_bool.
-
+  methods ADD_KEY
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IV_KEY type STRING
+    returning
+      value(RV) type ABAP_BOOL .
   PRIVATE SECTION.
 ENDCLASS.
 
 
 
-CLASS zcl_m012_merge_logic IMPLEMENTATION.
+CLASS ZCL_M012_MERGE_LOGIC IMPLEMENTATION.
 
 
   METHOD parcel_keys.
@@ -294,6 +293,4 @@ CLASS zcl_m012_merge_logic IMPLEMENTATION.
     ENDIF.
 
   ENDMETHOD.
-
-
 ENDCLASS.

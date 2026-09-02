@@ -74,25 +74,25 @@
      <ID>S</ID>
      <KEY>P_BKND</KEY>
      <ENTRY>Backend post active</ENTRY>
-     <LENGTH>19</LENGTH>
+     <LENGTH>27</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_TPFX</KEY>
      <ENTRY>Portal tile prefix (2 chars)</ENTRY>
-     <LENGTH>28</LENGTH>
+     <LENGTH>36</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_BADI</KEY>
      <ENTRY>Read step names and flags from the BAdI</ENTRY>
-     <LENGTH>39</LENGTH>
+     <LENGTH>47</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_BADIAL</KEY>
      <ENTRY>...every screen, not just the first</ENTRY>
-     <LENGTH>34</LENGTH>
+     <LENGTH>43</LENGTH>
     </item>
    </TPOOL>
   </asx:values>

@@ -60,4 +60,10 @@ CLASS lcl_event_receiver IMPLEMENTATION.
   METHOD tree_selection_changed.
     go_editor->select_editor_node( node_key ).
   ENDMETHOD.
+  METHOD hotspot_click.
+    CASE sender.
+      WHEN go_editor->lo_property_grid.
+        go_editor->property_icon_click( EXPORTING e_row_id = e_row_id e_column_id  = e_column_id es_row_no = es_row_no ).
+    ENDCASE.
+  ENDMETHOD.
 ENDCLASS.

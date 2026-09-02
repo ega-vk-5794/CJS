@@ -663,6 +663,6 @@ CLASS ZCL_D008_SCHOOL_CYCL_CHG_LOGIC IMPLEMENTATION.
 ***    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
 **    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
 ****   added below method to display fees structure for PREKG, KG, Cycle1, CYCLE2, CYCLE3
-**    sed_fees( io_ctx ).
+    sed_fees( io_ctx ).
   endmethod.
 ENDCLASS.

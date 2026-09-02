@@ -15,13 +15,15 @@ public section.
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_POST
     redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
+    redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
     redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
     redefinition .
 protected section.
   PRIVATE SECTION.
@@ -202,4 +204,74 @@ DATA: lv_loginbp TYPE bu_partner.
 
     ENDIF.
   endmethod.
+
+
+  METHOD zif_rak_journey_logic~on_after_read.
+
+    data: lv_val TYPE string.
+
+    CALL METHOD super->zif_rak_journey_logic~on_after_read
+      EXPORTING
+        io_ctx = io_ctx.
+    DATA(ls_g)  = io_ctx->get_grid_data( 'MANAGER_1' ).
+    DATA(ls_new) = VALUE zif_rak_journey=>ty_table( columns = ls_g-columns ).
+
+    DATA(lt_new_row) = zcl_rak_journey_util=>blank_row( ls_g-columns ).
+
+    zcl_rak_journey_util=>put_cell(
+          EXPORTING it_cols = ls_g-columns iv_name = 'MANAGER_NAME'
+                    iv_val  = io_ctx->get_val( 'MANAGER_NAME' )
+          CHANGING  ct_row  = lt_new_row ).
+    zcl_rak_journey_util=>put_cell(
+      EXPORTING it_cols = ls_g-columns iv_name = 'MANAGER_EID'
+                iv_val  = io_ctx->get_val( 'MANAGER_EID' )
+      CHANGING  ct_row  = lt_new_row ).
+    zcl_rak_journey_util=>put_cell(
+      EXPORTING it_cols = ls_g-columns iv_name = 'MANAGER_NATION'
+                iv_val  = io_ctx->get_val( 'MANAGER_NATION' )
+      CHANGING  ct_row  = lt_new_row ).
+    zcl_rak_journey_util=>put_cell(
+      EXPORTING it_cols = ls_g-columns iv_name = 'MOBILE_NUMBER'
+                iv_val  = io_ctx->get_val( 'MANAGER_MOBILE' )
+      CHANGING  ct_row  = lt_new_row ).
+    zcl_rak_journey_util=>put_cell(
+      EXPORTING it_cols = ls_g-columns iv_name = 'EMAIL_ADDRESS'
+                iv_val  = io_ctx->get_val( 'MANAGER_EMAIL' )
+      CHANGING  ct_row  = lt_new_row ).
+
+    APPEND lt_new_row TO ls_new-rows.
+    io_ctx->set_grid_data( iv_field = 'MANAGER_1' is_data = ls_new ).
+
+    DATA(ls_g1)  = io_ctx->get_grid_data( 'APPLICANT_1' ).
+    DATA(ls_new1) = VALUE zif_rak_journey=>ty_table( columns = ls_g1-columns ).
+
+    DATA(lt_new_row1) = zcl_rak_journey_util=>blank_row( ls_g1-columns ).
+
+    zcl_rak_journey_util=>put_cell(
+          EXPORTING it_cols = ls_g1-columns iv_name = 'APP_NAME'
+                    iv_val  = io_ctx->get_val( 'APP_NAME' )
+          CHANGING  ct_row  = lt_new_row1 ).
+    zcl_rak_journey_util=>put_cell(
+      EXPORTING it_cols = ls_g1-columns iv_name = 'APP_ID'
+                iv_val  = io_ctx->get_val( 'APP_ID' )
+      CHANGING  ct_row  = lt_new_row1 ).
+    DATA(lv_app_type) = io_ctx->get_val( 'APP_TYPE' ).
+    IF lv_app_type IS NOT INITIAL.
+      SELECT SINGLE *
+      FROM dd07t
+      INTO @DATA(ls_dd07t)
+      WHERE domname EQ 'ZDO_DOK_APPLICANT_TYPE'
+      AND   ddlanguage EQ @sy-langu
+      AND   valpos EQ @lv_app_type.
+**      ORDER BY domvalue_l.
+        lv_val = ls_dd07t-DDTEXT.
+    ENDIF.
+    zcl_rak_journey_util=>put_cell(
+      EXPORTING it_cols = ls_g1-columns iv_name = 'APP_TYPE'
+                iv_val  = lv_val     "io_ctx->get_val( 'APP_TYPE' )
+      CHANGING  ct_row  = lt_new_row1 ).
+
+    APPEND lt_new_row1 TO ls_new1-rows.
+    io_ctx->set_grid_data( iv_field = 'APPLICANT_1' is_data = ls_new1 ).
+  ENDMETHOD.
 ENDCLASS.

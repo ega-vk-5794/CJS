@@ -114,12 +114,6 @@ CLASS ZCL_D025_STUD_TRANS_CERT_LOGIC IMPLEMENTATION.
 *   field, so this is a no-op on a journey with no payment step.
     rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
                                                          iv_step = iv_step ).
-
-*    CHECK iv_step = 0.   " zero-based: step 1 "Student" in the wizard
-*
-*    IF io_ctx->get_val( 'SCHOOLNAME' ) IS INITIAL.
-*      rt = VALUE #( ( type = 'Error' text = 'Search for and confirm a student before continuing.' ) ).
-*    ENDIF.
   ENDMETHOD.
 
 
@@ -144,35 +138,7 @@ CLASS ZCL_D025_STUD_TRANS_CERT_LOGIC IMPLEMENTATION.
       io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
 
     ENDIF.
-*    DATA(lv_user) = io_ctx->get_param( iv_name = 'USERDATA' ).
-*
-*    zcl_ega_cj_utility=>get_bp(
-*      EXPORTING qv_key  = lv_user
-*      IMPORTING loginbp = DATA(lv_loginbp)
-*                rolebp  = DATA(lv_rolebp)
-*                role    = DATA(lv_role) ).
-*
-*
-*
-*    IF lv_loginbp IS INITIAL.
-*      RETURN.
-*    ENDIF.
-*
-*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
-*
-**   The signed-in citizen, read from the business partner register. What stood
-**   here was a fixed name and Emirates ID, written AFTER the real read, so every
-**   applicant saw and posted the same test person.
-*    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
-*      EXPORTING
-*        iv_bp_id      = CONV bu_partner( lv_loginbp )
-*      IMPORTING
-*        es_bp_details = DATA(ls_bp_real) ).
-*    io_ctx->set_val( iv_name = 'PARENTNAME' iv_value = COND #(
-*      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
-*      THEN CONV string( ls_bp_real-bp_name_ar )
-*      ELSE CONV string( ls_bp_real-bp_name ) ) ).
-*    io_ctx->set_val( iv_name = 'PARENTEID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
+
   ENDMETHOD.
 
 

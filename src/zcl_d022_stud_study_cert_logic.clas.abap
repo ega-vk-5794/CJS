@@ -412,91 +412,69 @@ CLASS ZCL_D022_STUD_STUDY_CERT_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_init.
-*    CALL METHOD super->zif_rak_journey_logic~on_init
-*      EXPORTING
-*        io_ctx = io_ctx.
-**
-*    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
-**
-*    zcl_ega_cj_utility=>get_bp(
-*      EXPORTING
-*        qv_key  = user_data
-*      IMPORTING
-*        loginbp = DATA(loginbp)
-*        rolebp  = DATA(rolebp)
-*        role    = DATA(role)
-*    ).
-*
-*    DATA lt_student TYPE STANDARD TABLE OF string.
-*
-*    APPEND 'Student SIS ID' TO lt_student.
-*    APPEND 'Emirates ID' TO lt_student.
-*
-*
-**    io_ctx->set_val(
-**      iv_name  = 'PARTNER_ID'
-**      iv_value = lt_student
-**    ).
-*
-*
-**
-*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '3000000049' ).
-*
-**    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
-*    io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
-**    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
-*    io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
-*
-**    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
-*    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
 
-    super->zif_rak_journey_logic~on_init( io_ctx = io_ctx ).
-
-    DATA(lv_user) = io_ctx->get_param( iv_name = 'USERDATA' ).
-
-    zcl_ega_cj_utility=>get_bp(
-      EXPORTING qv_key  = lv_user
-      IMPORTING loginbp = DATA(lv_loginbp)
-                rolebp  = DATA(lv_rolebp)
-                role    = DATA(lv_role) ).
-
-*   DEV FALLBACK - MUST NOT REACH PRODUCTION.
-*   GS_DATA-PARTNER is what gates the fee read: ZCL_EGA_CJ_ENH_IMPL_D026->CREATE only
-*   calls CJ_PAYMENT_SCR_FEE( 'ZK14' ) when the partner is filled, so a blank BP means
-*   an empty fee list and "No open payments found for this case" on the way into the
-*   payment step. GET_BP returns nothing on the dev box, which is why the original
-*   version of this class had the number written in.
-*
-*   Guarded on SY-SYSID rather than deleted so the journey is testable on E10 and
-*   cannot silently invent an applicant on E30. Remove once the dev box has BPs.
-
-    IF lv_loginbp IS INITIAL.
-      RETURN.
-    ENDIF.
+    DATA: lv_loginbp TYPE bu_partner.
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
 
     io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
+    io_ctx->set_val( iv_name = 'OWNER_BP' iv_value = |{ lv_loginbp }| ).
 
-    SELECT SINGLE zzreferencea AS name_ar, zzfull_name_eng AS name_en
-      FROM but000
-      WHERE partner EQ @lv_loginbp
-      INTO @DATA(ls_name).
-    IF sy-subrc = 0.
-      io_ctx->set_val( iv_name  = 'PARTNER_NAME'
-                       iv_value = COND #( WHEN sy-langu = 'A' AND ls_name-name_ar IS NOT INITIAL
-                                          THEN |{ ls_name-name_ar }| ELSE |{ ls_name-name_en }| ) ).
-    ENDIF.
 
-    SELECT SINGLE idnumber FROM but0id
-      WHERE partner EQ @lv_loginbp
-        AND type    EQ 'YFS002'
-      INTO @DATA(lv_eid).
-    IF sy-subrc = 0.
-      io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = |{ lv_eid }| ).
-    ENDIF.
 
-*   The trailing hardcoded name and Emirates ID that used to sit here are gone.
-*   They ran AFTER the BUT000 / BUT0ID reads above and overwrote them, so every
-*   applicant saw and posted the same test person's identity.
+*    super->zif_rak_journey_logic~on_init( io_ctx = io_ctx ).
+*
+*    DATA(lv_user) = io_ctx->get_param( iv_name = 'USERDATA' ).
+*
+*    zcl_ega_cj_utility=>get_bp(
+*      EXPORTING qv_key  = lv_user
+*      IMPORTING loginbp = DATA(lv_loginbp)
+*                rolebp  = DATA(lv_rolebp)
+*                role    = DATA(lv_role) ).
+*
+*    IF lv_loginbp IS INITIAL.
+*      RETURN.
+*    ENDIF.
+*
+*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
+
+    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+      EXPORTING
+        iv_bp_id      = CONV bu_partner( lv_loginbp )
+      IMPORTING
+        es_bp_details = DATA(ls_bp_real) ).
+    io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = COND #(
+      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
+      THEN CONV string( ls_bp_real-bp_name_ar )
+      ELSE CONV string( ls_bp_real-bp_name ) ) ).
+    io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
+    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
+
+
+    io_ctx->set_val( iv_name = 'STUDENT_1_IDTYPE'      iv_value = CONV #( 'SIS' ) ).
+
+*    SELECT SINGLE zzreferencea AS name_ar, zzfull_name_eng AS name_en
+*      FROM but000
+*      WHERE partner EQ @lv_loginbp
+*      INTO @DATA(ls_name).
+*    IF sy-subrc = 0.
+*      io_ctx->set_val( iv_name  = 'PARTNER_NAME'
+*                       iv_value = COND #( WHEN sy-langu = 'A' AND ls_name-name_ar IS NOT INITIAL
+*                                          THEN |{ ls_name-name_ar }| ELSE |{ ls_name-name_en }| ) ).
+*    ENDIF.
+*
+*    SELECT SINGLE idnumber FROM but0id
+*      WHERE partner EQ @lv_loginbp
+*        AND type    EQ 'YFS002'
+*      INTO @DATA(lv_eid).
+*    IF sy-subrc = 0.
+*      io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = |{ lv_eid }| ).
+*    ENDIF.
+*
+**   The trailing hardcoded name and Emirates ID that used to sit here are gone.
+**   They ran AFTER the BUT000 / BUT0ID reads above and overwrote them, so every
+**   applicant saw and posted the same test person's identity.
 
   ENDMETHOD.
 

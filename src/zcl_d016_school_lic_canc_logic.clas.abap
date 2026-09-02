@@ -24,6 +24,7 @@ public section.
   methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_START
     redefinition .
 protected section.
+private section.
 ENDCLASS.
 
 
@@ -360,25 +361,29 @@ CLASS ZCL_D016_SCHOOL_LIC_CANC_LOGIC IMPLEMENTATION.
         io_ctx = io_ctx.
 *
     DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
-*
-    zcl_ega_cj_utility=>get_bp(
-      EXPORTING
-        qv_key  = user_data
-      IMPORTING
-        loginbp = DATA(loginbp)
-        rolebp  = DATA(rolebp)
-        role    = DATA(role)
-    ).
-*
-    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+**
+*    zcl_ega_cj_utility=>get_bp(
+*      EXPORTING
+*        qv_key  = user_data
+*      IMPORTING
+*        loginbp = DATA(loginbp)
+*        rolebp  = DATA(rolebp)
+*        role    = DATA(role)
+*    ).
+**
+*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
 
-*    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
-*   The signed-in citizen, read from the business partner register. What stood
-*   here was a fixed name and Emirates ID, written AFTER the real read, so every
-*   applicant saw and posted the same test person.
+    DATA: lv_loginbp TYPE bu_partner.
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
+
+    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
+    io_ctx->set_val( iv_name = 'OWNER_BP' iv_value = |{ lv_loginbp }| ).
+
     NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
       EXPORTING
-        iv_bp_id      = CONV bu_partner( loginbp )
+        iv_bp_id      = CONV bu_partner( lv_loginbp )
       IMPORTING
         es_bp_details = DATA(ls_bp_real) ).
     io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = COND #(
@@ -386,9 +391,6 @@ CLASS ZCL_D016_SCHOOL_LIC_CANC_LOGIC IMPLEMENTATION.
       THEN CONV string( ls_bp_real-bp_name_ar )
       ELSE CONV string( ls_bp_real-bp_name ) ) ).
     io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
-*    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
-
-*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
     io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
 
   ENDMETHOD.

@@ -20,13 +20,13 @@
      <ID>S</ID>
      <KEY>P_KEY</KEY>
      <ENTRY>Portal session key (userdata)</ENTRY>
-     <LENGTH>29</LENGTH>
+     <LENGTH>37</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_HDR</KEY>
      <ENTRY>Try get_request_headers( ) - can dump</ENTRY>
-     <LENGTH>44</LENGTH>
+     <LENGTH>45</LENGTH>
     </item>
    </TPOOL>
   </asx:values>

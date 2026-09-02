@@ -19,19 +19,19 @@
      <ID>S</ID>
      <KEY>B01</KEY>
      <ENTRY>Identity and parcel</ENTRY>
-     <LENGTH>19</LENGTH>
+     <LENGTH>27</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>B02</KEY>
      <ENTRY>Probe the GIS server</ENTRY>
-     <LENGTH>20</LENGTH>
+     <LENGTH>28</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>B03</KEY>
      <ENTRY>Output</ENTRY>
-     <LENGTH>6</LENGTH>
+     <LENGTH>14</LENGTH>
     </item>
    </TPOOL>
   </asx:values>

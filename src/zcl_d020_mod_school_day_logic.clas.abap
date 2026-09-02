@@ -36,6 +36,25 @@ private section.
   constants C_STAGE_CYC1 type STRING value 'CYCLE1' ##NO_TEXT.
   constants C_STAGE_CYC2 type STRING value 'CYCLE2' ##NO_TEXT.
   constants C_STAGE_CYC3 type STRING value 'CYCLE3' ##NO_TEXT.
+  constants C_GRID type STRING value 'OWNERS_SEARCH' ##NO_TEXT.
+  constants C_EVT_OWNEW type STRING value 'OWN_NEW' ##NO_TEXT.
+  constants C_EVT_OWNSR type STRING value 'OWN_SEARCH' ##NO_TEXT.
+  constants C_EVT_OWNOK type STRING value 'OWN_OK' ##NO_TEXT.
+  constants C_EVT_OWNCX type STRING value 'OWN_CANCEL' ##NO_TEXT.
+  constants C_OWN_ID type STRING value 'IDENTIFICATION_POP' ##NO_TEXT.
+  constants C_POP_OWN type STRING value 'OWNER' ##NO_TEXT.
+  data C_OWN_NAME type STRING value 'IDENTIFICATION_POP' ##NO_TEXT.
+  data C_OWN_EID type STRING value 'EMIRATES_ID_POP' ##NO_TEXT.
+  data C_OWN_NAT type STRING value 'NATIONALITY_POP' ##NO_TEXT.
+  data C_OWN_SHARE type STRING value 'SHARES_POP' ##NO_TEXT.
+  data C_PAY_POLLS type STRING value 'PAY_POLLS' ##NO_TEXT.
+  constants C_PARTNER_NAME type STRING value 'APP_NAME' ##NO_TEXT.
+  constants C_PARTNER_ID type STRING value 'APP_ID' ##NO_TEXT.
+  constants C_APPLICANTTYPE type STRING value 'APP_TYPE' ##NO_TEXT.
+  constants C_LANG_EN type STRING value 'E' ##NO_TEXT.
+  constants C_PARTNER_MOBILE type STRING value 'PARTNER_MOBILE' ##NO_TEXT.
+  constants C_PARTNER_EMAIL type STRING value 'PARTNER_EMAIL' ##NO_TEXT.
+  constants C_DOB type STRING value 'DATE_OF_BIRTH_POP' ##NO_TEXT.
 
   methods RENDER_ACADEMIC_HOURS
     importing
@@ -588,38 +607,75 @@ CLASS ZCL_D020_MOD_SCHOOL_DAY_LOGIC IMPLEMENTATION.
     CALL METHOD super->zif_rak_journey_logic~on_init
       EXPORTING
         io_ctx = io_ctx.
-    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
-*    DATA(user_data) = io_ctx->get_val( iv_name = 'PARAM1' ).
-*    user_data = ''.
-    zcl_ega_cj_utility=>get_bp(
+
+   CALL METHOD super->zif_rak_journey_logic~on_init
       EXPORTING
-        qv_key  = user_data
-      IMPORTING
-        loginbp = DATA(loginbp)
-        rolebp  = DATA(rolebp)
-        role    = DATA(role)
-    ).
+        io_ctx = io_ctx.
 
-    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+    DATA: lv_loginbp TYPE bu_partner.
 
-*    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
-*   The signed-in citizen, read from the business partner register. What stood
-*   here was a fixed name and Emirates ID, written AFTER the real read, so every
-*   applicant saw and posted the same test person.
-    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
-      EXPORTING
-        iv_bp_id      = CONV bu_partner( loginbp )
-      IMPORTING
-        es_bp_details = DATA(ls_bp_real) ).
-    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = COND #(
-      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
-      THEN CONV string( ls_bp_real-bp_name_ar )
-      ELSE CONV string( ls_bp_real-bp_name ) ) ).
-    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
-*    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
 
-*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
-    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
+    IF lv_loginbp IS NOT INITIAL.
+      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+        EXPORTING
+          iv_bp_id      = lv_loginbp
+        IMPORTING
+          es_bp_details = DATA(ls_bp) ).
+
+*      io_ctx->set_val( iv_name = 'OWNER_BP' iv_value = |{ lv_loginbp }| ).
+      io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
+
+      IF sy-langu = c_lang_en.
+        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name ) ).
+      ELSE.
+        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+      ENDIF.
+
+      io_ctx->set_val( iv_name = c_partner_id iv_value = CONV #( ls_bp-emirates_id ) ).
+
+      io_ctx->set_val( iv_name = c_PARTNER_MOBILE iv_value = CONV #( ls_bp-mobile_number ) ).
+      io_ctx->set_val( iv_name = c_PARTNER_EMAIL iv_value = CONV #( ls_bp-email_address ) ).
+
+
+      io_ctx->set_val( iv_name = c_applicanttype iv_value = |{ lv_role }| ).
+
+    ENDIF.
+
+****    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
+*****    DATA(user_data) = io_ctx->get_val( iv_name = 'PARAM1' ).
+*****    user_data = ''.
+****    zcl_ega_cj_utility=>get_bp(
+****      EXPORTING
+****        qv_key  = user_data
+****      IMPORTING
+****        loginbp = DATA(loginbp)
+****        rolebp  = DATA(rolebp)
+****        role    = DATA(role)
+****    ).
+****
+****    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+****
+*****    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
+*****   The signed-in citizen, read from the business partner register. What stood
+*****   here was a fixed name and Emirates ID, written AFTER the real read, so every
+*****   applicant saw and posted the same test person.
+****    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+****      EXPORTING
+****        iv_bp_id      = CONV bu_partner( loginbp )
+****      IMPORTING
+****        es_bp_details = DATA(ls_bp_real) ).
+****    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = COND #(
+****      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
+****      THEN CONV string( ls_bp_real-bp_name_ar )
+****      ELSE CONV string( ls_bp_real-bp_name ) ) ).
+****    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
+*****    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
+****
+*****    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+****    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
   ENDMETHOD.
 
 

@@ -14,7 +14,7 @@
     <item>
      <ID>R</ID>
      <ENTRY>Show and undo what a migrator run wrote into the portal tables</ENTRY>
-     <LENGTH>61</LENGTH>
+     <LENGTH>62</LENGTH>
     </item>
     <item>
      <ID>I</ID>
@@ -32,7 +32,7 @@
      <ID>I</ID>
      <KEY>B03</KEY>
      <ENTRY>Restore the group row (type the original values)</ENTRY>
-     <LENGTH>47</LENGTH>
+     <LENGTH>48</LENGTH>
     </item>
     <item>
      <ID>I</ID>
@@ -44,67 +44,67 @@
      <ID>S</ID>
      <KEY>P_DEPT</KEY>
      <ENTRY>Portal department</ENTRY>
-     <LENGTH>17</LENGTH>
+     <LENGTH>25</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_GRP</KEY>
      <ENTRY>Group code (CHAR 4)</ENTRY>
-     <LENGTH>19</LENGTH>
+     <LENGTH>27</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_DEL</KEY>
      <ENTRY>Remove CJS leaves under the group</ENTRY>
-     <LENGTH>33</LENGTH>
+     <LENGTH>41</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_STALE</KEY>
      <ENTRY>Also remove this orphan tile (e.g. MIG_)</ENTRY>
-     <LENGTH>39</LENGTH>
+     <LENGTH>48</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_REST</KEY>
      <ENTRY>Restore the group row</ENTRY>
-     <LENGTH>21</LENGTH>
+     <LENGTH>29</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_LVL</KEY>
      <ENTRY>LEVELNO it had</ENTRY>
-     <LENGTH>14</LENGTH>
+     <LENGTH>22</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_ORD</KEY>
      <ENTRY>ORDERNO it had</ENTRY>
-     <LENGTH>14</LENGTH>
+     <LENGTH>22</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_DRIL</KEY>
      <ENTRY>DRILLDOWN it had</ENTRY>
-     <LENGTH>16</LENGTH>
+     <LENGTH>24</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_DEN</KEY>
      <ENTRY>English description it had</ENTRY>
-     <LENGTH>25</LENGTH>
+     <LENGTH>34</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_DAR</KEY>
      <ENTRY>Arabic description it had</ENTRY>
-     <LENGTH>25</LENGTH>
+     <LENGTH>33</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_TEST</KEY>
      <ENTRY>Test run</ENTRY>
-     <LENGTH>8</LENGTH>
+     <LENGTH>16</LENGTH>
     </item>
    </TPOOL>
   </asx:values>
