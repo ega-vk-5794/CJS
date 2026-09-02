@@ -34,18 +34,38 @@ CLASS zcl_rak_fees_api DEFINITION
 
   PUBLIC SECTION.
 
+*   A GENERATED MPC TABLE TYPE CANNOT TYPE A DATA OBJECT. The generator
+*   writes them as `TT_X type standard table of TS_X .` with no key at
+*   all, which leaves the key unspecified - and a table type with an
+*   unspecified key is GENERIC: legal for a formal parameter or a field
+*   symbol, rejected everywhere else. Activation says it in those words:
+*   "TT_FEES is a generic type. Use this type only for typing field
+*   symbols and formal parameters."
+*
+*   So the row type is taken FROM the MPC with LINE OF - never a guessed
+*   TS_ name - and the table type is completed here. The DPC's own
+*   ET_ENTITYSET keeps the generic type, and a standard table of the same
+*   row type binds to it, so nothing on the call side changes.
+    TYPES ty_fee     TYPE LINE OF zcl_zega_cj_mpc=>tt_fees.
+    TYPES ty_track   TYPE LINE OF zcl_zega_cj_mpc=>tt_tracker.
+    TYPES ty_project TYPE LINE OF zcl_zega_cj_mpc=>tt_project.
+
+    TYPES tt_fees    TYPE STANDARD TABLE OF ty_fee     WITH DEFAULT KEY.
+    TYPES tt_tracker TYPE STANDARD TABLE OF ty_track   WITH DEFAULT KEY.
+    TYPES tt_project TYPE STANDARD TABLE OF ty_project WITH DEFAULT KEY.
+
     TYPES: BEGIN OF ty_fees_res,
-             rows TYPE zcl_zega_cj_mpc=>tt_fees,
+             rows TYPE tt_fees,
              msg  TYPE bapiret2_t,
            END OF ty_fees_res.
 
     TYPES: BEGIN OF ty_tracker_res,
-             rows TYPE zcl_zega_cj_mpc=>tt_tracker,
+             rows TYPE tt_tracker,
              msg  TYPE bapiret2_t,
            END OF ty_tracker_res.
 
     TYPES: BEGIN OF ty_project_res,
-             rows TYPE zcl_zega_cj_mpc=>tt_project,
+             rows TYPE tt_project,
              msg  TYPE bapiret2_t,
            END OF ty_project_res.
 

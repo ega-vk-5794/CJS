@@ -64,13 +64,33 @@ CLASS zcl_rak_property_api DEFINITION
 
   PUBLIC SECTION.
 
+*   A GENERATED MPC TABLE TYPE CANNOT TYPE A DATA OBJECT. The generator
+*   writes them as `TT_X type standard table of TS_X .` with no key at
+*   all, which leaves the key unspecified - and a table type with an
+*   unspecified key is GENERIC: legal for a formal parameter or a field
+*   symbol, rejected everywhere else. Activation says it in those words:
+*   "TT_FEES is a generic type. Use this type only for typing field
+*   symbols and formal parameters."
+*
+*   So the row type is taken FROM the MPC with LINE OF - never a guessed
+*   TS_ name - and the table type is completed here. The DPC's own
+*   ET_ENTITYSET keeps the generic type, and a standard table of the same
+*   row type binds to it, so nothing on the call side changes.
+    TYPES ty_property TYPE LINE OF zcl_zega_cj_mpc=>tt_properties.
+    TYPES ty_partner  TYPE LINE OF zcl_zega_cj_mpc=>tt_partner.
+    TYPES ty_mapurl   TYPE LINE OF zcl_zega_cj_mpc=>tt_mapurl.
+
+    TYPES tt_properties TYPE STANDARD TABLE OF ty_property WITH DEFAULT KEY.
+    TYPES tt_partner    TYPE STANDARD TABLE OF ty_partner  WITH DEFAULT KEY.
+    TYPES tt_mapurl     TYPE STANDARD TABLE OF ty_mapurl   WITH DEFAULT KEY.
+
     TYPES: BEGIN OF ty_prop_res,
-             rows TYPE zcl_zega_cj_mpc=>tt_properties,
+             rows TYPE tt_properties,
              msg  TYPE bapiret2_t,
            END OF ty_prop_res.
 
     TYPES: BEGIN OF ty_partner_res,
-             rows TYPE zcl_zega_cj_mpc=>tt_partner,
+             rows TYPE tt_partner,
              msg  TYPE bapiret2_t,
            END OF ty_partner_res.
 
@@ -244,7 +264,7 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
 
   METHOD parcel_exists.
     DATA lt_flt TYPE /iwbep/t_mgw_select_option.
-    DATA lt_row TYPE zcl_zega_cj_mpc=>tt_properties.
+    DATA lt_row TYPE tt_properties.
 
     IF iv_parcel_id IS INITIAL.
       RETURN.
@@ -326,7 +346,7 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
 
   METHOD map_url.
     DATA lt_flt TYPE /iwbep/t_mgw_select_option.
-    DATA lt_row TYPE zcl_zega_cj_mpc=>tt_mapurl.
+    DATA lt_row TYPE tt_mapurl.
 
     guard( IMPORTING ev_guid = DATA(lv_guid)
            CHANGING  ct_msg  = rs-msg ).
