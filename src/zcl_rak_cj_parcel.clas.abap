@@ -6,8 +6,14 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-6.  Missing this line means SAP has an older copy - see
+*& BUILD map-fix-9.  Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
+*& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
+*& viewer first and the in-page ArcGIS renderer only as a fallback. That
+*& order was the other way round, on a reading of util/Map.js which the
+*& live screen's own DOM overrules - the deployed map is an ArcGIS view
+*& inside an iframe on the GIS host's origin, which is why it has no
+*& proxy problem and the in-page rebuild cannot get past one.
 *& This class will not compile until ZCL_RAK_CJ_GIS is ACTIVE: a class
 *& with no active version has no methods, so its callers report
 *& "Method SCRIPT is unknown or PROTECTED or PRIVATE" instead.
@@ -977,7 +983,15 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *
 *   The page is loaded BARE and the three values arrive by postMessage.
 *   Any of them missing and it shows its forbidden panel; the origin is
-*   checked against an allowlist that already contains devgrpportal.rak.ae.
+*   checked against an allowlist, and WHETHER THIS HOST IS ON IT IS NOT
+*   ESTABLISHED. An earlier version of this comment asserted that it
+*   already contains devgrpportal.rak.ae; nothing verified that. The one
+*   trace of a working map came from a BTP dispatcher origin
+*   (rakportal1-....dispatcher.ae1.hana.ondemand.com), which is
+*   evidently allowlisted and is not this host. The note line under the
+*   frame prints both origins so the answer is readable rather than
+*   inferred, and DIV.FORBIDDEN is what the viewer shows when it
+*   refuses - so a rejection is visible, not silent.
 *   Six URL shapes were tried against this and none of them could ever
 *   have worked - the viewer was sitting on its splash screen waiting for
 *   a message that never came.
@@ -992,16 +1006,42 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                                               iv_token  = ls_map-token ).
     DATA(lv_pid)  = mo_e->mv_pcl_pid.
 
-*   ---- THE REAL CONTROL FIRST, the iframe only as a fallback.
-*   util/Map.js settles what RakMap.Map is: an ArcGIS MapView rendered
-*   INSIDE the application page, not a framed site. Where the feature
-*   service is configured, CJS draws the same thing.
+*   ---- THE FRAME FIRST. THIS ORDER WAS THE OTHER WAY ROUND, AND WRONG.
 *
-*   The iframe below is the OTHER map - gismappingIM.js, the standalone
-*   Defcon viewer, which takes parcelId/token/lang by postMessage. It is
-*   a real page and a real fallback, so it stays; it is simply not what
-*   this dialog's map tab was.
-    IF zcl_rak_cj_gis=>ready( ) = abap_true AND lv_pid IS NOT INITIAL.
+*   It was reversed on a reading of util/Map.js, which is an in-page
+*   sap.ui.core.Control - so the in-page ArcGIS rebuild was made primary
+*   and the frame kept as a fallback. The DOM of the live My Properties
+*   screen overrules that reading:
+*
+*     sap-ui-preserve="__xmlview2--mapIframe"
+*       #document (https://rakgisstg.rak.ae/CustomerJourneyMap/)
+*         <div class="maphoc"><div id="mapViewDiv" class="esri-view ...">
+*           <canvas width="941" height="915">
+*
+*   The ArcGIS view is real, and it is INSIDE A FRAME whose document is
+*   the viewer application. WELCOME, COVER-SPIN, SWITCHOVERLAYDIV and
+*   FORBIDDEN alongside it are that application's own furniture.
+*
+*   AND THAT IS THE WHOLE REASON THE IN-PAGE PATH CANNOT WORK HERE. In
+*   the frame, the ArcGIS code runs on the GIS host's OWN origin, so
+*   proxy.ashx is same-origin and the GISSERVER alias resolves. Run the
+*   same code in the SAP page and every one of those calls is
+*   cross-origin: the layer query dies as "Failed to fetch" against a
+*   dotless alias no browser can resolve, and clearing that needs the
+*   GIS side to publish CORS headers for this host. The live application
+*   never has that problem because it never has that origin.
+*
+*   So the frame is the primary path and the in-page renderer is the
+*   fallback - it stays because it is written, tested and instrumented,
+*   and because it is the only route if the viewer ever refuses us.
+*
+*   See the CORRECTION at the top of doc/controls/gis-map.md.
+    DATA(lv_frame_ok) = xsdbool( lv_base IS NOT INITIAL
+                             AND lv_tok  IS NOT INITIAL
+                             AND lv_pid  IS NOT INITIAL ).
+
+    IF lv_frame_ok = abap_false
+       AND zcl_rak_cj_gis=>ready( ) = abap_true AND lv_pid IS NOT INITIAL.
 
       DATA(lv_dvd) = |rakGisDet{ to_upper( lv_pid ) }|.
       DATA(lv_djs) = zcl_rak_cj_gis=>script(
@@ -1029,7 +1069,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                     sanitizecontent = abap_false ).
       mo_e->mo_client->follow_up_action( lv_djs ).
 
-    ELSEIF lv_base IS NOT INITIAL AND lv_tok IS NOT INITIAL AND lv_pid IS NOT INITIAL.
+    ELSEIF lv_frame_ok = abap_true.
 *     The frame's own origin, which postMessage needs as its target. Sent
 *     explicitly rather than as '*' - the token is a credential and a
 *     wildcard target hands it to whatever happens to be framed.
