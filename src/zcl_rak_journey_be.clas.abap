@@ -192,10 +192,29 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
 *     blank INTRENO_JOURNEY, which the FM reads as another create - so the
 *     citizen fills in four steps against four different drafts and none of
 *     them is the one on the confirmation screen.
+*     WHAT WAS SENT, NOT WHICH FAMILY TO BLAME. This said "check the D0xx
+*     create BAdI", which is DOK wording and points a Municipality or EPDA
+*     journey at the wrong implementation entirely.
+*
+*     AND "no error" IS THE DIAGNOSIS, SO SAY WHAT IT RULES OUT. A create
+*     that ran and REFUSED returns messages - the Municipality abstract's
+*     validate( mode = 'C' ) answers ZMSG_EGA_CJ 009 for a missing partner
+*     and 010 for no properties, and CREATE( ) stops on them. Zero
+*     messages, zero draft and a couple of milliseconds is not a refusal:
+*     it is nothing having run at all, which means the FM matched no
+*     implementation for these three values. Naming them is the whole
+*     content of the message.
       mo_e->trace_gate( |CREATE on screen { ls_step-bknd_screen } returned no draft | &&
-                        |reference and no error. Check the D0xx create BAdI is | &&
-                        |registered for BE journey { mo_e->ms_config-backend-journey } | &&
-                        |and category { mo_e->ms_config-backend-category }.| ).
+                        |reference AND no message, in { lv_ms } ms. A create that ran | &&
+                        |and refused would return messages, so this is the FM matching | &&
+                        |no BAdI implementation rather than one rejecting the data. | &&
+                        |CJS sent categoryname { mo_e->ms_config-backend-category }, | &&
+                        |screenname { ls_step-bknd_screen } and a JOURNEYTYPE item of | &&
+                        |{ mo_e->ms_config-backend-journey } to | &&
+                        |{ mo_e->ms_config-backend-fm_post }. Check an implementation of | &&
+                        |ZIF_EGA_FW_CJI is registered and ACTIVE for that filter | &&
+                        |combination, and that ZEGA_T_CJ_2_OBJ has rows for | &&
+                        |{ mo_e->ms_config-backend-journey }.| ).
       mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Error'
         text = 'The backend did not return a draft reference. The application cannot be started.' ) ).
       RETURN.
