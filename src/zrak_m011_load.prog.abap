@@ -24,16 +24,18 @@ REPORT zrak_m011_load.
 *&      validated, collected every answer and posted NOTHING.
 *&   2. TITLE_AR - read from ZEGA_T_CJ_IDT('M011', SPRAS 'A'), the row the
 *&      legacy service renders its own name from. NOT left blank.
-*&   3. The REVIEW step goes BEFORE the payment step on a fee-bearing
-*&      journey: review, then pay, then submit under the PAID gate. That is
-*&      the live order.
+*&   3. NO REVIEW STEP. The migrator inserts one before payment, and this
+*&      feeder did too - the reasoning was that review-then-pay is the
+*&      live order. It is not: the legacy service has no review screen at
+*&      all (NSUBDIVISION_1_* is parcel, documents, payment, confirmation),
+*&      and on screen it read as a step between the citizen and paying.
+*&      Removed on the owner's call. Three input steps, as the service has.
 *&   4. PAYFEE exists. The migrator drops RAKPAY, so twelve migrated M
 *&      journeys have no pay control at all.
 *&
-*& STRUCTURE - 4 steps for the 3 legacy input screens:
+*& STRUCTURE - 3 steps, one per legacy input screen:
 *&   STP1  NSUBDIVISION_1_1  Parcel Selection
 *&   STP2  NSUBDIVISION_1_2  Documents
-*&   STPR  (none)            Review          <- inserted, seqnr 25
 *&   STP3  NSUBDIVISION_1_3  Fees & Payment
 *&   (NSUBDIVISION_1_4 is the engine's own confirmation page - RAKHAPPY and
 *&    the request-id labels are framework chrome, not fields.)
@@ -144,14 +146,6 @@ START-OF-SELECTION.
       title = 'Documents' title_ar = 'المستندات'
       icon = 'sap-icon://attachment' bknd_screen = 'NSUBDIVISION_1_2'
       active = 'X' )
-*   THE REVIEW STEP, BEFORE PAYMENT. SEQNR 25 - the payment step's minus
-*   five - and the id is STPR rather than STP3, so nothing renumbers:
-*   ZCL_RAK_JOURNEY_REPO reads the steps ORDER BY SEQNR and the id is only
-*   an identity. BKND_SCREEN is deliberately BLANK: there is no legacy
-*   screen behind it and it must post nothing.
-    ( mandt = sy-mandt journey_id = c_jny step_id = 'STPR' seqnr = 25
-      title = 'Review' title_ar = 'مراجعة'
-      icon = 'sap-icon://inspect' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
       title = 'Fees & Payment' title_ar = 'الرسوم والدفع'
       icon = 'sap-icon://payment-approval' bknd_screen = 'NSUBDIVISION_1_3'
@@ -334,15 +328,6 @@ START-OF-SELECTION.
       has_attach = 'X' attach_label = 'Letter of consent'
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 ) ) ).
 
-* --------------------------------------------------- STPR Review
-* ONE FIELD, AND THE ENGINE DRAWS THE REST. FTYPE 'REVIEW' renders every
-* answer collected so far; there is nothing to configure per journey and
-* nothing to post, which is why the step has no BKND_SCREEN.
-  INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
-    ( mandt = sy-mandt journey_id = c_jny step_id = 'STPR' seqnr = 10
-      field_name = 'REVIEW' ftype = 'REVIEW'
-      zlabel = 'Review your request' zlabel_ar = 'راجع طلبك' ) ) ).
-
 * --------------------------------------------------- STP3 Fees & Payment
 * PAYFEE IS THE WHOLE CARD. ZCL_RAK_JOURNEY_LOGIC->RENDER_FIELD( ) draws the
 * fee list, the total, the method and channel blocks, the bank charges, the
@@ -423,8 +408,10 @@ START-OF-SELECTION.
   WRITE: / 'STEPS'.
   WRITE: / '  STP1 Parcel Selection   NSUBDIVISION_1_1   2 fields'.
   WRITE: / '  STP2 Documents          NSUBDIVISION_1_2   4 fields'.
-  WRITE: / '  STPR Review             (no backend screen) 1 field'.
   WRITE: / '  STP3 Fees & Payment     NSUBDIVISION_1_3   4 fields'.
+  WRITE: / '  (no Review step - the legacy service has none)'.
+  WRITE: / '  (the success page and the happiness meter are the engine''s'.
+  WRITE: / '   own - drawn on MV_SUBMITTED, not seeded here)'.
   WRITE: / ''.
   WRITE: / 'WALKTHROUGH'.
   WRITE: / '  1. Launch with &journey=M011 and a real &userdata= session,'.
@@ -434,11 +421,18 @@ START-OF-SELECTION.
   WRITE: / '     parcels, live. Press Full Details for the map dialog.'.
   WRITE: / '     Press Select on one; Next will not offer until you do.'.
   WRITE: / '  3. Step 2: describe the division, attach title deed and ID.'.
-  WRITE: / '  4. Step 3 Review shows every answer.'.
-  WRITE: / '  5. Step 4 draws the payment card. Submit is refused until'.
-  WRITE: / '     PAYFEE reads PAID - that is the gate in the base handler.'.
-  WRITE: / '  6. Confirm a container case exists: ZGCX, characteristic CJ12'.
-  WRITE: / '     on the RE rental object under CJMUN.'.
+  WRITE: / '  4. Step 3 draws the payment card. Pay is refused without the'.
+  WRITE: / '     Terms checkbox and without a fee total - the legacy PAY-E'.
+  WRITE: / '     semantic, enforced at the press in the base handler,'.
+  WRITE: / '     because the card draws its own Pay button and no config'.
+  WRITE: / '     can grey it out.'.
+  WRITE: / '  5. Pay creates the ZGCX case - UPDATE( ) branches on finding'.
+  WRITE: / '     TOTALFEESVALUE in the items - then the gateway opens, then'.
+  WRITE: / '     the engine''s own success page and happiness meter. Neither'.
+  WRITE: / '     of those last two is seeded: the engine draws them from'.
+  WRITE: / '     MV_SUBMITTED and WANTS_FEEDBACK.'.
+  WRITE: / '  6. Confirm the case: ZGCX, characteristic CJ12 on the RE'.
+  WRITE: / '     rental object under CJMUN.'.
   WRITE: / ''.
   WRITE: / 'REVIEW-BE'.
   WRITE: / '  - The nine domain validations (one location hierarchy, no'.

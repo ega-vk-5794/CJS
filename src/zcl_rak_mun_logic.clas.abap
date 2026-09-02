@@ -132,6 +132,17 @@ CLASS zcl_rak_mun_logic DEFINITION
     CONSTANTS c_fld_noc    TYPE string VALUE 'NOCCONT'.
     CONSTANTS c_fld_letter TYPE string VALUE 'LETTERCONT'.
 
+*   ---- the payment step's two checkboxes ------------------------------
+*   CHECKBOX_3 and CHECKBOX_4 are the legacy FIELD_NAMEs; ACCEPT_TERMS and
+*   DONATE are their TECHNICAL_NAMEs, which is a different key and is what
+*   the feeders put in TECH_NAME.
+*
+*   CHECKBOX_3 carries UI_FIELD_LOGICS 'PAY-E' on the legacy screen - it
+*   ENABLES the Pay button - which is why ON_POPUP_EVENT below refuses the
+*   press without it rather than leaving it to step validation.
+    CONSTANTS c_fld_terms  TYPE string VALUE 'CHECKBOX_3'.
+    CONSTANTS c_fld_donate TYPE string VALUE 'CHECKBOX_4'.
+
     METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
 
 *   ---- the case, and when it comes into existence ---------------------
@@ -302,6 +313,49 @@ CLASS zcl_rak_mun_logic IMPLEMENTATION.
       REPLACE ALL OCCURRENCES OF '.' IN lv_total WITH ''.
       REPLACE ALL OCCURRENCES OF ',' IN lv_total WITH ''.
       SHIFT lv_total LEFT DELETING LEADING '0'.
+
+*     AND THE TERMS, WHICH IS THE LEGACY 'PAY-E' SEMANTIC ENFORCED.
+*
+*     CHECKBOX_3's UI_FIELD_LOGICS on the legacy screen is 'PAY-E' - it
+*     ENABLES the Pay button, so on the live service Pay is dead until the
+*     citizen accepts. CJS cannot reproduce that from configuration: the
+*     PAYFEE card is drawn whole by ZCL_RAK_JOURNEY_LOGIC->RENDER_FIELD( )
+*     and its Pay button is inside it, so nothing in ZRAK_T_JNY_FLD can
+*     grey it out. REQUIRED on the checkbox only makes it a condition of
+*     LEAVING the step - which on the last step of the journey is a
+*     condition of submitting, not of paying.
+*
+*     Left at that, a citizen can press Pay, complete a real payment at the
+*     gateway, and only then be told they had to accept terms first. So the
+*     press is refused here instead. Same outcome as the legacy disabled
+*     button, one step later and with a reason given.
+*
+*     REORDERING WAS THE OTHER OPTION AND IS WORSE. Putting the checkbox
+*     above PAYFEE by SEQNR does put it above the Pay button - and also
+*     above the fee table and the total, so the citizen accepts terms
+*     before being shown the amount. The card cannot be reordered
+*     internally from config.
+      DATA(lv_terms) = io_ctx->get_val( c_fld_terms ).
+
+      IF lv_terms <> 'X' AND lv_terms <> 'true' AND lv_terms IS NOT INITIAL.
+*       Any other non-blank is still an acceptance - the renderer's own
+*       checkbox writes 'X', but a value arriving from a draft or a
+*       backend read is not guaranteed to, and refusing a payment over the
+*       spelling of a boolean would be a worse failure than accepting a
+*       loose one.
+        CLEAR lv_terms.
+        lv_terms = 'X'.
+      ENDIF.
+
+      IF lv_terms IS INITIAL.
+        io_ctx->add_msg(
+          iv_type = 'Error'
+          iv_text = COND string(
+            WHEN sy-langu = 'A'
+            THEN `يرجى قبول الشروط والأحكام قبل الدفع.`
+            ELSE `Accept the Terms & Conditions before paying.` ) ).
+        RETURN.
+      ENDIF.
 
       IF lv_total IS INITIAL.
         io_ctx->add_msg(

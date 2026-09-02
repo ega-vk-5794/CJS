@@ -15,7 +15,6 @@ REPORT zrak_m012_load.
 *& STRUCTURE - same four steps as M011:
 *&   STP1  NMERGE_1_1  Parcel Selection   (selector PLUS add-a-parcel)
 *&   STP2  NMERGE_1_2  Parcels & Documents (the chosen-parcels grid)
-*&   STPR  (none)      Review
 *&   STP3  NMERGE_1_3  Fees & Payment
 *&
 *& WHAT DIFFERS FROM M011, confirmed by field-set diff against the export
@@ -98,9 +97,6 @@ START-OF-SELECTION.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
       title = 'Parcels & Documents' title_ar = 'القطع والمستندات'
       icon = 'sap-icon://attachment' bknd_screen = 'NMERGE_1_2' active = 'X' )
-    ( mandt = sy-mandt journey_id = c_jny step_id = 'STPR' seqnr = 25
-      title = 'Review' title_ar = 'مراجعة'
-      icon = 'sap-icon://inspect' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
       title = 'Fees & Payment' title_ar = 'الرسوم والدفع'
       icon = 'sap-icon://payment-approval' bknd_screen = 'NMERGE_1_3'
@@ -245,12 +241,6 @@ START-OF-SELECTION.
       attach_label = 'Add document' has_attach = 'X'
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 ) ) ).
 
-* --------------------------------------------------- STPR Review
-  INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
-    ( mandt = sy-mandt journey_id = c_jny step_id = 'STPR' seqnr = 10
-      field_name = 'REVIEW' ftype = 'REVIEW'
-      zlabel = 'Review your request' zlabel_ar = 'راجع طلبك' ) ) ).
-
 * --------------------------------------------------- STP3 Fees & Payment
 * Identical to M011's - see that feeder for why the legacy screen's radio
 * groups, fee CLIST and remaining-fees controls are NOT re-created as
@@ -294,19 +284,29 @@ START-OF-SELECTION.
   WRITE: / 'STEPS'.
   WRITE: / '  STP1 Parcel Selection      NMERGE_1_1   3 fields'.
   WRITE: / '  STP2 Parcels & Documents   NMERGE_1_2   3 fields'.
-  WRITE: / '  STPR Review                (no screen)  1 field'.
   WRITE: / '  STP3 Fees & Payment        NMERGE_1_3   4 fields'.
   WRITE: / ''.
   WRITE: / 'WALKTHROUGH'.
   WRITE: / '  1. Launch &journey=M012 with a real session.'.
-  WRITE: / '  2. Step 1: pick one of your own parcels, and/or type a'.
-  WRITE: / '     parcel number you do not own. Next is NOT blocked by a'.
-  WRITE: / '     single field here - the handler counts.'.
-  WRITE: / '  3. Pressing Next with fewer than two parcels is refused by'.
-  WRITE: / '     ZCL_M012_MERGE_LOGIC with "Select at least two parcels".'.
-  WRITE: / '  4. Step 2 lists the chosen parcels with ownership, location,'.
-  WRITE: / '     address and the action each one requires.'.
-  WRITE: / '  5. Review, then pay. Submit is gated on PAYFEE = PAID.'.
+  WRITE: / '  2. Step 1: press Select on one of your own parcels. The'.
+  WRITE: / '     pick is MOVED INTO THE LIST and the picker clears, so the'.
+  WRITE: / '     next press is a second parcel rather than a replacement -'.
+  WRITE: / '     the control is single-select and a merge needs two.'.
+  WRITE: / '     A message confirms the running count each time.'.
+  WRITE: / '  3. Or type a parcel number you do not own; same accumulate.'.
+  WRITE: / '  4. Pressing Next with fewer than two is refused by'.
+  WRITE: / '     ZCL_M012_MERGE_LOGIC - it counts the GRID, not the picker.'.
+  WRITE: / '  5. Step 2 lists them with ownership, location, address and the'.
+  WRITE: / '     action each one requires - filled by the backend read.'.
+  WRITE: / '  6. Step 3 is the payment card.'.
+  WRITE: / '  Pay is refused without the Terms checkbox and without a fee'.
+  WRITE: / '  total - the legacy PAY-E semantic, enforced at the press in'.
+  WRITE: / '  ZCL_RAK_MUN_LOGIC, because the PAYFEE card draws its own Pay'.
+  WRITE: / '  button and no configuration can grey it out.'.
+  WRITE: / '  Pay then creates the ZGCX case, the gateway opens, and the'.
+  WRITE: / '  engine draws its own success page and happiness meter from'.
+  WRITE: / '  MV_SUBMITTED and WANTS_FEEDBACK - neither is seeded here.'.
+  WRITE: / '  There is NO Review step: the legacy service has none.'.
   WRITE: / ''.
   WRITE: / 'REVIEW-BE'.
   WRITE: / '  - ADDPARCEL is an unvalidated INPUT. The legacy ADDPARCELS'.

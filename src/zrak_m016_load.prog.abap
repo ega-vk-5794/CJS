@@ -12,7 +12,6 @@ REPORT zrak_m016_load.
 *& STRUCTURE - same four steps as M011:
 *&   STP1  NCBR_1_1  Parcel Selection
 *&   STP2  NCBR_1_2  Regulation & Documents
-*&   STPR  (none)    Review
 *&   STP3  NCBR_1_3  Fees & Payment
 *&
 *& WHAT DIFFERS FROM M011:
@@ -103,9 +102,6 @@ START-OF-SELECTION.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
       title = 'Regulation & Documents' title_ar = 'النظام والمستندات'
       icon = 'sap-icon://attachment' bknd_screen = 'NCBR_1_2' active = 'X' )
-    ( mandt = sy-mandt journey_id = c_jny step_id = 'STPR' seqnr = 25
-      title = 'Review' title_ar = 'مراجعة'
-      icon = 'sap-icon://inspect' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
       title = 'Fees & Payment' title_ar = 'الرسوم والدفع'
       icon = 'sap-icon://payment-approval' bknd_screen = 'NCBR_1_3'
@@ -278,12 +274,6 @@ START-OF-SELECTION.
       has_attach = 'X' attach_label = 'Letter of consent'
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 ) ) ).
 
-* --------------------------------------------------- STPR Review
-  INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
-    ( mandt = sy-mandt journey_id = c_jny step_id = 'STPR' seqnr = 10
-      field_name = 'REVIEW' ftype = 'REVIEW'
-      zlabel = 'Review your request' zlabel_ar = 'راجع طلبك' ) ) ).
-
 * --------------------------------------------------- STP3 Fees & Payment
 * Identical to M011's - see that feeder.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
@@ -325,7 +315,6 @@ START-OF-SELECTION.
   WRITE: / 'STEPS'.
   WRITE: / '  STP1 Parcel Selection        NCBR_1_1   2 fields'.
   WRITE: / '  STP2 Regulation & Documents  NCBR_1_2   6 fields'.
-  WRITE: / '  STPR Review                  (no screen) 1 field'.
   WRITE: / '  STP3 Fees & Payment          NCBR_1_3   4 fields'.
   WRITE: / ''.
   WRITE: / '*** THIS JOURNEY WILL NOT SUBMIT UNTIL USAGETYPE HAS OPTIONS ***'.
@@ -338,9 +327,20 @@ START-OF-SELECTION.
   WRITE: / '     agent path, launch with a tasheel transaction id as the BP'.
   WRITE: / '     parameter - MAPPER( ) resolves the owner/applicant pair.'.
   WRITE: / '  2. Step 1: pick the parcel. Next is blocked until you do.'.
-  WRITE: / '  3. Step 2: choose the usage type, describe the change, attach'.
-  WRITE: / '     the title deed and the owner''s Emirates ID.'.
-  WRITE: / '  4. Review, then pay. Submit is gated on PAYFEE = PAID.'.
+  WRITE: / '  3. Step 2: choose the usage type, describe the change, and'.
+  WRITE: / '     attach whatever the backend asks for - the NOC upload'.
+  WRITE: / '     appears only for a mortgaged parcel and the consent'.
+  WRITE: / '     upload only for one with more than one owner. Both are'.
+  WRITE: / '     hidden by FIELD_CONTROL( ), not by a CJS rule.'.
+  WRITE: / '  4. Step 3 is the payment card.'.
+  WRITE: / '  Pay is refused without the Terms checkbox and without a fee'.
+  WRITE: / '  total - the legacy PAY-E semantic, enforced at the press in'.
+  WRITE: / '  ZCL_RAK_MUN_LOGIC, because the PAYFEE card draws its own Pay'.
+  WRITE: / '  button and no configuration can grey it out.'.
+  WRITE: / '  Pay then creates the ZGCX case, the gateway opens, and the'.
+  WRITE: / '  engine draws its own success page and happiness meter from'.
+  WRITE: / '  MV_SUBMITTED and WANTS_FEEDBACK - neither is seeded here.'.
+  WRITE: / '  There is NO Review step: the legacy service has none.'.
   WRITE: / ''.
   WRITE: / 'REVIEW-F4'.
   WRITE: / '  USAGETYPE has NO options. RAKSELECTUSAGETYPE is EXTENDED and'.
