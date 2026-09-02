@@ -1527,8 +1527,33 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       maps to ENABLED instead - a disabled Select and a non-editable
 *       ComboBox read the same to the citizen either way.
         IF is_field-closed_list = abap_true.
+*         FORCESELECTION = ABAP_FALSE, AND IT HAS TO BE SAID OUT LOUD.
+*
+*         sap.m.Select defaults forceSelection to TRUE, which means: with no
+*         selectedKey matching any item, select the first one anyway. The
+*         control then DRAWS the first option while the model still holds
+*         nothing, so an untouched dropdown reads as answered. Everything
+*         downstream disagrees with the screen - a rule keyed on the field does
+*         not fire, and VALIDATE_STEP( ) refuses a required field the citizen
+*         can see filled in and cannot fix. That is worse than the typable
+*         ComboBox this branch exists to replace.
+*
+*         Not passing the parameter does NOT get the false: an unsupplied
+*         OPTIONAL arrives blank, and XML_GET_PARTS( ) drops every blank
+*         property from the markup rather than emitting it as "false" - so the
+*         property never reaches the control and UI5's own default of true
+*         applies. The code reads as "we do not set this" and behaves as "we
+*         set it to true". ABAP_FALSE is typed ABAP_BOOL, so
+*         BOOLEAN_ABAP_2_JSON( ) turns it into the literal string `false`,
+*         which is not blank and does survive that filter.
+*
+*         A field whose value IS set is unaffected: its key matches an item and
+*         that item is selected either way. The ComboBox branch below is
+*         untouched - sap.m.ComboBox has no forceSelection and never had this
+*         behaviour.
           DATA(lo_sel) = io_form->select( selectedkey    = lv_bind
                                           enabled        = lv_edit
+                                          forceselection = abap_false
                                           change         = mo_e->opt_evt( is_field-name )
                                           valuestate     = lv_vs
                                           valuestatetext = lv_vst

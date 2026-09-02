@@ -37,6 +37,61 @@ CLASS zcl_rak_journey_util DEFINITION
                 iv_lang   TYPE sy-langu
       RETURNING VALUE(rv) TYPE string.
 
+*   OTR:<alias> resolution on its own, lifted out of PICK_TEXT( ) so a text
+*   that has already been picked EN/AR - one clause of a per-check MSG, below -
+*   can still resolve an alias without going back through a bilingual pair it
+*   no longer has. PICK_TEXT( ) calls this rather than keeping a second copy.
+*   A missing concept returns the stored literal, prefix and all, so a wrong
+*   alias is a visible "OTR:..." on screen rather than a blank nobody can
+*   explain.
+    CLASS-METHODS otr_text
+      IMPORTING VALUE(iv_text) TYPE string
+                VALUE(iv_lang) TYPE sy-langu
+      RETURNING VALUE(rv)      TYPE string.
+
+*   ONE MESSAGE COLUMN, SEVERAL CHECKS - and now a wording for each.
+*
+*   ZRAK_T_JNY_FLD-MSG / MSG_AR is read as the message for MISSING_REQUIRED,
+*   for MIN_VAL / MAX_VAL, for the numeric CATCH and for REGEX. The checks
+*   never fire together - required needs a BLANK value and the rest need a
+*   filled one - so this was never a functional bug, only a wording one: a
+*   field that is both REQUIRED and format-constrained had one column and two
+*   sentences to write in it. Whichever wording went in, the other check
+*   borrowed it and said the wrong thing.
+*
+*   MSG may therefore now carry per-check clauses:
+*
+*     REQUIRED:Please state the number of wives;FORMAT:@201
+*
+*   Recognised keys: REQUIRED, LEN, RANGE, NUMBER, FORMAT, and '*' as a
+*   catch-all for any check with no clause of its own. Clauses are separated by
+*   ';' and each is KEY:text, split on its FIRST colon - so a clause's text may
+*   itself be 'OTR:<alias>' or '@nnn', the ZRAK_T_CJ_TXT reference a TABLE
+*   column header already takes (COL_HEADER( )). Both resolve per round trip and
+*   per language, which is what lets a migrated WD message keep its own OTR
+*   concept on the FORMAT check while REQUIRED keeps its own words.
+*
+*   ADDITIVE, AND THE GUARD IS DELIBERATELY NARROW. The keyed form is only
+*   recognised when the text BEGINS with one of those keys immediately followed
+*   by ':'. Anything else - every MSG configured today, an OTR: alias on the
+*   whole column, an ordinary sentence containing a colon or a semicolon - is
+*   returned unchanged to every check that reads MSG today, so a journey that
+*   sets nothing new sees no change at all.
+*
+*   IV_KEYED_ONLY is for the checks that do NOT read MSG today (MIN_LEN /
+*   MAX_LEN). There, a plain MSG must keep being ignored - honouring it would
+*   silently retitle every existing length message - but an explicit 'LEN:'
+*   clause is a new instruction and is honoured. A blank return means "nothing
+*   configured for this check": the caller falls back to the catalogue exactly
+*   as it does today.
+    CLASS-METHODS msg_for
+      IMPORTING VALUE(iv_msg)        TYPE string
+                VALUE(iv_check)      TYPE string
+                VALUE(iv_journey)    TYPE string    OPTIONAL
+                VALUE(iv_lang)       TYPE sy-langu  OPTIONAL
+                VALUE(iv_keyed_only) TYPE abap_bool DEFAULT abap_false
+      RETURNING VALUE(rv)            TYPE string.
+
 *   A field name, made safe to be an ABAP structure component: upper case, only
 *   letters digits and underscore, never longer than 23 (so BUILD_MODEL( )'s
 *   companions - _VS, _VST, _IDTYPE, _NAME, _IX, _EXP - all still fit inside the
@@ -114,6 +169,21 @@ CLASS zcl_rak_journey_util DEFINITION
     CLASS-METHODS blank_row
       IMPORTING it_cols   TYPE zif_rak_journey=>tt_string
       RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_string.
+
+  PRIVATE SECTION.
+
+*   The recognised per-check keys of a keyed MSG. See MSG_FOR( ).
+    CLASS-METHODS msg_key
+      IMPORTING VALUE(iv_key) TYPE string
+      RETURNING VALUE(rv)     TYPE abap_bool.
+
+*   One clause's text, with 'OTR:<alias>' and '@nnn' resolved. Anything else
+*   comes back exactly as configured.
+    CLASS-METHODS msg_token
+      IMPORTING VALUE(iv_raw)     TYPE string
+                VALUE(iv_lang)    TYPE sy-langu
+                VALUE(iv_journey) TYPE string OPTIONAL
+      RETURNING VALUE(rv)         TYPE string.
 
 ENDCLASS.
 
@@ -392,29 +462,168 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
 *   to the stored literal (prefix and all) rather than an empty text, so
 *   the failure is a visible "OTR:..." on screen, not a blank one nobody
 *   can explain.
+*   The resolution itself is OTR_TEXT( ) - one copy, so a per-check MSG clause
+*   that has already been picked EN/AR can resolve an alias through the same
+*   code rather than a second one that drifts from it.
+    rv = otr_text( iv_text = rv iv_lang = iv_lang ).
+  ENDMETHOD.
+
+
+  METHOD otr_text.
+    rv = iv_text.
+    IF strlen( rv ) <= 4 OR substring( val = rv len = 4 ) <> 'OTR:'.
+      RETURN.
+    ENDIF.
+
+*   TYPE sotr_alias, not the STRING SUBSTRING( ) returns by default - a
+*   function module's import parameters are typed strictly, unlike a
+*   method's by-reference binding. Passing a STRING here dumps
+*   CX_SY_DYN_CALL_ILLEGAL_TYPE at runtime.
+    DATA lv_alias TYPE sotr_alias.
+    lv_alias = substring( val = rv off = 4 ).
+    DATA lv_otr TYPE sotr_txt.
+    CLEAR lv_otr.
+    CALL FUNCTION 'SOTR_GET_TEXT_KEY'
+      EXPORTING
+        alias           = lv_alias
+        langu           = iv_lang
+      IMPORTING
+        e_text          = lv_otr
+      EXCEPTIONS
+        no_entry_found  = 1
+        parameter_error = 2
+        OTHERS          = 3.
+    IF sy-subrc = 0 AND lv_otr IS NOT INITIAL.
+      rv = lv_otr.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD msg_key.
+    DATA(lv) = to_upper( condense( iv_key ) ).
+    rv = xsdbool(    lv = 'REQUIRED'
+                  OR lv = 'LEN'
+                  OR lv = 'RANGE'
+                  OR lv = 'NUMBER'
+                  OR lv = 'FORMAT'
+                  OR lv = '*' ).
+  ENDMETHOD.
+
+
+  METHOD msg_token.
+    rv = iv_raw.
+    IF rv IS INITIAL.
+      RETURN.
+    ENDIF.
+
     IF strlen( rv ) > 4 AND substring( val = rv len = 4 ) = 'OTR:'.
-*     TYPE sotr_alias, not the STRING SUBSTRING( ) returns by default - a
-*     function module's import parameters are typed strictly, unlike a
-*     method's by-reference binding. Passing a STRING here dumps
-*     CX_SY_DYN_CALL_ILLEGAL_TYPE at runtime.
-      DATA lv_alias TYPE sotr_alias.
-      lv_alias = substring( val = rv off = 4 ).
-      DATA lv_otr TYPE sotr_txt.
-      CLEAR lv_otr.
-      CALL FUNCTION 'SOTR_GET_TEXT_KEY'
-        EXPORTING
-          alias           = lv_alias
-          langu           = iv_lang
-        IMPORTING
-          e_text          = lv_otr
-        EXCEPTIONS
-          no_entry_found  = 1
-          parameter_error = 2
-          OTHERS          = 3.
-      IF sy-subrc = 0 AND lv_otr IS NOT INITIAL.
-        rv = lv_otr.
+      rv = otr_text( iv_text = rv iv_lang = iv_lang ).
+      RETURN.
+    ENDIF.
+
+*   @nnn - a ZRAK_T_CJ_TXT row, the same reference COL_HEADER( ) takes for a
+*   TABLE column header and LONG_TEXT( ) for a paragraph. Guarded on STRLEN( )
+*   before the offset: RV is a STRING, and an offset past the end of one raises
+*   CX_SY_RANGE_OUT_OF_BOUNDS rather than returning blank.
+    IF strlen( rv ) > 1 AND rv(1) = '@'.
+      DATA lv_no TYPE string.
+      lv_no = substring( val = rv off = 1 ).
+      CONDENSE lv_no.
+      TRY.
+          rv = zcl_rak_text=>get( iv_no      = CONV symsgno( lv_no )
+                                  iv_default = iv_raw
+                                  iv_journey = iv_journey ).
+        CATCH cx_root.
+*         An unusable number is not a reason to show the citizen nothing. The
+*         raw token goes on screen so it is obvious in testing which check on
+*         which field is misconfigured.
+          rv = iv_raw.
+      ENDTRY.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD msg_for.
+    CLEAR rv.
+
+    DATA lv_raw TYPE string.
+    lv_raw = iv_msg.
+    SHIFT lv_raw LEFT DELETING LEADING space.
+    IF lv_raw IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA lt_cl TYPE string_table.
+    SPLIT lv_raw AT ';' INTO TABLE lt_cl.
+
+*   KEYED OR NOT, DECIDED ON THE FIRST CLAUSE ONLY. The text has to BEGIN with
+*   a recognised key immediately followed by ':' - so an ordinary sentence that
+*   happens to contain a colon or a semicolon, and an 'OTR:' alias covering the
+*   whole column, are both plain wording and take the untouched path below.
+    DATA lv_first TYPE string.
+    DATA lv_keyed TYPE abap_bool.
+    READ TABLE lt_cl INTO lv_first INDEX 1.
+    IF sy-subrc = 0.
+      DATA(lv_p) = find( val = lv_first sub = ':' ).
+      IF lv_p > 0.
+        lv_keyed = msg_key( substring( val = lv_first len = lv_p ) ).
       ENDIF.
     ENDIF.
+
+    IF lv_keyed = abap_false.
+*     Every check that reads MSG today gets it, exactly as before.
+*     IV_KEYED_ONLY marks the checks that did NOT, and they keep not.
+      IF iv_keyed_only = abap_false.
+        rv = iv_msg.
+      ENDIF.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_want) = to_upper( condense( iv_check ) ).
+    DATA lv_star TYPE string.
+    DATA lv_txt  TYPE string.
+    DATA lv_k    TYPE string.
+    DATA lv_off  TYPE i.
+    DATA lv_aft  TYPE i.
+
+    LOOP AT lt_cl INTO DATA(lv_cl).
+      lv_off = find( val = lv_cl sub = ':' ).
+      IF lv_off <= 0.
+        CONTINUE.
+      ENDIF.
+      lv_k = to_upper( condense( substring( val = lv_cl len = lv_off ) ) ).
+*     The FIRST colon only, so a clause's own text may be 'OTR:<alias>'.
+*     LV_AFT is computed into a variable rather than written as LV_OFF + 1
+*     inline: an arithmetic expression in an actual parameter is legal from
+*     7.40, and a plain variable costs nothing and cannot be the reason an
+*     activation fails.
+      lv_aft = lv_off + 1.
+      lv_txt = substring( val = lv_cl off = lv_aft ).
+      SHIFT lv_txt LEFT DELETING LEADING space.
+      IF lv_k = lv_want.
+        rv = lv_txt.
+        EXIT.
+      ELSEIF lv_k = '*'.
+        lv_star = lv_txt.
+      ENDIF.
+    ENDLOOP.
+
+    IF rv IS INITIAL.
+      rv = lv_star.
+    ENDIF.
+    IF rv IS INITIAL.
+*     Keyed, but nothing for THIS check. Blank on purpose: the caller falls
+*     back to the catalogue, which is bilingual and already says the right
+*     thing for the check that fired.
+      RETURN.
+    ENDIF.
+
+    DATA lv_lang TYPE sy-langu.
+    lv_lang = COND #( WHEN iv_lang IS NOT INITIAL THEN iv_lang
+                      ELSE zcl_rak_text=>lang( ) ).
+    rv = msg_token( iv_raw     = rv
+                    iv_lang    = lv_lang
+                    iv_journey = iv_journey ).
   ENDMETHOD.
 
 

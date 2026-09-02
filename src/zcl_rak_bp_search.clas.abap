@@ -200,6 +200,37 @@ CLASS zcl_rak_bp_search DEFINITION
       RETURNING VALUE(rv)        TYPE abap_bool.
 
 
+*   A DATE OF BIRTH THE CITIZEN TYPED, MADE SAFE TO SEND - blank when it is
+*   not a date at all.
+*
+*   sap.m.DatePicker DOES NOT DISCARD INPUT IT FAILS TO PARSE. It sets its own
+*   valueState to Error and still writes the RAW TYPED TEXT through the two-way
+*   binding, so '19.08.1987' - or '19.8.87', or anything pasted - arrives in the
+*   model as an ordinary string. TY_REQ-DOB is TYPE STRING and ADD_FLT( ) only
+*   rejects a BLANK value, so nothing between the popup and the backend has any
+*   reason to object: the first component to LOOK at the value is the one that
+*   CONVERTS it, deep inside ZCL_EGA_BP_BO_API=>BP_QUERY, and it does not
+*   complain - it raises CX_SY_CONVERSION_NO_DATE.
+*
+*   That exception is not catchable from here, and the citizen gets
+*   "Application Error - Please Restart The App" with an ST22 dump reading
+*   "'19.08.1987' is not a valid value for D(8,0)". The popup, the step and
+*   everything already filled in are gone, with no message and no way back.
+*   Confirmed from a real session, not constructed.
+*
+*   PUBLIC and a CLASS-METHOD for the same reason NORM_EID( ) is: a journey that
+*   draws its OWN partner-search popup rather than calling ZCL_RAK_BP_POPUP has
+*   to tidy the value before it makes a request, and should not have to
+*   instantiate a search - or write a second date parser - to do it.
+*
+*   NORMALISES; DOES NOT VALIDATE A HUMAN BEING'S BIRTHDAY. A caller wanting to
+*   know whether the result is a plausible date of birth (not in the future, not
+*   in 1823) owns that question - this one only answers "can this be sent".
+    CLASS-METHODS norm_dob
+      IMPORTING VALUE(iv_dob) TYPE string
+      RETURNING VALUE(rv_dob) TYPE string.
+
+
   PROTECTED SECTION.
 
     METHODS query
@@ -300,6 +331,31 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
                   OR lv = 'EID'
                   OR lv = 'EMIRATESID'
                   OR lv = 'EMIRATES_ID' ).
+  ENDMETHOD.
+
+
+  METHOD norm_dob.
+*   ONE DATE PARSER, NOT TWO. ZCL_RAK_JOURNEY_UTIL=>TO_DATS( ) already accepts
+*   exactly the forms that reach a model value here - eight digits as the
+*   pickers' VALUEFORMAT writes them, ISO yyyy-mm-dd, and the day-first locale
+*   forms dd.mm.yyyy / dd/mm/yyyy / dd-mm-yyyy that a citizen types over the top
+*   of them - tells ISO and day-first apart by separator position, and returns
+*   EMPTY for anything it cannot read unambiguously, including a month-first or
+*   partial date. It is also what ZCL_RAK_JOURNEY_RULES' DATE range check
+*   normalises through, so a date CJS is willing to validate and a date CJS is
+*   willing to send are the same set of dates by construction.
+*
+*   Copying the parsing in here instead would be the mistake this class's own
+*   header names: two divergent answers to the same question, with nothing in
+*   either copy to say the other exists. The dependency is on a stateless CJS
+*   helper whose only reference is ZIF_RAK_JOURNEY, and every caller of this
+*   class already loads it.
+*
+*   A VALUE THAT IS ALREADY EIGHT DIGITS COMES BACK BYTE-IDENTICAL - TO_DATS( )
+*   re-emits the same characters - which is the compatibility guarantee: every
+*   caller sending what the pickers produce today gets exactly what it got
+*   before, and no journey has to change.
+    rv_dob = zcl_rak_journey_util=>to_dats( iv_dob ).
   ENDMETHOD.
 
 
@@ -435,7 +491,50 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
 
 
   METHOD search.
-    query( EXPORTING is_req  = is_req
+*   ---- date of birth, before anything looks at it ---------------------
+*   THIS IS THE CHOKE POINT, WHICH IS WHY THE GUARD IS HERE AND NOT IN THE
+*   POPUP. ZCL_RAK_BP_POPUP goes through SEARCH( ) and so does every journey
+*   that draws its own partner-search dialog, so one guard here covers a
+*   hand-drawn popup that has no hook between the model and the filter and
+*   could not defend itself. See NORM_DOB( ) for what the raw value does to
+*   BP_QUERY if it gets there.
+*
+*   NORMALISED ONCE, INTO A LOCAL COPY, AND BOTH HALVES BELOW SEE IT. The
+*   ordering matters: VALIDATE( )'s MOI cross-check compares LS_BP-DOB against
+*   IS_REQ-DOB as strings, and the BP holds the date in internal form - so
+*   normalising for QUERY( ) only, and leaving VALIDATE( ) reading the raw
+*   text, would start failing a comparison that used to match and report it as
+*   a data mismatch. LS_REQ goes to both.
+    DATA(ls_req) = is_req.
+
+    IF is_req-dob IS NOT INITIAL.
+      ls_req-dob = norm_dob( is_req-dob ).
+
+      IF ls_req-dob IS INITIAL.
+*       FILLED, AND NOT A DATE. Do not search: a filter built from it is the
+*       dump. Reported the way every other finding in this class is reported -
+*       one row on CT_MSG at the caller's own severity - so the citizen sees it
+*       in the popup they are already looking at and can correct the field.
+*
+*       Returning here deliberately skips the "No data found" below as well.
+*       Nothing was searched for, so "not found" would be a second message
+*       contradicting the first and pointing at the wrong thing.
+        add( EXPORTING iv_text = COND string( WHEN sy-langu = 'E'
+                                              THEN 'Date of birth has an invalid format'
+                                              ELSE 'صيغة تاريخ الميلاد غير صحيحة' )
+                       iv_type = COND string( WHEN is_req-msg_type IS INITIAL THEN 'E'
+                                              ELSE to_upper( is_req-msg_type ) )
+             CHANGING  ct_msg  = rs_res-msg ).
+
+*       The caller's own messages still arrive, in the order they always did.
+        IF it_extra_msg IS NOT INITIAL.
+          APPEND LINES OF it_extra_msg TO rs_res-msg.
+        ENDIF.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+    query( EXPORTING is_req  = ls_req
            IMPORTING et_rows = rs_res-rows
                      et_msg  = rs_res-msg ).
 
@@ -449,7 +548,7 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
       APPEND LINES OF it_extra_msg TO rs_res-msg.
     ENDIF.
 
-    validate( EXPORTING is_req  = is_req
+    validate( EXPORTING is_req  = ls_req
                         it_rows = rs_res-rows
               CHANGING  ct_msg  = rs_res-msg ).
 
