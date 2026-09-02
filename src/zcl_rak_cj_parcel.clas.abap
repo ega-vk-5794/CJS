@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD mun-4. Missing this line means SAP has an older copy - see
+*& BUILD mun-5. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -98,14 +98,25 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   the thing being looked at is the thing that was just written, which
 *   is the question that has to be answered FIRST every time and until
 *   now could only be inferred. Bump it with the header stamp.
-    CONSTANTS c_build TYPE string VALUE 'mun-4'.
+    CONSTANTS c_build TYPE string VALUE 'mun-5'.
 
     METHODS constructor
       IMPORTING io_engine TYPE REF TO zcl_rak_journey_engine.
 
   PRIVATE SECTION.
 
-    CONSTANTS c_page_size TYPE i VALUE 5.
+*   SIX, THE LIVE CONTROL'S OWN PAGE SIZE - measured, not chosen. The
+*   working My Properties screen reports "54 properties found" over "1 / 9"
+*   pages, which is six.
+*
+*   It was five, which is close enough to look right and is worse on a
+*   large portfolio for a reason specific to this control: every page press
+*   is a round trip and every round trip re-reads the whole parcel list
+*   (see the note in ROWS( )). Two hundred parcels at five a page is forty
+*   reads to walk the list; at six it is thirty-four. That is not the fix -
+*   the fix is a cache that survives a round trip - but there is no reason
+*   to be smaller than the control being replaced.
+    CONSTANTS c_page_size TYPE i VALUE 6.
 
     CONSTANTS: c_owned TYPE string VALUE 'OWNED',
                c_agent TYPE string VALUE 'AGENT',
@@ -379,6 +390,28 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     mv_key  = lv_key.
     CLEAR: mt_rows, mv_note.
 
+*   ---- TIMED, BECAUSE THIS READ IS THE SELECTOR'S WHOLE COST ----------
+*
+*   THE CACHE ABOVE IS PER ROUND TRIP, NOT PER SESSION, and that is the
+*   performance characteristic worth knowing about rather than guessing
+*   at. ZCL_RAK_JOURNEY_ENGINE->ENSURE_PARTS( ) creates this control fresh
+*   on EVERY round trip, so MV_READ and MT_ROWS start empty every time:
+*   the full parcel read happens again on every page press, every search,
+*   every owner switch and - now that the cards carry checkboxes - every
+*   single tick.
+*
+*   AND THE READ IS UNBOUNDED. PROPERTIES( ) sends Partner, Partnerguid,
+*   Partnerrole and Type as filters and no $top or $skip, so a partner
+*   with two hundred parcels fetches two hundred rows to render five.
+*   Paging and search are applied AFTER this, in HITS( ) and PAGER( ) -
+*   which is correct and matches the legacy control, because neither is a
+*   filter the DPC accepts - but it means neither reduces what is read.
+*
+*   Nothing measured it, so nobody could say whether that matters. It does
+*   now: row count and milliseconds, under &trace=X, plus a gate when the
+*   read is slow enough that a citizen would feel it on every tick.
+    DATA(lv_t0) = mo_e->tick( ).
+
     DATA ls TYPE zcl_rak_property_api=>ty_prop_res.
     TRY.
         DATA(lo) = api( ).
@@ -407,6 +440,35 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         CLEAR mt_rows.
         mv_note = lx->get_text( ).
     ENDTRY.
+
+    DATA(lv_ms) = mo_e->tock( lv_t0 ).
+    IF mo_e->mv_trace = abap_true.
+      mo_e->trace( |PARCEL  read { mode( ) }| &&
+                   COND string( WHEN owner( ) IS NOT INITIAL THEN |/{ owner( ) }| ELSE `` ) &&
+                   | · { lines( mt_rows ) } row(s) · { lv_ms } ms| &&
+                   | · page size { c_page_size }| ).
+      mo_e->trace_perf( iv_label = |PARCEL read { mode( ) }| iv_ms = lv_ms ).
+
+*     A GATE, NOT A TRACE LINE, ONCE IT IS BIG ENOUGH TO FEEL. The number
+*     that matters is not the read on its own - it is the read multiplied
+*     by the round trips, and a multi-select list turns one selection into
+*     one round trip PER PARCEL. Fifty rows at 40ms is invisible; two
+*     hundred rows at 400ms is four seconds spent across ten ticks.
+*
+*     The threshold is deliberately generous. This is here to make a real
+*     problem visible on a real partner, not to complain about a
+*     development client with three parcels.
+      IF lines( mt_rows ) > 60 OR lv_ms > 300.
+        mo_e->trace_gate( |The parcel read returned { lines( mt_rows ) } row(s) in | &&
+                          |{ lv_ms } ms, and it is repeated on EVERY round trip - | &&
+                          |the control is recreated per round trip, so its row | &&
+                          |cache never survives one. Paging and search are applied | &&
+                          |after the read and do not reduce it. At this size that | &&
+                          |wants a cross-round-trip cache keyed on partner, mode | &&
+                          |and owner.| ).
+      ENDIF.
+    ENDIF.
+
     rt = mt_rows.
   ENDMETHOD.
 
