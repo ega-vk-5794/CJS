@@ -17,6 +17,8 @@ public section.
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
     redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_POST
+    redefinition .
 protected section.
 private section.
 
@@ -51,6 +53,9 @@ private section.
   data MS_CACHE type TY_CACHE .
   constants C_CACHE_FIELD type STRING value 'ENROL_CACHE' ##NO_TEXT.
   constants C_CACHE type STRING value 'MOE_CACHE' ##NO_TEXT.
+  constants C_LOGIN_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
+  constants C_APP_NAME type STRING value 'PARENTNAME' ##NO_TEXT.
+  constants C_APP_ID type STRING value 'PARENTEID' ##NO_TEXT.
 
   methods MOE
     importing
@@ -268,14 +273,14 @@ CLASS ZCL_D027_STUD_ATTEST_CERT_LOGI IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~get_table.
-    CHECK to_upper( iv_name ) = 'STUDENTDETAILS'.
-
-    rs_data-columns = VALUE #( ( `Field` ) ( `Value` ) ).
-
-    DATA(lv_student_id) = io_ctx->get_val( 'STUDENTID' ).
-    IF lv_student_id IS INITIAL.
-      RETURN.
-    ENDIF.
+*    CHECK to_upper( iv_name ) = 'STUDENTDETAILS'.
+*
+*    rs_data-columns = VALUE #( ( `Field` ) ( `Value` ) ).
+*
+*    DATA(lv_student_id) = io_ctx->get_val( 'STUDENTID' ).
+*    IF lv_student_id IS INITIAL.
+*      RETURN.
+*    ENDIF.
 
     " REVIEW: replace with the real Ministry-of-Education student lookup
     " — placeholder table/fields shown for the pattern only, same as the
@@ -328,12 +333,21 @@ CLASS ZCL_D027_STUD_ATTEST_CERT_LOGI IMPLEMENTATION.
 
     CASE to_upper( iv_field ).
 
-      WHEN 'ACADEMICYEARSCHOOL'.
+      WHEN 'STUDENTID'.
         CLEAR ms_cache.
         io_ctx->set_val( iv_name = c_cache  iv_value = space ).
         io_ctx->set_val( iv_name = 'ACADEMICYEARSCHOOL' iv_value = space ).
-*        io_ctx->set_val( iv_name = c_f_term iv_value = space ).
         fill_card( io_ctx = io_ctx is_card = ls_blank ).
+
+*      WHEN 'ACADEMICYEARSCHOOL'.
+*        io_ctx->set_val( iv_name = c_f_term iv_value = space ).
+
+*      WHEN 'ACADEMICYEARSCHOOL'.
+*        CLEAR ms_cache.
+*        io_ctx->set_val( iv_name = c_cache  iv_value = space ).
+*        io_ctx->set_val( iv_name = 'ACADEMICYEARSCHOOL' iv_value = space ).
+**        io_ctx->set_val( iv_name = c_f_term iv_value = space ).
+*        fill_card( io_ctx = io_ctx is_card = ls_blank ).
 *
 *      WHEN c_f_year.
 *        io_ctx->set_val( iv_name = c_f_term iv_value = space ).
@@ -366,41 +380,73 @@ CLASS ZCL_D027_STUD_ATTEST_CERT_LOGI IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_init.
+
+     super->zif_rak_journey_logic~on_init( io_ctx = io_ctx ).
+
+    DATA: lv_loginbp TYPE bu_partner.
+
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role.
+
+    IF lv_loginbp IS NOT INITIAL.
+      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+        EXPORTING
+          iv_bp_id      = lv_loginbp
+        IMPORTING
+          es_bp_details = DATA(ls_bp) ).
+
+*      "Login BP
+      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+
+       IF sy-langu = 'E'.
+        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name ) ).
+      ELSE.
+        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+      ENDIF.
+
+*      "Emirates Id/Applicant ID
+      io_ctx->set_val( iv_name = c_app_id  iv_value = CONV #( ls_bp-emirates_id ) ).
+
+    ENDIF.
+
+    io_ctx->set_val( iv_name = 'STUDENTID_IDTYPE'      iv_value = CONV #( 'YFS001' ) ).
+
 *CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
 *  EXPORTING
 *    IO_CTX =
 *    .
-    super->zif_rak_journey_logic~on_init( io_ctx = io_ctx ).
-
-    DATA(lv_user) = io_ctx->get_param( iv_name = 'USERDATA' ).
-
-    zcl_ega_cj_utility=>get_bp(
-      EXPORTING qv_key  = lv_user
-      IMPORTING loginbp = DATA(lv_loginbp)
-                rolebp  = DATA(lv_rolebp)
-                role    = DATA(lv_role) ).
-
-
-
-    IF lv_loginbp IS INITIAL.
-      RETURN.
-    ENDIF.
-
-    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
-
-*   The signed-in citizen, read from the business partner register. What stood
-*   here was a fixed name and Emirates ID, written AFTER the real read, so every
-*   applicant saw and posted the same test person.
-    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
-      EXPORTING
-        iv_bp_id      = CONV bu_partner( lv_loginbp )
-      IMPORTING
-        es_bp_details = DATA(ls_bp_real) ).
-    io_ctx->set_val( iv_name = 'PARENTNAME' iv_value = COND #(
-      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
-      THEN CONV string( ls_bp_real-bp_name_ar )
-      ELSE CONV string( ls_bp_real-bp_name ) ) ).
-    io_ctx->set_val( iv_name = 'PARENTEID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
+*    super->zif_rak_journey_logic~on_init( io_ctx = io_ctx ).
+*
+*    DATA(lv_user) = io_ctx->get_param( iv_name = 'USERDATA' ).
+*
+*    zcl_ega_cj_utility=>get_bp(
+*      EXPORTING qv_key  = lv_user
+*      IMPORTING loginbp = DATA(lv_loginbp)
+*                rolebp  = DATA(lv_rolebp)
+*                role    = DATA(lv_role) ).
+*
+*
+*
+*    IF lv_loginbp IS INITIAL.
+*      RETURN.
+*    ENDIF.
+*
+*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
+*
+**   The signed-in citizen, read from the business partner register. What stood
+**   here was a fixed name and Emirates ID, written AFTER the real read, so every
+**   applicant saw and posted the same test person.
+*    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+*      EXPORTING
+*        iv_bp_id      = CONV bu_partner( lv_loginbp )
+*      IMPORTING
+*        es_bp_details = DATA(ls_bp_real) ).
+*    io_ctx->set_val( iv_name = 'PARENTNAME' iv_value = COND #(
+*      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
+*      THEN CONV string( ls_bp_real-bp_name_ar )
+*      ELSE CONV string( ls_bp_real-bp_name ) ) ).
+*    io_ctx->set_val( iv_name = 'PARENTEID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
   ENDMETHOD.
 
 
@@ -523,4 +569,32 @@ CLASS ZCL_D027_STUD_ATTEST_CERT_LOGI IMPLEMENTATION.
 
     ENDCASE.
   ENDMETHOD.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_POST.
+* Deliberately does NOT call SUPER. The base strips PAY_* and PAYFEE, which is right
+* for a journey with no fee and wrong here - D026 has a real PAYFEE step and the fee
+* has to reach the backend.
+*
+* MOE_CACHE and the STUD_* card fields are scratch. The card is what the MOE returned,
+* the backend already has it, and MOE_CACHE is a serialised payload several KB long
+* that no /QNV field will accept.
+*---------------------------------------------------------------------------------------*
+    DELETE ct_kv WHERE key = c_cache.
+    DELETE ct_kv WHERE key CP 'STUD_*'.
+
+*   The payment context and the payment state. PAY_BUKRS, PAY_MATERIAL, PAY_CASES_FOR
+*   and PAY_ETISALAT tell ZCL_RAK_PAY_ENGINE which department it is acting for;
+*   PAY_STARTED, PAY_REFERENCE, PAY_APPURL and PAY_TOTAL are its working state. None
+*   of them is a /QNV field and none belongs in the post.
+*
+*   PAYFEE itself is NOT stripped - the base class strips it and this journey needs
+*   the fee to reach the backend, which is why SUPER is not called.
+    DELETE ct_kv WHERE key CP 'PAY_*'.
+
+*   CASE_NUMBER is read-back only. It maps to GS_DATA-CASEID so the BAdI's READ fills
+*   it, but MAPPER assigns whatever the POST carries, so sending it back empty would
+*   blank the case id the journey had just been given.
+    DELETE ct_kv WHERE key = 'CASE_NUMBER'.
+  endmethod.
 ENDCLASS.

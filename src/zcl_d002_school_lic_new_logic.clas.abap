@@ -302,6 +302,39 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
     io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
     io_ctx->set_val( iv_name = c_owner_bp iv_value = |{ lv_loginbp }| ).
 
+    io_ctx->set_val( iv_name = 'MANAGERSEARCH_IDTYPE'    iv_value = CONV #( 'YFS002' ) ).
+    io_ctx->set_val( iv_name = 'TRADESEARCH_IDTYPE'      iv_value = CONV #( 'YP0001' ) ).
+
+
+
+*    CALL METHOD super->zif_rak_journey_logic~on_init
+*      EXPORTING
+*        io_ctx = io_ctx.
+**
+*    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
+**
+*    zcl_ega_cj_utility=>get_bp(
+*      EXPORTING
+*        qv_key  = user_data
+*      IMPORTING
+*        loginbp = DATA(loginbp)
+*        rolebp  = DATA(rolebp)
+*        role    = DATA(role)
+*    ).
+**
+*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '1000116563' ).
+*    io_ctx->set_val( iv_name = 'OWNER_BP' iv_value = '1000116563' ).
+*
+**    gs_data-partner = '3000000049'.
+**    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
+*    io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
+**    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
+*    io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
+*
+**    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+*    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
+
+
   ENDMETHOD.
 
 
@@ -397,6 +430,13 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
 
 *    CHECK to_upper( iv_field ) = 'TRADESEARCH'.
     IF iv_field = 'TRADESEARCH'.
+
+
+      DATA(lv_idtype_trade) = io_ctx->get_val( 'TRADESEARCH_IDTYPE' ).
+      IF lv_idtype_trade IS INITIAL.
+        lv_idtype_trade = 'YP0001' . "c_default_idtype.
+      ENDIF.
+
 
       io_ctx->set_val( iv_name = 'TRADE_NAME'        iv_value = ' ' ).
       io_ctx->set_val( iv_name = 'TRADE_MOBILE'      iv_value = ' ' ).

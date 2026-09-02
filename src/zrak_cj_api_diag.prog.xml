@@ -62,157 +62,157 @@
      <ID>S</ID>
      <KEY>P_KEY</KEY>
      <ENTRY>Portal session key (USER_KEY)</ENTRY>
-     <LENGTH>29</LENGTH>
+     <LENGTH>37</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_BP</KEY>
      <ENTRY>Business partner</ENTRY>
-     <LENGTH>16</LENGTH>
+     <LENGTH>24</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_GUID</KEY>
      <ENTRY>Partner GUID</ENTRY>
-     <LENGTH>12</LENGTH>
+     <LENGTH>20</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_ROLE</KEY>
      <ENTRY>Partner role</ENTRY>
-     <LENGTH>12</LENGTH>
+     <LENGTH>20</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_DEPT</KEY>
      <ENTRY>Department</ENTRY>
-     <LENGTH>10</LENGTH>
+     <LENGTH>18</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_JNY</KEY>
      <ENTRY>Journey code</ENTRY>
-     <LENGTH>12</LENGTH>
+     <LENGTH>20</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_SCRN</KEY>
      <ENTRY>Screen id</ENTRY>
-     <LENGTH>9</LENGTH>
+     <LENGTH>17</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_CASE</KEY>
      <ENTRY>Case / Intreno</ENTRY>
-     <LENGTH>14</LENGTH>
+     <LENGTH>22</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_FEES</KEY>
      <ENTRY>FeesSet</ENTRY>
-     <LENGTH>7</LENGTH>
+     <LENGTH>15</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_TRK</KEY>
      <ENTRY>TrackerSet</ENTRY>
-     <LENGTH>10</LENGTH>
+     <LENGTH>18</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_PROJ</KEY>
      <ENTRY>ProjectSet</ENTRY>
-     <LENGTH>10</LENGTH>
+     <LENGTH>18</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_PARC</KEY>
      <ENTRY>Parcels</ENTRY>
-     <LENGTH>7</LENGTH>
+     <LENGTH>15</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_UNIT</KEY>
      <ENTRY>Units</ENTRY>
-     <LENGTH>5</LENGTH>
+     <LENGTH>13</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_OWN</KEY>
      <ENTRY>Managed owners</ENTRY>
-     <LENGTH>14</LENGTH>
+     <LENGTH>22</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_MAP</KEY>
      <ENTRY>Map url and token</ENTRY>
-     <LENGTH>17</LENGTH>
+     <LENGTH>25</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_PID</KEY>
      <ENTRY>Parcel id to check</ENTRY>
-     <LENGTH>18</LENGTH>
+     <LENGTH>26</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_CHEM</KEY>
      <ENTRY>Read chemical history</ENTRY>
-     <LENGTH>21</LENGTH>
+     <LENGTH>29</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_PERMT</KEY>
      <ENTRY>Permit</ENTRY>
-     <LENGTH>6</LENGTH>
+     <LENGTH>14</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_LIC</KEY>
      <ENTRY>Trade licence</ENTRY>
-     <LENGTH>13</LENGTH>
+     <LENGTH>21</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_EMIR</KEY>
      <ENTRY>Registered emirate</ENTRY>
-     <LENGTH>18</LENGTH>
+     <LENGTH>26</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_IE</KEY>
      <ENTRY>Import 1 / Export 2</ENTRY>
-     <LENGTH>19</LENGTH>
+     <LENGTH>27</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_ACCOM</KEY>
      <ENTRY>Read port objects</ENTRY>
-     <LENGTH>17</LENGTH>
+     <LENGTH>25</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_PORT</KEY>
      <ENTRY>Port</ENTRY>
-     <LENGTH>4</LENGTH>
+     <LENGTH>12</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_RESV</KEY>
      <ENTRY>Reserved items only</ENTRY>
-     <LENGTH>19</LENGTH>
+     <LENGTH>27</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_WLIC</KEY>
      <ENTRY>Fishery licence (workers)</ENTRY>
-     <LENGTH>25</LENGTH>
+     <LENGTH>33</LENGTH>
     </item>
     <item>
      <ID>S</ID>
      <KEY>P_ROWS</KEY>
      <ENTRY>Rows to print per read</ENTRY>
-     <LENGTH>22</LENGTH>
+     <LENGTH>30</LENGTH>
     </item>
    </TPOOL>
   </asx:values>

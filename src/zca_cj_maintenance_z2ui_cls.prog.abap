@@ -21,7 +21,11 @@ CLASS lcl_event_receiver DEFINITION.
       tree_selection_changed
         FOR EVENT selection_changed
         OF cl_gui_alv_tree
-        IMPORTING sender node_key.
+        IMPORTING sender node_key,
+      hotspot_click
+        FOR EVENT hotspot_click
+        OF cl_gui_alv_grid
+        IMPORTING sender e_row_id e_column_id es_row_no.
 
 
 ENDCLASS.
@@ -34,6 +38,7 @@ CLASS lcl_editor DEFINITION.
         value       TYPE string,
         binding     TYPE icon-id,
         group       TYPE char30,
+        handle      TYPE int4,
         name        TYPE string,
         text        TYPE string,
         fullname    TYPE string,
@@ -84,6 +89,12 @@ CLASS lcl_editor DEFINITION.
                                 VALUE(item_layout)    TYPE lvc_t_layi
                                 VALUE(node_layout)    TYPE lvc_s_layn,
       select_editor_node IMPORTING VALUE(node_key)    TYPE lvc_nkey,
+      add_prop_items IMPORTING it_props TYPE zcj_z2ui5_properties_tb
+                               iv_group TYPE string
+                     CHANGING  ct_prop  TYPE tt_properties,
+      property_icon_click IMPORTING e_row_id    TYPE  lvc_s_row
+                                    e_column_id TYPE  lvc_s_col
+                                    es_row_no   TYPE  lvc_s_roid,
       search_controls IMPORTING text TYPE any.
 
 ENDCLASS.
@@ -440,9 +451,11 @@ CLASS lcl_editor IMPLEMENTATION.
   ENDMETHOD.
   METHOD load_properties.
 
-    DATA: ls_layout TYPE lvc_s_layo,
-          lt_fcat   TYPE lvc_t_fcat,
-          ls_fcat   TYPE lvc_s_fcat.
+    DATA: ls_layout   TYPE lvc_s_layo,
+          lt_fcat     TYPE lvc_t_fcat,
+          ls_fcat     TYPE lvc_s_fcat,
+          lt_dropdown TYPE lvc_t_drop,
+          ls_dropdown TYPE lvc_s_drop.
 
     CREATE OBJECT me->lo_property_grid
       EXPORTING
@@ -463,11 +476,13 @@ CLASS lcl_editor IMPLEMENTATION.
     ls_layout-no_rowins  = 'X'.
     ls_layout-stylefname = 'FIELD_STYLE'.
     ls_layout-cwidth_opt = 'X'.
+    ls_layout-no_toolbar = 'X'.
 
-    ls_fcat-fieldname  = 'EXPA_ICON'.
+    ls_fcat-fieldname  = 'EXP_ICON'.
     ls_fcat-outputlen  = '2'.
     ls_fcat-icon       = 'X'.
     ls_fcat-emphasize  = 'C30'.
+    ls_fcat-hotspot    = 'X'.
     APPEND ls_fcat TO lt_fcat.  CLEAR  ls_fcat.
 
     ls_fcat-fieldname  = 'NAME'.
@@ -476,18 +491,33 @@ CLASS lcl_editor IMPLEMENTATION.
     APPEND ls_fcat TO lt_fcat.  CLEAR  ls_fcat.
 
     ls_fcat-fieldname  = 'VALUE'.
-    ls_fcat-drdn_field = 'DRP_HANDLE'.
+    ls_fcat-drdn_field = 'HANDLE'.
     ls_fcat-edit       = 'X'.
     ls_fcat-outputlen  = '30'.
-    ls_fcat-ref_table  = '/NEPTUNE/OBJ_AT'.
-    ls_fcat-ref_field  = 'VALUE'.
+    ls_fcat-ref_table  = 'ZCJ_Z2UI5_PROPERTIES'.
+    ls_fcat-ref_field  = 'NAME'.
     ls_fcat-lowercase  = 'X'.
     APPEND ls_fcat TO lt_fcat.  CLEAR  ls_fcat.
 
     ls_fcat-fieldname  = 'BINDING'.
     ls_fcat-outputlen  = '4'.
     ls_fcat-icon       = 'X'.
+    ls_fcat-hotspot    = 'X'.
     APPEND ls_fcat TO lt_fcat.  CLEAR  ls_fcat.
+
+    ls_dropdown-handle = '1'.
+    ls_dropdown-value  = space.
+    APPEND ls_dropdown TO lt_dropdown. CLEAR  ls_dropdown.
+    ls_dropdown-handle = '1'.
+    ls_dropdown-value  = 'true'.
+    APPEND ls_dropdown TO lt_dropdown. CLEAR  ls_dropdown.
+    ls_dropdown-handle = '1'.
+    ls_dropdown-value  = 'false'.
+    APPEND ls_dropdown TO lt_dropdown. CLEAR  ls_dropdown.
+
+    CALL METHOD me->lo_property_grid->set_drop_down_table
+      EXPORTING
+        it_drop_down = lt_dropdown.
 
 * Show table
     CALL METHOD me->lo_property_grid->set_table_for_first_display
@@ -496,10 +526,13 @@ CLASS lcl_editor IMPLEMENTATION.
       CHANGING
         it_fieldcatalog = lt_fcat[]
         it_outtab       = me->lt_prop.
+
+    SET HANDLER lc_event_receiver->hotspot_click FOR me->lo_property_grid.
   ENDMETHOD.
   METHOD add_editor_node.
     me->lo_fav_behaviour->get_handle( IMPORTING handle = DATA(dnd_handle) ).
     node_layout-dragdropid = dnd_handle.
+    CLEAR: node_layout-isfolder, node_layout-expander.
     me->lo_editor->add_node(
       EXPORTING
         i_relat_node_key = relat_node_key
@@ -520,27 +553,77 @@ CLASS lcl_editor IMPLEMENTATION.
     CALL METHOD cl_gui_cfw=>flush.
   ENDMETHOD.
   METHOD select_editor_node.
+
     READ TABLE me->lt_editor INTO DATA(ls_editor) WITH KEY node_key = node_key.
     IF sy-subrc EQ 0.
       READ TABLE me->lt_controls INTO DATA(ls_control)
       WITH KEY fullname = ls_editor-fullname BINARY SEARCH.
       IF sy-subrc EQ 0.
-        CLEAR: me->lt_prop[].
-        LOOP AT ls_control-events INTO DATA(ls_prop).
-          APPEND INITIAL LINE TO me->lt_prop[] ASSIGNING FIELD-SYMBOL(<prop>).
-          MOVE-CORRESPONDING ls_prop TO <prop>.
-          <prop>-group = 'Events'.
-          <prop>-exp_icon = '@3S@'.
-        ENDLOOP.
-*          PROPERTIES
-*AGGREGATIONS
-*ASSOCIATIONS
-*EVENTS
+        IF ls_editor-prop[] IS INITIAL.
+          CLEAR: me->lt_prop[].
+          me->add_prop_items( EXPORTING it_props = ls_control-events iv_group = 'Events' CHANGING ct_prop = me->lt_prop[] ).
+          me->add_prop_items( EXPORTING it_props = ls_control-properties iv_group = 'Properties' CHANGING ct_prop = me->lt_prop[] ).
+          me->add_prop_items( EXPORTING it_props = ls_control-aggregations iv_group = 'Aggregations' CHANGING ct_prop = me->lt_prop[] ).
+          me->add_prop_items( EXPORTING it_props = ls_control-associations iv_group = 'Associations' CHANGING ct_prop = me->lt_prop[] ).
+        ELSE.
+          me->lt_prop[] = ls_editor-prop[].
+        ENDIF.
         IF me->lo_property_grid IS NOT INITIAL.
           me->lo_property_grid->refresh_table_display( ).
         ENDIF.
       ENDIF.
     ENDIF.
+  ENDMETHOD.
+  METHOD add_prop_items.
+    DATA: ls_style TYPE lvc_s_styl.
+
+
+    APPEND INITIAL LINE TO ct_prop ASSIGNING FIELD-SYMBOL(<prop>).
+    <prop>-exp_icon = icon_collapse.
+    <prop>-name     = iv_group.
+    <prop>-color    = 'C30'.
+    ls_style-style  = cl_gui_alv_grid=>mc_style_disabled.
+    APPEND ls_style  TO <prop>-field_style.
+    CLEAR ls_style.
+    LOOP AT it_props INTO DATA(ls_prop).
+      APPEND INITIAL LINE TO ct_prop ASSIGNING <prop>.
+      MOVE-CORRESPONDING ls_prop TO <prop>.
+      <prop>-group   = iv_group.
+      IF iv_group EQ 'Events'.
+        <prop>-binding = icon_operation.
+      ELSE.
+        <prop>-binding = icon_connect.
+      ENDIF.
+      IF ls_prop-type EQ 'boolean'.
+        <prop>-handle = '1'.
+
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+  METHOD property_icon_click.
+    READ TABLE me->lt_prop[] ASSIGNING FIELD-SYMBOL(<ls_prop>) INDEX e_row_id-index.
+    CHECK sy-subrc EQ 0.
+    CASE e_column_id-fieldname.
+      WHEN 'EXP_ICON'.
+        IF <ls_prop>-exp_icon IS NOT INITIAL.
+          me->lo_property_grid->check_changed_data( ).
+          me->lo_property_grid->get_filter_criteria( IMPORTING et_filter = DATA(lt_filter) ).
+          IF <ls_prop>-exp_icon EQ icon_collapse.
+            <ls_prop>-exp_icon = icon_expand.
+            APPEND INITIAL LINE TO lt_filter ASSIGNING FIELD-SYMBOL(<filter>).
+            <filter>-fieldname = 'GROUP'.
+            <filter>-sign      = 'E'.
+            <filter>-option    = 'EQ'.
+            <filter>-low       = <ls_prop>-name.
+          ELSE.
+            DELETE lt_filter WHERE low EQ <ls_prop>-name.
+            <ls_prop>-exp_icon = icon_collapse.
+          ENDIF.
+          me->lo_property_grid->set_filter_criteria( lt_filter ).
+          me->lo_property_grid->refresh_table_display( ).
+        ENDIF.
+      WHEN 'BINDING'.
+    ENDCASE.
   ENDMETHOD.
   METHOD search_controls.
 *    DATA: lv_search TYPE string.

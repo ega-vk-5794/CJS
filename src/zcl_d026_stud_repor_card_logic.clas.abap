@@ -21,9 +21,9 @@ CLASS zcl_d026_stud_repor_card_logic DEFINITION
         REDEFINITION .
   PROTECTED SECTION.
 
-PRIVATE SECTION.
+private section.
 
-  TYPES:
+  types:
 *   One MOE payload per student. Held in the model as well as on the instance
 *   because the instance does not survive the round trip and ON_VALUE_HELP is
 *   called from RENDER_ONE on EVERY render, for both dropdowns. Without the
@@ -32,9 +32,9 @@ PRIVATE SECTION.
       key  TYPE string,
       text TYPE string,
     END OF ty_pair .
-  TYPES:
+  types:
     tt_pair TYPE STANDARD TABLE OF ty_pair WITH DEFAULT KEY .
-  TYPES:
+  types:
     BEGIN OF ty_card,
       student_nm  TYPE string,
       emirates_id TYPE string,
@@ -48,13 +48,13 @@ PRIVATE SECTION.
       nationality TYPE string,
       email       TYPE string,
     END OF ty_card .
-  TYPES:
+  types:
     BEGIN OF ty_cache,
       sis   TYPE string,
       card  TYPE ty_card,
       years TYPE tt_pair,
     END OF ty_cache .
-  TYPES:
+  types:
     BEGIN OF ty_enrol,
       sis         TYPE zst_cs_ega_student_bp-studentid,
       student_nm  TYPE string,
@@ -68,90 +68,94 @@ PRIVATE SECTION.
       mobile      TYPE string,
       email       TYPE string,
     END OF ty_enrol .
-  TYPES:
+  types:
     tt_enrol TYPE STANDARD TABLE OF ty_enrol WITH DEFAULT KEY .
-  TYPES:
+  types:
     BEGIN OF ty_cache1,
       sis  TYPE string,
       rows TYPE tt_enrol,
     END OF ty_cache1 .
 
-  CONSTANTS c_sep TYPE char1 VALUE '|' ##NO_TEXT.
-  CONSTANTS c_cache_field TYPE string VALUE 'ENROL_CACHE' ##NO_TEXT.
-  CONSTANTS c_bukrs TYPE bukrs VALUE 'RDOK' ##NO_TEXT.
-  CONSTANTS c_f_student TYPE string VALUE 'STUDENT_1' ##NO_TEXT.
-  CONSTANTS c_f_year TYPE string VALUE 'ACADEMIC_YEAR' ##NO_TEXT.
-  CONSTANTS c_f_term TYPE string VALUE 'TERM_ID' ##NO_TEXT.
-  CONSTANTS c_cache TYPE string VALUE 'MOE_CACHE' ##NO_TEXT.
-  DATA ms_cache1 TYPE ty_cache1 .
-  DATA ms_cache TYPE ty_cache .
+  constants C_SEP type CHAR1 value '|' ##NO_TEXT.
+  constants C_CACHE_FIELD type STRING value 'ENROL_CACHE' ##NO_TEXT.
+  constants C_BUKRS type BUKRS value 'RDOK' ##NO_TEXT.
+  constants C_F_STUDENT type STRING value 'STUDENT_1' ##NO_TEXT.
+  constants C_F_YEAR type STRING value 'ACADEMIC_YEAR' ##NO_TEXT.
+  constants C_F_TERM type STRING value 'TERM_ID' ##NO_TEXT.
+  constants C_CACHE type STRING value 'MOE_CACHE' ##NO_TEXT.
+  data MS_CACHE1 type TY_CACHE1 .
+  data MS_CACHE type TY_CACHE .
+  constants C_LOGIN_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
+  constants C_APP_NAME type STRING value 'PARTNER_NAME' ##NO_TEXT.
+  constants C_APP_ID type STRING value 'PARTNER_ID' ##NO_TEXT.
+
   "! Single entry point for enrolment data. Serves from the instance memo, then
   "! from the model field, and only reaches the SIS when both miss.
-  METHODS enrol
-    IMPORTING
-      !io_ctx         TYPE REF TO zif_rak_journey
-      !iv_force       TYPE abap_bool DEFAULT abap_false
-    RETURNING
-      VALUE(rt_enrol) TYPE tt_enrol .
+  methods ENROL
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IV_FORCE type ABAP_BOOL default ABAP_FALSE
+    returning
+      value(RT_ENROL) type TT_ENROL .
   "! The one and only SIS call in this class.
-  METHODS read_sis
-    IMPORTING
-      !iv_sis         TYPE clike
-    RETURNING
-      VALUE(rt_enrol) TYPE tt_enrol .
+  methods READ_SIS
+    importing
+      !IV_SIS type CLIKE
+    returning
+      value(RT_ENROL) type TT_ENROL .
   "! Resolve the selected ACADEMICYEARSCHOOL key back to its cached enrolment row.
-  METHODS selected_enrol
-    IMPORTING
-      !io_ctx         TYPE REF TO zif_rak_journey
-    EXPORTING
-      !es_enrol       TYPE ty_enrol
-    RETURNING
-      VALUE(rv_found) TYPE abap_bool .
+  methods SELECTED_ENROL
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+    exporting
+      !ES_ENROL type TY_ENROL
+    returning
+      value(RV_FOUND) type ABAP_BOOL .
   "! Composite dropdown key. The school half is what lets the term step know
   "! which curriculum applies without a second lookup.
-  METHODS year_key
-    IMPORTING
-      !is_enrol     TYPE ty_enrol
-    RETURNING
-      VALUE(rv_key) TYPE string .
-  METHODS fill_card_1
-    IMPORTING
-      !io_ctx   TYPE REF TO zif_rak_journey
-      !is_enrol TYPE ty_enrol .
+  methods YEAR_KEY
+    importing
+      !IS_ENROL type TY_ENROL
+    returning
+      value(RV_KEY) type STRING .
+  methods FILL_CARD_1
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IS_ENROL type TY_ENROL .
   "! Blank the card and everything downstream of the search.
-  METHODS clear_downstream
-    IMPORTING
-      !io_ctx TYPE REF TO zif_rak_journey .
+  methods CLEAR_DOWNSTREAM
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY .
   "! Append one label/value pair as a row. Uses LIKE LINE OF so the row type
   "! is taken from the table itself rather than inferred - a nested VALUE #( )
   "! cannot derive the inner row type from a returning parameter.
-  METHODS add_row
-    IMPORTING
-      !iv_label TYPE string
-      !iv_value TYPE string
-    CHANGING
-      !ct_rows  TYPE zif_rak_journey=>ty_table-rows .
-  METHODS moe
-    IMPORTING
-      !io_ctx        TYPE REF TO zif_rak_journey
-      !iv_force      TYPE abap_bool DEFAULT abap_false
-    RETURNING
-      VALUE(rs_data) TYPE ty_cache .
-  METHODS moe_options
-    IMPORTING
-      !iv_sis        TYPE clike
-      !iv_year       TYPE clike OPTIONAL
-    RETURNING
-      VALUE(rt_pair) TYPE tt_pair .
-  METHODS moe_student
-    IMPORTING
-      !iv_sis        TYPE clike
-    RETURNING
-      VALUE(rs_card) TYPE ty_card .
-  METHODS fill_card
-    IMPORTING
-      !io_ctx  TYPE REF TO zif_rak_journey
-      !is_card TYPE ty_card .
+  methods ADD_ROW
+    importing
+      !IV_LABEL type STRING
+      !IV_VALUE type STRING
+    changing
+      !CT_ROWS type ZIF_RAK_JOURNEY=>TY_TABLE-ROWS .
+  methods MOE
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IV_FORCE type ABAP_BOOL default ABAP_FALSE
+    returning
+      value(RS_DATA) type TY_CACHE .
+  methods MOE_OPTIONS
+    importing
+      !IV_SIS type CLIKE
+      !IV_YEAR type CLIKE optional
+    returning
+      value(RT_PAIR) type TT_PAIR .
+  methods MOE_STUDENT
+    importing
+      !IV_SIS type CLIKE
+    returning
+      value(RS_CARD) type TY_CARD .
+  methods FILL_CARD
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IS_CARD type TY_CARD .
 ENDCLASS.
 
 
@@ -802,53 +806,83 @@ CLASS ZCL_D026_STUD_REPOR_CARD_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_init.
+    super->zif_rak_journey_logic~on_init( io_ctx = io_ctx ).
+
+    DATA: lv_loginbp TYPE bu_partner.
+
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role.
+
+    IF lv_loginbp IS NOT INITIAL.
+      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+        EXPORTING
+          iv_bp_id      = lv_loginbp
+        IMPORTING
+          es_bp_details = DATA(ls_bp) ).
+
+*      "Login BP
+      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+
+      IF sy-langu = 'E'.
+        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name ) ).
+      ELSE.
+        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+      ENDIF.
+
+*      "Emirates Id/Applicant ID
+      io_ctx->set_val( iv_name = c_app_id  iv_value = CONV #( ls_bp-emirates_id ) ).
+
+    ENDIF.
+
+
 *CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
 *  EXPORTING
 *    IO_CTX =
 *    .
-    CALL METHOD super->zif_rak_journey_logic~on_init
-      EXPORTING
-        io_ctx = io_ctx.
+*    CALL METHOD super->zif_rak_journey_logic~on_init
+*      EXPORTING
+*        io_ctx = io_ctx.
+**
+*    DATA(lv_user) = io_ctx->get_param( iv_name = 'USERDATA' ).
+**
+*    zcl_ega_cj_utility=>get_bp(
+*     EXPORTING qv_key  = lv_user
+*     IMPORTING loginbp = DATA(lv_loginbp)
+*               rolebp  = DATA(lv_rolebp)
+*               role    = DATA(lv_role) ).
 *
-    DATA(lv_user) = io_ctx->get_param( iv_name = 'USERDATA' ).
 *
-    zcl_ega_cj_utility=>get_bp(
-     EXPORTING qv_key  = lv_user
-     IMPORTING loginbp = DATA(lv_loginbp)
-               rolebp  = DATA(lv_rolebp)
-               role    = DATA(lv_role) ).
-
-
-    DATA lt_student TYPE STANDARD TABLE OF string.
-
-    APPEND 'Student SIS ID' TO lt_student.
-    APPEND 'Emirates ID' TO lt_student.
-
-
-
-    IF lv_loginbp IS INITIAL.
-      RETURN.
-    ENDIF.
-
-    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
-
-    SELECT SINGLE zzreferencea AS name_ar, zzfull_name_eng AS name_en
-      FROM but000
-      WHERE partner EQ @lv_loginbp
-      INTO @DATA(ls_name).
-    IF sy-subrc = 0.
-      io_ctx->set_val( iv_name  = 'PARTNER_NAME'
-                       iv_value = COND #( WHEN sy-langu = 'A' AND ls_name-name_ar IS NOT INITIAL
-                                          THEN |{ ls_name-name_ar }| ELSE |{ ls_name-name_en }| ) ).
-    ENDIF.
-
-    SELECT SINGLE idnumber FROM but0id
-      WHERE partner EQ @lv_loginbp
-        AND type    EQ 'YFS002'
-      INTO @DATA(lv_eid).
-    IF sy-subrc = 0.
-      io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = |{ lv_eid }| ).
-    ENDIF.
+*    DATA lt_student TYPE STANDARD TABLE OF string.
+*
+*    APPEND 'Student SIS ID' TO lt_student.
+*    APPEND 'Emirates ID' TO lt_student.
+*
+*
+*
+*    IF lv_loginbp IS INITIAL.
+*      RETURN.
+*    ENDIF.
+*
+*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
+*
+*    SELECT SINGLE zzreferencea AS name_ar, zzfull_name_eng AS name_en
+*      FROM but000
+*      WHERE partner EQ @lv_loginbp
+*      INTO @DATA(ls_name).
+*    IF sy-subrc = 0.
+*      io_ctx->set_val( iv_name  = 'PARTNER_NAME'
+*                       iv_value = COND #( WHEN sy-langu = 'A' AND ls_name-name_ar IS NOT INITIAL
+*                                          THEN |{ ls_name-name_ar }| ELSE |{ ls_name-name_en }| ) ).
+*    ENDIF.
+*
+*    SELECT SINGLE idnumber FROM but0id
+*      WHERE partner EQ @lv_loginbp
+*        AND type    EQ 'YFS002'
+*      INTO @DATA(lv_eid).
+*    IF sy-subrc = 0.
+*      io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = |{ lv_eid }| ).
+*    ENDIF.
 
 *   The trailing hardcoded name and Emirates ID that used to sit here are gone.
 *   They ran AFTER the BUT000 / BUT0ID reads above and overwrote them, so every
