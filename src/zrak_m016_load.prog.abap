@@ -122,36 +122,67 @@ START-OF-SELECTION.
                     'your home page.' ) ) ).
 
 * --------------------------------------------------- STP2 Regulation & Documents
-* USAGETYPE IS SEEDED WITH NO OPTIONS, AND THAT IS DELIBERATE.
+* THE USAGE TYPE LIST IS A SEARCH HELP, AND THE EXPORT COULD NEVER HAVE
+* SAID SO. This field was seeded with no options at all, on the grounds
+* that nothing available named the list. That was right about the export
+* and wrong about where to look.
 *
-* RAKSELECTUSAGETYPE is EXTENDED in the export - a composite drawn by
-* JavaScript - and its row carries NOTHING that names a list: SH_NAME blank,
-* DATA1..DATA10 all blank, no TECHNICAL_NAME. So the export does not say what
-* the choices are, and neither does anything else available from here.
+*   ZSH_CJ_PROPERTY_USAGE   "Property Usage", Active
+*     selection method  TIVBDCHARACT
+*     text table        TIVBDCHARACTT
+*     FIXFITCHARACT     import, mandatory, DEFAULT VALUE 'L3*'
+*     XFIXFITCHARACT    export  (REBDXFIXFITCHARACT, the description)
+*     search help exit  BLANK
 *
-* Inventing four plausible usage types would produce a dropdown that looks
-* finished and posts values the backend has never heard of, which is worse
-* than an empty one: a wrong list is harder to notice than no list. So the
-* field is authored, labelled and bound, and its ZRAK_T_JNY_OPT rows are
-* left for whoever can read the live control.
+* WHY THE MIGRATION MISSED IT, which is the question worth answering
+* because it will recur on every other EXTENDED control:
 *
-* REVIEW-F4: three ways to fill it, in order of preference -
-*   1. ZRAK_T_JNY_OPT rows, if the list is short and stable;
-*   2. DOMNAME, if it turns out to be a domain (M028's five building
-*      dropdowns are NOT domains - VALUEHELPSET falls through to
-*      FILL_CUSTOM_DOMAIN( ) and selects from the real-estate tables, so
-*      this one may be the same shape);
-*   3. an API: directive once ZCL_RAK_VALUEHELP_API exists. It does not yet.
+*   RAKSELECTUSAGETYPE is EXTENDED = X in /QNV/SB_UI_DEFIN - a composite
+*   drawn by JavaScript - and the export describes NONE of an extended
+*   control's internals. Its row carries SH_NAME blank, DATA1..DATA10 all
+*   blank and no TECHNICAL_NAME. The search help is not wired on the
+*   SCREEN at all; it is wired on the DDIC side, and the ShapeIt control
+*   reaches it through the OData service. So no amount of reading the
+*   export finds it, and a feeder that only reads the export concludes -
+*   correctly, and uselessly - that nothing names the list.
+*
+*   THE LESSON: for an EXTENDED control, the export tells you the control
+*   exists and nothing else. The list behind it lives in SE11.
+*
+* SHLP, NOT ROLLNAME AND NOT DOMNAME. A search help name in ROLLNAME
+* resolves to nothing and the dropdown is empty, silently.
+* ZCL_RAK_F4_RESOLVER->FROM_SHLP( ) reads it with F4IF_GET_SHLP_DESCR then
+* F4IF_SELECT_VALUES, so a help with a real selection method and text
+* table - which this one has - is readable. The blank search help exit
+* matters too: a help whose values come only from an exit tests green in
+* SE11 and returns nothing at runtime.
+*
+* REVIEW-F4, AND CHECK THIS ON THE FIRST RUN: the 'L3*' DEFAULT on
+* FIXFITCHARACT is what narrows TIVBDCHARACT to the usage types. Whether
+* F4IF_GET_SHLP_DESCR pre-fills SHLP-SELOPT from a parameter default, or
+* whether the default is only applied by the interactive F4 dialog, is NOT
+* established here. Two outcomes to watch for under &trace=X, and the
+* resolver already reports both:
+*
+*   resolved 0 option(s)      the default is not being applied and the
+*                             mandatory import parameter left the selection
+*                             empty
+*   resolved 200 option(s)    the cap - the default is not being applied
+*                             and the whole of TIVBDCHARACT came back
+*
+* Either way the fix is to pass the selection explicitly rather than to
+* guess a list. Anything between those two numbers is the real answer.
 *
 * CLOSED_LIST is set: a usage type the citizen types freely cannot be
 * accepted, so the typable ComboBox default only invites pointless typing
-* and pops a keyboard on a touch device. Note CLOSED_LIST is one of the four
-* DDIC columns that are in git but need activation and a table adjust before
-* the code reading them behaves.
+* and pops a keyboard on a touch device. Note CLOSED_LIST is one of the
+* four DDIC columns that are in git but need activation and a table adjust
+* before the code reading them behaves.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 10
       field_name = 'RAKSELECTUSAGETYPE' ftype = 'SELECT' required = 'X'
       closed_list = 'X'
+      shlp = 'ZSH_CJ_PROPERTY_USAGE'
       zsection = 'Requested Regulation'
       zlabel = 'Requested usage type' zlabel_ar = 'نوع الاستخدام المطلوب'
       placeholder = 'Select a usage type'
@@ -317,10 +348,10 @@ START-OF-SELECTION.
   WRITE: / '  STP2 Regulation & Documents  NCBR_1_2   6 fields'.
   WRITE: / '  STP3 Fees & Payment          NCBR_1_3   4 fields'.
   WRITE: / ''.
-  WRITE: / '*** THIS JOURNEY WILL NOT SUBMIT UNTIL USAGETYPE HAS OPTIONS ***'.
-  WRITE: / '    It is REQUIRED and its option list is deliberately empty -'.
-  WRITE: / '    see REVIEW-F4. Either seed ZRAK_T_JNY_OPT rows or clear'.
-  WRITE: / '    REQUIRED before testing the rest of the flow.'.
+  WRITE: / 'USAGETYPE NOW HAS A LIST: search help ZSH_CJ_PROPERTY_USAGE,'.
+  WRITE: / 'selection method TIVBDCHARACT, text table TIVBDCHARACTT, no'.
+  WRITE: / 'search help exit. It is bound through SHLP, not ROLLNAME.'.
+  WRITE: / 'Check the COUNT on the first run - see REVIEW-F4.'.
   WRITE: / ''.
   WRITE: / 'WALKTHROUGH'.
   WRITE: / '  1. Launch &journey=M016 with a real session. For the property'.
@@ -343,13 +374,24 @@ START-OF-SELECTION.
   WRITE: / '  There is NO Review step: the legacy service has none.'.
   WRITE: / ''.
   WRITE: / 'REVIEW-F4'.
-  WRITE: / '  USAGETYPE has NO options. RAKSELECTUSAGETYPE is EXTENDED and'.
-  WRITE: / '  its export row carries no SH_NAME, no DATA1..DATA10 and no'.
-  WRITE: / '  TECHNICAL_NAME - nothing names the list. Options were NOT'.
-  WRITE: / '  invented: a wrong list is harder to notice than no list, and'.
-  WRITE: / '  it would post values the backend never heard of. Fill from'.
-  WRITE: / '  ZRAK_T_JNY_OPT, or DOMNAME if it is a domain, or an API:'.
-  WRITE: / '  directive once ZCL_RAK_VALUEHELP_API exists (it does not).'.
+  WRITE: / '  USAGETYPE is bound to ZSH_CJ_PROPERTY_USAGE through SHLP.'.
+  WRITE: / '  WHY THE EXPORT COULD NOT HAVE TOLD US: RAKSELECTUSAGETYPE is'.
+  WRITE: / '  EXTENDED = X, and the export describes none of an extended'.
+  WRITE: / '  control''s internals - SH_NAME, DATA1..DATA10 and'.
+  WRITE: / '  TECHNICAL_NAME are all blank on that row. The help is wired'.
+  WRITE: / '  on the DDIC side, not on the screen. For any EXTENDED'.
+  WRITE: / '  control the export says it exists and nothing more; the list'.
+  WRITE: / '  behind it is in SE11.'.
+  WRITE: / '  CHECK THE COUNT under &trace=X. FIXFITCHARACT is a mandatory'.
+  WRITE: / '  import parameter with default ''L3*'', and whether'.
+  WRITE: / '  F4IF_GET_SHLP_DESCR pre-fills SELOPT from a parameter default'.
+  WRITE: / '  is NOT established here:'.
+  WRITE: / '    resolved 0 option(s)    the default is not applied and the'.
+  WRITE: / '                            mandatory parameter left it empty'.
+  WRITE: / '    resolved 200 option(s)  the cap - the whole of TIVBDCHARACT'.
+  WRITE: / '                            came back unfiltered'.
+  WRITE: / '  Anything between the two is the real list. The resolver'.
+  WRITE: / '  already gates on both, so one traced run answers it.'.
   WRITE: / ''.
   WRITE: / 'REVIEW-BE'.
   WRITE: / '  - USAGETYPE''s TECH_NAME is a GUESS. The legacy control has no'.

@@ -153,9 +153,42 @@ Things the export says that are easy to miss:
 | `DATA2` ≠ `FIELD_NAME` | correct — the bridge asks by `DATA2` — but it reads as a typo |
 | `UI_FIELD_LOGICS` | the legacy rules. `X-V-T` / `-V-F` = show/hide a CONTAINER, so a CJS rule targets its children |
 | `SH_NAME` | goes in `SHLP`. In `ROLLNAME` it resolves to nothing and the dropdown is empty, silently |
-| `EXTENDED = X` | a composite control drawn by JavaScript. The export describes none of its inner fields |
+| `EXTENDED = X` | a composite control drawn by JavaScript. The export describes none of its inner fields — **and none of its value help either**; see below |
 | `CONTROL_TYPE = TBUTTON` sharing one `DATA1` | one segmented field, not two checkboxes |
 | `MANDATORY` on the LABEL but not the control | the asterisk is decorative; the control is not enforced |
+
+### An EXTENDED control's value help is in SE11, not in the export
+
+For `EXTENDED = X` the export tells you the control **exists** and nothing
+else. `SH_NAME`, `DATA1..DATA10` and `TECHNICAL_NAME` are all typically blank,
+because the list is not wired on the screen at all — the ShapeIt control reaches
+it through the OData service, and the help itself lives on the DDIC side.
+
+So "nothing in the export names the list" is a true statement about the export
+and a wrong conclusion about the field. **Look in SE11** for a `ZSH_CJ_*` help
+against the entity the control edits.
+
+M016's usage type is the worked example: the export row for
+`RAKSELECTUSAGETYPE` carries nothing, and the list is `ZSH_CJ_PROPERTY_USAGE` —
+selection method `TIVBDCHARACT`, text table `TIVBDCHARACTT`, import parameter
+`FIXFITCHARACT` defaulted to `'L3*'`, no search-help exit.
+
+Bind it with **`SHLP`**. `ZCL_RAK_F4_RESOLVER->FROM_SHLP( )` reads a help with
+`F4IF_GET_SHLP_DESCR` then `F4IF_SELECT_VALUES`, so one with a real selection
+method and text table is readable. Two things decide whether it works:
+
+- **a help whose values come only from a search-help EXIT** tests green in SE11
+  and returns nothing at runtime — check that the exit is blank;
+- **a defaulted import parameter may or may not be honoured.** Whether
+  `F4IF_GET_SHLP_DESCR` pre-fills `SHLP-SELOPT` from a parameter default, or the
+  default is only applied by the interactive F4 dialog, is not established. The
+  resolver already gates on both failure shapes under `&trace=X` — `resolved 0
+  option(s)` means the mandatory parameter left the selection empty, and
+  `resolved 200 option(s)` is the cap, meaning the filter was not applied and the
+  whole table came back. Anything between the two is the real list.
+
+Never invent the list instead. A wrong list is harder to notice than no list,
+and it posts values the backend has never heard of.
 
 **When screens disagree, say so.** `CLASS_NAME` and `JOURNEYTYPE` vary across
 screens of one legacy journey. A CJS journey has one `BKND_JOURNEY`, so merging
