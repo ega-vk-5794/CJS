@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-4.  Missing this line means SAP has an older copy - see
+*& BUILD map-fix-5.  Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& This class will not compile until ZCL_RAK_CJ_GIS is ACTIVE: a class
 *& with no active version has no methods, so its callers report
@@ -713,6 +713,8 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       iv_token  = zcl_rak_cj_gis=>token_of( iv_url    = ls_map-url
                                             iv_gisurl = ls_map-gisurl
                                             iv_token  = ls_map-token )
+      iv_viewer = zcl_rak_cj_gis=>viewer_of( iv_url    = ls_map-url
+                                             iv_gisurl = ls_map-gisurl )
       iv_div    = lv_div
       it_ids    = lt_ids
       iv_focus  = lv_foc
@@ -1006,6 +1008,8 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         iv_token  = zcl_rak_cj_gis=>token_of( iv_url    = ls_map-url
                                               iv_gisurl = ls_map-gisurl
                                               iv_token  = ls_map-token )
+        iv_viewer = zcl_rak_cj_gis=>viewer_of( iv_url    = ls_map-url
+                                               iv_gisurl = ls_map-gisurl )
         iv_div    = lv_dvd
         it_ids    = VALUE string_table( ( lv_pid ) )
         iv_focus  = lv_pid

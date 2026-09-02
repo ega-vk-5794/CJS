@@ -48,13 +48,48 @@ config, which lives in the UI5 repository and is in no service CJS can read:
 | --- | --- | --- |
 | `GIS_API` | the ArcGIS JS API | `https://js.arcgis.com/4.29/` |
 | `GIS_CSS` | its stylesheet | the matching `main.css` |
-| `GIS_PARCELS` | the parcel layer, `<feature service>/<layer id>` | **blank** |
-| `GIS_PROPERTIES` | the property layer, same shape | **blank** |
+| `GIS_PARCELS` | the parcel layer | `https://gisserver/cadastral/parcel` |
+| `GIS_PROPERTIES` | the property layer | `https://gisserver/cadastral/property` |
+| `GIS_PROXY` | the resource proxy | blank = derive `<viewer>/proxy.ashx` |
 
 `GIS_PARCELS` blank means `ZCL_RAK_CJ_GIS=>READY( )` is false: the List/Map toggle is not
-offered and the details dialog falls back to the iframe below. That is deliberate — a
-guessed feature-service URL draws an empty map in silence, which is the most expensive of
-the three failures this map has already had.
+offered and the details dialog falls back to the iframe below.
+
+### The layers, and the proxy that makes them reachable
+
+Read off the working My Properties screen's own network trace, not guessed. Filtering it
+on `query` shows exactly three data calls:
+
+```
+proxy.ashx?https://gisserver/cadastral/parcel/query?...&where=Pa...
+proxy.ashx?https://gisserver/cadastral/property/query?...&where=P...
+proxy.ashx?https://gisserver/addressing/addresspoint/query?...
+```
+
+Three things fall out of that at once:
+
+1. **There is no `FeatureServer` anywhere.** Filtering the same trace on `FeatureServer`
+   returns nothing — which is why the auto-discovery in `ZRAK_CJ_MAP_DIAG` was hunting for
+   the wrong shape entirely.
+2. **The layers are addressed by an internal alias**, `gisserver` — a host with no dot in
+   it. The browser never resolves it and never contacts it directly.
+3. **Every call goes through `proxy.ashx`**, an ArcGIS Resource Proxy hosted by the viewer
+   application. That is what resolves the alias, and what carries the credentials — which
+   is also why `MapUrlSet`'s `TOKEN` column is empty and nothing appeared to need it.
+
+So `esriConfig.request.proxyUrl` is the whole mechanism, and it is derived from the viewer
+page `MapUrlSet` already answers: `https://rakgisstg.rak.ae/CustomerJourneyMap/` +
+`proxy.ashx`. Move the viewer and the proxy moves with it.
+
+The real ArcGIS roots are on the same host for anything that does not go through the
+alias — `https://rakgisstg.rak.ae/server/rest/services/...` and
+`.../serverimage/rest/services/Aerial_Imagery_2019/...` for the basemap tiles.
+
+**The open question is CORS.** A resource proxy normally serves the application that hosts
+it; CJS calls it from the SAP application server's origin. If the proxy does not return
+`Access-Control-Allow-Origin` for that host, the calls are refused in the browser — the
+same class of boundary as the viewer's own `postMessage` allowlist, and the same remedy:
+the GIS side allows the CJS origin. The console will say so in one line.
 
 ### `MapUrlSet`'s columns do not mean what their names say
 

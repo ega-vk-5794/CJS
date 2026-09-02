@@ -1,7 +1,7 @@
 *&---------------------------------------------------------------------*
 *& Report ZRAK_CJ_MAP_DIAG
 *&
-*& BUILD map-fix-4.  IF THIS LINE IS NOT ON YOUR SCREEN, SAP HAS AN OLDER
+*& BUILD map-fix-5.  IF THIS LINE IS NOT ON YOUR SCREEN, SAP HAS AN OLDER
 *& COPY and the errors you are looking at were fixed in git. abapGit's
 *& pull dialog pre-ticks only 'Add local object' rows; every 'Overwrite
 *& local object' row arrives UNTICKED and the ticks reset each time the
@@ -325,6 +325,11 @@ START-OF-SELECTION.
   lcl=>say( iv_label = '    viewer is'
             iv_value = COND #( WHEN lv_view_r IS INITIAL THEN '** NONE FOUND **'
                                ELSE lv_view_r ) ).
+  DATA(ls_c0) = zcl_rak_cj_gis=>cfg( ).
+  lcl=>say( iv_label = '    proxy is'
+            iv_value = COND #( WHEN ls_c0-proxy IS NOT INITIAL THEN ls_c0-proxy
+                               WHEN lv_view_r IS NOT INITIAL THEN |{ lv_view_r }proxy.ashx|
+                               ELSE '** cannot be derived - no viewer URL **' ) ).
 
 * ---------------------------------------------------------------- 2
   ULINE.
@@ -611,6 +616,7 @@ START-OF-SELECTION.
     lcl=>wrap( zcl_rak_cj_gis=>container( iv_div = 'rakGisDiag' ) ).
     DATA(lv_block) = zcl_rak_cj_gis=>script(
       iv_token  = lv_tok_r
+      iv_viewer = lv_view_r
       iv_div    = 'rakGisDiag'
       it_ids    = VALUE string_table( ( lv_show ) )
       iv_focus  = lv_show ).

@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_gis DEFINITION
 *&---------------------------------------------------------------------*
 *& RakMap.Map, rebuilt as a CJS renderer.
 *&
-*& BUILD map-fix-4.  Missing this line means SAP has an older copy - see
+*& BUILD map-fix-5.  Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-3 contains: VALUE IS INITIAL on the two blank string constants
 *& (VALUE '' does not activate, and the class then has no active version,
@@ -123,6 +123,9 @@ CLASS zcl_rak_cj_gis DEFINITION
 *                `${envProxy.parcelsLayersUrl}/${envProxy.portalItemParcelsID}`
              parcels    TYPE string,
              properties TYPE string,
+*            The ArcGIS Resource Proxy the viewer app hosts. Blank means
+*            "derive it from the viewer URL", which is where it lives.
+             proxy      TYPE string,
            END OF ty_cfg.
 
 *   The four endpoints, ZRAK_T_CJ_TXT first and the constants after.
@@ -186,6 +189,9 @@ CLASS zcl_rak_cj_gis DEFINITION
 *   dynamic zone and can unpack the read itself.
     CLASS-METHODS script
       IMPORTING iv_token     TYPE string
+*               The viewer page from MapUrlSet. Used only to work out
+*               where the resource proxy is; see C_PROXY.
+                iv_viewer    TYPE string
                 iv_div       TYPE string
                 it_ids       TYPE string_table
                 iv_focus     TYPE string OPTIONAL
@@ -195,20 +201,46 @@ CLASS zcl_rak_cj_gis DEFINITION
 
   PRIVATE SECTION.
 
-*   BLANK ON PURPOSE, both of them. See the header: these are the two
-*   values that cannot be derived from anything CJS can read, and a
-*   plausible-looking guess would draw an empty map in silence. Fill them
-*   from the ShapeIt app's envProxy - parcelsLayersUrl plus
-*   portalItemParcelsID / portalItemPropertiesID - or set the
-*   ZRAK_T_CJ_TXT rows instead.
+*   READ OFF THE LIVE MAP'S OWN NETWORK TRACE, not guessed. Filtering the
+*   working My Properties screen on "query" shows exactly three data
+*   calls, and every one of them goes through the viewer's proxy:
+*
+*     proxy.ashx?https://gisserver/cadastral/parcel/query?...&where=Pa...
+*     proxy.ashx?https://gisserver/cadastral/property/query?...&where=P...
+*     proxy.ashx?https://gisserver/addressing/addresspoint/query?...
+*
+*   So the layers are addressed by a SHORT INTERNAL ALIAS - gisserver,
+*   a host with no dot in it - and the browser never contacts it directly.
+*   Filtering the same trace on "FeatureServer" returns NOTHING, which is
+*   why the discovery in ZRAK_CJ_MAP_DIAG was looking for the wrong thing.
+*
+*   Still overridable through ZRAK_T_CJ_TXT, because these were read from
+*   a truncated trace on the STAGING system and the production aliases may
+*   differ.
 *   VALUE IS INITIAL, not VALUE ''. A constant of type STRING will not
 *   take an empty literal - "the field must be filled" - and the whole
 *   class then fails to activate, which is what made ZCL_RAK_CJ_PARCEL
 *   report "Method SCRIPT is unknown": a class with no active version has
 *   no methods at all, so the error surfaces at the caller and points
 *   nowhere near the cause.
-    CONSTANTS c_parcels    TYPE string VALUE IS INITIAL.
-    CONSTANTS c_properties TYPE string VALUE IS INITIAL.
+    CONSTANTS c_parcels    TYPE string VALUE 'https://gisserver/cadastral/parcel'.
+    CONSTANTS c_properties TYPE string VALUE 'https://gisserver/cadastral/property'.
+
+*   THE PROXY IS THE WHOLE MECHANISM, and it is not optional. Every data
+*   call in the live trace is
+*
+*       <viewer>/proxy.ashx?<the real service url>
+*
+*   an ArcGIS Resource Proxy hosted by the viewer application. It is what
+*   resolves the internal "gisserver" alias, and it is what carries the
+*   credentials - which is also why MapUrlSet's TOKEN column is empty and
+*   nothing seemed to need it.
+*
+*   Blank means DERIVE IT from the viewer page MapUrlSet already answers
+*   (https://rakgisstg.rak.ae/CustomerJourneyMap/ + proxy.ashx), so a
+*   system that moves the viewer moves the proxy with it and nothing here
+*   has to be re-typed.
+    CONSTANTS c_proxy TYPE string VALUE IS INITIAL.
 
 *   The public ArcGIS CDN, pinned to 4.24 - the version the LIVE ShapeIt
 *   map loads, observed in its own network trace:
@@ -286,6 +318,7 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
     rs-css        = txt( iv_key = `GIS_CSS`        iv_default = c_css ).
     rs-parcels    = txt( iv_key = `GIS_PARCELS`    iv_default = c_parcels ).
     rs-properties = txt( iv_key = `GIS_PROPERTIES` iv_default = c_properties ).
+    rs-proxy      = txt( iv_key = `GIS_PROXY`      iv_default = c_proxy ).
   ENDMETHOD.
 
 
@@ -380,8 +413,19 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
 *   The token is a credential. It reaches the page as a JS string, the
 *   same place the ShapeIt app puts it, and never as a URL parameter
 *   where every proxy on the way would log it.
+*   PROXY: configured, or the viewer page with proxy.ashx on the end.
+    DATA(lv_proxy) = ls_cfg-proxy.
+    IF lv_proxy IS INITIAL AND iv_viewer CP 'http*'.
+      lv_proxy = iv_viewer.
+      IF substring( val = lv_proxy off = strlen( lv_proxy ) - 1 ) <> '/'.
+        lv_proxy = |{ lv_proxy }/|.
+      ENDIF.
+      lv_proxy = |{ lv_proxy }proxy.ashx|.
+    ENDIF.
+
     DATA(lv_c) =
       |var C=\{api:"{ jsq( ls_cfg-api ) }",css:"{ jsq( ls_cfg-css ) }",| &&
+      |proxy:"{ jsq( lv_proxy ) }",| &&
       |parcels:"{ jsq( ls_cfg-parcels ) }",props:"{ jsq( ls_cfg-properties ) }",| &&
       |token:"{ jsq( iv_token ) }",ids:[{ in_list( it_ids ) }],| &&
       |focus:"{ jsq( iv_focus ) }",evt:"{ jsq( iv_event ) }",| &&
@@ -417,8 +461,15 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
       |"esri/views/MapView","esri/layers/FeatureLayer"| &&
       |],function(cf,IM,M,MV,FL)\{try\{| &&
       |D.textContent="";| &&
-*     THE SERVER IS THE PARCEL LAYER'S OWN ORIGIN. indexOf from 8 skips
-*     past https:// so the first slash found is the one after the host.
+*     THE PROXY FIRST, before any layer is built. esriConfig.request
+*     .proxyUrl makes the API route every service call through it, which
+*     is how the live app reaches an internal alias the browser cannot
+*     resolve and how the credentials get attached.
+      |if(C.proxy)\{cf.request.proxyUrl=C.proxy;| &&
+      |cf.request.alwaysUseProxy=true;\}| &&
+*     The token as well, when there is one. Belt and braces: the proxy is
+*     what actually authenticates on this system, and MapUrlSet's TOKEN
+*     column is empty - but a system that does answer one should use it.
       |var p8=C.parcels.indexOf("/",8);| &&
       |var O=p8>0?C.parcels.substring(0,p8):C.parcels;| &&
       |if(C.token)\{| &&
