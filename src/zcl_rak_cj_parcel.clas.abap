@@ -75,6 +75,36 @@ CLASS zcl_rak_cj_parcel DEFINITION
     DATA mt_own   TYPE zcl_rak_property_api=>tt_partner_rows.
     DATA mv_ownrd TYPE abap_bool.
 
+*   TWO SELECTORS ON ONE STEP. M012 carries PARCELSELECTOR and ADDPRCLCTL
+*   side by side, and the browse state on the engine is one set of scalars.
+*   Left as it was, paging the first list paged the second, and switching
+*   the first to Grants re-read the second against a role it never asked
+*   for.
+*
+*   MV_FLD is the field being drawn right now; MV_MINE says whether the
+*   engine's shared state belongs to it. Every event name now carries the
+*   field, so a press MOVES ownership to the list that was pressed, and a
+*   list that does not own the state draws itself from the defaults -
+*   Owned, page 1, no favourites filter, no search term.
+*
+*   ONE RESIDUE, DELIBERATELY LEFT: the search box and the owner dropdown
+*   are TWO-WAY BOUND, and z2ui5 binds to a PUBLIC CLASS ATTRIBUTE - it
+*   resolves the binding by searching the app's attributes for the data
+*   reference (Z2UI5_CL_CORE_SRV_BIND->MAIN( )), so a per-field value held
+*   in an internal table cannot be bound at all. Both boxes therefore show
+*   the same text. The list that does not own the state IGNORES it, so no
+*   list is ever filtered by a term typed into another one; only the text
+*   in the box is shared. Backlog 4.4 - the real answer is probably one
+*   multi-select list rather than two.
+    DATA mv_fld  TYPE string.
+    DATA mv_mine TYPE abap_bool.
+
+*   The read is cached for the round trip, and the cache is keyed by what
+*   the read actually depends on. Two selectors in one round trip can ask
+*   for two different modes, and an unkeyed flag handed the second one the
+*   first one's rows.
+    DATA mv_key   TYPE string.
+
     METHODS api  RETURNING VALUE(ro) TYPE REF TO zcl_rak_property_api.
     METHODS rows RETURNING VALUE(rt) TYPE zcl_rak_property_api=>tt_prop_rows.
     METHODS hits RETURNING VALUE(rt) TYPE zcl_rak_property_api=>tt_prop_rows.
@@ -93,7 +123,17 @@ CLASS zcl_rak_cj_parcel DEFINITION
                 iv_ar     TYPE string
       RETURNING VALUE(rv) TYPE string.
 
+*   The effective browse state for the list being drawn: the engine's
+*   shared scalars when this list owns them, the defaults when it does not.
     METHODS mode RETURNING VALUE(rv) TYPE string.
+    METHODS term RETURNING VALUE(rv) TYPE string.
+    METHODS fav  RETURNING VALUE(rv) TYPE abap_bool.
+    METHODS page RETURNING VALUE(rv) TYPE i.
+    METHODS owner RETURNING VALUE(rv) TYPE string.
+*   <event>~<field>. Every browse event carries the field it belongs to so
+*   the press can claim the shared state before it is read.
+    METHODS ev IMPORTING iv_name  TYPE string
+               RETURNING VALUE(rv) TYPE string.
 
     METHODS toolbar IMPORTING io_box TYPE REF TO z2ui5_cl_xml_view.
     METHODS card    IMPORTING io_box TYPE REF TO z2ui5_cl_xml_view
@@ -141,10 +181,52 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 
 
   METHOD mode.
+    IF mv_mine = abap_false.
+      rv = c_owned.
+      RETURN.
+    ENDIF.
     rv = mo_e->mv_pcl_mode.
     IF rv IS INITIAL.
       rv = c_owned.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD term.
+    IF mv_mine = abap_true.
+      rv = mo_e->mv_pcl_term.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD fav.
+    IF mv_mine = abap_true.
+      rv = mo_e->mv_pcl_fav.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD owner.
+    IF mv_mine = abap_true.
+      rv = mo_e->mv_pcl_owner.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD page.
+    IF mv_mine = abap_false.
+      rv = 1.
+      RETURN.
+    ENDIF.
+    rv = mo_e->mv_pcl_page.
+    IF rv < 1.
+      rv = 1.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD ev.
+    rv = mo_e->mo_client->_event( |{ c_pfx }{ iv_name }~{ mv_fld }| ).
   ENDMETHOD.
 
 
@@ -173,11 +255,17 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 
 
   METHOD rows.
-    IF mv_read = abap_true.
+*   KEYED, not a flag. Two selectors in one round trip can ask for two
+*   different modes; a bare "already read" flag handed the second list the
+*   first list's rows.
+    DATA(lv_key) = |{ mode( ) }/{ owner( ) }|.
+    IF mv_read = abap_true AND mv_key = lv_key.
       rt = mt_rows.
       RETURN.
     ENDIF.
     mv_read = abap_true.
+    mv_key  = lv_key.
+    CLEAR: mt_rows, mv_note.
 
     DATA ls TYPE zcl_rak_property_api=>ty_prop_res.
     TRY.
@@ -192,8 +280,8 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *           managed-owner list. With none picked yet the read would fall
 *           back to the citizen's own property, which is the other tab -
 *           so it answers nothing instead, and the empty state says why.
-            IF mo_e->mv_pcl_owner IS NOT INITIAL.
-              ls = lo->parcels( iv_owner_guid = mo_e->mv_pcl_owner ).
+            IF owner( ) IS NOT INITIAL.
+              ls = lo->parcels( iv_owner_guid = owner( ) ).
             ENDIF.
           WHEN OTHERS.
             ls = lo->parcels( ).
@@ -216,10 +304,10 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   that is where the legacy control applies them - they are not filters
 *   the DPC accepts. Doing it server side rather than in the browser is
 *   the whole point: only the matching page is ever rendered.
-    DATA(lv_term) = to_upper( condense( mo_e->mv_pcl_term ) ).
+    DATA(lv_term) = to_upper( condense( term( ) ) ).
 
     LOOP AT rows( ) INTO DATA(ls_r).
-      IF mo_e->mv_pcl_fav = abap_true AND cell( is_row = ls_r iv_comp = 'FAVOURITE' ) IS INITIAL.
+      IF fav( ) = abap_true AND cell( is_row = ls_r iv_comp = 'FAVOURITE' ) IS INITIAL.
         CONTINUE.
       ENDIF.
       IF lv_term IS NOT INITIAL.
@@ -238,10 +326,18 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-*   Which field the events belong to. A step can only show one of these at
-*   a time in practice, and the event names carry no field of their own.
-    mo_e->mv_pcl_field = is_field-name.
-    IF mo_e->mv_pcl_page < 1.
+*   WHICH FIELD IS BEING DRAWN, and whether it owns the engine's shared
+*   browse state. Assigning MV_PCL_FIELD here unconditionally was the bug:
+*   with two selectors on one step the second overwrote the first, so both
+*   toolbars drove the second list. Ownership now moves on a PRESS, not on
+*   a paint - the first selector to be drawn claims it only when nothing
+*   holds it yet.
+    mv_fld = is_field-name.
+    IF mo_e->mv_pcl_field IS INITIAL.
+      mo_e->mv_pcl_field = is_field-name.
+    ENDIF.
+    mv_mine = xsdbool( mo_e->mv_pcl_field = is_field-name ).
+    IF mv_mine = abap_true AND mo_e->mv_pcl_page < 1.
       mo_e->mv_pcl_page = 1.
     ENDIF.
 
@@ -258,7 +354,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 
 *   What is chosen now, if anything. The citizen has to see the current
 *   value without scrolling a list to find which card is highlighted.
-    DATA(lv_cur) = mo_e->val_get( is_field-name ).
+    DATA(lv_cur) = mo_e->val_get( mv_fld ).
     IF lv_cur IS NOT INITIAL.
       DATA(lo_cur) = lo_box->hbox( alignitems = 'Center' class = 'sapUiTinyMarginBottom' ).
       lo_cur->object_status( title = t( iv_en = `Selected` iv_ar = `المحدد` )
@@ -270,7 +366,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                       type  = 'Transparent'
                       class = 'sapUiTinyMarginBegin'
                       press = mo_e->mo_client->_event(
-                                |{ c_pfx }PICK_{ is_field-name }~| ) ).
+                                |{ c_pfx }PICK_{ mv_fld }~| ) ).
     ENDIF.
 
     IF is_field-readonly = abap_true.
@@ -298,7 +394,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         title            = t( iv_en = `Nothing to show`
                               iv_ar = `لا يوجد ما يعرض` )
         description      = COND string(
-          WHEN mode( ) = c_agent AND mo_e->mv_pcl_owner IS INITIAL
+          WHEN mode( ) = c_agent AND owner( ) IS INITIAL
           THEN t( iv_en = `Pick an owner you act for.`
                   iv_ar = `اختر المالك الذي تنوب عنه.` )
           ELSE t( iv_en = `No property matches. Clear the search, or switch tab.`
@@ -312,11 +408,11 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     IF lv_n MOD c_page_size > 0.
       lv_pages = lv_pages + 1.
     ENDIF.
-    IF mo_e->mv_pcl_page > lv_pages.
+    IF mv_mine = abap_true AND mo_e->mv_pcl_page > lv_pages.
       mo_e->mv_pcl_page = lv_pages.
     ENDIF.
 
-    DATA(lv_from) = ( mo_e->mv_pcl_page - 1 ) * c_page_size + 1.
+    DATA(lv_from) = ( page( ) - 1 ) * c_page_size + 1.
     DATA(lv_to)   = lv_from + c_page_size - 1.
     IF lv_to > lv_n.
       lv_to = lv_n.
@@ -368,20 +464,20 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     DATA(lo_seg) = lo_bar->segmented_button( selected_key = mode( ) )->items( ).
     lo_seg->segmented_button_item( key   = c_owned
                                    text  = t( iv_en = `Owned` iv_ar = `مملوكة` )
-                                   press = mo_e->mo_client->_event( |{ c_pfx }MODE_{ c_owned }| ) ).
+                                   press = ev( |MODE_{ c_owned }| ) ).
     lo_seg->segmented_button_item( key   = c_agent
                                    text  = t( iv_en = `Property Agent` iv_ar = `وكيل عقاري` )
-                                   press = mo_e->mo_client->_event( |{ c_pfx }MODE_{ c_agent }| ) ).
+                                   press = ev( |MODE_{ c_agent }| ) ).
     lo_seg->segmented_button_item( key   = c_grant
                                    text  = t( iv_en = `Grants` iv_ar = `المنح` )
-                                   press = mo_e->mo_client->_event( |{ c_pfx }MODE_{ c_grant }| ) ).
+                                   press = ev( |MODE_{ c_grant }| ) ).
 
 *   The owner picker belongs to the agent tab only - on the others there
 *   is nobody to act for, and an empty dropdown reads as a defect.
     IF mode( ) = c_agent.
       DATA(lo_cb) = lo_bar->combobox(
         selectedkey     = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_owner )
-        selectionchange = mo_e->mo_client->_event( |{ c_pfx }OWN| )
+        selectionchange = ev( `OWN` )
         placeholder     = t( iv_en = `Owner you act for` iv_ar = `المالك الذي تنوب عنه` )
         width           = '18rem'
         class           = 'sapUiTinyMarginBegin' ).
@@ -402,13 +498,13 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     lo_bar->button(
       icon  = 'sap-icon://favorite'
       text  = t( iv_en = `Favourites` iv_ar = `المفضلة` )
-      type  = COND #( WHEN mo_e->mv_pcl_fav = abap_true THEN 'Emphasized' ELSE 'Transparent' )
+      type  = COND #( WHEN fav( ) = abap_true THEN 'Emphasized' ELSE 'Transparent' )
       class = 'sapUiTinyMarginBegin'
-      press = mo_e->mo_client->_event( |{ c_pfx }FAV| ) ).
+      press = ev( `FAV` ) ).
 
     lo_bar->search_field(
       value       = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_term )
-      search      = mo_e->mo_client->_event( |{ c_pfx }FIND| )
+      search      = ev( `FIND` )
       placeholder = t( iv_en = `Parcel, sector or land use` iv_ar = `القطعة أو القطاع أو الاستخدام` )
       width       = '20rem'
       class       = 'sapUiTinyMarginBegin' ).
@@ -432,7 +528,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     DATA(lv_sec) = cell( is_row = is_row iv_comp = 'SECTORTEXT' ).
     DATA(lv_use) = cell( is_row = is_row iv_comp = 'LANDUSE' ).
     DATA(lv_typ) = cell( is_row = is_row iv_comp = 'TYPE' ).
-    DATA(lv_sel) = xsdbool( mo_e->val_get( mo_e->mv_pcl_field ) = lv_key ).
+    DATA(lv_sel) = xsdbool( mo_e->val_get( mv_fld ) = lv_key ).
 
 *   THE LIVE CARD SHOWS 507060119, NOT 00000000000507060119. PropertiesSet
 *   returns the padded form and the legacy control strips it for display.
@@ -505,31 +601,31 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       icon  = COND #( WHEN lv_sel = abap_true THEN 'sap-icon://accept' ELSE '' )
       type  = COND #( WHEN lv_sel = abap_true THEN 'Success' ELSE 'Emphasized' )
       press = mo_e->mo_client->_event(
-                |{ c_pfx }PICK_{ mo_e->mv_pcl_field }~{ lv_key }| ) ).
+                |{ c_pfx }PICK_{ mv_fld }~{ lv_key }| ) ).
   ENDMETHOD.
 
 
   METHOD pager.
-    DATA(lv_p) = mo_e->mv_pcl_page.
+    DATA(lv_p) = page( ).
     DATA(lo_g) = io_box->hbox( alignitems = 'Center' justifycontent = 'Center' ).
 
     lo_g->button( icon    = 'sap-icon://close-command-field'
                   type    = 'Transparent'
                   enabled = xsdbool( lv_p > 1 )
-                  press   = mo_e->mo_client->_event( |{ c_pfx }PAGE_1| ) ).
+                  press   = ev( `PAGE_1` ) ).
     lo_g->button( icon    = 'sap-icon://navigation-left-arrow'
                   type    = 'Transparent'
                   enabled = xsdbool( lv_p > 1 )
-                  press   = mo_e->mo_client->_event( |{ c_pfx }PAGE_{ lv_p - 1 }| ) ).
+                  press   = ev( |PAGE_{ lv_p - 1 }| ) ).
     lo_g->text( text = |{ lv_p } / { iv_pages }| class = 'sapUiSmallMarginBeginEnd' ).
     lo_g->button( icon    = 'sap-icon://navigation-right-arrow'
                   type    = 'Transparent'
                   enabled = xsdbool( lv_p < iv_pages )
-                  press   = mo_e->mo_client->_event( |{ c_pfx }PAGE_{ lv_p + 1 }| ) ).
+                  press   = ev( |PAGE_{ lv_p + 1 }| ) ).
     lo_g->button( icon    = 'sap-icon://open-command-field'
                   type    = 'Transparent'
                   enabled = xsdbool( lv_p < iv_pages )
-                  press   = mo_e->mo_client->_event( |{ c_pfx }PAGE_{ iv_pages }| ) ).
+                  press   = ev( |PAGE_{ iv_pages }| ) ).
   ENDMETHOD.
 
 
@@ -563,6 +659,34 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     DATA(lv) = substring( val = iv_event off = 3 ).
     rv_handled = abap_true.
 
+*   THE PRESS CLAIMS THE STATE. Every browse event is written by EV( ) as
+*   <name>~<field>, so a press on the second selector of a step makes that
+*   selector the owner of MV_PCL_MODE, _OWNER, _FAV, _TERM and _PAGE before
+*   any of them is read again. PICK_ and DET_ carry their own payload after
+*   the tilde and are split separately below.
+    IF lv NP 'PICK_*' AND lv NP 'DET_*' AND lv CS '~'.
+*     NOT "SPLIT lv ... INTO lv ..." - the same variable as source and as
+*     first target is not something to rely on. Split into two of its own.
+      SPLIT lv AT '~' INTO DATA(lv_ev) DATA(lv_own).
+      lv = lv_ev.
+      IF lv_own IS NOT INITIAL AND lv_own <> mo_e->mv_pcl_field.
+*       A DIFFERENT LIST. Its own state starts from the defaults rather
+*       than inheriting whatever the previous owner was showing - the
+*       press that moved ownership is a first interaction with this list,
+*       not a continuation of the other one.
+*
+*       MV_PCL_TERM IS NOT CLEARED HERE, and that is deliberate: it is
+*       TWO-WAY BOUND, so by the time this runs the client has already
+*       written whatever the citizen typed into it. Clearing it on a FIND
+*       would throw away the search that caused the event. The owner guid
+*       and the mode go, because the new list opens on Owned where the
+*       owner dropdown is not even drawn.
+        mo_e->mv_pcl_field = lv_own.
+        CLEAR: mo_e->mv_pcl_mode, mo_e->mv_pcl_owner, mo_e->mv_pcl_fav.
+        mo_e->mv_pcl_page = 1.
+      ENDIF.
+    ENDIF.
+
 *   Matched with CP throughout, so the offset that follows can never run
 *   off the end - a pattern match cannot, an offset can.
     IF lv CP 'MODE_*'.
@@ -588,6 +712,12 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     ELSEIF lv CP 'PICK_*'.
 *     <field>~<key>. A trailing empty key is the Clear button.
       SPLIT substring( val = lv off = 5 ) AT '~' INTO DATA(lv_fld) DATA(lv_key).
+*     A pick is an interaction with that list too, so it takes ownership -
+*     without resetting the browse state, because the citizen is still
+*     looking at the page they picked from.
+      IF lv_fld IS NOT INITIAL.
+        mo_e->mv_pcl_field = lv_fld.
+      ENDIF.
       pick( iv_field = lv_fld iv_key = lv_key ).
 
     ELSEIF lv CP 'DET_*'.
@@ -706,6 +836,15 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                   |lang:'{ lv_lang }'\};var o='{ lv_org }';var n=0;| &&
                   |function s()\{try\{f.contentWindow.postMessage(m,o);\}catch(e)\{\}\}| &&
                   |f.addEventListener("load",s);| &&
+*                 AND AGAIN WHENEVER THE FRAME SPEAKS FIRST. A viewer that
+*                 announces itself when its listener is ready gets an
+*                 immediate answer instead of waiting out the interval, and
+*                 one that never speaks loses nothing. Origin-checked: a
+*                 message from anywhere but the viewer is ignored, so this
+*                 cannot be used to make the page re-post the token
+*                 somewhere else.
+                  |window.addEventListener("message",function(e)\{| &&
+                  |if(e.origin===o)\{s();\}\});| &&
                   |var t=setInterval(function()\{if(++n>10)\{clearInterval(t);return;\}s();\},500);| &&
                   |\})();</script>|
         sanitizecontent = abap_false ).

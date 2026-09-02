@@ -32,8 +32,9 @@ CLASS zcl_rak_journey_be DEFINITION
 
   PRIVATE SECTION.
 
-*   Apply the field control the BAdI wrote onto the definition rows. See
-*   the implementation for why only MANDATORY is acted on today.
+*   Apply the field control the BAdI wrote onto the definition rows. What
+*   arrives here is only what the BAdI CHANGED - see ZCL_RAK_QNV_BRIDGE for
+*   the seed that makes a change tellable from an echo.
     METHODS apply_ctrl
       IMPORTING it_ctrl TYPE zif_rak_journey=>tt_kv.
 
@@ -143,24 +144,43 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
 *   overrides. SET_REQUIRED / SET_READONLY / SET_HIDDEN are read at render
 *   time, so calling them here lands on the step about to be drawn.
 *
-*   ONLY MANDATORY IS ACTED ON, and that is deliberate. 'X' means required
-*   and blank means not - unambiguous, and it is the flag that changes what
-*   the citizen must do. ENABLED and VISIBLE are collected and traced but
-*   NOT applied, because their blank is ambiguous: if a legacy row leaves
-*   ENABLED empty on a field that is perfectly editable, reading blank as
-*   "disabled" would make every such field read-only at once - a far worse
-*   failure than the one being fixed, and one that would look like the
-*   backend refusing the whole screen.
+*   ALL THREE FLAGS ARE ACTED ON, and they are only safe to act on because
+*   ZCL_RAK_QNV_BRIDGE->SEED_CTRL( ) now sends the journey's own
+*   configuration INTO the read. Before it did, every row went out blank
+*   and came back blank unless the implementation wrote something - so
+*   blank meant both "the BAdI cleared this" and "the BAdI never looked at
+*   it", and this method could only safely read the one direction that
+*   said 'X'. It did not: it called SET_REQUIRED( abap_false ) on every
+*   unnamed field, which quietly stripped the required marker off every
+*   migrated mandatory field on any screen the BAdI answered.
 *
-*   The trace prints the distribution instead. One run on a real screen
-*   settles the convention, and then this becomes three lines rather than
-*   one.
+*   With the row seeded, an untouched flag comes back agreeing with the
+*   config and applying it changes nothing; a changed one is the legacy
+*   field-control engine's answer, which is the authority the live service
+*   gives it. ENABLED and VISIBLE are the ones that were missing entirely,
+*   and they are why a migrated journey's fields never appear, disappear or
+*   lock the way the live one's do.
+*
+*   PRECEDENCE, written down because three things can disagree and the
+*   answer is not the intuitive one. SET_HIDDEN / SET_READONLY /
+*   SET_REQUIRED write the HANDLER OVERRIDE table, and
+*   ZCL_RAK_JOURNEY_RULES checks that BEFORE MT_RULEHIDE and before the
+*   configured flag - so what is applied here outranks a ZRAK_T_JNY_RULE as
+*   well as ZRAK_T_JNY_FLD. That is correct for the legacy framework's own
+*   field control, which is the authority on every read, and it is ONLY
+*   correct because nothing reaches this method unless the BAdI actually
+*   changed it: an echo of what CJS already believed would otherwise
+*   un-hide every rule-hidden field on the screen. The gate that makes
+*   that true lives in ZCL_RAK_QNV_BRIDGE->CTRL_OF( ), and moving it is
+*   what would break this.
     IF it_ctrl IS INITIAL.
       RETURN.
     ENDIF.
 
     DATA lv_req  TYPE i.
     DATA lv_seen TYPE i.
+    DATA lv_ro   TYPE i.
+    DATA lv_hid  TYPE i.
 
     LOOP AT it_ctrl INTO DATA(ls_c).
       SPLIT ls_c-key AT '/' INTO DATA(lv_fld) DATA(lv_att).
@@ -168,18 +188,43 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
+*     'X' or 'x' is on; anything else, blank included, is off. The seed is
+*     what makes "off" mean off.
+      DATA(lv_on) = xsdbool( ls_c-value = 'X' OR ls_c-value = 'x' ).
+
       CASE lv_att.
         WHEN 'MANDATORY'.
           lv_seen = lv_seen + 1.
-          DATA(lv_on) = xsdbool( ls_c-value = 'X' OR ls_c-value = 'x' ).
           mo_e->zif_rak_journey~set_required( iv_field = lv_fld iv_on = lv_on ).
           IF lv_on = abap_true.
             lv_req = lv_req + 1.
           ENDIF.
 
-        WHEN 'ENABLED' OR 'VISIBLE' OR 'READONLY'.
-*         Harvested, traced, not applied. See above.
+        WHEN 'ENABLED'.
+*         ENABLED is the positive form of read-only, so it inverts.
+*         INTRENO_JOURNEY is seeded unconditionally by the bridge and is
+*         not a field on the screen; SET_READONLY on a name the journey
+*         does not carry is one of the documented silent no-ops, which is
+*         exactly the right behaviour here.
+          mo_e->zif_rak_journey~set_readonly( iv_field = lv_fld
+                                              iv_on    = xsdbool( lv_on = abap_false ) ).
+          IF lv_on = abap_false.
+            lv_ro = lv_ro + 1.
+          ENDIF.
+
+        WHEN 'VISIBLE'.
+          mo_e->zif_rak_journey~set_hidden( iv_field = lv_fld
+                                            iv_on    = xsdbool( lv_on = abap_false ) ).
+          IF lv_on = abap_false.
+            lv_hid = lv_hid + 1.
+          ENDIF.
+
+        WHEN 'READONLY'.
+*         The direct form, where a release carries it alongside ENABLED.
+*         Applied only when it says something: unlike ENABLED and VISIBLE
+*         it is NOT seeded, so its blank is still the ambiguous kind.
           IF ls_c-value IS NOT INITIAL.
+            mo_e->zif_rak_journey~set_readonly( iv_field = lv_fld iv_on = lv_on ).
             mo_e->trace( |CTRL    { lv_fld } { lv_att }={ ls_c-value }| ).
           ENDIF.
 
@@ -194,7 +239,7 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
     ENDLOOP.
 
     mo_e->trace( |CTRL    { lv_seen } field(s) carried a MANDATORY flag, | &&
-                 |{ lv_req } of them required| ).
+                 |{ lv_req } required · { lv_ro } read-only · { lv_hid } hidden| ).
   ENDMETHOD.
 
 

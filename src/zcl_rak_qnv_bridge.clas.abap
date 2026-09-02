@@ -129,7 +129,34 @@ CLASS zcl_rak_qnv_bridge DEFINITION
 *   the point of ASSIGN COMPONENT here, not the parameter's type.
     METHODS ctrl_of
       IMPORTING is_def  TYPE LINE OF /qnv/sbuild_definition_tt
+                is_seed TYPE LINE OF /qnv/sbuild_definition_tt
       CHANGING  ct_ctrl TYPE zif_rak_journey=>tt_kv.
+
+*   SEED THE FIELD CONTROL WITH WHAT CJS ALREADY BELIEVES, so what comes
+*   back is the BAdI's FINAL WORD rather than a half-answer.
+*
+*   The rows sent into ZIF_EGA_FW_CJI~READ used to carry nothing but a
+*   field name, so every flag came back blank unless the implementation
+*   wrote one - and blank is ambiguous in the worst direction: it reads
+*   identically as "the BAdI cleared this" and "the BAdI never looked at
+*   it". BACKEND_READ( ) consequently called SET_REQUIRED( abap_false ) on
+*   every field the implementation did not name, which silently removed the
+*   required marker from every migrated mandatory field on any screen the
+*   BAdI answered at all.
+*
+*   Seeded with the journey's own configuration instead, an untouched row
+*   comes back saying exactly what CJS already thought and applying it is a
+*   no-op; a row the implementation changed says so unambiguously, in both
+*   directions. That is what makes ENABLED and VISIBLE safe to apply and
+*   not only to trace.
+*
+*   Written through ASSIGN COMPONENT because the definition structure is a
+*   legacy DDIC type: a column this release does not have is skipped rather
+*   than failing activation.
+    METHODS seed_ctrl
+      IMPORTING iv_screen TYPE string
+                iv_field  TYPE string
+      CHANGING  cs_def    TYPE LINE OF /qnv/sbuild_definition_tt.
 
     CONSTANTS c_fm_read_table TYPE string VALUE 'ZFM_EGA_CJ_FW_READ_TABLE_DATAN'.
 *   The name the fee list answers to. Part of the read FM's contract with every
@@ -328,6 +355,43 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD seed_ctrl.
+    DATA(lv_f) = to_upper( condense( iv_field ) ).
+    IF lv_f IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   The field as this journey configures it. A field the config does not
+*   know (INTRENO_JOURNEY, seeded unconditionally below) gets the neutral
+*   defaults: visible, enabled, not mandatory.
+    DATA lv_req TYPE abap_bool.
+    DATA lv_ena TYPE abap_bool VALUE abap_true.
+    DATA lv_vis TYPE abap_bool VALUE abap_true.
+
+    LOOP AT ms_config-steps INTO DATA(ls_s) WHERE bknd_screen = iv_screen.
+      READ TABLE ls_s-fields INTO DATA(ls_f) WITH KEY name = lv_f.
+      IF sy-subrc = 0.
+        lv_req = xsdbool( ls_f-validation-required = abap_true ).
+        lv_ena = xsdbool( ls_f-readonly = abap_false ).
+        lv_vis = xsdbool( ls_f-hidden   = abap_false ).
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+
+    DATA(lt_set) = VALUE zif_rak_journey=>tt_kv(
+      ( key = `MANDATORY` value = COND string( WHEN lv_req = abap_true THEN 'X' ) )
+      ( key = `ENABLED`   value = COND string( WHEN lv_ena = abap_true THEN 'X' ) )
+      ( key = `VISIBLE`   value = COND string( WHEN lv_vis = abap_true THEN 'X' ) ) ).
+
+    LOOP AT lt_set INTO DATA(ls_set).
+      ASSIGN COMPONENT ls_set-key OF STRUCTURE cs_def TO FIELD-SYMBOL(<v>).
+      IF sy-subrc = 0.
+        <v> = ls_set-value.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
   METHOD ctrl_of.
     DATA(lv_fld) = to_upper( CONV string( is_def-fieldname ) ).
     IF lv_fld IS INITIAL.
@@ -348,11 +412,34 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
         CONTINUE.
       ENDIF.
       DATA(lv_val) = condense( CONV string( <v> ) ).
-*     A blank ADDITIONALDATA is noise - there are four of them on every
-*     row. A blank flag is NOT: "not mandatory" is an answer.
+*     A blank ADDITIONALDATA is noise - there are four of them on every row.
       IF lv_val IS INITIAL AND lv_want CP 'ADDITIONALDATA*'.
         CONTINUE.
       ENDIF.
+
+*     A SEEDED FLAG IS REPORTED ONLY WHEN THE BADI CHANGED IT.
+*
+*     SEED_CTRL( ) sent MANDATORY, ENABLED and VISIBLE out carrying the
+*     journey's own configuration, so a row that comes back agreeing with
+*     what went out says nothing - the implementation did not touch it.
+*     Reporting it anyway would be actively harmful, because
+*     ZCL_RAK_JOURNEY_BE->APPLY_CTRL( ) applies these through SET_HIDDEN /
+*     SET_READONLY / SET_REQUIRED, and an override written there OUTRANKS
+*     ZRAK_T_JNY_RULE - ZCL_RAK_JOURNEY_RULES->IS_HIDDEN( ) checks the
+*     override before MT_RULEHIDE. An echo of the seed would therefore
+*     un-hide every field a rule hides, on every screen the BAdI answers:
+*     one silent failure traded for a worse one.
+*
+*     What survives this gate is a genuine difference between what CJS
+*     believes and what the legacy field-control engine says, which is
+*     exactly what the BAdI is the authority on.
+      IF lv_want = `MANDATORY` OR lv_want = `ENABLED` OR lv_want = `VISIBLE`.
+        ASSIGN COMPONENT lv_want OF STRUCTURE is_seed TO FIELD-SYMBOL(<s>).
+        IF sy-subrc = 0 AND condense( CONV string( <s> ) ) = lv_val.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+
       APPEND VALUE #( key = |{ lv_fld }/{ lv_want }| value = lv_val ) TO ct_ctrl.
     ENDLOOP.
   ENDMETHOD.
@@ -401,7 +488,11 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
       APPEND VALUE #( fieldname     = ls_i-field
                       technicalname = COND #( WHEN ls_i-tech IS NOT INITIAL THEN ls_i-tech ELSE ls_i-field )
                       screenname    = iv_screen
-                      categoryname  = ms_config-backend-category ) TO lt_def.
+                      categoryname  = ms_config-backend-category ) TO lt_def
+             ASSIGNING FIELD-SYMBOL(<ls_def>).
+      seed_ctrl( EXPORTING iv_screen = iv_screen
+                           iv_field  = CONV string( ls_i-field )
+                 CHANGING  cs_def    = <ls_def> ).
     ENDLOOP.
 
 *   Seed INTRENO_JOURNEY unconditionally. The BAdI answers it by field name:
@@ -425,6 +516,12 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
     ENDIF.
 
     ls_hdr-param5 = 'CJS'.
+
+*   WHAT WENT OUT, kept so what comes back can be told apart from it.
+*   CT_DEFINITION is a CHANGING parameter - the implementation mutates the
+*   very rows seeded above - so without this copy there is no way to
+*   distinguish the BAdI's answer from an echo of the seed. See CTRL_OF( ).
+    DATA(lt_seed) = lt_def.
 
     TRY.
         CALL FUNCTION ms_config-backend-fm_read
@@ -456,7 +553,12 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
 *   decides what to DO with each - see BACKEND_READ( ).
     LOOP AT lt_def INTO DATA(ls_d).
       APPEND VALUE #( key = ls_d-fieldname value = ls_d-value ) TO et_values.
-      ctrl_of( EXPORTING is_def = ls_d CHANGING ct_ctrl = et_ctrl ).
+      DATA ls_seed TYPE LINE OF /qnv/sbuild_definition_tt.
+      CLEAR ls_seed.
+      READ TABLE lt_seed INTO ls_seed WITH KEY fieldname = ls_d-fieldname.
+      ctrl_of( EXPORTING is_def  = ls_d
+                         is_seed = ls_seed
+               CHANGING  ct_ctrl = et_ctrl ).
     ENDLOOP.
 
 *   Same rule as POST, and stated the same way so the two cannot drift.

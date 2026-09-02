@@ -283,6 +283,13 @@ CLASS zcl_rak_migrator DEFINITION
 *               that sub-flow as its own journey while iv_journey/bknd_journey
 *               keep recording the shared raw legacy code.
                 iv_screen_prefix TYPE string DEFAULT ''
+*               The journey card's one-line subtitle, EN and AR. Defaulted
+*               rather than derived: nothing in /QNV/ or the BAdI carries a
+*               subtitle, so a caller who has better wording passes it and
+*               everyone else gets a neutral line rather than an invented
+*               description of a service this class has not read.
+                iv_subtitle      TYPE string DEFAULT ''
+                iv_subtitle_ar   TYPE string DEFAULT ''
       EXPORTING ev_ok       TYPE abap_bool
                 ev_msg      TYPE string
                 et_report   TYPE tt_report.
@@ -1754,14 +1761,42 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 
     stage_rows( iv_cjs_id = jid it_rows = lt ).
 
+*   ---- the Arabic title, READ rather than invented -------------------
+*   ZEGA_T_CJ_IDT keyed on the LEGACY journey code and SPRAS 'A' is where
+*   the portal reads a service's Arabic name from - ZCL_CJ_DEMO_P001 does
+*   exactly this SELECT to fill its own description. Every loader so far
+*   passed IV_TITLE_AR blank "on purpose, because the authoritative text is
+*   ZEGA_T_CJ_IDT" and then left it blank, so every migrated journey shows
+*   an Arabic reader an empty title.
+*
+*   Reading it is not inventing it: this is the same row the legacy service
+*   renders from. A caller that supplies IV_TITLE_AR still wins, and a code
+*   with no row simply leaves the column blank as before. Nothing is
+*   written to the legacy table by this read - the MODIFYs further down
+*   address the NEW tile code, never this one.
+    DATA lv_title_ar TYPE string.
+    DATA lv_leg_id   TYPE zega_t_cj_idt-journeyid.
+    lv_title_ar = iv_title_ar.
+    IF lv_title_ar IS INITIAL AND iv_journey IS NOT INITIAL.
+      lv_leg_id = to_upper( iv_journey ).
+      SELECT SINGLE description FROM zega_t_cj_idt
+        WHERE spras = 'A' AND journeyid = @lv_leg_id
+        INTO @lv_title_ar.
+      IF sy-subrc <> 0.
+        CLEAR lv_title_ar.
+      ENDIF.
+    ENDIF.
+
     " cj_type DROPPED. bknd_journey carries the raw BE code (one-code model).
     INSERT zrak_t_jny FROM @( VALUE #(
-      mandt = sy-mandt journey_id = jid title = iv_title title_ar = iv_title_ar
+      mandt = sy-mandt journey_id = jid title = iv_title title_ar = lv_title_ar
       layout_mode = 'WIZARD' theme_variant = 'PORTAL'
       accent_type = 'Emphasized' brand_color = 'rgb(196,30,38)' navy_color = 'rgb(16,35,62)'
       density = 'Cozy'
-      subtitle    = |Apply and track your request — one guided flow|
-      subtitle_ar = |قدّم طلبك وتابعه في مسار واحد|
+      subtitle    = COND #( WHEN iv_subtitle IS NOT INITIAL THEN iv_subtitle
+                            ELSE |Apply and track your request — one guided flow| )
+      subtitle_ar = COND #( WHEN iv_subtitle_ar IS NOT INITIAL THEN iv_subtitle_ar
+                            ELSE |قدّم طلبك وتابعه في مسار واحد| )
       show_actions = 'X' active = 'X'
       handler_class = to_upper( iv_handler )
 *     See C_FM_POST. A journey migrated with BKND_ACTIVE blank and no
@@ -1846,8 +1881,13 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     DATA lv_stepno TYPE i.
     DATA lv_ten    TYPE string.
     DATA lv_tar    TYPE string.
+*   Set on every screen and therefore holding the LAST screen's answer when
+*   the loop ends: does the journey finish on a payment step? See the
+*   REVIEW block below for what it decides.
+    DATA lv_pay_last TYPE abap_bool.
     LOOP AT lt_screens INTO DATA(lv_scr).
       lv_stepno = lv_stepno + 1.
+      lv_pay_last = xsdbool( line_exists( lt[ screen_name = lv_scr ftype = 'PAYFEE' ] ) ).
       DATA(sid) = |STP{ lv_stepno }|.
       CLEAR: lv_ten, lv_tar.
 
@@ -1915,11 +1955,31 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 *   creates nothing, which everywhere else in CJS is a bug - here it is the
 *   whole point, and it is written down so nobody "fixes" it by filling the
 *   column in.
-    lv_stepno = lv_stepno + 1.
-    DATA(lv_rvsid) = |STP{ lv_stepno }|.
+*   AND IT DOES NOT GO AFTER A PAYMENT STEP. M016's citizen has three
+*   steps and the last one is Pay - append a Review step behind it and the
+*   service asks them to check their answers AFTER taking their money, and
+*   the submit press moves from the payment screen to a screen with nothing
+*   on it. When the last legacy screen carries a PAYFEE control the Review
+*   step is inserted BEFORE it instead: review, then pay, then submit on
+*   the payment screen under the PAID gate, which is the live order.
+*
+*   Its SEQNR is the payment step's minus five, so it lands between the two
+*   without renumbering anything - ZCL_RAK_JOURNEY_REPO reads the steps
+*   ORDER BY SEQNR. The step id is STPR rather than STPn for the same
+*   reason: nothing has to shift to make room for it.
+    DATA lv_rvsid TYPE string.
+    DATA lv_rvseq TYPE i.
+    IF lv_pay_last = abap_true.
+      lv_rvsid = 'STPR'.
+      lv_rvseq = lv_stepno * 10 - 5.
+    ELSE.
+      lv_stepno = lv_stepno + 1.
+      lv_rvsid = |STP{ lv_stepno }|.
+      lv_rvseq = lv_stepno * 10.
+    ENDIF.
 
     INSERT zrak_t_jny_step FROM @( VALUE #(
-      mandt = sy-mandt journey_id = jid step_id = lv_rvsid seqnr = lv_stepno * 10
+      mandt = sy-mandt journey_id = jid step_id = lv_rvsid seqnr = lv_rvseq
       title    = 'Review and submit'
       title_ar = 'مراجعة وإرسال'
       icon     = 'sap-icon://survey'
@@ -1931,7 +1991,10 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       field_name = 'REVIEW' seqnr = 10
       ftype = 'REVIEW' ) ).
 
-    APPEND VALUE #( screen = '' step_id = lv_rvsid title = 'Review and submit' )
+    APPEND VALUE #( screen = '' step_id = lv_rvsid
+                    title = COND string( WHEN lv_pay_last = abap_true
+                                         THEN 'Review and submit (before the payment step)'
+                                         ELSE 'Review and submit' ) )
            TO et_report.
 
     " ---- rules: DATA4/DATA5 container visibility + UI_FIELD_LOGICS ------
@@ -2368,7 +2431,7 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     MODIFY zega_t_cj_idt FROM @( VALUE #(
       mandt = sy-mandt spras = 'E' journeyid = lv_tile4 description = iv_title ) ).
     MODIFY zega_t_cj_idt FROM @( VALUE #(
-      mandt = sy-mandt spras = 'A' journeyid = lv_tile4 description = iv_title_ar ) ).
+      mandt = sy-mandt spras = 'A' journeyid = lv_tile4 description = lv_title_ar ) ).
 
     COMMIT WORK.
     ev_ok = abap_true.

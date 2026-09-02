@@ -82,9 +82,13 @@ REPORT zrak_m_muni_load.
 *&    PAYFEE field added in the Studio before it is fit to show anyone.
 *&    The run log names them.
 *&
-*& 7. TITLE_AR IS BLANK ON PURPOSE - the authoritative Arabic text is
-*&    ZEGA_T_CJ_IDT for the legacy journey, and it is not invented here.
-*&    Same decision as ZRAK_E028_LOAD / ZRAK_E029_LOAD.
+*& 7. TITLE_AR IS READ, NOT INVENTED AND NO LONGER BLANK. It stays blank
+*&    here because ZCL_RAK_MIGRATOR now resolves it itself: it SELECTs
+*&    ZEGA_T_CJ_IDT( journeyid = the legacy code, spras = 'A' ) - the same
+*&    row the legacy service renders its own Arabic name from - and only
+*&    falls back to blank when the code has no row. Passing a value here
+*&    still overrides it. Same decision as ZRAK_E028_LOAD / ZRAK_E029_LOAD,
+*&    now carried out rather than deferred.
 *&
 *& ------------------------------------------------------------------
 *& TEST RUN IS THE DEFAULT. It writes nothing and instead counts, live in
@@ -332,7 +336,9 @@ START-OF-SELECTION.
         iv_cjs_id        = ls_m-id
         iv_tile          = ls_m-id
         iv_title         = ls_m-title
-        iv_title_ar      = ``                 " see note 7 in the header
+*       Blank means "read it": the migrator resolves the Arabic title from
+*       ZEGA_T_CJ_IDT for the legacy code. See note 7 in the header.
+        iv_title_ar      = ``
         iv_dept          = CONV string( p_dept )
         iv_main          = CONV string( p_main )
         iv_prefix        = lv_pfx
