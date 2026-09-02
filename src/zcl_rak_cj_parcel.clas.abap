@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-12. Missing this line means SAP has an older copy - see
+*& BUILD map-fix-13. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -1180,19 +1180,53 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       DATA(lv_pjs) =
         |(function()\{var f=document.getElementById("rakPclMap");| &&
         |if(!f)\{return;\}| &&
-*       IDEMPOTENT, because two channels deliver this. Setting up the
-*       interval and the message listener twice would double every post.
-        |if(f.dataset.rakPosted==="1")\{return;\}| &&
-        |f.dataset.rakPosted="1";| &&
+*       IDEMPOTENT PER PARCEL, not once per element. This guard held a
+*       bare "1", which is right for stopping the two channels from
+*       setting up twice for the SAME parcel and wrong for everything
+*       else: sap.ui.core.HTML is a PRESERVED control - the live viewer
+*       DOM shows sap-ui-preserve on exactly this kind of node - so the
+*       iframe can survive a dialog closing and reopening. A bare flag
+*       then makes the second parcel a no-op against the first parcel's
+*       map. Keyed on the parcel number, reopening for a different one
+*       posts again and reopening for the same one still does not.
         |var m=\{parcelId:"{ lv_jpid }",token:"{ lv_jtok }",lang:"{ lv_lang }"\};| &&
-        |var o="{ lv_jorg }";var n=0;var IN=[];var L=0;| &&
-        |function s()\{try\{f.contentWindow.postMessage(m,o);n++;\}catch(e)\{\}\}| &&
 *       LOAD IS THE ONE THING A CROSS-ORIGIN FRAME DOES TELL US, and it
 *       is what separates "the viewer never arrived" from "the viewer
-*       arrived and something inside it went wrong". Recorded, so the
-*       note below can be quiet in the second case instead of shouting a
-*       guess over a map that is working.
-        |f.addEventListener("load",function()\{L=1;s();R();\});| &&
+*       arrived and something inside it went wrong".
+*
+*       IT IS READ OFF THE ELEMENT, NOT FROM A LISTENER, and that is the
+*       whole of this fix. The snippet's main delivery is the iframe's
+*       ONLOAD ATTRIBUTE, so on that channel it runs AT load time - and
+*       then registered addEventListener("load", ...) for an event that
+*       had already fired. L stayed 0 for ever, and eight seconds later
+*       the note announced "the map viewer did not load" over a viewer
+*       that had loaded and drawn its own chrome.
+*
+*       That is why it worked exactly once. On the round trip that first
+*       opens the dialog FOLLOW_UP_ACTION( ) also fires, early enough
+*       that its listener was in place to catch the load. Every reopen
+*       after that is a popup-only round trip, so the attribute is the
+*       only channel, and the only channel could never set the flag.
+*
+*       The attribute therefore stamps the element before running the
+*       snippet (see LV_FHTML), the listener stamps it too for the
+*       follow-up channel, and L is initialised from the stamp. A
+*       preserved iframe that loaded on a previous open stays stamped,
+*       which is correct: it has loaded.
+        |var o="{ lv_jorg }";var n=0;var IN=[];| &&
+        |var L=(f.dataset.rakLoaded==="1")?1:0;| &&
+*       THE GUARD SITS HERE, after the state it reports and before the
+*       work it prevents. It used to be the first thing after the element
+*       lookup, which meant the early return skipped the note as well as
+*       the post - so reopening the dialog on a parcel already showing
+*       left "Loading the map..." above a map that was drawn and correct.
+*       R( ) is a function declaration and therefore hoisted, so it can
+*       be called from here.
+        |if(f.dataset.rakPosted===m.parcelId)\{R();return;\}| &&
+        |f.dataset.rakPosted=m.parcelId;| &&
+        |function s()\{try\{f.contentWindow.postMessage(m,o);n++;\}catch(e)\{\}\}| &&
+        |f.addEventListener("load",function()\{| &&
+        |f.dataset.rakLoaded="1";L=1;s();R();\});| &&
 *       WHAT THE VIEWER SAYS BACK, kept and shown. The frame is
 *       cross-origin, so its console and its DOM are both unreadable from
 *       here - a postMessage is the ONLY thing it can tell us, and until
@@ -1296,7 +1330,13 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       DATA(lv_fhtml) =
         |<iframe id="rakPclMap" src="{ lv_base }" title="parcel map" | &&
         |style="width:100%;height:34rem;border:0" | &&
-        |onload='{ lv_pjs }'></iframe>| &&
+*       THE STAMP GOES FIRST, and it is what tells the snippet that this
+*       channel IS the load event. Without it the snippet cannot know -
+*       the frame is cross-origin, so contentDocument.readyState is
+*       unreadable - and it spent eight seconds concluding the viewer had
+*       never arrived. THIS is the iframe inside its own onload, so the
+*       stamp is simply true.
+        |onload='this.dataset.rakLoaded="1";{ lv_pjs }'></iframe>| &&
 *       A LINE THE SNIPPET FILLS IN, so the one thing that cannot be seen
 *       from a screenshot becomes readable: the origin the message was
 *       posted FROM - and, by being EMPTY, that the snippet never ran at
