@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-11. Missing this line means SAP has an older copy - see
+*& BUILD map-fix-12. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -948,10 +948,20 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 
 *   CONTENTHEIGHT because of the map. A dialog sized to its content gives
 *   an iframe no room to be - the frame collapses and the tab looks empty.
+*   SIZED FOR THE MAP, which is the tab that opens. 58x34 left the map
+*   about as tall as the tab strip above it once the note line and the
+*   new-tab link had taken their share, and a parcel boundary needs its
+*   surroundings to read as a place rather than a shape. The six blocked
+*   tabs are tables and gain from the width too.
+*
+*   REM, NOT PERCENT, and not viewport units: a UI5 dialog with a
+*   percentage CONTENTHEIGHT and a fixed-height child sizes the child
+*   against a height it has not settled yet, which is one of the ways
+*   this frame has already been seen to load at zero height.
     DATA(lo_dlg) = io_popup->dialog(
       title         = t( iv_en = `Property Details` iv_ar = `تفاصيل العقار` )
-      contentwidth  = '58rem'
-      contentheight = '34rem' ).
+      contentwidth  = '76rem'
+      contentheight = '46rem' ).
     DATA(lo_c) = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
 
 *   NO select EVENT. An IconTabBar switches tabs in the browser, and every
@@ -1079,8 +1089,13 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     view, and when it does not, the snippet never fires. That is what
 *     left "Loading the map..." on screen. The container's own onload
 *     does not depend on any of it.
+*     SAME HEIGHT AS THE FRAME ABOVE. The two paths draw into the same
+*     dialog and must not disagree about how much of it the map gets -
+*     CONTAINER( )'s own default is 26rem, which was the frame's height
+*     before the dialog was enlarged.
       lo_map->html( content = zcl_rak_cj_gis=>container( iv_div    = lv_dvd
-                                                        iv_script = lv_djs )
+                                                        iv_script = lv_djs
+                                                        iv_height = '34rem' )
                     sanitizecontent = abap_false ).
       mo_e->mo_client->follow_up_action( lv_djs ).
 
@@ -1110,6 +1125,14 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       REPLACE ALL OCCURRENCES OF `"` IN lv_jpid WITH `\"`.
       REPLACE ALL OCCURRENCES OF `\` IN lv_jorg WITH `\\`.
       REPLACE ALL OCCURRENCES OF `"` IN lv_jorg WITH `\"`.
+*     THE INTRENO TOO, for the hover title only. One parcel drawing and
+*     the next not is a difference between two ROWS, and the internal
+*     object id is what identifies the row in the backend - the parcel
+*     number alone cannot be looked up as reliably. It is not shown on
+*     screen; it goes in the title beside the rest.
+      DATA(lv_jint) = mo_e->mv_pcl_det.
+      REPLACE ALL OCCURRENCES OF `\` IN lv_jint WITH `\\`.
+      REPLACE ALL OCCURRENCES OF `"` IN lv_jint WITH `\"`.
       DATA(lv_lang) = COND string( WHEN sy-langu = 'A' THEN `ar` ELSE `en` ).
 
 *     THE FRAME IS MARKUP, THE POST IS NOT. This used to be one HTML( )
@@ -1162,9 +1185,14 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         |if(f.dataset.rakPosted==="1")\{return;\}| &&
         |f.dataset.rakPosted="1";| &&
         |var m=\{parcelId:"{ lv_jpid }",token:"{ lv_jtok }",lang:"{ lv_lang }"\};| &&
-        |var o="{ lv_jorg }";var n=0;var IN=[];| &&
+        |var o="{ lv_jorg }";var n=0;var IN=[];var L=0;| &&
         |function s()\{try\{f.contentWindow.postMessage(m,o);n++;\}catch(e)\{\}\}| &&
-        |f.addEventListener("load",s);| &&
+*       LOAD IS THE ONE THING A CROSS-ORIGIN FRAME DOES TELL US, and it
+*       is what separates "the viewer never arrived" from "the viewer
+*       arrived and something inside it went wrong". Recorded, so the
+*       note below can be quiet in the second case instead of shouting a
+*       guess over a map that is working.
+        |f.addEventListener("load",function()\{L=1;s();R();\});| &&
 *       WHAT THE VIEWER SAYS BACK, kept and shown. The frame is
 *       cross-origin, so its console and its DOM are both unreadable from
 *       here - a postMessage is the ONLY thing it can tell us, and until
@@ -1219,18 +1247,47 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *
 *       so a correctly addressed, correctly timed message can still be
 *       discarded, and the viewer then sits on its splash screen exactly
-*       as it does when no message arrives. Both origins are printed so
-*       that case is readable: what the frame is, and what we are to it.
+*       as it does when no message arrives. Both origins go in the TITLE
+*       so that case stays readable: what the frame is, and what we are
+*       to it.
+*
+*       AND IT IS QUIET WHEN THE MAP WORKS. The previous version printed
+*       its whole diagnosis unconditionally, which was right while
+*       nothing worked and wrong the moment something did: a correctly
+*       drawn parcel sat under the sentence "chrome and a blank canvas
+*       usually means the token was refused", which reads as an error
+*       report on a working screen. Same rule as the ArcGIS path in
+*       ZCL_RAK_CJ_GIS - an EMPTY line means it worked.
+*
+*       The detail is not thrown away, it moves to the element TITLE, so
+*       it is one hover away rather than gone. Only two things are worth
+*       saying out loud: that the map is still coming, and that the
+*       viewer never arrived at all.
         |function R()\{| &&
         |var N=document.getElementById("rakPclMapNote");| &&
         |if(!N)\{return;\}| &&
-        |N.textContent="Map: parcel "+m.parcelId+", token "+| &&
+        |N.title="parcel "+m.parcelId+" (intreno { lv_jint }), token "+| &&
         |m.token.length+" chars, posted "+n+"x to "+o+| &&
         |" from "+window.location.origin+| &&
-        |(IN.length?(" - viewer replied: "+IN.join(" / "))| &&
-        |:" - viewer replied nothing. Chrome and a blank canvas usually | &&
-        |means the token was refused; only a logo means this origin is | &&
-        |not on its allowlist.");\}| &&
+        |(IN.length?(", viewer replied: "+IN.join(" / "))| &&
+        |:", viewer replied nothing");| &&
+*       A REPLY IS ALWAYS WORTH SHOWING - the viewer has volunteered
+*       something, and it is the only voice from inside the frame.
+        |if(IN.length)\{| &&
+        |N.textContent="Map: "+IN.join(" / ");return;\}| &&
+*       LOADED AND SILENT IS THE SUCCESS CASE. Say nothing.
+        |if(L)\{N.textContent="";return;\}| &&
+        |N.textContent="Loading the map...";\}| &&
+*       THE VIEWER NEVER ARRIVED. Eight seconds is well past a page load,
+*       so at that point the frame itself did not come up - a different
+*       fault from anything inside it, and the only one this line still
+*       needs to spell out.
+        |setTimeout(function()\{| &&
+        |if(L)\{return;\}| &&
+        |var N2=document.getElementById("rakPclMapNote");| &&
+        |if(N2)\{N2.textContent="The map viewer did not load from "+o+| &&
+        |". Opening it in a new tab will show what it says.";\}| &&
+        |\},8000);| &&
         |R();| &&
         |\}())|.
 
@@ -1238,7 +1295,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     the snippet is guaranteed free of single quotes - see above.
       DATA(lv_fhtml) =
         |<iframe id="rakPclMap" src="{ lv_base }" title="parcel map" | &&
-        |style="width:100%;height:26rem;border:0" | &&
+        |style="width:100%;height:34rem;border:0" | &&
         |onload='{ lv_pjs }'></iframe>| &&
 *       A LINE THE SNIPPET FILLS IN, so the one thing that cannot be seen
 *       from a screenshot becomes readable: the origin the message was
