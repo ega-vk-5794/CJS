@@ -497,10 +497,20 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     property called Parcel, and a parcel has two identifiers. Carrying
 *     both means the map read can be pointed at either without a second
 *     round trip to find out which.
+*     LV_SHOW, NOT LV_KEY. The live portal keys this read on the parcel
+*     number as the citizen reads it -
+*
+*       MapUrlSet(Partnerguid=guid'...',Parcel='310060052')
+*
+*     - not on the zero-padded form PropertiesSet returns. The padded one
+*     was going out and the viewer answered with its splash screen: a
+*     token was minted either way, so nothing failed, it just encoded no
+*     parcel. LV_KEY still travels everywhere the citizen's SELECTION is
+*     stored, which must stay byte-identical to what ShapeIt writes.
       lo_r->link( text  = t( iv_en = `Full Details` iv_ar = `التفاصيل الكاملة` )
                   class = 'sapUiTinyMarginBegin'
                   press = mo_e->mo_client->_event(
-                            |{ c_pfx }DET_{ lv_int }~{ lv_key }| ) ).
+                            |{ c_pfx }DET_{ lv_int }~{ lv_show }| ) ).
     ENDIF.
   ENDMETHOD.
 
@@ -725,6 +735,23 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     the map opens on the parcel.
       lo_map->text( text  = |framed: { lv_esc }|
                     class = 'sapUiTinyMarginTop' ).
+
+*     TWO CANDIDATES, ONE PULL. The service answers a base and a token and
+*     says nothing about how they join. Two forms are plausible and the
+*     evidence cannot separate them from here - the earlier test of the
+*     path form used a token minted for the wrong id, so its 404 proved
+*     nothing. Rather than guess a sixth time, both are offered: whichever
+*     opens the parcel is the answer, and it becomes one line.
+      IF lv_base IS NOT INITIAL AND lv_tok IS NOT INITIAL.
+        DATA(lv_a) = |{ lv_base }{ COND string( WHEN lv_base CS '?' THEN '&' ELSE '?' ) }| &&
+                     |token={ lv_tok }|.
+        DATA(lv_b) = |{ lv_base }{ COND string( WHEN lv_base CP '*/' THEN `` ELSE `/` ) }| &&
+                     |{ lv_tok }|.
+        DATA(lo_try) = lo_map->hbox( class = 'sapUiTinyMarginTop' ).
+        lo_try->link( text = `try A · ?token=` href = lv_a target = '_blank' ).
+        lo_try->link( text = `try B · /token` href = lv_b target = '_blank'
+                      class = 'sapUiSmallMarginBegin' ).
+      ENDIF.
     ELSE.
 *     NAMED, not blank. MapUrlSet answered something - it just could not
 *     be composed into an address, and the three values say which of them
