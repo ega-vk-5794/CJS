@@ -58,6 +58,12 @@
             "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check_crlf.py\"",
             "timeout": 10,
             "statusMessage": "Checking line endings stayed CRLF..."
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check_abap_shape.py\"",
+            "timeout": 10,
+            "statusMessage": "Checking ABAP shapes that fail activation..."
           }
         ]
       }

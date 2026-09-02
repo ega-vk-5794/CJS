@@ -274,6 +274,17 @@ These raise nothing and render nothing. They account for most of the bugs found 
   `||` is written `\|\|`. Unescaped it closes the literal mid-expression and the class
   will not activate. Three of these were caught in one file by extracting the generated
   JS and running `node --check` on it - worth doing for any non-trivial embedded script.
+- **`CONSTANTS ... TYPE string VALUE ''` will not activate** - a string constant does not
+  take an empty literal; `VALUE IS INITIAL` is the form that means blank. It is the most
+  expensive shape in this list because the class then has **no active version**, so the
+  error surfaces at every *caller* as `Method X is unknown or PROTECTED or PRIVATE` and
+  points nowhere near the cause. `ZCL_RAK_CJ_GIS` cost a round exactly this way.
+- **A DEFAULT does not make a second importing parameter invisible.** `meth( x )` with two
+  formal importing parameters is a syntax error however optional the second one is - say
+  `PREFERRED PARAMETER`, or name the arguments.
+- **An inline `DATA( )` in the IMPORTING part of a functional call that is itself the
+  source of an assignment** is refused: *the inline declaration is not possible in this
+  position*. Declare the variables first.
 - **A guidance paragraph must never become a caption.** `PAIR_LABELS( )` used to leave a long
   DISPLAY row pending and attach it to the next control, so the wording landed in `ZLABEL`
   (CHAR 150), was cut mid-word, and `MT_CONSUMED` hid the row it came from — the full text
@@ -352,6 +363,7 @@ mistake lands rather than relying on this file being read closely:
 | `check_required_label.py` | PreToolUse (Write/Edit/MultiEdit) | The required marker stays the native `required` property — denies a `rakReq` class on a `label( )` call, and denies a `.rakReq` rule reappearing in the theme CSS |
 | `protect_abapgit_config.py` | PreToolUse (Write/Edit/MultiEdit) | Asks for confirmation before touching `.abapgit.xml` / `*.devc.xml` |
 | `check_crlf.py` | PostToolUse (Write/Edit/MultiEdit) | Flags a file under `src/` that gained CRLF line endings, since this repo's git history is LF |
+| `check_abap_shape.py` | PostToolUse (Write/Edit/MultiEdit) | Four mechanical activation-breakers nothing here compiles to catch: `METHOD`/`ENDMETHOD` imbalance, `CONSTANTS ... TYPE string VALUE ''`, an unescaped `\|\|` inside a string template, and a line over 255 characters |
 
 > **Whether these run depends on whether `python3` is on PATH.** On a machine where it resolves
 > to a stub (the Windows Store alias is the one that's bitten this project before), every hook
