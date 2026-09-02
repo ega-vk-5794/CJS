@@ -118,14 +118,20 @@ CLASS lcl DEFINITION.
 
 *   Trim a value for one WRITE line. A 3,000-character JSON body on one
 *   line is not evidence, it is noise.
+*
+*   PREFERRED PARAMETER on both: a DEFAULT does not make the second
+*   importing parameter invisible, so CUT( x ) is a syntax error without
+*   it however optional IV_LEN is.
     CLASS-METHODS cut
       IMPORTING iv        TYPE string
                 iv_len    TYPE i DEFAULT 200
+      PREFERRED PARAMETER iv
       RETURNING VALUE(rv) TYPE string.
 
     CLASS-METHODS wrap
       IMPORTING iv     TYPE string
-                iv_len TYPE i DEFAULT 110.
+                iv_len TYPE i DEFAULT 110
+      PREFERRED PARAMETER iv.
 
 ENDCLASS.
 
@@ -148,7 +154,7 @@ CLASS lcl IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD say.
-    WRITE: / iv_label, 24 cut( iv_value ).
+    WRITE: / iv_label, 24 cut( iv = iv_value ).
   ENDMETHOD.
 
   METHOD get.
@@ -260,7 +266,11 @@ START-OF-SELECTION.
   ENDTRY.
 
   LOOP AT ls_mp-msg INTO DATA(ls_msg).
-    WRITE: / '  msg', 12 ls_msg-type, 16 lcl=>cut( ls_msg-message ).
+*   CONV, because BAPIRET2-MESSAGE is a DDIC CHAR(220) and IV is TYPE
+*   STRING. Parameters bind BY REFERENCE, so the two must be compatible -
+*   a character LITERAL would have been accepted, which is exactly what
+*   makes this easy to miss.
+    WRITE: / '  msg', 12 ls_msg-type, 16 lcl=>cut( CONV string( ls_msg-message ) ).
   ENDLOOP.
 
 * THE THREE STRINGS, IN FULL AND WRAPPED. Every theory about this map has
@@ -321,6 +331,14 @@ START-OF-SELECTION.
     ENDIF.
 
     DATA lv_probes TYPE i.
+*   Everything the probe reads back, declared here rather than inline for
+*   the reason spelled out at the first GET( ) call below.
+    DATA lv_st    TYPE i.
+    DATA lv_er    TYPE string.
+    DATA lv_info  TYPE string.
+    DATA lv_dir   TYPE string.
+    DATA lv_sj    TYPE string.
+    DATA lv_lj    TYPE string.
 
     LOOP AT lt_base INTO DATA(lv_base).
 *     Trailing slash off, and any /rest tail off: this report adds its own.
@@ -337,10 +355,15 @@ START-OF-SELECTION.
       ULINE.
       WRITE: / '  base', 12 lv_root.
 
-      DATA(lv_info) = lcl=>get( EXPORTING iv_url    = |{ lv_root }/rest/info|
-                                          iv_token  = ls_mp-token
-                                IMPORTING ev_status = DATA(lv_st)
-                                          ev_err    = DATA(lv_er) ).
+*     DECLARED UP FRONT. An inline DATA( ) in the IMPORTING part of a
+*     functional call that is itself the source of an assignment is not
+*     allowed - "the inline declaration is not possible in this position"
+*     - because the declaration would have to take effect inside the
+*     expression it is being read into.
+      lv_info = lcl=>get( EXPORTING iv_url    = |{ lv_root }/rest/info|
+                                    iv_token  = ls_mp-token
+                          IMPORTING ev_status = lv_st
+                                    ev_err    = lv_er ).
       WRITE: / '    /rest/info', 24 |HTTP { lv_st } { lv_er }|.
       IF lv_info IS NOT INITIAL.
         lcl=>wrap( lcl=>cut( iv = lv_info iv_len = 400 ) ).
@@ -355,10 +378,10 @@ START-OF-SELECTION.
       ENDIF.
 
 *     ---- the service directory
-      DATA(lv_dir) = lcl=>get( EXPORTING iv_url   = |{ lv_root }/rest/services|
-                                         iv_token = ls_mp-token
-                               IMPORTING ev_status = lv_st
-                                         ev_err    = lv_er ).
+      lv_dir = lcl=>get( EXPORTING iv_url   = |{ lv_root }/rest/services|
+                                   iv_token = ls_mp-token
+                         IMPORTING ev_status = lv_st
+                                   ev_err    = lv_er ).
       WRITE: / '    /rest/services', 24 |HTTP { lv_st } { lv_er }|.
       IF lv_st <> 200.
         CONTINUE.
@@ -428,9 +451,9 @@ START-OF-SELECTION.
 *         The service name already carries its folder in the directory
 *         answer ("Folder/Service"), so it is not prefixed again.
           DATA(lv_svc) = |{ lv_root }/rest/services/{ lv_sname }/{ lv_stype }|.
-          DATA(lv_sj)  = lcl=>get( EXPORTING iv_url   = lv_svc
-                                             iv_token = ls_mp-token
-                                   IMPORTING ev_status = lv_st ).
+          lv_sj = lcl=>get( EXPORTING iv_url   = lv_svc
+                                      iv_token = ls_mp-token
+                            IMPORTING ev_status = lv_st ).
           WRITE: / |    { lv_stype } { lv_sname }|, 70 |HTTP { lv_st }|.
           IF lv_st <> 200.
             CONTINUE.
@@ -448,9 +471,9 @@ START-OF-SELECTION.
             ENDIF.
             lv_probes = lv_probes + 1.
             DATA(lv_lurl) = |{ lv_svc }/{ lv_lid }|.
-            DATA(lv_lj) = lcl=>get( EXPORTING iv_url   = lv_lurl
-                                              iv_token = ls_mp-token
-                                    IMPORTING ev_status = lv_st ).
+            lv_lj = lcl=>get( EXPORTING iv_url   = lv_lurl
+                                        iv_token = ls_mp-token
+                              IMPORTING ev_status = lv_st ).
             IF lv_st <> 200.
               CONTINUE.
             ENDIF.
@@ -525,7 +548,7 @@ START-OF-SELECTION.
 *   FOLLOW_UP_ACTION( ). A <script> inside HTML( ) never executes, which
 *   is the defect that cost this map six rounds.
     WRITE: / '  container:'.
-    lcl=>wrap( zcl_rak_cj_gis=>container( 'rakGisDiag' ) ).
+    lcl=>wrap( zcl_rak_cj_gis=>container( iv_div = 'rakGisDiag' ) ).
     DATA(lv_block) = zcl_rak_cj_gis=>script(
       iv_portal = ls_mp-url
       iv_server = ls_mp-gisurl

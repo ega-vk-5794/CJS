@@ -981,7 +981,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     IF zcl_rak_cj_gis=>ready( ) = abap_true AND lv_pid IS NOT INITIAL.
 
       DATA(lv_dvd) = |rakGisDet{ to_upper( lv_pid ) }|.
-      lo_map->html( content = zcl_rak_cj_gis=>container( lv_dvd )
+      lo_map->html( content = zcl_rak_cj_gis=>container( iv_div = lv_dvd )
                     sanitizecontent = abap_false ).
 *     FOLLOW_UP_ACTION( ) runs AFTER the popup fragment is displayed -
 *     Z2UI5_CL_APP_VIEW1_JS awaits _displayPendingViews( ) and only then

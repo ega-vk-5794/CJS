@@ -112,9 +112,14 @@ CLASS zcl_rak_cj_gis DEFINITION
 *   the page and a stuck "loading" means the script did not.
 *
 *   IV_DIV     the id of the container. Must be unique on the page.
+*   PREFERRED PARAMETER, because CONTAINER( lv_div ) is how this reads at
+*   every call site. Without it the short form is a syntax error the
+*   moment a method has more than one importing parameter - a DEFAULT
+*   does not make the second one invisible.
     CLASS-METHODS container
       IMPORTING iv_div    TYPE string
                 iv_height TYPE string DEFAULT '26rem'
+      PREFERRED PARAMETER iv_div
       RETURNING VALUE(rv) TYPE string.
 
 *   THE CODE. Goes to Z2UI5_IF_CLIENT->FOLLOW_UP_ACTION( ), and only
@@ -156,8 +161,14 @@ CLASS zcl_rak_cj_gis DEFINITION
 *   from the ShapeIt app's envProxy - parcelsLayersUrl plus
 *   portalItemParcelsID / portalItemPropertiesID - or set the
 *   ZRAK_T_CJ_TXT rows instead.
-    CONSTANTS c_parcels    TYPE string VALUE ''.
-    CONSTANTS c_properties TYPE string VALUE ''.
+*   VALUE IS INITIAL, not VALUE ''. A constant of type STRING will not
+*   take an empty literal - "the field must be filled" - and the whole
+*   class then fails to activate, which is what made ZCL_RAK_CJ_PARCEL
+*   report "Method SCRIPT is unknown": a class with no active version has
+*   no methods at all, so the error surfaces at the caller and points
+*   nowhere near the cause.
+    CONSTANTS c_parcels    TYPE string VALUE IS INITIAL.
+    CONSTANTS c_properties TYPE string VALUE IS INITIAL.
 
 *   The public ArcGIS CDN. Overridable the same way, because a RAK system
 *   that serves the API from its own portal will not reach this one.
