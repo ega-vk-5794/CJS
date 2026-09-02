@@ -270,6 +270,14 @@ These raise nothing and render nothing. They account for most of the bugs found 
   instead of running the code. Double quotes throughout, `String.fromCharCode(39)` where a
   quote character is genuinely needed, and the whole thing an expression (an IIFE),
   because it is evaluated as `Function("return " + snippet)()`.
+- **`follow_up_action( )` may not fire on a round trip that only opens a POPUP.** It runs
+  from the **main** view's `onAfterRendering`, and opening a dialog need not re-render the
+  main view. Carry the snippet in an inline event attribute as well — the `onload` of a 1×1
+  data-URI image works anywhere — and make the payload idempotent so both channels can run.
+- **`{` and `}` in `html( )` content must be escaped `\{` `\}`.** The markup travels as an
+  XML view attribute, and UI5 reads braces there as a binding expression; unescaped, a
+  snippet of JavaScript object literals parses as malformed bindings and the control never
+  renders. `RENDER_UPLOADER( )` and `ZCL_RAK_CJ_GIS->CONTAINER( )` both do this.
 - **A literal `|` must be escaped `\|` inside an ABAP string template**, so JavaScript's
   `||` is written `\|\|`. Unescaped it closes the literal mid-expression and the class
   will not activate. Three of these were caught in one file by extracting the generated

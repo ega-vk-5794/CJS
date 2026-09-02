@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_gis DEFINITION
 *&---------------------------------------------------------------------*
 *& RakMap.Map, rebuilt as a CJS renderer.
 *&
-*& BUILD map-fix-5.  Missing this line means SAP has an older copy - see
+*& BUILD map-fix-6.  Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-3 contains: VALUE IS INITIAL on the two blank string constants
 *& (VALUE '' does not activate, and the class then has no active version,
@@ -151,12 +151,41 @@ CLASS zcl_rak_cj_gis DEFINITION
                 iv_gisurl TYPE string
       RETURNING VALUE(rv) TYPE string.
 
-*   THE MARKUP. Goes to Z2UI5_CL_XML_VIEW->HTML( ). It carries no script -
-*   see the header for why one there would never run - and it carries a
-*   visible "loading" line, so a grey box means the markup never reached
-*   the page and a stuck "loading" means the script did not.
+*   THE MARKUP, AND THE SECOND WAY OF RUNNING THE CODE.
+*
+*   FOLLOW_UP_ACTION( ) ALONE WAS NOT ENOUGH. It runs from the MAIN view's
+*   onAfterRendering, and a round trip that only opens a POPUP does not
+*   necessarily re-render the main view - so the details dialog drew its
+*   container and the snippet never fired: "Loading the map..." on screen
+*   for ever, which is exactly the second row of the table below.
+*
+*   So the snippet is ALSO carried by an inline event attribute, on a 1x1
+*   transparent image inside the container. An inline event attribute is
+*   the one JavaScript delivery that has always worked here -
+*   RENDER_UPLOADER( )'s onchange= FileReader - because it is the browser
+*   parsing markup rather than a framework choosing a moment. It fires
+*   when the image loads, which is when the markup is inserted, popup or
+*   not.
+*
+*   RUNNING TWICE IS FREE. The snippet's own dataset.rakGis flag makes a
+*   second arrival a no-op, so both channels stay and whichever wins,
+*   wins. Two independent deliveries and an idempotent payload beat one
+*   delivery and a lifecycle assumption.
+*
+*   THE ATTRIBUTE IS SINGLE-QUOTED, which is what makes one snippet serve
+*   both. It is guaranteed free of single quotes - JSQ( ) turns any into
+*   \u0027 for FOLLOW_UP_ACTION( )'s sake - and full of double ones, so
+*   onload='...' cannot be broken out of and needs no second encoding.
+*
+*   THE THREE STATES IT LEAVES ON SCREEN:
+*
+*     grey box, no text ....... the markup never reached the page
+*     "Loading the map..." .... the markup arrived, neither channel ran
+*     an error sentence ....... it ran, and the API or the layer failed
 *
 *   IV_DIV     the id of the container. Must be unique on the page.
+*   IV_SCRIPT  what SCRIPT( ) returned. Omitted, this is a plain box.
+*
 *   PREFERRED PARAMETER, because CONTAINER( lv_div ) is how this reads at
 *   every call site. Without it the short form is a syntax error the
 *   moment a method has more than one importing parameter - a DEFAULT
@@ -164,6 +193,7 @@ CLASS zcl_rak_cj_gis DEFINITION
     CLASS-METHODS container
       IMPORTING iv_div    TYPE string
                 iv_height TYPE string DEFAULT '26rem'
+                iv_script TYPE string OPTIONAL
       PREFERRED PARAMETER iv_div
       RETURNING VALUE(rv) TYPE string.
 
@@ -381,17 +411,32 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
 
   METHOD container.
 
-*   A VISIBLE LOADING LINE, not an empty div. The three failures this map
-*   can have look identical from a screenshot otherwise:
-*
-*     grey box, no text ....... the markup never reached the page
-*     "Loading the map..." .... the markup arrived, the script did not
-*     an error sentence ....... both ran and the API or the layer failed
-*
-*   That distinction is the whole reason this method exists separately.
     rv = |<div id="{ iv_div }" class="rakGisMap" | &&
          |style="width:100%;height:{ iv_height };">| &&
-         |<div class="rakGisErr">Loading the map...</div></div>|.
+         |<div class="rakGisErr">Loading the map...</div>|.
+
+*   THE 1x1 TRANSPARENT GIF whose onload runs the snippet. A data: URI, so
+*   it costs no request and cannot fail to arrive; display:none, and an
+*   image that is not displayed still fires onload.
+    IF iv_script IS NOT INITIAL.
+      rv = rv &&
+        |<img alt="" style="display:none" | &&
+        |src="data:image/gif;base64,| &&
+        |R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" | &&
+        |onload='{ iv_script }'>|.
+    ENDIF.
+
+    rv = rv && |</div>|.
+
+*   BRACES ESCAPED, OR UI5 READS THEM AS DATA BINDINGS. This markup
+*   travels as an XML view ATTRIBUTE - sap.ui.core.HTML's content - and
+*   UI5's XML parser treats { } in an attribute value as a binding
+*   expression. An unescaped snippet full of JavaScript object literals is
+*   therefore parsed as dozens of malformed bindings and the control never
+*   renders at all. RENDER_UPLOADER( ) has carried these same two lines
+*   for the same reason ever since its FileReader went into an onchange=.
+    REPLACE ALL OCCURRENCES OF `{` IN rv WITH `\{`.
+    REPLACE ALL OCCURRENCES OF `}` IN rv WITH `\}`.
 
   ENDMETHOD.
 

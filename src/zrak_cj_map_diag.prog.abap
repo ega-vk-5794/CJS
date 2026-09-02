@@ -1,7 +1,7 @@
 *&---------------------------------------------------------------------*
 *& Report ZRAK_CJ_MAP_DIAG
 *&
-*& BUILD map-fix-5.  IF THIS LINE IS NOT ON YOUR SCREEN, SAP HAS AN OLDER
+*& BUILD map-fix-6.  IF THIS LINE IS NOT ON YOUR SCREEN, SAP HAS AN OLDER
 *& COPY and the errors you are looking at were fixed in git. abapGit's
 *& pull dialog pre-ticks only 'Add local object' rows; every 'Overwrite
 *& local object' row arrives UNTICKED and the ticks reset each time the
@@ -612,7 +612,7 @@ START-OF-SELECTION.
 *   channels: the div through HTML( ) and the code through
 *   FOLLOW_UP_ACTION( ). A <script> inside HTML( ) never executes, which
 *   is the defect that cost this map six rounds.
-    WRITE: / '  container:'.
+    WRITE: / '  container (without the snippet, which is printed below):'.
     lcl=>wrap( zcl_rak_cj_gis=>container( iv_div = 'rakGisDiag' ) ).
     DATA(lv_block) = zcl_rak_cj_gis=>script(
       iv_token  = lv_tok_r

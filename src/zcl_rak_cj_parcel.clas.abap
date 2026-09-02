@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-5.  Missing this line means SAP has an older copy - see
+*& BUILD map-fix-6.  Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& This class will not compile until ZCL_RAK_CJ_GIS is ACTIVE: a class
 *& with no active version has no methods, so its callers report
@@ -736,8 +736,14 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   BOTH CHANNELS. The container's own onload= runs the snippet when the
+*   markup is inserted; FOLLOW_UP_ACTION( ) runs it again after the round
+*   trip. The snippet is idempotent, so whichever arrives first wins and
+*   the other is a no-op - see ZCL_RAK_CJ_GIS=>CONTAINER( ) for why one
+*   of them is not enough on its own.
     io_box->html( content = zcl_rak_cj_gis=>container( iv_div    = lv_div
-                                                       iv_height = '30rem' )
+                                                       iv_height = '30rem'
+                                                       iv_script = lv_js )
                   sanitizecontent = abap_false ).
     mo_e->mo_client->follow_up_action( lv_js ).
 
@@ -998,13 +1004,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     IF zcl_rak_cj_gis=>ready( ) = abap_true AND lv_pid IS NOT INITIAL.
 
       DATA(lv_dvd) = |rakGisDet{ to_upper( lv_pid ) }|.
-      lo_map->html( content = zcl_rak_cj_gis=>container( iv_div = lv_dvd )
-                    sanitizecontent = abap_false ).
-*     FOLLOW_UP_ACTION( ) runs AFTER the popup fragment is displayed -
-*     Z2UI5_CL_APP_VIEW1_JS awaits _displayPendingViews( ) and only then
-*     calls _runPendingCustomJs( ) in its finally block - so the div this
-*     script looks for is in the DOM by the time it looks.
-      mo_e->mo_client->follow_up_action( zcl_rak_cj_gis=>script(
+      DATA(lv_djs) = zcl_rak_cj_gis=>script(
         iv_token  = zcl_rak_cj_gis=>token_of( iv_url    = ls_map-url
                                               iv_gisurl = ls_map-gisurl
                                               iv_token  = ls_map-token )
@@ -1016,7 +1016,18 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       NO CLICK EVENT. This map shows one parcel that is already chosen;
 *       there is nothing here for a press to select.
         iv_event  = ``
-        iv_ctrl   = 'oControllerPopup' ) ).
+        iv_ctrl   = 'oControllerPopup' ).
+
+*     THE ONLOAD CHANNEL MATTERS MOST HERE. This is a POPUP, and
+*     FOLLOW_UP_ACTION( ) runs from the MAIN view's onAfterRendering - a
+*     round trip that only opens a dialog need not re-render the main
+*     view, and when it does not, the snippet never fires. That is what
+*     left "Loading the map..." on screen. The container's own onload
+*     does not depend on any of it.
+      lo_map->html( content = zcl_rak_cj_gis=>container( iv_div    = lv_dvd
+                                                        iv_script = lv_djs )
+                    sanitizecontent = abap_false ).
+      mo_e->mo_client->follow_up_action( lv_djs ).
 
     ELSEIF lv_base IS NOT INITIAL AND lv_tok IS NOT INITIAL AND lv_pid IS NOT INITIAL.
 *     The frame's own origin, which postMessage needs as its target. Sent
@@ -1053,6 +1064,11 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     specification. The frame rendered, the viewer sat on its splash
 *     screen waiting for a message nobody sent, and that read exactly
 *     like a wrong URL - which is where six rounds went.
+*     THE FRAME'S OWN ONLOAD, for the same reason as the ArcGIS container
+*     above: this is a popup, and FOLLOW_UP_ACTION( ) may not fire on the
+*     round trip that opens one. An iframe fires onload when the viewer
+*     page has loaded, which is exactly when it is ready to be posted to -
+*     better timing than the retry interval, not just a second channel.
       lo_map->html(
         content = |<iframe id="rakPclMap" src="{ lv_base }" title="parcel map" | &&
                   |style="width:100%;height:26rem;border:0"></iframe>| &&

@@ -183,12 +183,35 @@ This repository already knew: `ZCL_RAK_JOURNEY_RENDER->RENDER_UPLOADER( )` puts 
 FileReader in an `onchange=` **attribute** — an inline event attribute does run — and
 the engine carries a message that says "inline scripts are blocked".
 
-**The channel that works** is `Z2UI5_IF_CLIENT->FOLLOW_UP_ACTION( )`. The frontend stashes
-the snippet as `pendingCustomJs` and runs it in the `finally` block of
-`_processAfterRendering`, which is *after* the view and *after* any popup fragment have
-rendered. Hence two calls: `ZCL_RAK_CJ_GIS=>CONTAINER( )` for `html( )`, and
-`=>SCRIPT( )` for `follow_up_action( )`. Rendering one without the other gives a grey box
-or a script with nothing to draw into.
+**Two channels, because one was not enough.**
+
+`Z2UI5_IF_CLIENT->FOLLOW_UP_ACTION( )` stashes the snippet as `pendingCustomJs` and runs it
+in the `finally` block of `_processAfterRendering`. That looked sufficient — until the
+details dialog rendered its container and the snippet never fired. `_processAfterRendering`
+hangs off the **main view's** `onAfterRendering`, and a round trip that only opens a popup
+need not re-render the main view. "Loading the map…" on screen, for ever.
+
+So the snippet is *also* carried in an **inline event attribute** — the `onload` of a 1×1
+transparent data-URI image inside the container. An inline event attribute is the one
+JavaScript delivery that has always worked here (`RENDER_UPLOADER( )`'s `onchange=`
+FileReader), because it is the browser parsing markup rather than a framework choosing a
+moment.
+
+Both stay. The snippet guards on `dataset.rakGis`, so whichever arrives first wins and the
+other is a no-op. **Two independent deliveries and an idempotent payload beat one delivery
+and a lifecycle assumption.** The attribute is single-quoted, and the snippet is already
+guaranteed free of single quotes for `follow_up_action`'s sake — so one text serves both
+channels with no second encoding.
+
+The iframe fallback got the same treatment: its `postMessage` now also hangs off the
+frame's own `onload`, which is better timing than the retry interval as well as a second
+channel.
+
+**And the braces have to be escaped.** The markup travels as an XML view *attribute*
+(`sap.ui.core.HTML`'s `content`), and UI5's XML parser reads `{ }` in an attribute value as
+a binding expression — so an unescaped snippet full of JavaScript object literals parses as
+dozens of malformed bindings and the control never renders at all. `\{` and `\}`, exactly
+as `RENDER_UPLOADER( )` has done since its FileReader went into an `onchange=`.
 
 **And not one single quote may appear in the snippet.** `Server._runCustomJs` splits the
 text on `'` and, if it finds any, calls `oController.eF(...args)` with the pieces —
