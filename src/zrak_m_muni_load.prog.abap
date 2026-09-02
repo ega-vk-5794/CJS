@@ -140,6 +140,12 @@ PARAMETERS p_bknd TYPE abap_bool AS CHECKBOX DEFAULT 'X'.
 * in /QNV/SB_UI_DEFIN. A journey whose BAdI is not registered answers nothing
 * and migrates exactly as it did before.
 PARAMETERS p_badi TYPE abap_bool AS CHECKBOX DEFAULT 'X'.
+* Probe EVERY screen rather than the first. The stage list is the same on all
+* of them, so this buys only the per-screen MANDATORY flags - at one backend
+* READ per screen. Fifteen journeys of four screens is sixty reads, which is
+* the difference between a migration that finishes while you watch and one
+* that looks hung. Off by default, deliberately.
+PARAMETERS p_badial TYPE abap_bool AS CHECKBOX DEFAULT ' '.
 SELECTION-SCREEN END OF BLOCK b2.
 
 INITIALIZATION.
@@ -333,6 +339,7 @@ START-OF-SELECTION.
         iv_tile_pfx      = CONV string( p_tpfx )
         iv_bknd_active   = p_bknd
         iv_badi          = p_badi
+        iv_badi_all      = p_badial
 *       Named HERE, not by the UPDATE further down, because the migrator
 *       now decides whether to keep the PAYFEE field on the strength of
 *       it - and a handler set after the fact arrives too late for that.

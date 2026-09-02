@@ -234,6 +234,7 @@ CLASS zcl_rak_migrator DEFINITION
                 iv_bknd_active TYPE abap_bool DEFAULT abap_true
                 iv_handler  TYPE string DEFAULT ''
                 iv_badi     TYPE abap_bool DEFAULT abap_true
+                iv_badi_all TYPE abap_bool DEFAULT abap_false
       EXPORTING et_report TYPE tt_report
                 ev_log    TYPE string.
 
@@ -264,6 +265,12 @@ CLASS zcl_rak_migrator DEFINITION
 *               default; a journey whose BAdI is not registered simply
 *               gets nothing back and migrates as before.
                 iv_badi          TYPE abap_bool DEFAULT abap_true
+*               Probe EVERY screen rather than the first. The stage list
+*               is identical across a journey's screens, so this buys only
+*               the per-screen MANDATORY flags - at one backend READ per
+*               screen. Off by default: a fifteen-journey batch is sixty
+*               reads with it on.
+                iv_badi_all      TYPE abap_bool DEFAULT abap_false
                 iv_steps         TYPE string DEFAULT ''   " optional step titles, positional
 *               One legacy SCREEN_NAME (e.g. 'E023') can carry more than one
 *               sub-flow under the SAME journey_of_screen( ) code - NE014_1_*
@@ -1804,6 +1811,16 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 *   ---- ask the BAdI what this screen really looks like ---------------
 *   After the confirmation drop, so a screen that is not going to be a
 *   step is not asked about either.
+*   ONE CALL PER JOURNEY BY DEFAULT, not one per screen. Each probe is a
+*   real backend READ through the legacy BAdI, and fifteen journeys of
+*   four screens is sixty of them in a single batch - which is what turned
+*   a migration that used to finish while you watched into one that looks
+*   hung.
+*
+*   The stage list is the same on every screen of a journey, so the first
+*   screen answers it and the rest add nothing. What the rest WOULD add is
+*   per-screen MANDATORY, and that is what IV_BADI_ALL buys - useful, and
+*   priced honestly rather than charged to everyone by default.
     CLEAR: mt_badi, mt_stage, mv_badi_ok.
     IF iv_badi = abap_true.
       LOOP AT lt_screens INTO DATA(lv_ps).
@@ -1811,6 +1828,9 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
                     iv_journey  = iv_journey
                     iv_screen   = CONV #( lv_ps )
                     it_rows     = lt ).
+        IF iv_badi_all = abap_false.
+          EXIT.
+        ENDIF.
       ENDLOOP.
     ENDIF.
 
@@ -2392,6 +2412,8 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
              |; BAdI { COND string( WHEN iv_badi = abap_false THEN 'not asked'
                                     WHEN mv_badi_ok = abap_true THEN 'answered'
                                     ELSE 'SILENT' ) }| &&
+             |{ COND string( WHEN iv_badi = abap_true AND iv_badi_all = abap_false
+                             THEN ' (first screen only)' ) }| &&
              |; OData bindings { lv_bind_cnt }| &&
              |; captions { lines( mt_val ) + lines( mt_lbl ) } cached| &&
              |; portal group { lv_main4 }| &&
@@ -2460,6 +2482,7 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
           iv_bknd_active = iv_bknd_active
           iv_handler     = iv_handler
           iv_badi        = iv_badi
+          iv_badi_all    = iv_badi_all
           iv_steps       = job-steps
         IMPORTING
           ev_ok       = DATA(lv_ok)

@@ -88,6 +88,12 @@
      <ENTRY>Read step names and flags from the BAdI</ENTRY>
      <LENGTH>39</LENGTH>
     </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_BADIAL</KEY>
+     <ENTRY>...every screen, not just the first</ENTRY>
+     <LENGTH>34</LENGTH>
+    </item>
    </TPOOL>
   </asx:values>
  </asx:abap>
