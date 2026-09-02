@@ -245,10 +245,16 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       mo_e->mv_pcl_page = 1.
     ENDIF.
 
-    DATA(lo_box) = io_view->vbox( class = 'sapUiTinyMarginBottom' ).
+    DATA(lo_box) = io_view->vbox( class = 'rakPcl sapUiTinyMarginBottom' ).
 
-    lo_box->label( text     = is_field-label
-                   required = xsdbool( is_field-validation-required = abap_true ) ).
+*   A HEADING AND A SUBLINE, not a field label. The live screen opens the
+*   step with "Parcel Selection" and "Please select a property from the
+*   list" - this is a section of the page, and a form label above it reads
+*   as though the whole list were one input.
+    lo_box->title( text = is_field-label level = 'H4' ).
+    IF is_field-placeholder IS NOT INITIAL.
+      lo_box->text( text = is_field-placeholder class = 'rakPclMeta' ).
+    ENDIF.
 
 *   What is chosen now, if anything. The citizen has to see the current
 *   value without scrolling a list to find which card is highlighted.
@@ -283,7 +289,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     ENDIF.
 
     lo_box->text( text  = |{ lv_n } { t( iv_en = `properties found` iv_ar = `عقار` ) }|
-                  class = 'sapUiTinyMarginBottom' ).
+                  class = 'rakPclMeta sapUiTinyMarginBottom' ).
 
     IF lv_n = 0.
       lo_box->illustrated_message(
@@ -337,16 +343,20 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     lo_box->text(
       text  = t( iv_en = `Can't find a parcel? Your properties are listed on your home page.`
                  iv_ar = `لا تجد القطعة؟ عقاراتك مدرجة في صفحتك الرئيسية.` )
-      class = 'sapUiTinyMarginTop' ).
+      class = 'rakPclHint sapUiTinyMarginTop' ).
 
     rv_drawn = abap_true.
   ENDMETHOD.
 
 
   METHOD toolbar.
+*   THE SEARCH SITS AT THE FAR RIGHT. On the live toolbar the tabs and the
+*   favourites pill group on the left and the search box is pushed away
+*   from them - .rakPclBar gives it the auto margin that does that, so the
+*   row still collapses sensibly when it wraps.
     DATA(lo_bar) = io_box->hbox( alignitems = 'Center'
                                  wrap       = 'Wrap'
-                                 class      = 'sapUiTinyMarginBottom' ).
+                                 class      = 'rakPclBar sapUiTinyMarginBottom' ).
 
 *   ->ITEMS( ) IS NOT OPTIONAL. sap.m.SegmentedButton has TWO aggregations:
 *   the default one is `buttons` and takes sap.m.Button, while
@@ -450,18 +460,19 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       lv_badge = cell( is_row = is_row iv_comp = 'PARCELSTATUS' ).
     ENDIF.
 
-    DATA(lo_p) = io_box->panel(
-      class          = 'sapUiTinyMarginBottom'
-      backgrounddesign = 'Solid' ).
-    DATA(lo_h) = lo_p->hbox( alignitems = 'Center' class = 'sapUiSmallMarginBeginEnd' ).
+*   LAID OUT LIKE THE LIVE CARD, not like a form row. Screenshots of
+*   RAKPARCELSELECTOR on M016: number top left, acquisition badge top
+*   right in a pale pill, one grey pipe-separated meta line beneath, and
+*   the actions bottom right. The red left edge is the card's own; it is
+*   what makes a list of these read as a list of properties rather than a
+*   stack of panels. Layout and colour live in ZCL_RAK_JOURNEY_CSS
+*   (.rakPcl*) so the markup stays readable with none of it applied.
+    DATA(lo_p) = io_box->vbox( class = |{ mo_e->mo_css->cls( 'CARD' ) } rakPclCard| ).
 
-    DATA(lo_l) = lo_h->vbox( ).
-    DATA(lo_top) = lo_l->hbox( alignitems = 'Center' ).
-    lo_top->title( text = lv_show level = 'H5' ).
+    DATA(lo_top) = lo_p->hbox( class = 'rakPclTop' ).
+    lo_top->title( text = lv_show level = 'H5' class = 'rakPclNo' ).
     IF lv_badge IS NOT INITIAL.
-      lo_top->object_status( text  = lv_badge
-                             state = 'Information'
-                             class = 'sapUiTinyMarginBegin' ).
+      lo_top->object_status( text = lv_badge class = 'rakPclBadge' ).
     ENDIF.
 
 *   ONE meta line, pipe separated, the way the live card draws it: area,
@@ -471,47 +482,30 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     IF lv_sec IS NOT INITIAL. APPEND lv_sec TO lt_meta. ENDIF.
     IF lv_use IS NOT INITIAL. APPEND lv_use TO lt_meta. ENDIF.
     IF lv_typ IS NOT INITIAL. APPEND lv_typ TO lt_meta. ENDIF.
-    DATA(lv_meta) = concat_lines_of( table = lt_meta sep = ` | ` ).
-    lo_l->text( text = lv_meta ).
+    lo_p->text( text  = concat_lines_of( table = lt_meta sep = ` | ` )
+                class = 'rakPclMeta' ).
 
-    DATA(lo_r) = lo_h->hbox( alignitems = 'Center' justifycontent = 'End' class = 'sapUiTinyMarginBegin' ).
-    lo_r->button(
+    DATA(lo_act) = lo_p->hbox( class = 'rakPclAct' ).
+
+*   Full Details FIRST and quiet, Select last and emphasised - the live
+*   card puts the commitment at the end of the row, and a link beside a
+*   filled button reads as the secondary action without needing to say so.
+*   A row without an INTRENO gets no link rather than a link that opens an
+*   empty dialog: the $expand read is addressed by that key.
+    IF lv_int IS NOT INITIAL.
+      lo_act->link( text  = t( iv_en = `Full Details` iv_ar = `التفاصيل الكاملة` )
+                    icon  = 'sap-icon://detail-view'
+                    press = mo_e->mo_client->_event(
+                              |{ c_pfx }DET_{ lv_int }~{ lv_show }| ) ).
+    ENDIF.
+
+    lo_act->button(
       text  = COND #( WHEN lv_sel = abap_true THEN t( iv_en = `Selected` iv_ar = `محددة` )
                                               ELSE t( iv_en = `Select`   iv_ar = `اختيار` ) )
       icon  = COND #( WHEN lv_sel = abap_true THEN 'sap-icon://accept' ELSE '' )
       type  = COND #( WHEN lv_sel = abap_true THEN 'Success' ELSE 'Emphasized' )
-*     THE FIELD TRAVELS WITH THE EVENT. A step can carry more than one of
-*     these - M012 draws PARCELSELECTOR and ADDPRCLCTL side by side - and
-*     MV_PCL_FIELD holds only the one that rendered LAST, so a press on the
-*     first list would have written the second list's field. The name is in
-*     the event instead, and MV_PCL_FIELD is only the fallback.
       press = mo_e->mo_client->_event(
                 |{ c_pfx }PICK_{ mo_e->mv_pcl_field }~{ lv_key }| ) ).
-
-*   Full Details needs the INTRENO, which is the entity key the $expand
-*   read is addressed with. A row without one gets no link rather than a
-*   link that opens an empty dialog.
-    IF lv_int IS NOT INITIAL.
-*     BOTH IDS TRAVEL. The tabs are addressed by INTRENO - it is the
-*     entity key the $expand read wants - but MapUrlSet filters on a
-*     property called Parcel, and a parcel has two identifiers. Carrying
-*     both means the map read can be pointed at either without a second
-*     round trip to find out which.
-*     LV_SHOW, NOT LV_KEY. The live portal keys this read on the parcel
-*     number as the citizen reads it -
-*
-*       MapUrlSet(Partnerguid=guid'...',Parcel='310060052')
-*
-*     - not on the zero-padded form PropertiesSet returns. The padded one
-*     was going out and the viewer answered with its splash screen: a
-*     token was minted either way, so nothing failed, it just encoded no
-*     parcel. LV_KEY still travels everywhere the citizen's SELECTION is
-*     stored, which must stay byte-identical to what ShapeIt writes.
-      lo_r->link( text  = t( iv_en = `Full Details` iv_ar = `التفاصيل الكاملة` )
-                  class = 'sapUiTinyMarginBegin'
-                  press = mo_e->mo_client->_event(
-                            |{ c_pfx }DET_{ lv_int }~{ lv_show }| ) ).
-    ENDIF.
   ENDMETHOD.
 
 

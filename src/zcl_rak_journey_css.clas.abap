@@ -600,6 +600,28 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakStat\{padding:.18rem .6rem;border-radius:999px;background:rgba(0,0,0,.04);\}| &&
         |.rakCard tr.sapMListTblRow:hover\{background:rgba(0,0,0,.025)!important;\}| &&
         |.rakCard th.sapMListTblHeaderCell\{letter-spacing:.02em;\}| &&
+*     ---- the parcel card, drawn to the live control -------------------
+*     Screenshots of RAKPARCELSELECTOR on M016: a full-width white card
+*     with a RED LEFT EDGE, the parcel number at the top left, an
+*     acquisition badge in a pale blue pill at the top right, one grey
+*     pipe-separated meta line under it, and Full Details bottom right.
+*     Everything here is layout and colour only - the markup is
+*     ZCL_RAK_CJ_PARCEL's and stays readable without any of it.
+        |.rakPcl\{width:100%;gap:.6rem;\}| &&
+        |.rakPclBar\{width:100%;gap:.5rem;flex-wrap:wrap;\}| &&
+        |.rakPclBar .sapMSF\{margin-inline-start:auto;\}| &&
+        |.rakPclCard\{width:100%;background:#fff;border:1px solid { g-line_clr };| &&
+        |border-inline-start:4px solid { g-brand };border-radius:10px;| &&
+        |padding:.85rem 1.1rem;\}| &&
+        |.rakPclTop\{width:100%;align-items:center;gap:.6rem;\}| &&
+        |.rakPclNo .sapMTitle\{font-size:1.05rem;letter-spacing:.01em;\}| &&
+        |.rakPclBadge .sapMObjStatusText\{font-weight:600;font-size:.75rem;\}| &&
+        |.rakPclBadge\{margin-inline-start:auto;padding:.12rem .55rem;| &&
+        |border-radius:999px;background:rgba(0,122,194,.10);\}| &&
+        |.rakPclMeta\{color:#6a7484;font-size:.85rem;\}| &&
+        |.rakPclAct\{width:100%;justify-content:flex-end;align-items:center;| &&
+        |gap:.75rem;margin-top:.35rem;\}| &&
+        |.rakPclHint\{color:#6a7484;font-size:.82rem;\}| &&
         |.rakRow\{flex-wrap:wrap!important;width:100%;gap:.75rem;\}| &&
         |.rakRow>*\{flex:0 1 auto;min-width:0;max-width:100%;\}| &&
         |.rakCell\{min-width:0;gap:.25rem;\}| &&
