@@ -630,41 +630,23 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         ls_map = api( )->map_url( iv_parcel = mo_e->mv_pcl_det ).
       CATCH cx_root ##NO_HANDLER.
     ENDTRY.
-*   COMPOSE, DO NOT CHOOSE. MapUrlSet answers three properties and neither
-*   of the two addresses is usable on its own:
+*   THREE SHAPES TRIED, THREE WRONG ANSWERS. This is now instrumented
+*   rather than inferred - see the line under the frame.
 *
-*     GISURL  absolute, the viewer's own address - framed alone it opens
-*             the GIS application at its default extent, which is the
-*             splash logo and no parcel
-*     URL     the parcel's path WITHIN that viewer, and RELATIVE - framed
-*             alone the browser resolves it against this SAP host and gets
-*             SAP's own 404 page inside the dialog
+*     GISURL alone  -> the GIS viewer's splash logo, no parcel
+*     URL alone     -> SAP's own "404 Not found", so URL is RELATIVE and
+*                      resolved against this host
+*     GISURL + URL  -> the GIS server's own IIS "404 - File or directory
+*                      not found", so URL is not a path suffix of GISURL
+*                      either
 *
-*   Both were tried in that order and each produced its own wrong answer.
-*   So: whichever is absolute is the base, and a relative sibling is hung
-*   off it. Tested by scheme rather than by which property it came from,
-*   because a deployment that fills URL absolutely then still works.
-    DATA(lv_src) = ``.
-    DATA(lv_abs) = COND string( WHEN ls_map-url CP 'http*' THEN ls_map-url
-                                WHEN ls_map-gisurl CP 'http*' THEN ls_map-gisurl ).
-    DATA(lv_rel) = COND string( WHEN ls_map-url CP 'http*' THEN ``
-                                WHEN ls_map-url IS NOT INITIAL THEN ls_map-url ).
-
-    IF lv_abs IS NOT INITIAL AND lv_rel IS NOT INITIAL.
-*     Exactly one slash at the join, whichever side brought it.
-      DATA(lv_base) = lv_abs.
-      WHILE strlen( lv_base ) > 0 AND substring( val = lv_base
-                                                 off = strlen( lv_base ) - 1 ) = '/'.
-        lv_base = substring( val = lv_base len = strlen( lv_base ) - 1 ).
-      ENDWHILE.
-      DATA(lv_tail) = lv_rel.
-      WHILE strlen( lv_tail ) > 0 AND substring( val = lv_tail len = 1 ) = '/'.
-        lv_tail = substring( val = lv_tail off = 1 ).
-      ENDWHILE.
-      lv_src = |{ lv_base }/{ lv_tail }|.
-    ELSE.
-      lv_src = lv_abs.
-    ENDIF.
+*   What URL actually is - a query string, a different path root, a token
+*   parameter - cannot be settled by looking at the screen, and each guess
+*   costs a pull and a round trip. So the frame now takes the ABSOLUTE
+*   address only, which at least loads the viewer, and the raw values are
+*   printed under it. One look at that line ends this.
+    DATA(lv_src) = COND string( WHEN ls_map-gisurl CP 'http*' THEN ls_map-gisurl
+                                WHEN ls_map-url CP 'http*'    THEN ls_map-url ).
 
 *   The token rides the URL when the viewer expects one and the URL does
 *   not already carry it. Appended with the right separator rather than
@@ -718,6 +700,16 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                     target = '_blank'
                     icon   = 'sap-icon://map'
                     class  = 'sapUiTinyMarginTop' ).
+
+*     WHAT THE SERVICE ACTUALLY ANSWERED, on the screen, unconditionally.
+*     Three guesses at how URL and GISURL combine have each cost a pull
+*     and a round trip; this costs one line and settles it. Remove it once
+*     the map opens on the parcel.
+      lo_map->text(
+        text  = |MapUrlSet · url={ ls_map-url } · gis={ ls_map-gisurl } | &&
+                |· token={ COND string( WHEN ls_map-token IS NOT INITIAL
+                                        THEN 'yes' ELSE 'no' ) }|
+        class = 'sapUiTinyMarginTop' ).
     ELSE.
 *     NAMED, not blank. MapUrlSet answered something - it just could not
 *     be composed into an address, and the three values say which of them
