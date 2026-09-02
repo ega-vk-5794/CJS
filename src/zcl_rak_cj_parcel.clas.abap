@@ -339,7 +339,14 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                                  wrap       = 'Wrap'
                                  class      = 'sapUiTinyMarginBottom' ).
 
-    DATA(lo_seg) = lo_bar->segmented_button( selected_key = mode( ) ).
+*   ->ITEMS( ) IS NOT OPTIONAL. sap.m.SegmentedButton has TWO aggregations:
+*   the default one is `buttons` and takes sap.m.Button, while
+*   SegmentedButtonItem belongs to `items`. Left off, UI5 refuses the whole
+*   view - "Element sap.m.SegmentedButtonItem is not valid for aggregation
+*   buttons" - and the citizen gets the red Application Error page rather
+*   than a mis-drawn control. RENDER_ONE( )'s own SEGMENTED branch calls
+*   ->items( ) for exactly this reason.
+    DATA(lo_seg) = lo_bar->segmented_button( selected_key = mode( ) )->items( ).
     lo_seg->segmented_button_item( key   = c_owned
                                    text  = t( iv_en = `Owned` iv_ar = `مملوكة` )
                                    press = mo_e->mo_client->_event( |{ c_pfx }MODE_{ c_owned }| ) ).
