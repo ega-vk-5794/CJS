@@ -149,7 +149,7 @@ START-OF-SELECTION.
     WRITE: / 'An ACTIVE row already exists for this user. Use its key:'.
     WRITE: / lv_have.
     SKIP.
-    PERFORM show_usage USING lv_have.
+    PERFORM show_usage.
     IF p_deact = abap_true.
       UPDATE zega_t_cj_us_log SET active = @space
         WHERE user_key = @lv_have.
@@ -243,7 +243,7 @@ START-OF-SELECTION.
   IF lv_back_bp = p_bp.
     WRITE: / 'Round trip OK.'.
     SKIP.
-    PERFORM show_usage USING lv_key.
+    PERFORM show_usage.
   ELSE.
     WRITE: / 'ROUND TRIP FAILED. The row was written but GET_BP( ) does not'.
     WRITE: / 'resolve it. Deactivating so it cannot be used.'.
@@ -252,7 +252,11 @@ START-OF-SELECTION.
   ENDIF.
 
 *&---------------------------------------------------------------------*
-FORM show_usage USING iv_key TYPE xstring.
+* No parameter. It took one, typed XSTRING, and never read it - and
+* ZEGA_T_CJ_US_LOG-USER_KEY is not plain XSTRING, so the inline DATA( ) from
+* SELECT was a different type and PERFORM rejected it. A FORM types its
+* parameters strictly; an unused one is pure risk.
+FORM show_usage.
   WRITE: / 'Use it in either place:'.
   WRITE: /  '  ZRAK_CJ_REQCTX_DIAG, in the session key field'.
   WRITE: /  '  a launch URL, as &userdata=<key>'.
