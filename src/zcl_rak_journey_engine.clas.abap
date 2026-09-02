@@ -543,15 +543,29 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                                                        IMPORTING ev_msg  = lv_att_msg ).
         IF lv_att_guid IS NOT INITIAL.
           DATA lv_att_tech TYPE string.
-          CLEAR lv_att_tech.
+          DATA lv_att_dtyp TYPE string.
+          DATA lv_att_hit  TYPE abap_bool.
+          CLEAR: lv_att_tech, lv_att_dtyp, lv_att_hit.
           LOOP AT ms_config-steps INTO DATA(ls_att_s).
             LOOP AT ls_att_s-fields INTO DATA(ls_att_f) WHERE name IS NOT INITIAL.
               IF to_upper( ls_att_f-name ) = lv_att_field.
                 lv_att_tech = ls_att_f-tech_name.
+*               THE DOCUMENT TYPE, from DEFAULT_VAL behind a DTYPE: prefix.
+*               See TY_ATT-DTYPE for why it is there and not in a column of
+*               its own. Read here rather than at post time because this is
+*               where the field is already in hand.
+                IF ls_att_f-default CP 'DTYPE:*'.
+                  lv_att_dtyp = condense( substring( val = ls_att_f-default off = 6 ) ).
+                ENDIF.
+*               NOT "tech_name is filled". A field can legitimately have no
+*               TECH_NAME and still declare a document type, and stopping on
+*               the first non-blank TECH_NAME meant the loop below exited
+*               before reaching a field that had one.
+                lv_att_hit = abap_true.
                 EXIT.
               ENDIF.
             ENDLOOP.
-            IF lv_att_tech IS NOT INITIAL.
+            IF lv_att_hit = abap_true.
               EXIT.
             ENDIF.
           ENDLOOP.
@@ -559,6 +573,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                           tech  = lv_att_tech
                           name  = mv_att_name
                           guid  = lv_att_guid
+                          dtype = lv_att_dtyp
                           okey  = lv_att_key ) TO mt_attach.
           set_field_state( iv_name = lv_att_field iv_state = 'None' iv_text = '' ).
           mt_msg = VALUE #( ( type = 'Success' text = |{ mv_att_name } attached| ) ).
@@ -806,6 +821,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         IF ls_field-default IS NOT INITIAL
            AND ls_field-default NP 'TEXT:*'
            AND ls_field-default NP 'API:*'
+*          DTYPE: is the uploader's DOCUMENT TYPE, not its value - third
+*          directive to need this guard, same reason as the two above.
+           AND ls_field-default NP 'DTYPE:*'
            AND ls_field-type <> 'LINK'
            AND ls_field-type <> 'EDITABLE_TABLE'
            AND ls_field-type <> 'RO_PANEL'

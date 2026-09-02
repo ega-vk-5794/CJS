@@ -199,11 +199,34 @@ START-OF-SELECTION.
 *       ONE field come back as one - the newest - on re-read.
 *
 *   identifier1 does carry the CJS field name, so the documents are not
-*   indistinguishable, and a BAdI could map field name to type. But nothing
-*   does that today. ATTACH_MULTI is therefore left OFF on every uploader
-*   here: one file per field is the shape that survives a round trip.
+*   indistinguishable, and a BAdI could map field name to type. The type
+*   is now sent as well - ZCL_RAK_JOURNEY_BE writes DIFFCRT from the
+*   field's own DTYPE: below - so the case can tell a title deed from an
+*   Emirates ID without any BAdI change.
+*
+*   ATTACH_MULTI IS STILL OFF, and the type does not change that: two
+*   files on the SAME field share a field and therefore share a type, so
+*   they de-duplicate to one on re-read exactly as before. Multi-file
+*   needs the OCCURRENCE key in identifier1, which is a different
+*   mechanism. One file per field remains the shape that survives.
+*   DTYPE: IS THE LEGACY DOCUMENT TYPE, read from the export rather than
+*   assigned. /QNV/SB_UI_DEFIN carries DATA2 on each uploader and the BAdI
+*   files it as ZDT_EGA_CJ_ATTR-DIFFCRT; without it every file arrives
+*   typed blank and the case cannot tell one document from another.
+*
+*   The mapping is evidence, not order-of-appearance: NCBR_1_2 carries
+*   UPLOADER1 = 1, UPLOADER2 = 2, UPLOADER3 = 3, and its MANDATORY pattern
+*   corroborates which field is which - 1 and 2 mandatory, 3 optional,
+*   exactly as these rows are. DOC_SUPPORT has no legacy counterpart on
+*   that screen and therefore gets no type, which is the honest answer
+*   rather than a fourth number nobody published.
+*
+*   It rides DEFAULT_VAL behind a prefix, the same convention as TEXT: and
+*   API:. An uploader has no use for a default value, and the engine's
+*   seeding guard skips all three prefixes.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 30
-      field_name = 'DOC_TITLEDEED' ftype = 'UPLOAD' required = 'X'
+      field_name = 'DOC_TITLEDEED' ftype = 'UPLOAD'
+      default_val = 'DTYPE:1' required = 'X'
       zsection = 'Attachments'
       zlabel = 'Title deed' zlabel_ar = 'سند الملكية'
       msg = 'The title deed is required'
@@ -211,7 +234,8 @@ START-OF-SELECTION.
       has_attach = 'X' attach_label = 'Add title deed'
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 40
-      field_name = 'DOC_ID' ftype = 'UPLOAD' required = 'X'
+      field_name = 'DOC_ID' ftype = 'UPLOAD'
+      default_val = 'DTYPE:2' required = 'X'
       zsection = 'Attachments'
       zlabel = 'Emirates ID of the owner' zlabel_ar = 'الهوية الإماراتية للمالك'
       msg = 'The owner''s Emirates ID is required'
@@ -220,6 +244,7 @@ START-OF-SELECTION.
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 50
       field_name = 'DOC_SITEPLAN' ftype = 'UPLOAD'
+      default_val = 'DTYPE:3'
       zsection = 'Attachments'
       zlabel = 'Site plan' zlabel_ar = 'مخطط الموقع'
       has_attach = 'X' attach_label = 'Add site plan'

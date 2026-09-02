@@ -244,17 +244,32 @@ START-OF-SELECTION.
       msg_ar = 'يرجى ذكر تفاصيل التقسيم المطلوب'
       min_len = 10 max_len = 1000
       tech_name = 'PLOTLONGTEXT' )
+*   DTYPE: IS THE LEGACY DOCUMENT TYPE, read from the export rather than
+*   assigned. /QNV/SB_UI_DEFIN carries DATA2 on each uploader and the BAdI
+*   files it as ZDT_EGA_CJ_ATTR-DIFFCRT; without it every file arrives
+*   typed blank and the case cannot tell one document from another.
+*
+*   The mapping is evidence, not order-of-appearance: UPLOADER1 = 1,
+*   UPLOADER2 = 2, UPLOADER3 = 3 on both NSUBDIVISION_1_2 and NCBR_1_2,
+*   and the MANDATORY pattern in the export corroborates which field is
+*   which - 1 and 2 mandatory, 3 optional, exactly as these rows are.
+*
+*   It rides DEFAULT_VAL behind a prefix, the same convention as TEXT: and
+*   API:. An uploader has no use for a default value, and the engine's
+*   seeding guard skips all three prefixes.
 *   UPLOADER3 on the legacy screen: the sketch. MANDATORY blank there, so
 *   optional here.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
       field_name = 'DOC_SKETCH' ftype = 'UPLOAD'
+      default_val = 'DTYPE:3'
       zsection = 'Attachments'
       zlabel = 'Proposed division sketch' zlabel_ar = 'مخطط التقسيم المقترح'
       has_attach = 'X' attach_label = 'Add sketch'
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 )
 *   UPLOADER1 and UPLOADER2: MANDATORY = X in the export, and visible.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 30
-      field_name = 'DOC_TITLEDEED' ftype = 'UPLOAD' required = 'X'
+      field_name = 'DOC_TITLEDEED' ftype = 'UPLOAD'
+      default_val = 'DTYPE:1' required = 'X'
       zsection = 'Attachments'
       zlabel = 'Title deed' zlabel_ar = 'سند الملكية'
       msg = 'The title deed is required'
@@ -262,7 +277,8 @@ START-OF-SELECTION.
       has_attach = 'X' attach_label = 'Add title deed'
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 40
-      field_name = 'DOC_ID' ftype = 'UPLOAD' required = 'X'
+      field_name = 'DOC_ID' ftype = 'UPLOAD'
+      default_val = 'DTYPE:2' required = 'X'
       zsection = 'Attachments'
       zlabel = 'Emirates ID of the owner' zlabel_ar = 'الهوية الإماراتية للمالك'
       msg = 'The owner''s Emirates ID is required'
