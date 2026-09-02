@@ -12,6 +12,7 @@ rather than read, it says so.
 | [services/odata-services.md](services/odata-services.md) | Every OData service CJS reads, method by method: which entity sets are real, which are stubs, and which function module sits behind each one |
 | [services/request-context.md](services/request-context.md) | How to call a Gateway DPC with no Gateway, and the three failures that taught it |
 | [controls/shapeit-census.md](controls/shapeit-census.md) | All 110 ShapeIt control types against what the migrator does with each |
+| [migration/sources.md](migration/sources.md) | **Start here for any journey.** The seven artifacts a journey is built from, what only each one carries, and what skipping it has cost |
 | [controls/shapeit-reads.md](controls/shapeit-reads.md) | Which entity set each composite control reads, and with which filters |
 | [journeys/m016-change-building-regulations.md](journeys/m016-change-building-regulations.md) | One legacy journey walked end to end on the live portal — three steps, every field, the payment screen and a defect |
 | [gaps/open-questions.md](gaps/open-questions.md) | What is still missing, and which of it is blocked on access rather than effort |

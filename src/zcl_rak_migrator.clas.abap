@@ -2380,6 +2380,24 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     IF lv_grid_drp > 0.
       ev_msg = ev_msg && | ** { lv_grid_drp } table(s) dropped: no LEVEL_CON='T' columns.|.
     ENDIF.
+*   ---- SOURCES, named. -----------------------------------------------
+*   A journey is built from seven artifacts and each carries something none
+*   of the others do - see doc/migration/sources.md. A run that does not
+*   say which of them answered cannot be reviewed: an empty step title
+*   looks identical whether the BAdI was silent or the screen genuinely
+*   has none, and a composite with no API directive looks identical
+*   whether the model was consulted or the control was simply dropped.
+*   So the log names them, answered or not.
+    ev_msg = ev_msg && | SOURCES: export { lines( lt ) } row(s)| &&
+             |; BAdI { COND string( WHEN iv_badi = abap_false THEN 'not asked'
+                                    WHEN mv_badi_ok = abap_true THEN 'answered'
+                                    ELSE 'SILENT' ) }| &&
+             |; OData bindings { lv_bind_cnt }| &&
+             |; captions { lines( mt_val ) + lines( mt_lbl ) } cached| &&
+             |; portal group { lv_main4 }| &&
+             |. Control sources and the live screens are read by hand - | &&
+             |doc/controls/shapeit-reads.md and doc/journeys/.|.
+
     IF iv_badi = abap_true.
       IF mv_badi_ok = abap_false.
         ev_msg = ev_msg && | ** The BAdI answered nothing for this journey: | &&
