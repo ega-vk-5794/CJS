@@ -142,6 +142,20 @@ These raise nothing and render nothing. They account for most of the bugs found 
   back to the literal `OTR:...` string, on screen, rather than going blank — a visible symptom
   instead of a silent one. Existing literal text is unaffected: only a value that starts with
   the four characters `OTR:` is treated this way.
+- **An unsupplied z2ui5 OPTIONAL is not "false" — it is whatever UI5 defaults to.**
+  `XML_GET_PARTS( )` builds the markup with a `REDUCE` that skips every property whose
+  value is blank, so an unsupplied one is **dropped from the XML** rather than emitted as
+  `false`. A control property
+  whose UI5 default is `true` therefore stays `true`, and the ABAP reads as "we never set
+  this" while behaving as "we set it on". That is what made a `CLOSED_LIST` dropdown draw
+  its **first option while the model held nothing** — `sap.m.Select`'s `forceSelection`
+  defaults to true, so an untouched required field looked answered, no rule keyed on it
+  fired, and `VALIDATE_STEP( )` refused a field the citizen could see filled in.
+  `ZCL_RAK_JOURNEY_RENDER` now passes `forceselection = abap_false` explicitly. Passing
+  `abap_false` **does** work: it is typed `ABAP_BOOL`, so `BOOLEAN_ABAP_2_JSON( )` renders
+  the literal string `false`, which is not blank and survives that filter — but a bare
+  `''` or an untyped blank would be dropped again. Check the parameter's documented UI5
+  default before assuming that leaving it out is the safe option.
 - **A required label is marked by the `required` property, never by a CSS class.**
   `label( ... required = abap_true )` is what makes UI5's own renderer draw the asterisk
   (`sapMLabelRequired`). The old mechanism — a `rakReq` class plus a hand-written
@@ -313,6 +327,23 @@ These raise nothing and render nothing. They account for most of the bugs found 
 
 ## Conventions
 
+- **A citizen-typed date reaches the backend as raw text, and the backend converts it.**
+  `sap.m.DatePicker` does **not** discard input it fails to parse — it flags its own
+  `valueState` and still writes the typed characters through the two-way binding. Nothing
+  on the CJS side objects (`TY_REQ-DOB` is `TYPE string`; `ZCL_RAK_BP_SEARCH->ADD_FLT( )`
+  only rejects a *blank* value), so `'19.08.1987'` travelled all the way into
+  `ZCL_EGA_BP_BO_API=>BP_QUERY` and raised an uncatchable `CX_SY_CONVERSION_NO_DATE` —
+  "Application Error - Please Restart The App", the whole session gone, no message.
+  `ZCL_RAK_BP_SEARCH=>SEARCH( )` now normalises `IS_REQ-DOB` through
+  `ZCL_RAK_BP_SEARCH=>NORM_DOB( )` (which delegates to `ZCL_RAK_JOURNEY_UTIL=>TO_DATS( )`,
+  the same parser the DATE range check uses) and, when a **filled** value does not
+  normalise, reports it on `CT_MSG` and does not search. `SEARCH( )` is the choke point
+  both popups go through, which is why the guard is there and not in `ZCL_RAK_BP_POPUP` —
+  a journey drawing its own dialog has no hook between the model and the filter.
+  Two things follow: the normalisation must happen **before** `VALIDATE( )`'s MOI
+  cross-check (`LS_BP-DOB <> IS_REQ-DOB`), or that comparison starts failing against a
+  value it used to match; and **any other `TY_REQ` field `BP_QUERY` converts on the far
+  side has the same exposure** — date of birth is only the one that has been hit.
 - **Drafts and attachments have an owner, and it is not always CJS.** `DRAFT_MODE` and
   `ATTACH_MODE` on `ZRAK_T_JNY` answer `DELEGATE` / `NATIVE` / `OFF`; blank lets the engine
   derive one. The derivation is the rule: **a backend that creates and re-opens the case IS
@@ -329,6 +360,24 @@ These raise nothing and render nothing. They account for most of the bugs found 
   is not `INLINE`: `INLINE` decides which **row** a cell lands on, `FLOW` the direction
   **inside** one cell. `PERSIST( )` does a full `MODIFY`, so anything writing an attribute must
   `RESOLVE( )` first and overwrite only its own fields, or it blanks the rest.
+- **`ZRAK_T_JNY_FLD-MSG` can be written per check.** One column is read by the required
+  check, by MIN_VAL/MAX_VAL, by the DATE range, by the numeric CATCH and by REGEX. They
+  never fire together, so this was only ever a wording limit — but a field that is both
+  REQUIRED and format-constrained had one column and two sentences to write in it.
+  `MSG` may now carry `KEY:text` clauses separated by `;` —
+  `REQUIRED:Please state the number;FORMAT:@201` — with the keys `REQUIRED`, `LEN`,
+  `RANGE`, `NUMBER`, `FORMAT` and `*` as a catch-all. Each clause splits on its **first**
+  colon, so its text may itself be `@nnn` (a `ZRAK_T_CJ_TXT` row, as a TABLE column header
+  takes) or `OTR:<alias>` — which is what lets a migrated WD message keep its own OTR
+  concept on the FORMAT check while REQUIRED keeps its own words. `ZCL_RAK_JOURNEY_UTIL=>MSG_FOR( )`
+  is the one resolver; `ZCL_RAK_JOURNEY_RULES` routes every read of MSG through it.
+  **Additive, and the guard is narrow on purpose**: the keyed form is recognised only when
+  the text *begins* with one of those keys immediately followed by `:`, so every MSG
+  configured today — including a whole-column `OTR:` alias, or an ordinary sentence
+  containing a colon — behaves exactly as it did. A blank answer means "nothing configured
+  for this check" and falls back to the catalogue. `MIN_LEN`/`MAX_LEN` are the exception:
+  they never read MSG, so a plain MSG is still ignored there and only an explicit `LEN:`
+  clause reaches them.
 - **Config before code.** Show/hide belongs in `ZRAK_T_JNY_RULE`, options in `ZRAK_T_JNY_OPT`.
   Write ABAP for payment routing, live BP search, cross-container side effects.
 - **Migrating a legacy screen?** Drive `ZCL_RAK_MIGRATOR`. Do not hand-author `ZRAK_T_JNY*`
@@ -611,7 +660,9 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
   regenerated — the `ZCL_RAK_CJS` field editor already has a "Section (AR)" input wired to it,
   but the column won't reach a plain SM30/view-cluster screen on `ZRAK_T_JNY_FLD` until that's
   done. `CLOSED_LIST` (`FTYPE 'SELECT'` only — `'X'` renders `sap.m.Select` instead of the
-  default typable `sap.m.ComboBox`) is fully wired end to end — DDIC column, `ZCL_RAK_JOURNEY_REPO`
+  default typable `sap.m.ComboBox`, with `forceselection = abap_false` so an empty value
+  draws an empty box rather than the first option — see the trap above) is fully wired
+  end to end — DDIC column, `ZCL_RAK_JOURNEY_REPO`
   mapping, `ZCL_RAK_JOURNEY_RENDER`'s branch, and a "Closed list" checkbox in the Studio field
   editor — same activation caveat as the other three.
 - `ZRAK_CJ_ATT_PURGE` **has never been run.** Nothing has ever purged `ZRAK_CJ_ATTX`, so every

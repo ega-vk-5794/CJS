@@ -381,12 +381,23 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
                            iv_result  = 'BLOCK'
                            iv_detail  = ls_miss-name ).
 
+*     PER-CHECK WORDING. MSG is one column read by this check, by the range
+*     checks, by the numeric CATCH and by REGEX, and they cannot all be worded
+*     at once - see ZCL_RAK_JOURNEY_UTIL=>MSG_FOR( ). Every read of MSG in this
+*     method now goes through it naming the check it is: a plain MSG comes back
+*     unchanged to all of them, exactly as today, and a keyed MSG answers each
+*     one separately. A blank answer means "nothing configured for this check"
+*     and falls through to the catalogue below, which is where it was already
+*     going.
+      DATA(lv_rqmsg) = zcl_rak_journey_util=>msg_for( iv_msg     = ls_miss-msg
+                                                      iv_check   = 'REQUIRED'
+                                                      iv_journey = mo_e->ms_config-journey_id ).
       DATA(lv_mtxt) = COND string(
         WHEN ls_miss-kind = 'ATT'
         THEN zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-att_required
                                 iv_default = `&1: attachment is required`
                                 iv_v1      = ls_miss-label )
-        WHEN ls_miss-msg IS NOT INITIAL  THEN ls_miss-msg
+        WHEN lv_rqmsg IS NOT INITIAL     THEN lv_rqmsg
         ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-required
                                 iv_default = `&1 is required`
                                 iv_v1      = ls_miss-label ) ).
@@ -420,19 +431,35 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
         CONTINUE.
       ENDIF.
       IF lv_v-min_len > 0 AND strlen( lv_val ) < lv_v-min_len.
-        DATA(lv_nmin) = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-too_short
-                                           iv_default = `&1 must be at least &2 characters`
-                                           iv_v1      = ls_f-label
-                                           iv_v2      = |{ lv_v-min_len }| ).
+*       IV_KEYED_ONLY. The length checks never read MSG, so a plain MSG must
+*       keep being ignored here - honouring it now would silently retitle every
+*       existing length message on every journey. An explicit 'LEN:' clause is
+*       a new instruction and is honoured.
+        DATA(lv_nmin) = zcl_rak_journey_util=>msg_for( iv_msg        = lv_v-msg
+                                                       iv_check      = 'LEN'
+                                                       iv_journey    = mo_e->ms_config-journey_id
+                                                       iv_keyed_only = abap_true ).
+        IF lv_nmin IS INITIAL.
+          lv_nmin = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-too_short
+                                       iv_default = `&1 must be at least &2 characters`
+                                       iv_v1      = ls_f-label
+                                       iv_v2      = |{ lv_v-min_len }| ).
+        ENDIF.
         APPEND VALUE #( type = 'Error' text = lv_nmin ) TO rt_msg.
         mo_e->set_field_state( iv_name = ls_f-name iv_state = 'Error' iv_text = lv_nmin ).
         CONTINUE.
       ENDIF.
       IF lv_v-max_len > 0 AND strlen( lv_val ) > lv_v-max_len.
-        DATA(lv_nmax) = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-too_long
-                                           iv_default = `&1 must be at most &2 characters`
-                                           iv_v1      = ls_f-label
-                                           iv_v2      = |{ lv_v-max_len }| ).
+        DATA(lv_nmax) = zcl_rak_journey_util=>msg_for( iv_msg        = lv_v-msg
+                                                       iv_check      = 'LEN'
+                                                       iv_journey    = mo_e->ms_config-journey_id
+                                                       iv_keyed_only = abap_true ).
+        IF lv_nmax IS INITIAL.
+          lv_nmax = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-too_long
+                                       iv_default = `&1 must be at most &2 characters`
+                                       iv_v1      = ls_f-label
+                                       iv_v2      = |{ lv_v-max_len }| ).
+        ENDIF.
         APPEND VALUE #( type = 'Error' text = lv_nmax ) TO rt_msg.
         mo_e->set_field_state( iv_name = ls_f-name iv_state = 'Error' iv_text = lv_nmax ).
         CONTINUE.
@@ -456,7 +483,10 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
         TRY.
             DATA(lv_num) = CONV decfloat34( lv_val ).
             IF lv_v-min_val IS NOT INITIAL AND lv_num < CONV decfloat34( lv_v-min_val ).
-              DATA(lv_vmin) = COND string( WHEN lv_v-msg IS NOT INITIAL THEN lv_v-msg
+              DATA(lv_rgmin) = zcl_rak_journey_util=>msg_for( iv_msg     = lv_v-msg
+                                                              iv_check   = 'RANGE'
+                                                              iv_journey = mo_e->ms_config-journey_id ).
+              DATA(lv_vmin) = COND string( WHEN lv_rgmin IS NOT INITIAL THEN lv_rgmin
                 ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-num_min
                                         iv_default = `&1 must be at least &2`
                                         iv_v1      = ls_f-label
@@ -466,7 +496,10 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
               CONTINUE.
             ENDIF.
             IF lv_v-max_val IS NOT INITIAL AND lv_num > CONV decfloat34( lv_v-max_val ).
-              DATA(lv_vmax) = COND string( WHEN lv_v-msg IS NOT INITIAL THEN lv_v-msg
+              DATA(lv_rgmax) = zcl_rak_journey_util=>msg_for( iv_msg     = lv_v-msg
+                                                              iv_check   = 'RANGE'
+                                                              iv_journey = mo_e->ms_config-journey_id ).
+              DATA(lv_vmax) = COND string( WHEN lv_rgmax IS NOT INITIAL THEN lv_rgmax
                 ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-num_max
                                         iv_default = `&1 must be at most &2`
                                         iv_v1      = ls_f-label
@@ -476,7 +509,10 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
               CONTINUE.
             ENDIF.
           CATCH cx_sy_conversion_no_number.
-            DATA(lv_vnan) = COND string( WHEN lv_v-msg IS NOT INITIAL THEN lv_v-msg
+            DATA(lv_nanm) = zcl_rak_journey_util=>msg_for( iv_msg     = lv_v-msg
+                                                           iv_check   = 'NUMBER'
+                                                           iv_journey = mo_e->ms_config-journey_id ).
+            DATA(lv_vnan) = COND string( WHEN lv_nanm IS NOT INITIAL THEN lv_nanm
               ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-not_number
                                       iv_default = `&1 must be a valid number`
                                       iv_v1      = ls_f-label ) ).
@@ -497,7 +533,10 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
           DATA(lv_dmin) = zcl_rak_journey_util=>to_dats( lv_v-min_val ).
           DATA(lv_dmax) = zcl_rak_journey_util=>to_dats( lv_v-max_val ).
           IF lv_dmin IS NOT INITIAL AND lv_dv < lv_dmin.
-            DATA(lv_dminm) = COND string( WHEN lv_v-msg IS NOT INITIAL THEN lv_v-msg
+            DATA(lv_dgmin) = zcl_rak_journey_util=>msg_for( iv_msg     = lv_v-msg
+                                                            iv_check   = 'RANGE'
+                                                            iv_journey = mo_e->ms_config-journey_id ).
+            DATA(lv_dminm) = COND string( WHEN lv_dgmin IS NOT INITIAL THEN lv_dgmin
               ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-date_min
                                       iv_default = `&1 must be on or after &2`
                                       iv_v1      = ls_f-label
@@ -507,7 +546,10 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
             CONTINUE.
           ENDIF.
           IF lv_dmax IS NOT INITIAL AND lv_dv > lv_dmax.
-            DATA(lv_dmaxm) = COND string( WHEN lv_v-msg IS NOT INITIAL THEN lv_v-msg
+            DATA(lv_dgmax) = zcl_rak_journey_util=>msg_for( iv_msg     = lv_v-msg
+                                                            iv_check   = 'RANGE'
+                                                            iv_journey = mo_e->ms_config-journey_id ).
+            DATA(lv_dmaxm) = COND string( WHEN lv_dgmax IS NOT INITIAL THEN lv_dgmax
               ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-date_max
                                       iv_default = `&1 must be on or before &2`
                                       iv_v1      = ls_f-label
@@ -555,7 +597,10 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
 
         TRY.
             IF cl_abap_matcher=>matches( pattern = lv_pat text = lv_val ) = abap_false.
-              DATA(lv_rxm) = COND string( WHEN lv_v-msg IS NOT INITIAL THEN lv_v-msg
+              DATA(lv_fmtm) = zcl_rak_journey_util=>msg_for( iv_msg     = lv_v-msg
+                                                             iv_check   = 'FORMAT'
+                                                             iv_journey = mo_e->ms_config-journey_id ).
+              DATA(lv_rxm) = COND string( WHEN lv_fmtm IS NOT INITIAL THEN lv_fmtm
                 ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-bad_format
                                         iv_default = `&1 has an invalid format`
                                         iv_v1      = ls_f-label ) ).

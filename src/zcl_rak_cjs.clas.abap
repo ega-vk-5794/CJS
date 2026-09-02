@@ -2215,8 +2215,17 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     f->label( 'Max length' ). f->input( value = mo_client->_bind_edit( fv_maxlen ) ).
     f->label( 'Min value' ).  f->input( value = mo_client->_bind_edit( fv_minval ) placeholder = 'slider/stepper/number floor' ).
     f->label( 'Max value' ).  f->input( value = mo_client->_bind_edit( fv_maxval ) placeholder = 'slider/stepper/rating ceiling' ).
-    f->label( 'Message (EN)' ). f->input( value = mo_client->_bind_edit( fv_msg ) ).
-    f->label( 'Message (AR)' ). f->input( value = mo_client->_bind_edit( fv_msg_ar ) ).
+*   One column, several checks - so it may be written per check. Plain text
+*   still goes to every check that reads MSG, exactly as before; the keyed form
+*   REQUIRED:.. ;FORMAT:.. ;RANGE:.. ;NUMBER:.. ;LEN:.. ;*:.. answers each one
+*   separately, and a clause may be an @nnn (ZRAK_T_CJ_TXT) or an OTR:<alias>.
+*   See ZCL_RAK_JOURNEY_UTIL=>MSG_FOR( ).
+    f->label( 'Message (EN)' ).
+    f->input( value       = mo_client->_bind_edit( fv_msg )
+              placeholder = 'plain text, or REQUIRED:...;FORMAT:...;RANGE:... per check' ).
+    f->label( 'Message (AR)' ).
+    f->input( value       = mo_client->_bind_edit( fv_msg_ar )
+              placeholder = 'same shape as Message (EN)' ).
 
     f->title( ns = 'core' text = 'Backend & value help' ).
     f->label( 'Technical name (backend)' ). f->input( value = mo_client->_bind_edit( fv_tech ) placeholder = 'e.g. GS_DATA-PARTNER_NAME / doc code / grid JSON field' ).
