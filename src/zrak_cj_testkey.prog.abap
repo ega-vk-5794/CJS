@@ -70,6 +70,21 @@ START-OF-SELECTION.
   DATA lv_user TYPE zega_t_cj_us_log-id.
   DATA lv_bp   TYPE bu_partner.
 
+* THE FUNCTION MODULE TAKES A STRING, and it is strict about it.
+* ZFM_EGA_GET_BP_FROM_INTERNET_U's IV_INTERNET_USER would not accept a
+* variable typed ZEGA_T_CJ_US_LOG-ID - "a field may have been assigned to the
+* parameter IV_INTERNET_USER whose type is not compatible with this
+* parameter" - and the call raised on every row.
+*
+* Caught and cleared, that looked exactly like a function module that
+* resolves nobody, and it was read that way: the list showed a blank partner
+* for every user and the conclusion drawn was that E10 has no resolvable
+* users. It has. GET_BP( ) resolves them fine, because it declares
+* USER TYPE STRING and passes that.
+*
+* Every call below goes through LV_FM_USER for that reason.
+  DATA lv_fm_user TYPE string.
+
 * ---------------------------------------------------------------------
 * 0. What does the table already hold?
 *
@@ -102,9 +117,10 @@ START-OF-SELECTION.
       CLEAR lv_bp.
       IF ls_all-id IS NOT INITIAL AND ls_all-id <> 'ANON'.
         TRY.
+            lv_fm_user = ls_all-id.
             CALL FUNCTION 'ZFM_EGA_GET_BP_FROM_INTERNET_U'
               EXPORTING
-                iv_internet_user    = ls_all-id
+                iv_internet_user    = lv_fm_user
               IMPORTING
                 ev_business_partner = lv_bp.
           CATCH cx_root.
@@ -144,9 +160,10 @@ START-OF-SELECTION.
     LOOP AT lt_cand INTO DATA(ls_cand).
       CLEAR lv_bp.
       TRY.
+          lv_fm_user = ls_cand-id.
           CALL FUNCTION 'ZFM_EGA_GET_BP_FROM_INTERNET_U'
             EXPORTING
-              iv_internet_user    = ls_cand-id
+              iv_internet_user    = lv_fm_user
             IMPORTING
               ev_business_partner = lv_bp.
         CATCH cx_root.
@@ -179,9 +196,10 @@ START-OF-SELECTION.
 * ---------------------------------------------------------------------
   CLEAR lv_bp.
   TRY.
+      lv_fm_user = lv_user.
       CALL FUNCTION 'ZFM_EGA_GET_BP_FROM_INTERNET_U'
         EXPORTING
-          iv_internet_user    = lv_user
+          iv_internet_user    = lv_fm_user
         IMPORTING
           ev_business_partner = lv_bp.
     CATCH cx_root INTO DATA(lx_fm).
@@ -338,6 +356,12 @@ START-OF-SELECTION.
 * Judging success on the partner would deactivate a perfectly good row.
   IF lv_back_user = lv_user.
     WRITE: / 'Round trip OK - the key resolves to the user it was written for.'.
+    SKIP.
+*   THE KEY ITSELF. It was missing: the existing-row branch printed it, the
+*   freshly-written one did not, so the one path that creates a key never
+*   handed it over.
+    WRITE: / 'Session key:'.
+    WRITE: / lv_key.
     IF lv_back_bp IS INITIAL.
       WRITE: / 'The partner is blank because the function module does not know'.
       WRITE: / 'this user on this system. That is downstream of this report.'.
