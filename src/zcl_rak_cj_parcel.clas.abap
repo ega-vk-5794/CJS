@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-9.  Missing this line means SAP has an older copy - see
+*& BUILD map-fix-10. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -14,6 +14,14 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *& live screen's own DOM overrules - the deployed map is an ArcGIS view
 *& inside an iframe on the GIS host's origin, which is why it has no
 *& proxy problem and the in-page rebuild cannot get past one.
+*& map-fix-10 contains: the postMessage snippet delivered through the
+*& IFRAME'S OWN ONLOAD ATTRIBUTE as well as FOLLOW_UP_ACTION( ). It had
+*& only the latter, which runs from the MAIN view's onAfterRendering and
+*& therefore does not fire on a round trip that only opens a dialog - so
+*& the frame loaded, nothing ran, and the viewer sat on its splash logo
+*& with the note line EMPTY. An earlier comment claimed the frame's own
+*& onload as a second channel, but described an addEventListener INSIDE
+*& the snippet, which cannot help: the snippet must run to attach it.
 *& This class will not compile until ZCL_RAK_CJ_GIS is ACTIVE: a class
 *& with no active version has no methods, so its callers report
 *& "Method SCRIPT is unknown or PROTECTED or PRIVATE" instead.
@@ -1104,33 +1112,48 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     specification. The frame rendered, the viewer sat on its splash
 *     screen waiting for a message nobody sent, and that read exactly
 *     like a wrong URL - which is where six rounds went.
-*     THE FRAME'S OWN ONLOAD, for the same reason as the ArcGIS container
-*     above: this is a popup, and FOLLOW_UP_ACTION( ) may not fire on the
-*     round trip that opens one. An iframe fires onload when the viewer
-*     page has loaded, which is exactly when it is ready to be posted to -
-*     better timing than the retry interval, not just a second channel.
-      lo_map->html(
-        content = |<iframe id="rakPclMap" src="{ lv_base }" title="parcel map" | &&
-                  |style="width:100%;height:26rem;border:0"></iframe>| &&
-*                 A LINE THE SNIPPET FILLS IN, so the one thing that
-*                 cannot be seen from a screenshot becomes readable: the
-*                 origin the message was posted FROM. See below.
-                  |<div id="rakPclMapNote" class="rakPclHint"></div>|
-        sanitizecontent = abap_false ).
-
-*     RETRIED, not sent once. The listener is attached by the page's own
-*     script, which may not have run when the frame fires load - a single
-*     post would then arrive before anything was listening and the viewer
-*     would wait for ever. Ten attempts half a second apart, then it stops
-*     rather than polling for the life of the dialog.
 *
-*     AND AGAIN WHENEVER THE FRAME SPEAKS FIRST, origin-checked: a viewer
-*     that announces itself when its listener is ready gets an immediate
-*     answer, and a message from anywhere but the viewer is ignored - so
-*     this cannot be used to make the page re-post the token elsewhere.
-      mo_e->mo_client->follow_up_action(
+*     AND THEN IT HAD ONE CHANNEL, WHICH IS WHY IT STILL DID NOT RUN.
+*
+*     The snippet went out through FOLLOW_UP_ACTION( ) alone. That runs
+*     from the MAIN view's onAfterRendering - and a round trip that only
+*     opens a dialog need not re-render the main view. So on the round
+*     trip that opens THIS dialog it does not fire, the snippet never
+*     executes, and every listener it would have attached - including the
+*     frame's own load handler and the retry interval - is never attached
+*     either. The frame loaded, the viewer sat on its splash logo, and
+*     the note line below stayed EMPTY: markup arrived, code did not run.
+*     That empty note is what identified this, and it is the second row
+*     of the table in doc/controls/gis-map.md.
+*
+*     A comment here already claimed "the frame's own onload" as a second
+*     channel. It described the addEventListener INSIDE the snippet,
+*     which cannot help: the snippet has to run before it can attach
+*     anything. The claim was true of ZCL_RAK_CJ_GIS=>CONTAINER( ), which
+*     carries its snippet in the onload attribute of a 1x1 data-URI
+*     image, and was copied here without the mechanism.
+*
+*     So the snippet now rides the IFRAME'S OWN ONLOAD ATTRIBUTE - the
+*     browser parsing markup rather than a framework choosing a moment,
+*     the one JavaScript delivery that has always worked in this codebase
+*     (RENDER_UPLOADER( )'s onchange=). It is also better TIMING than the
+*     retry interval: an iframe fires load exactly when the viewer page
+*     is there to be posted to. FOLLOW_UP_ACTION( ) stays as the second
+*     channel, and the snippet guards on the frame's own dataset so
+*     whichever arrives first wins and the other is a no-op.
+*
+*     ONE TEXT SERVES BOTH CHANNELS. It is already free of single quotes
+*     for FOLLOW_UP_ACTION( )'s sake - _runCustomJs splits on that
+*     character - so the attribute is single-quoted and needs no second
+*     encoding. The braces are escaped once, over the whole markup, at
+*     the end.
+      DATA(lv_pjs) =
         |(function()\{var f=document.getElementById("rakPclMap");| &&
         |if(!f)\{return;\}| &&
+*       IDEMPOTENT, because two channels deliver this. Setting up the
+*       interval and the message listener twice would double every post.
+        |if(f.dataset.rakPosted==="1")\{return;\}| &&
+        |f.dataset.rakPosted="1";| &&
         |var m=\{parcelId:"{ lv_jpid }",token:"{ lv_jtok }",lang:"{ lv_lang }"\};| &&
         |var o="{ lv_jorg }";var n=0;| &&
         |function s()\{try\{f.contentWindow.postMessage(m,o);\}catch(e)\{\}\}| &&
@@ -1157,7 +1180,37 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         |" to "+o+" from "+window.location.origin+| &&
         |". If the viewer shows only its logo, its own origin allowlist| &&
         | does not include this host.";\}| &&
-        |\}())| ).
+        |\}())|.
+
+*     CHANNEL ONE: the frame's own onload attribute. Single-quoted, and
+*     the snippet is guaranteed free of single quotes - see above.
+      DATA(lv_fhtml) =
+        |<iframe id="rakPclMap" src="{ lv_base }" title="parcel map" | &&
+        |style="width:100%;height:26rem;border:0" | &&
+        |onload='{ lv_pjs }'></iframe>| &&
+*       A LINE THE SNIPPET FILLS IN, so the one thing that cannot be seen
+*       from a screenshot becomes readable: the origin the message was
+*       posted FROM - and, by being EMPTY, that the snippet never ran at
+*       all. Both readings have now been needed.
+        |<div id="rakPclMapNote" class="rakPclHint">| &&
+        |Loading the map...</div>|.
+
+*     BRACES ESCAPED, ONCE, OVER THE WHOLE MARKUP - and this is not
+*     optional now that a script rides in an attribute. HTML( ) sets
+*     sap.ui.core.HTML's CONTENT, which travels as an XML view attribute,
+*     and UI5's XML parser reads { } in an attribute value as a binding
+*     expression. An unescaped snippet full of JavaScript object literals
+*     parses as dozens of malformed bindings and the control never
+*     renders AT ALL - a blank tab, not a broken map. CONTAINER( ) and
+*     RENDER_UPLOADER( ) both carry these same two lines.
+      REPLACE ALL OCCURRENCES OF `{` IN lv_fhtml WITH `\{`.
+      REPLACE ALL OCCURRENCES OF `}` IN lv_fhtml WITH `\}`.
+
+      lo_map->html( content = lv_fhtml sanitizecontent = abap_false ).
+
+*     CHANNEL TWO: FOLLOW_UP_ACTION( ), for the round trips where it does
+*     fire. Same text, and the dataset guard makes the loser a no-op.
+      mo_e->mo_client->follow_up_action( lv_pjs ).
 
       lo_map->link( text   = t( iv_en = `Open the map in a new tab`
                                 iv_ar = `افتح الخريطة في تبويب جديد` )
