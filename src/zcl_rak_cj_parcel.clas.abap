@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-18. Missing this line means SAP has an older copy - see
+*& BUILD map-fix-19. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -98,7 +98,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   the thing being looked at is the thing that was just written, which
 *   is the question that has to be answered FIRST every time and until
 *   now could only be inferred. Bump it with the header stamp.
-    CONSTANTS c_build TYPE string VALUE 'map-fix-18'.
+    CONSTANTS c_build TYPE string VALUE 'map-fix-19'.
 
     METHODS constructor
       IMPORTING io_engine TYPE REF TO zcl_rak_journey_engine.
@@ -1603,7 +1603,21 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   screen the code that was just written" by observation instead of by
 *   inference, which is the question that has had to be asked first in
 *   every round of this and never had an honest answer.
-    lo_c->text( text  = |CJS { c_build }|
+*   THE PARCEL GOES ON THE LINE TOO. It was only in the note's hover
+*   title, so every screenshot of this dialog has been ambiguous about
+*   WHICH parcel it showed - and the open question here is now
+*   parcel-specific rather than mechanical: two parcels draw and one does
+*   not, on the same code and the same timing.
+*
+*   NO WARNING SITS HERE, deliberately. There is nothing to key one on.
+*   The viewer never replies even when the map draws correctly - the note
+*   is empty on every successful render - so "no reply" cannot mean
+*   failure, and a line that said so would appear under working maps.
+*   A cross-origin frame that draws nothing and one that draws a parcel
+*   are indistinguishable from here, and claiming otherwise would be
+*   worse than saying nothing.
+    lo_c->text( text  = |CJS { c_build } · parcel { mo_e->mv_pcl_pid }| &&
+                        | · intreno { mo_e->mv_pcl_det }|
                 class = 'rakPclHint' ).
 
     lo_dlg->buttons( )->button( text  = t( iv_en = `Close` iv_ar = `إغلاق` )
