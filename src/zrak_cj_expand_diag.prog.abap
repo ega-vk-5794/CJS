@@ -5,20 +5,34 @@ REPORT zrak_cj_expand_diag.
 *&
 *& THE PROBLEM THIS EXISTS TO END. The parcel details dialog draws seven
 *& tabs and only the Map tab has data. The other six - General, Business
-*& Partners, Land, Development, Measurements, Documents - are one read:
+*& Partners, Land, Development, Measurements, Documents - are ONE read,
+*& and the live URL is now known:
 *&
-*&     PropertiesSet( … )?$expand=ToProject,ToPartner,ToMeasurement,
-*&                                 ToLandUse,ToDevelopment,ToAttachment
+*&   PropertiesSet(Intreno='I800100108658',
+*&                 Partnerguid=guid'6aa93cf9-0402-1ed6-b5ca-421c803dd3ad')
+*&     ?$expand=ToProject,ToPartner,ToMeasurement,ToLandUse,
+*&              ToDevelopment,ToAttachment
 *&
-*& which routes to PROPERTIESSET_GET_EXPANDED_ENTITYSET, and that method
-*& calls IO_EXPAND->GET_CHILDREN( ) unguarded. So the tabs are not empty
-*& because the data is missing or the filters are wrong - they are empty
-*& because there is no expand object to pass, exactly as the entity-set
-*& reads had no request context until ZCL_RAK_CJ_REQ_CTX was built. Same
-*& class of problem, and it should have the same answer.
+*& IT IS GET_EXPANDED_ENTITY, SINGULAR - AND THIS REPORT SAID ENTITYSET.
 *&
-*& The same gate holds FloorSet (RAK_FLOORUNIT), Project and License, so
-*& this is not only about six tabs.
+*& A KEY IN THE PATH decides which method Gateway routes to:
+*&
+*&   PropertiesSet?$expand=...        -> GET_EXPANDED_ENTITYSET
+*&   PropertiesSet(key)?$expand=...   -> GET_EXPANDED_ENTITY
+*&
+*& and the dialog supplies a key. So the whole first version of this
+*& report - and the note in ZCL_RAK_PROPERTY_API - pointed at a method the
+*& details dialog never calls. Printing the implementers of an expand
+*& interface was answering the right question about the wrong method.
+*&
+*& That also changes what is BLOCKED. The plural method dereferences
+*& IO_EXPAND->GET_CHILDREN( ) unguarded; whether the singular one does has
+*& not been read, so the expand object may not be needed here at all. And
+*& CJS already holds both key parts - Intreno from the parcel row,
+*& Partnerguid from MS_CTX - so nothing new has to be resolved either way.
+*&
+*& FloorSet is different and stays blocked: it exists ONLY inside
+*& GET_EXPANDED_ENTITYSET (iv_entity_name = gc_floor), the plural one.
 *&
 *& WHY A DIAGNOSTIC AND NOT A CLASS. Because the repository has already
 *& paid for the alternative. ZCL_RAK_CJ_REQ_CTX was written THREE TIMES
@@ -45,6 +59,12 @@ REPORT zrak_cj_expand_diag.
 *&---------------------------------------------------------------------*
 
 PARAMETERS p_intf TYPE seoclsname DEFAULT '/IWBEP/IF_MGW_ODATA_EXPAND'.
+
+* THE DPC WHOSE OWN EXPANDED METHODS ARE PRINTED. This is the half that
+* actually settles the question, and it was missing from the first version
+* of this report because that version was written against the wrong method
+* name entirely - see the correction block below.
+PARAMETERS p_dpc  TYPE seoclsname DEFAULT 'ZCL_ZEGA_CJ_DPC_EXT'.
 
 START-OF-SELECTION.
 
@@ -79,15 +99,23 @@ START-OF-SELECTION.
     ORDER BY PRIMARY KEY
     INTO TABLE @DATA(lt_rel).
 
+* NO RETURN HERE, and that is the fix to a flow bug rather than a style
+* choice. This used to RETURN when the interface had no implementers -
+* which skipped the DPC section below entirely, and that section is now
+* the MORE valuable half: if GET_EXPANDED_ENTITY does not declare
+* IO_EXPAND at all then the implementer list does not matter and the
+* report would have stopped just before saying so.
   IF lt_rel IS INITIAL.
-    WRITE: / 'No rows in SEOMETAREL for that name at all. Check the spelling.'.
-    RETURN.
+    WRITE: / 'No rows in SEOMETAREL for that name. Check the spelling -'.
+    WRITE: / 'and read the DPC section below anyway, which is the part'.
+    WRITE: / 'that says whether an expand object is even wanted.'.
+    SKIP.
+  ELSE.
+    DESCRIBE TABLE lt_rel LINES lv_n.
+    lv_txt = |{ lv_n } SEOMETAREL row(s) referencing it|.
+    WRITE: / lv_txt.
+    SKIP.
   ENDIF.
-
-  DESCRIBE TABLE lt_rel LINES lv_n.
-  lv_txt = |{ lv_n } SEOMETAREL row(s) referencing it|.
-  WRITE: / lv_txt.
-  SKIP.
 
 * RELTYPE 1 is an interface IMPLEMENTATION and 2 is inheritance; VERSION 1
 * is active. Both are read through ASSIGN COMPONENT and both are REPORTED
@@ -101,8 +129,10 @@ START-OF-SELECTION.
   LOOP AT lt_rel ASSIGNING FIELD-SYMBOL(<rel>).
     ASSIGN COMPONENT 'CLSNAME' OF STRUCTURE <rel> TO FIELD-SYMBOL(<cls>).
     IF sy-subrc <> 0.
-      WRITE: / 'SEOMETAREL has no CLSNAME component - cannot continue.'.
-      RETURN.
+*     EXIT the loop, not RETURN from the report - same reason as above:
+*     the DPC section is what has to be reached.
+      WRITE: / 'SEOMETAREL has no CLSNAME component - skipping the list.'.
+      EXIT.
     ENDIF.
 
     DATA(lv_rt) = `?`.
@@ -232,6 +262,114 @@ START-OF-SELECTION.
     ENDLOOP.
 
   ENDLOOP.
+
+* ============ THE DPC'S OWN EXPANDED METHODS, AS DECLARED ============
+*
+* THIS IS THE HALF THAT ANSWERS THE QUESTION. Everything above is about
+* what could be PASSED for IO_EXPAND; this is about whether it is even
+* wanted, and what else the method needs.
+*
+* Printed by RTTI from the class itself, because the DPC is not in any
+* repository readable from where this was written and its methods are
+* PROTECTED - so only a subclass may call them, which is exactly why
+* ZCL_RAK_CJ_API inherits it. A signature guessed from a name is what
+* cost three activation rounds on ZCL_RAK_CJ_REQ_CTX.
+*
+* WHAT TO LOOK FOR, in order:
+*   1. Is there a *_GET_EXPANDED_ENTITY at all, singular? The live URL
+*      carries a key, so that is the one the dialog calls.
+*   2. Does it declare IO_EXPAND? If not, there is nothing to solve and
+*      the tabs are one method call away.
+*   3. If it does - is it OPTIONAL? Optional and unread is the same as
+*      absent. The plural method declares it optional and dereferences it
+*      anyway, which is the trap this whole line of work started from.
+*   4. What types the other parameters want. IT_KEY_TAB or an
+*      IS_KEY_TAB-shaped structure will need Intreno and Partnerguid -
+*      both of which CJS already has.
+  ULINE.
+  WRITE: / 'EXPANDED methods on', p_dpc.
+  ULINE.
+
+  DATA lo_dpc  TYPE REF TO cl_abap_classdescr.
+  DATA lo_dany TYPE REF TO cl_abap_typedescr.
+
+  TRY.
+      CALL METHOD cl_abap_typedescr=>describe_by_name
+        EXPORTING  p_name         = p_dpc
+        RECEIVING  p_descr_ref    = lo_dany
+        EXCEPTIONS type_not_found = 1
+                   OTHERS         = 2.
+      IF sy-subrc <> 0.
+        WRITE: / 'Not found. Check the class name - it is a PARAMETER.'.
+        RETURN.
+      ENDIF.
+      lo_dpc ?= lo_dany.
+    CATCH cx_root.
+      WRITE: / 'Could not be described.'.
+      RETURN.
+  ENDTRY.
+
+  DATA lv_hits TYPE i.
+
+  LOOP AT lo_dpc->methods INTO DATA(ls_dm).
+
+*   EVERY method whose name mentions EXPAND, not only the two expected
+*   ones. A DPC generated for this service may name them differently per
+*   entity set, and a filter on the two guessed names would answer
+*   "nothing here" for a class full of them.
+    IF ls_dm-name NS 'EXPAND'.
+      CONTINUE.
+    ENDIF.
+    lv_hits = lv_hits + 1.
+
+    SKIP.
+    WRITE: / ls_dm-name.
+
+    IF ls_dm-parameters IS INITIAL.
+      WRITE: / '   (no parameters declared)'.
+      CONTINUE.
+    ENDIF.
+
+    LOOP AT ls_dm-parameters INTO DATA(ls_dp).
+
+      DATA lo_dt   TYPE REF TO cl_abap_typedescr.
+      DATA lv_dtyp TYPE string.
+      CLEAR: lo_dt, lv_dtyp.
+
+*     The type comes from GET_METHOD_PARAMETER_TYPE( ), never from a
+*     component of the parameter row - LS_DP has NAME, PARM_KIND and
+*     IS_OPTIONAL and no TYPE, which this report already got wrong once.
+      CALL METHOD lo_dpc->get_method_parameter_type
+        EXPORTING  p_method_name       = ls_dm-name
+                   p_parameter_name    = ls_dp-name
+        RECEIVING  p_descr_ref         = lo_dt
+        EXCEPTIONS parameter_not_found = 1
+                   method_not_found    = 2
+                   OTHERS              = 3.
+      IF sy-subrc = 0 AND lo_dt IS BOUND.
+        lv_dtyp = lo_dt->absolute_name.
+      ELSE.
+        lv_dtyp = '(type not readable)'.
+      ENDIF.
+
+      lv_txt = |     { ls_dp-name } · kind { ls_dp-parm_kind }| &&
+               | · optional { ls_dp-is_optional }| &&
+               | · { lv_dtyp }|.
+      WRITE: / lv_txt.
+
+    ENDLOOP.
+
+  ENDLOOP.
+
+  IF lv_hits = 0.
+    SKIP.
+    WRITE: / 'No method on this class mentions EXPAND.'.
+    WRITE: / 'Either the name is wrong, or the expanded reads live on the'.
+    WRITE: / 'generated DPC rather than its _EXT subclass - try'.
+    WRITE: / 'ZCL_ZEGA_CJ_DPC in the parameter.'.
+  ENDIF.
+
+  SKIP.
 
   SKIP.
   ULINE.
