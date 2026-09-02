@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD mun-1. Missing this line means SAP has an older copy - see
+*& BUILD mun-2. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -98,7 +98,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   the thing being looked at is the thing that was just written, which
 *   is the question that has to be answered FIRST every time and until
 *   now could only be inferred. Bump it with the header stamp.
-    CONSTANTS c_build TYPE string VALUE 'mun-1'.
+    CONSTANTS c_build TYPE string VALUE 'mun-2'.
 
     METHODS constructor
       IMPORTING io_engine TYPE REF TO zcl_rak_journey_engine.
@@ -882,6 +882,21 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 
     mo_e->val_set( iv_name = lv_f iv_value = lv_new ).
     mo_e->set_field_state( iv_name = lv_f iv_state = 'None' iv_text = '' ).
+
+*   THE ONE LINE THAT SETTLES WHETHER A TICK STUCK. Three symptoms were
+*   reported together - the selection "not happening properly", the card
+*   vanishing, and a flicker - and they have different causes: a repaint
+*   is the framework's, a lost tick would be this method's. Nothing in
+*   this class traced anything, so the two were indistinguishable.
+*
+*   WAS -> NOW plus the resulting list answers it directly: if NOW is
+*   right and the screen disagrees, the value stuck and the render is
+*   wrong; if NOW is wrong, the fault is here. Under &trace=X only.
+    IF mo_e->mv_trace = abap_true.
+      mo_e->trace( |PARCEL  toggle { lv_f } key { lv_key }| &&
+                   | · was { lv_was } · now { lines( sel_list( ) ) } selected| &&
+                   | · list [{ lv_new }]| ).
+    ENDIF.
 
 *   ON_CHANGE LAST, as PICK( ) does it, so a handler that mirrors the
 *   selection somewhere else sees the finished list rather than the one
