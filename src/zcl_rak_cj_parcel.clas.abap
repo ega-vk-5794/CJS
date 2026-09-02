@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD mun-3. Missing this line means SAP has an older copy - see
+*& BUILD mun-4. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -98,7 +98,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   the thing being looked at is the thing that was just written, which
 *   is the question that has to be answered FIRST every time and until
 *   now could only be inferred. Bump it with the header stamp.
-    CONSTANTS c_build TYPE string VALUE 'mun-3'.
+    CONSTANTS c_build TYPE string VALUE 'mun-4'.
 
     METHODS constructor
       IMPORTING io_engine TYPE REF TO zcl_rak_journey_engine.
@@ -719,6 +719,34 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     DATA(lo_p) = io_box->vbox( class = |{ mo_e->mo_css->cls( 'CARD' ) } rakPclCard| ).
 
     DATA(lo_top) = lo_p->hbox( class = 'rakPclTop' ).
+
+*   ---- THE CHECKBOX GOES FIRST, AND LEFT ------------------------------
+*   It was at the bottom right of the card, in the action row beside Full
+*   Details, which is where the single-select Select BUTTON belongs and is
+*   the wrong place for a checkbox. A tick box is not an action - it is the
+*   row's state - and several of them have to be scannable as a COLUMN:
+*   the citizen picking three parcels out of forty reads straight down the
+*   left edge, ticks, and never looks at the rest of the card. At the
+*   bottom right they are a different distance apart on every card,
+*   because the meta line above them wraps differently.
+*
+*   BEFORE THE TITLE, so it renders to the left of the parcel number -
+*   children render in CREATION order in z2ui5, so the order of these two
+*   statements IS the layout. There is no property to move it afterwards.
+*
+*   NO TEXT ON IT NOW. It carried "Select" / "Selected" as its own caption
+*   when it sat in the action row and had to say what it did. Beside the
+*   parcel number that caption competes with the number for the first
+*   thing read, and the number is what identifies the row - so the box is
+*   bare and the whole card is the label. The single-select path keeps its
+*   captioned button, untouched.
+    IF mv_multi = abap_true.
+      lo_top->checkbox(
+        selected = xsdbool( lv_sel = abap_true )
+        select   = mo_e->mo_client->_event(
+                     |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
+    ENDIF.
+
     lo_top->title( text = lv_show level = 'H5' class = 'rakPclNo' ).
     IF lv_badge IS NOT INITIAL.
       lo_top->object_status( text = lv_badge class = 'rakPclBadge' ).
@@ -748,27 +776,20 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                               |{ c_pfx }DET_{ lv_int }~{ lv_show }| ) ).
     ENDIF.
 
-*   A CHECKBOX WHEN SEVERAL PARCELS ARE WANTED, a button when one is.
+*   IN MULTI MODE THE ACTION ROW ENDS HERE - Full Details and nothing
+*   else. The checkbox that used to be drawn at this point has moved to
+*   the FRONT of the top row; see the block there for why. Returning
+*   before the Select button is what keeps the card from offering two
+*   ways to choose the same parcel, one of which would replace the whole
+*   selection instead of adding to it.
 *
-*   The checkbox carries the caption rather than sitting beside a label,
-*   because a bare box at the end of a card row does not say what ticking
-*   it means. SELECTED is bound from the stored list, so the tick survives
-*   paging, searching and a round trip - it is not client-side state.
-*
-*   THE EVENT IS A TOGGLE, NOT A PICK. PICK_ replaces the whole value,
-*   which is right for one parcel and is exactly what stopped a merge
-*   being assembled; PCLTOG_ adds or removes one key and leaves the rest.
+*   SELECTED IS STILL BOUND FROM THE STORED LIST up there, so a tick
+*   survives paging, searching and a round trip - it is not client-side
+*   state - and the event is still a TOGGLE. PICK_ replaces the whole
+*   value, which is right for one parcel and is exactly what stopped a
+*   merge being assembled; TOG_ adds or removes one key and leaves the
+*   rest.
     IF mv_multi = abap_true.
-      lo_act->checkbox(
-        text     = COND #( WHEN lv_sel = abap_true
-                           THEN t( iv_en = `Selected` iv_ar = `محددة` )
-                           ELSE t( iv_en = `Select`   iv_ar = `اختيار` ) )
-*       XSDBOOL, the idiom the renderer's own checkboxes use - a COND #
-*       here would take its type from a CLIKE formal parameter and there
-*       is no reason to be the one place that differs.
-        selected = xsdbool( lv_sel = abap_true )
-        select   = mo_e->mo_client->_event(
-                     |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
       RETURN.
     ENDIF.
 
