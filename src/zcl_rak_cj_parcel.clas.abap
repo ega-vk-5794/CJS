@@ -645,6 +645,21 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     from a backend read, not from this code.
       DATA(lv_esc) = lv_src.
       REPLACE ALL OCCURRENCES OF '"' IN lv_esc WITH '%22'.
+
+*     HTTP INSIDE AN HTTPS PAGE IS BLOCKED BY THE BROWSER, and Chrome says
+*     so as "This content is blocked. Contact the site owner to fix the
+*     issue." - which reads like a server problem and is not one. The
+*     backend returns whatever scheme it was configured with; the frame
+*     gets the secure one. The LINK below keeps the URL exactly as given,
+*     because a new tab has no mixed-content rule to break.
+*
+*     If the frame is still blocked after this, it is the GIS host
+*     refusing to be framed at all (X-Frame-Options / frame-ancestors) and
+*     nothing on this page can change that - the link is then the answer,
+*     which is why it is there.
+      IF lv_esc CP 'http://*'.
+        lv_esc = |https://{ substring( val = lv_esc off = 7 ) }|.
+      ENDIF.
       lo_map->html(
         content         = |<iframe src="{ lv_esc }" title="parcel map" | &&
                           |style="width:100%;height:26rem;border:0"></iframe>|

@@ -1868,6 +1868,36 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   ROLEBP IS NOT OPTIONAL, and a blank one is worse than no envelope.
+*   GET_BP( ) does NOT look the role partner up - it hands back whatever
+*   the envelope carried. The legacy BAdI then reads property, fees and
+*   case ownership against that number, so a blank one asks the backend
+*   "what does partner <nothing> own" and gets the honest answer:
+*
+*       You currently have no registered properties in our system
+*
+*   - on a screen already listing three parcels, because the DPC path
+*   resolves identity from the x-custom1 header instead and never sees
+*   this envelope. Two identity paths, one of them blank, no contradiction
+*   reported anywhere. So the partner behind the internet user is resolved
+*   here and put in.
+    DATA lv_fm_user TYPE string.
+    DATA lv_bp      TYPE bu_partner.
+    lv_fm_user = lv_user.
+    TRY.
+*       IV_INTERNET_USER is TYPE STRING and binds by reference, so a
+*       variable typed ZEGA_T_CJ_US_LOG-ID is refused outright. A
+*       ZRAK_CJ_TESTKEY run once read that refusal as "E10 resolves
+*       nobody" - it resolves everybody; the call was wrong.
+        CALL FUNCTION 'ZFM_EGA_GET_BP_FROM_INTERNET_U'
+          EXPORTING  iv_internet_user    = lv_fm_user
+          IMPORTING  ev_business_partner = lv_bp.
+      CATCH cx_root ##NO_HANDLER.
+    ENDTRY.
+    DATA(lv_role_bp) = COND string( WHEN lv_bp IS NOT INITIAL
+                                    THEN |{ lv_bp ALPHA = OUT }| ).
+    CONDENSE lv_role_bp.
+
 *   THE ENVELOPE, NOT THE BARE KEY. Two classes are called GET_BP( ) and
 *   they take different things: ZCL_EGA_CJ_UTILITY - the one the engine
 *   calls just below, and the one the legacy BAdI calls - deserializes
@@ -1875,7 +1905,12 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   while the DPC's own GET_BP( ) takes the key verbatim. Handing the bare
 *   key to the first matches no row and resolves nobody, silently.
 *   ZCL_RAK_CJ_CTX=>SESSION_KEY_OF( ) unwraps this again for the second.
-    rv = |\{"ebp":"{ lv_key }","rolebp":"","rolename":""\}|.
+*
+*   ROLENAME is left blank deliberately. It names the role the citizen is
+*   acting IN, and the portal's own codes for it are not known here -
+*   inventing one would filter the backend's reads to a role nobody holds,
+*   which is a quieter failure than the blank ROLEBP above was.
+    rv = |\{"ebp":"{ lv_key }","rolebp":"{ lv_role_bp }","rolename":""\}|.
   ENDMETHOD.
 
 
