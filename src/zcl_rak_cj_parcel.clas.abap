@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-14. Missing this line means SAP has an older copy - see
+*& BUILD map-fix-15. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -1130,6 +1130,46 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     object id is what identifies the row in the backend - the parcel
 *     number alone cannot be looked up as reliably. It is not shown on
 *     screen; it goes in the title beside the rest.
+*     THE ELEMENT IDS CARRY THE PARCEL, and this is the whole reason
+*     only the first parcel ever rendered.
+*
+*     sap.ui.core.HTML is a PRESERVED control - the live viewer DOM
+*     carries sap-ui-preserve on exactly this kind of node. UI5 keeps the
+*     existing DOM subtree for a control it considers unchanged, and with
+*     a CONSTANT element id that is what the frame was: reopening the
+*     dialog on a different parcel left the first parcel's iframe in
+*     place, holding the first parcel's document. No new markup was
+*     applied, so the ONLOAD carrying the new parcel was never installed;
+*     no navigation happened, so LOAD never fired again. Every channel
+*     was working correctly on an element that no longer belonged to the
+*     parcel being asked for.
+*
+*     THE ARCGIS BRANCH IN THIS SAME METHOD ALREADY DOES THIS - see
+*     LV_DVD, |rakGisDet{ to_upper( lv_pid ) }|, a few dozen lines up.
+*     The frame path used a constant instead, and that asymmetry is the
+*     defect. A per-parcel id makes the element genuinely new for a new
+*     parcel, and genuinely the same for the same one - which is also
+*     what makes reopening on an unchanged parcel free.
+      DATA(lv_sfx) = to_upper( lv_pid ).
+*     ID-SAFE. A parcel number is digits today, but this value arrives
+*     through an event string and an id with a space or a quote in it
+*     would break the markup rather than the map - and silently, because
+*     getElementById would simply answer nothing.
+      DATA(lv_ok) = `0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_`.
+      DATA lv_cl TYPE string.
+      DATA lv_ch TYPE c LENGTH 1.
+      DO strlen( lv_sfx ) TIMES.
+        lv_ch = substring( val = lv_sfx off = sy-index - 1 len = 1 ).
+        IF lv_ok CS lv_ch.
+          lv_cl = |{ lv_cl }{ lv_ch }|.
+        ENDIF.
+      ENDDO.
+      lv_sfx = lv_cl.
+
+      DATA(lv_idf) = |rakPclMap{ lv_sfx }|.
+      DATA(lv_idn) = |rakPclNote{ lv_sfx }|.
+      DATA(lv_idw) = |rakPclWait{ lv_sfx }|.
+
       DATA(lv_jint) = mo_e->mv_pcl_det.
       REPLACE ALL OCCURRENCES OF `\` IN lv_jint WITH `\\`.
       REPLACE ALL OCCURRENCES OF `"` IN lv_jint WITH `\"`.
@@ -1178,7 +1218,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     encoding. The braces are escaped once, over the whole markup, at
 *     the end.
       DATA(lv_pjs) =
-        |(function()\{var f=document.getElementById("rakPclMap");| &&
+        |(function()\{var f=document.getElementById("{ lv_idf }");| &&
         |if(!f)\{return;\}| &&
 *       IDEMPOTENT PER PARCEL, not once per element. This guard held a
 *       bare "1", which is right for stopping the two channels from
@@ -1298,7 +1338,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       saying out loud: that the map is still coming, and that the
 *       viewer never arrived at all.
         |function R()\{| &&
-        |var N=document.getElementById("rakPclMapNote");| &&
+        |var N=document.getElementById("{ lv_idn }");| &&
         |if(!N)\{return;\}| &&
         |N.title="parcel "+m.parcelId+" (intreno { lv_jint }), token "+| &&
         |m.token.length+" chars, posted "+n+"x to "+o+| &&
@@ -1319,7 +1359,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       this only ever has to take it away - which means a snippet that
 *       never runs leaves the wait showing rather than a bare white box,
 *       and that is the correct outcome for that case too.
-        |function W()\{var V=document.getElementById("rakPclWait");| &&
+        |function W()\{var V=document.getElementById("{ lv_idw }");| &&
 *       CLASSNAME rather than style.display: the fade is a CSS
 *       transition on opacity, and the class also takes pointer-events
 *       off so a faded overlay can never swallow a click meant for the
@@ -1346,7 +1386,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       needs to spell out.
         |setTimeout(function()\{| &&
         |if(L)\{return;\}| &&
-        |var N2=document.getElementById("rakPclMapNote");| &&
+        |var N2=document.getElementById("{ lv_idn }");| &&
         |if(N2)\{N2.textContent="The map viewer did not load from "+o+| &&
         |". Opening it in a new tab will show what it says.";\}| &&
 *       AND STOP WAITING. A spinner that turns for ever is a worse answer
@@ -1366,7 +1406,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       dialog - and cover the tab strip and the Close button instead of
 *       the map.
         |<div class="rakPclMapWrap">| &&
-        |<iframe id="rakPclMap" src="{ lv_base }" title="parcel map" | &&
+        |<iframe id="{ lv_idf }" src="{ lv_base }" title="parcel map" | &&
         |style="width:100%;height:34rem;border:0;display:block" | &&
 *       THE STAMP GOES FIRST, and it is what tells the snippet that this
 *       channel IS the load event. Without it the snippet cannot know -
@@ -1384,7 +1424,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       the snippet, so the wait is shown even in the case where no
 *       channel runs at all - which is the one case where the citizen
 *       waits longest.
-        |<div class="rakPclWait" id="rakPclWait">| &&
+        |<div class="rakPclWait" id="{ lv_idw }">| &&
         |<div class="rakPclSpin"></div><div>| &&
         |{ t( iv_en = `Loading the map...` iv_ar = `جارٍ تحميل الخريطة...` ) }| &&
         |</div></div></div>| &&
@@ -1395,7 +1435,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       AND IT SHIPS EMPTY NOW. It used to carry "Loading the map..."
 *       because it was the only place that could say so; the overlay says
 *       it now, on top of the frame where the citizen is already looking.
-        |<div id="rakPclMapNote" class="rakPclHint"></div>|.
+        |<div id="{ lv_idn }" class="rakPclHint"></div>|.
 
 *     BRACES ESCAPED, ONCE, OVER THE WHOLE MARKUP - and this is not
 *     optional now that a script rides in an attribute. HTML( ) sets
