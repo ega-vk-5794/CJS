@@ -70,6 +70,18 @@
      <ENTRY>Teardown instead of migrate</ENTRY>
      <LENGTH>35</LENGTH>
     </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_BKND</KEY>
+     <ENTRY>Backend post active</ENTRY>
+     <LENGTH>19</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_TPFX</KEY>
+     <ENTRY>Portal tile prefix (2 chars)</ENTRY>
+     <LENGTH>28</LENGTH>
+    </item>
    </TPOOL>
   </asx:values>
  </asx:abap>

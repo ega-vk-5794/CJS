@@ -196,6 +196,17 @@ CLASS zcl_rak_migrator DEFINITION
 *   MIGRATE( ) now refuses any group it did not create.
     CONSTANTS c_main_grp TYPE string VALUE 'AI00'.
 
+*   THE POST PATH, WHICH THE MIGRATOR USED TO LEAVE OFF ENTIRELY.
+*   Every hand-authored feeder in this repository - E014, E015, E027,
+*   E028, E029, D009 - writes these three columns, and a migrated journey
+*   wrote none of them: BKND_ACTIVE stayed blank and both function-module
+*   names stayed empty. The result renders, validates, collects every
+*   answer and then posts NOTHING, with no error anywhere, because the
+*   engine has no backend to call. That is the whole of the "the M
+*   journeys do not submit" problem - not missing plumbing, three columns.
+    CONSTANTS c_fm_post TYPE string VALUE 'ZFM_EGA_CJ_FW_POST_N'.
+    CONSTANTS c_fm_read TYPE string VALUE 'ZFM_EGA_CJ_FW_READ_N'.
+
     " one row per journey to migrate in a batch
     TYPES:
       BEGIN OF ty_job,
@@ -220,6 +231,8 @@ CLASS zcl_rak_migrator DEFINITION
                 iv_main     TYPE string DEFAULT c_main_grp
                 iv_prefix   TYPE string DEFAULT c_sandbox
                 iv_tile_pfx TYPE string DEFAULT c_tile_pfx
+                iv_bknd_active TYPE abap_bool DEFAULT abap_true
+                iv_handler  TYPE string DEFAULT ''
       EXPORTING et_report TYPE tt_report
                 ev_log    TYPE string.
 
@@ -240,6 +253,11 @@ CLASS zcl_rak_migrator DEFINITION
                 iv_main          TYPE string DEFAULT c_main_grp
                 iv_prefix        TYPE string DEFAULT c_sandbox
                 iv_tile_pfx      TYPE string DEFAULT c_tile_pfx
+*               ON by default, the way every feeder has it. Blank migrates
+*               a journey that renders but cannot post - useful only for
+*               looking at a screen, never for testing one.
+                iv_bknd_active   TYPE abap_bool DEFAULT abap_true
+                iv_handler       TYPE string DEFAULT ''
                 iv_steps         TYPE string DEFAULT ''   " optional step titles, positional
 *               One legacy SCREEN_NAME (e.g. 'E023') can carry more than one
 *               sub-flow under the SAME journey_of_screen( ) code - NE014_1_*
@@ -413,6 +431,13 @@ CLASS zcl_rak_migrator DEFINITION
       RETURNING VALUE(rt) TYPE tt_kv.
     METHODS build_name_map
       IMPORTING it_rows TYPE tt_row.
+*   Is this legacy screen the post-submit confirmation page rather than a
+*   step the citizen fills in? See the call site.
+    METHODS is_confirmation
+      IMPORTING it_rows   TYPE tt_row
+                iv_screen TYPE string
+      RETURNING VALUE(rv) TYPE abap_bool.
+
     METHODS norm_name
       IMPORTING iv_name TYPE string iv_is_table TYPE abap_bool DEFAULT abap_false
       RETURNING VALUE(rv) TYPE string.
@@ -1483,6 +1508,29 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD is_confirmation.
+*   CONSERVATIVE ON PURPOSE. A screen with ANY interactive row is never a
+*   confirmation page, whatever it is called - so a real step that happens
+*   to display an application number keeps its inputs and survives. Only a
+*   screen that asks for nothing AND announces a submitted application is
+*   dropped.
+    DATA lv_marker TYPE abap_bool.
+
+    LOOP AT it_rows INTO DATA(ls) WHERE screen_name = iv_screen.
+      IF ls-role = c_interact.
+        RETURN.
+      ENDIF.
+      DATA(lv_n) = to_upper( ls-field_name ).
+      IF lv_n CS 'APPLICATION_NUMBER' OR lv_n CS 'NOTIFICATION_SENT'
+         OR lv_n CS 'APPLICATION_TYPE'.
+        lv_marker = abap_true.
+      ENDIF.
+    ENDLOOP.
+
+    rv = lv_marker.
+  ENDMETHOD.
+
+
   METHOD load_text_caches.
     CLEAR: mt_val, mt_lbl.
     SELECT spras, value_code, value_desc FROM /qnv/sb_valuet INTO TABLE @DATA(lt_v).
@@ -1585,7 +1633,14 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       density = 'Cozy'
       subtitle    = |Apply and track your request — one guided flow|
       subtitle_ar = |قدّم طلبك وتابعه في مسار واحد|
-      show_actions = 'X' active = 'X' bknd_active = ' '
+      show_actions = 'X' active = 'X'
+      handler_class = to_upper( iv_handler )
+*     See C_FM_POST. A journey migrated with BKND_ACTIVE blank and no
+*     function modules is a journey that silently discards the citizen's
+*     application at submit.
+      bknd_active  = COND #( WHEN iv_bknd_active = abap_true THEN 'X' ELSE ' ' )
+      bknd_fm_post = COND #( WHEN iv_bknd_active = abap_true THEN c_fm_post )
+      bknd_fm_read = COND #( WHEN iv_bknd_active = abap_true THEN c_fm_read )
       bknd_category = iv_category bknd_journey = iv_journey tile_code = tile ) ).
 
     " ---- name map + quality passes FIRST (steps, rules & fields use them)
@@ -1603,6 +1658,26 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     " ---- screens -> steps -----------------------------------------------
     DATA lt_screens TYPE SORTED TABLE OF /qnv/sb_ui_defin-screen_name WITH UNIQUE KEY table_line.
     LOOP AT lt INTO DATA(l0). INSERT l0-screen_name INTO TABLE lt_screens. ENDLOOP.
+
+*   THE LAST LEGACY SCREEN IS USUALLY NOT A STEP. NE028_1_4 and its
+*   equivalents carry E003_APPLICATION_NUMBER, E003_APPLICATION_TYPE and a
+*   "notification sent" message - a confirmation page the legacy framework
+*   shows AFTER the post. The engine appends its own Review-and-submit step
+*   below, so keeping this one gives every migrated journey two terminal
+*   steps, the first of which asks the citizen to submit a screen whose
+*   only content is a case number that does not exist yet. Every feeder
+*   drops it by hand; this does it by rule.
+    DATA lv_conf_drp TYPE i.
+    DATA lt_conf     TYPE string_table.
+    LOOP AT lt_screens INTO DATA(lv_cs).
+      IF is_confirmation( it_rows = lt iv_screen = CONV #( lv_cs ) ) = abap_true.
+        APPEND CONV string( lv_cs ) TO lt_conf.
+      ENDIF.
+    ENDLOOP.
+    LOOP AT lt_conf INTO DATA(lv_cd).
+      DELETE lt_screens WHERE table_line = lv_cd.
+      lv_conf_drp = lv_conf_drp + 1.
+    ENDLOOP.
 
     DATA lv_stepno TYPE i.
     DATA lv_ten    TYPE string.
@@ -2125,6 +2200,14 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     IF lv_grid_drp > 0.
       ev_msg = ev_msg && | ** { lv_grid_drp } table(s) dropped: no LEVEL_CON='T' columns.|.
     ENDIF.
+    IF lv_conf_drp > 0.
+      ev_msg = ev_msg && | { lv_conf_drp } confirmation screen(s) dropped: the engine | &&
+                         |appends its own Review and submit step.|.
+    ENDIF.
+    IF iv_bknd_active = abap_false.
+      ev_msg = ev_msg && | ** BKND_ACTIVE is blank: this journey renders but | &&
+                         |POSTS NOTHING at submit.|.
+    ENDIF.
     IF lv_pay_drp > 0.
       ev_msg = ev_msg && | ** { lv_pay_drp } payment step(s) dropped: set handler_class | &&
                          |(subclass of ZCL_RAK_JOURNEY_LOGIC) and add PAYFEE in the Studio.|.
@@ -2154,8 +2237,11 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
           iv_title_ar = job-title_ar
           iv_dept     = iv_dept
           iv_main     = iv_main
-          iv_prefix   = iv_prefix
-          iv_steps    = job-steps
+          iv_prefix      = iv_prefix
+          iv_tile_pfx    = iv_tile_pfx
+          iv_bknd_active = iv_bknd_active
+          iv_handler     = iv_handler
+          iv_steps       = job-steps
         IMPORTING
           ev_ok       = DATA(lv_ok)
           ev_msg      = DATA(lv_msg)

@@ -129,6 +129,11 @@ PARAMETERS p_test TYPE abap_bool AS CHECKBOX DEFAULT 'X'.
 PARAMETERS p_st2  TYPE abap_bool AS CHECKBOX DEFAULT ' '.
 PARAMETERS p_2up  TYPE abap_bool AS CHECKBOX DEFAULT 'X'.
 PARAMETERS p_down TYPE abap_bool AS CHECKBOX DEFAULT ' '.
+* The post path. ON, the way every hand-authored feeder has it: BKND_ACTIVE
+* plus ZFM_EGA_CJ_FW_POST_N / _READ_N. Untick it and the journeys render,
+* validate, collect every answer and submit NOTHING - which is what a
+* migrated journey did before the migrator wrote these three columns.
+PARAMETERS p_bknd TYPE abap_bool AS CHECKBOX DEFAULT 'X'.
 SELECTION-SCREEN END OF BLOCK b2.
 
 INITIALIZATION.
@@ -255,6 +260,7 @@ START-OF-SELECTION.
                                                 ELSE 'LIVE - journeys will be created' ).
   WRITE: / |prefix { lv_pfx }, tiles { p_tpfx }nn, portal dept { p_dept }, | &&
            |tile group { p_main }, | &&
+           |backend { COND string( WHEN p_bknd = abap_true THEN 'ON' ELSE '** OFF - will not post **' ) }, | &&
            |later stages { COND string( WHEN p_st2 = abap_true THEN 'INCLUDED' ELSE 'excluded' ) }|.
   ULINE.
   WRITE: /  'Journey', 16 'Cat', 24 'Screen family', 42 'Scr', 47 'Rows', 54 'Note'.
@@ -319,6 +325,7 @@ START-OF-SELECTION.
         iv_main          = CONV string( p_main )
         iv_prefix        = lv_pfx
         iv_tile_pfx      = CONV string( p_tpfx )
+        iv_bknd_active   = p_bknd
         iv_screen_prefix = ls_m-pfx           " never the default N<code>_*
       IMPORTING
         ev_ok            = lv_ok
