@@ -101,6 +101,91 @@ _flt 'CallMoi' COND string( WHEN x = abap_true THEN 'X' ELSE '' ).
 
 Use a private method. There is no macro in this codebase worth keeping.
 
+**`DO ... TIMES` takes a data object, never a functional expression.**
+
+```abap
+DO strlen( lv_s ) TIMES.                    " SYNTAX ERROR
+DO ( lines( lt_x ) - 1 ) TIMES.             " SYNTAX ERROR
+```
+
+`DO ... TIMES` is not a general expression position. Compute into a variable
+first. Same family as `TYPE HANDLE` and `VALUE` below — the message names where
+the parser gave up, not what is wrong — and the cost is the one that matters:
+**the class does not activate, the runtime keeps the previous ACTIVE version, and
+nothing on screen changes.** That reads exactly like a pull that never happened.
+
+```abap
+DATA lv_n TYPE i.
+lv_n = lines( lt_x ) - 1.
+IF lv_n > 0.
+  DO lv_n TIMES.
+```
+
+Written the wrong way twice in one session, both times in code whose own comments
+warned about the family.
+
+**`TYPE HANDLE` takes a VARIABLE, never a method call.** `CREATE DATA lr TYPE
+HANDLE lo_tt->get_table_line_type( )` reports *"No method can be specified in the
+current position"* — naming neither `TYPE HANDLE` nor the call. Assign the
+descriptor to a `DATA lo_line TYPE REF TO cl_abap_datadescr` first.
+
+## Inheritance
+
+**An inherited attribute cannot be redeclared.** Adding a constant to a base
+class and leaving the copies in the subclasses stops every subclass at its
+declaration:
+
+```
+There is already an attribute called "C_FLD_DONATE".
+```
+
+The Class Builder reports **the first clash per section only**, so fixing the one
+line it names leaves the next one to be found on the next activation. Diff the
+whole hierarchy instead: base declarations against each subclass's.
+
+Two siblings may both declare the same name — they are not a chain. Only a
+subclass repeating its own ancestor's name is the error.
+
+**`METHODS zif_x~meth REDEFINITION` is not a redeclaration** and may appear at
+every level.
+
+## RTTI: what the descriptor classes actually expose
+
+Guessed component names on `CL_ABAP_CLASSDESCR` are a recurring cost. What
+working code in this repository proves:
+
+| Read | Where it is proven |
+|---|---|
+| `lo_cls->methods` | `ZCL_RAK_CJ_REQ_CTX` |
+| `lo_cls->get_method_parameter_type( )` | same |
+| `ls_m-name`, `ls_m-parameters` | same |
+| `ls_par-name`, `-parm_kind`, `-is_optional` | same |
+| `lo_descr->absolute_name` | `Z2UI5_CL_AJSON` |
+
+**There is no `IS_ABSTRACT` and no `CREATE_VISIBILITY`** on
+`CL_ABAP_CLASSDESCR`, and **a parameter row has no `TYPE`** — the type comes from
+`get_method_parameter_type( )`, and `absolute_name` is the one string that names
+any type unambiguously, which is what a factory has to `CREATE DATA` against.
+
+## SELECT on a DDIC table you cannot open
+
+**Naming a column puts the program's ability to COMPILE on your memory of the
+table.** A column that turns out not to exist is not a wrong answer, it is a
+syntax error.
+
+```abap
+SELECT clsname FROM seometarel WHERE reltype = 1 AND version = 1 ...   " risky
+SELECT * FROM seometarel WHERE refclsname = @p_intf ...                " then
+ASSIGN COMPONENT 'RELTYPE' OF STRUCTURE <row> TO FIELD-SYMBOL(<v>).    " runtime
+```
+
+`SELECT *` plus `ASSIGN COMPONENT` moves it to runtime, where a missing column is
+reported and the report still runs. Worth it for any table outside `ZRAK_*` when
+there is no ADT connection to check it with.
+
+And **report those codes rather than filtering on them**: a filter answering "no
+rows" for a table full of them is the misleading direction.
+
 ## Table access
 
 **`itab[ n ]` raises `CX_SY_ITAB_LINE_NOT_FOUND`, it does not return blank.**

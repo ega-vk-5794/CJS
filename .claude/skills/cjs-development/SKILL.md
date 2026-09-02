@@ -23,6 +23,24 @@ codebase is a violation of that line in one direction or the other.
    object inactive; until it activates the runtime keeps running the OLD version
    and the Class Builder still displays it. Verify by CONTENT — open the method
    and look for a string you just added. `Implemented / Active` proves nothing.
+5. **Put the build on the screen.** A `C_BUILD` constant printed under trace
+   answers "is the code on screen the code I just wrote" by observation instead of
+   inference. Whole sessions have gone into re-diagnosing a build that was never
+   running — a pull with the `Overwrite local object` row unticked and a pull that
+   failed to activate look identical, and both look like code that ran and did
+   nothing. `ZCL_RAK_CJ_PARCEL` carries one. That question has to be answered
+   first, every time.
+6. **Instrument rather than infer, then take it out.** When two rounds produce no
+   visible change, stop theorising and print the one number that separates the
+   candidates. On the parcel map, eleven builds went into reasoning about which
+   JavaScript delivery channel fired without once *measuring* whether one did; a
+   post counter on screen ended it in a single round trip. Then remove it — it is
+   developer text in a citizen's screen.
+7. **Check what already exists before declaring anything.** Three consecutive
+   activation errors in one session were all the same category: a constant already
+   inherited from the base, an attribute `CL_ABAP_CLASSDESCR` does not have, a
+   component a parameter row does not have. Diff the whole hierarchy, and read the
+   working code next door rather than remembering the shape.
 
 ## Decision table — where does this change belong?
 
@@ -52,9 +70,9 @@ Read the one that matches the task. They are short.
 
 | File | When |
 |---|---|
-| `reference/abap-traps.md` | **Always.** Dialect traps that produce misleading compile errors, plus the z2ui5 view-building ones. Every one was hit for real. |
-| `reference/config-tables.md` | Adding fields, steps, rules, grid columns, layout |
-| `reference/seed-reports.md` | Writing a seed report, or migrating a journey from a /QNV export |
+| `reference/abap-traps.md` | **Always.** Dialect traps that produce misleading compile errors, plus the inheritance, RTTI, DDIC-`SELECT` and z2ui5 view-building ones. Every one was hit for real. |
+| `reference/config-tables.md` | Adding fields, steps, rules, grid columns, layout. Also the 23-character field-name ceiling, the `API:` option source, the parcel composites and `EDITABLE_TABLE` vs `TABLE` |
+| `reference/seed-reports.md` | Writing a seed report, or migrating a journey from a /QNV export. **Carries the Municipality (M0xx) section — read all of it before any MML / DML / GRANTS / TEN feeder** |
 | `reference/grids.md` | `EDITABLE_TABLE`, `TABLE`, column specs, hidden columns, fixed rows |
 | `reference/hooks.md` | Handler hooks and the `ZIF_RAK_JOURNEY` context API |
 | `reference/payment.md` | `PAYFEE`, the footer state machine, the gateway, fees |
@@ -84,6 +102,19 @@ Read the one that matches the task. They are short.
 8. **A DDIC-typed field will not bind to a `TYPE string` parameter**, though a
    character literal will — so the working call sits right above the failing one.
    Wrap it, and remember a syntax error in one method takes the whole class down.
+9. **A migrated field's `FIELD_NAME` must BE the legacy `/QNV/` `FIELD_NAME`.**
+   Backend field control is keyed on it end to end — `SEED_CTRL( )` looks the
+   field up by it, `CTRL_OF( )` reports back on it, and `APPLY_CTRL( )` calls
+   `SET_HIDDEN` with it, which on a name the journey does not have is legal and
+   does nothing. Rename a field and `MANDATORY` / `ENABLED` / `VISIBLE` from the
+   live field-control engine all silently stop applying. `TECH_NAME` is a
+   different key and keeps the technical name. See `seed-reports.md`.
+10. **`EDITABLE_TABLE`, or a handler cannot read or write the rows** — and field
+   level `READONLY` has the same effect. For a grid the backend fills, use
+   `EDITABLE_TABLE` with `READONLY` on every *column* instead.
+11. **`DO ... TIMES` takes a data object, not an expression.** `DO lines( t )
+   TIMES` does not activate, the runtime keeps the old version, and nothing on
+   screen changes. Same family as `TYPE HANDLE` and `VALUE`.
 
 ## Trusting a backend's metadata
 

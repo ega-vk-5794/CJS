@@ -98,6 +98,52 @@ captions resolve from `LABEL_CON` or `VALUE` through the label dictionary.
 **Read it before writing anything.** A field list inferred from a screenshot is
 a guess with a compile error at the end of it.
 
+### The CJS `FIELD_NAME` must BE the legacy `FIELD_NAME`
+
+This is the single most expensive thing to get wrong, because nothing reports it.
+
+Backend field control only reaches a CJS field whose `FIELD_NAME` equals the
+legacy one. The whole chain is keyed on it:
+
+| Step | Keyed on |
+|---|---|
+| `ZCL_RAK_QNV_BRIDGE->SEED_CTRL( )` | `READ TABLE ls_s-fields WITH KEY name = to_upper( iv_field )`, where `iv_field` is the **definition row's** `FIELDNAME` |
+| `ZCL_RAK_QNV_BRIDGE->CTRL_OF( )` | `is_def-fieldname`, the same legacy name |
+| `ZCL_RAK_JOURNEY_BE->APPLY_CTRL( )` | calls `SET_HIDDEN` / `SET_READONLY` / `SET_REQUIRED` with that name — and on a name the journey does not have, that is **legal and does nothing** |
+
+So a tidier name does not merely miss a nicety: `MANDATORY`, `ENABLED` and
+`VISIBLE` from the live field-control engine all silently fail to apply, and it
+looks exactly like a backend that never sent them.
+
+```
+PARCELSEL      ->  PARCELSELECTOR        DOC_TITLEDEED ->  NOCCONT
+PLOTLONGTEXT   ->  ENTERTEXT             DOC_ID        ->  LETTERCONT
+TOTALFEESVALUE ->  TOTALVALUE            ACCEPT_TERMS  ->  CHECKBOX_3
+USAGETYPE      ->  RAKSELECTUSAGETYPE    DONATE        ->  CHECKBOX_4
+```
+
+`TECH_NAME` is a **different key** and keeps the technical name — `ENTERTEXT`'s
+`TECH_NAME` is still `PLOTLONGTEXT`. Only the `FIELD_NAME` has to match.
+
+Verify mechanically: every seeded `FIELD_NAME` should appear in the export for
+that screen, and the exceptions should be a short list of CJS-only controls
+(`PAYFEE`, `REVIEW`, guidance paragraphs) that you can name.
+
+### A container-driven hide lands on the CONTAINER
+
+When the BAdI hides by `CONTROLGROUP`, it clears `ISVISIBLE` on the row carrying
+that group — which is a `VBOX`, not the control inside it:
+
+```abap
+READ TABLE ct_definition ASSIGNING <fs_defn> WITH KEY controlgroup = 'NOC'.
+IF sy-subrc EQ 0. CLEAR <fs_defn>-isvisible. ENDIF.
+```
+
+CJS has no containers, so **name the CJS field after the container** and let the
+group collapse to its one real control. A field called `UPLOADER1` would never
+hear the hide; one called `NOCCONT` does, through the ordinary mechanism, with
+nothing duplicated and no second opinion about when to show it.
+
 Things the export says that are easy to miss:
 
 | Seen in the export | What it means |
@@ -134,6 +180,192 @@ End the report with `WRITE` blocks the developer will actually read:
   and the original is unrecoverable once the row is written
 - **NOT MIGRATED** — chrome, stage bars, feedback widgets the framework draws
   itself. A reader who cannot see what was dropped assumes it was missed
+
+## Municipality (MML / DML / GRANTS / TEN) journeys
+
+The six Manage-My-Land journeys — M011 Divide, M012 Merge, M016 Change Building
+Regulations, and M013/M014/M015 — all run through **one** BAdI abstract,
+`ZCL_EGA_CJ_FW_RO_ABS_V1`. Read that class before writing a Municipality feeder;
+almost everything below is in it.
+
+Reference feeders: `ZRAK_M011_LOAD` (the family reference), `ZRAK_M012_LOAD`,
+`ZRAK_M016_LOAD`. Handlers: `ZCL_RAK_MUN_LOGIC` (shared) plus one thin subclass
+per journey.
+
+### Screen naming and scope
+
+An M-code is **not** a screen name. Municipality screens are named by mnemonic —
+`NSUBDIVISION`, `NMERGE`, `NCBR`, `NOG`, `NNTC` — and the M-code appears only as
+the `VALUE` of each screen's `JOURNEYTYPE` row. Each service exists three times:
+`<FAM>_n` desktop, `M<FAM>_n` mobile, `N<FAM>_n` current. **Migrate the `N` one.**
+
+**Stage 1 and stage 2 are SEPARATE SERVICES, not two halves of one wizard.**
+`NSUBDIVISION_1_*` is apply-and-pay-initial-fee; `NSUBDIVISION_2_*` is the later
+stage. Deriving both into one journey gives the citizen a wizard that stops for
+weeks in the middle. One feeder per stage.
+
+### Structure: three steps, and NO review step
+
+```
+STP1  N<FAM>_1_1  Parcel Selection
+STP2  N<FAM>_1_2  Documents
+STP3  N<FAM>_1_3  Fees & Payment
+```
+
+`N<FAM>_1_4` is the confirmation page and is **framework chrome** — the engine
+draws the result card from `MV_SUBMITTED` and the happiness meter from
+`WANTS_FEEDBACK`. Do not seed it.
+
+**Do not insert a Review step.** The migrator does, and it is wrong here: the
+legacy service has no review screen, and on screen it reads as a step standing
+between the citizen and paying.
+
+### The four things the migrator omits
+
+1. **`BKND_ACTIVE` / `BKND_FM_POST` / `BKND_FM_READ`.** Without them a journey
+   renders, validates, collects every answer and **posts nothing**. Category
+   `MML`, `BKND_JOURNEY` the M-code, both FMs `ZFM_EGA_CJ_FW_POST_N` /
+   `..._READ_N`.
+2. **`TITLE_AR`.** Read it — `SELECT SINGLE description FROM zega_t_cj_idt WHERE
+   journeyid = @c_jny AND spras = 'A'`. That is the row the legacy service renders
+   its own name from. `SPRAS 'A'`, not `'AR'`. Every earlier loader left it blank
+   "because the authoritative text is `ZEGA_T_CJ_IDT`" and then left it blank.
+3. **`PAYFEE`.** The migrator drops `RAKPAY` and counts it, so twelve migrated M
+   journeys have no pay control at all.
+4. **`DRAFT_MODE` blank.** The RE rental object created on
+   `ZIF_EGA_FW_CJI~CREATE` **is** the draft, so the engine's derivation
+   (`DELEGATE`) is correct. Forcing `NATIVE` errors — there is no CJS draft store.
+
+### What the backend owns — do not re-implement it
+
+`ZCL_EGA_CJ_FW_RO_ABS_V1->VALIDATE( )` enforces, on every post:
+
+| `ZMSG_EGA_CJ` | Rule |
+|---|---|
+| 004 | one location hierarchy across all selected parcels |
+| 005 | no parcel already inside an open ZGCX container |
+| 006 | every parcel has a `TR0800` owner role |
+| 007 | no `YTR080` grant role |
+| 011 | at least one parcel actually owned by the applicant |
+| 012 | no duplicate parcels |
+| 013 | nothing under construction (building status 03) |
+| 031 | parcel not in status E0012/E0013/E0014/E0017 |
+| — | `ZCM_CASE_PARCEL_CHARACT_PERMIT` per parcel, per case type |
+
+Every one needs `VILMPL`, `VIBPOBJREL`, `VIBDAO`, `JEST` or a function module. A
+CJS copy forks nine domain rules and **the copy is the one that goes stale**,
+because the legacy path stays live for the ShapeIt screens. Messages come back on
+the post through `ET_MSG` (bridge → `ZCL_RAK_JOURNEY_BE`) and surface as engine
+messages.
+
+Only add a CJS-side check that needs **no table read** — M012's "a merge needs
+two parcels" is the family's one example, and it earns it by not re-deciding
+anything the backend decides.
+
+`FIELD_CONTROL( )` owns two conditional documents, read from
+`ZCL_EGA_MUN_CJ_ODATA_API`:
+
+| Group | Hidden unless |
+|---|---|
+| `NOC` (→ CJS field `NOCCONT`) | the parcel `is_mortgaged` |
+| `LETTER` (→ CJS field `LETTERCONT`) | it has **more than one** `TR0800` owner |
+
+Both are `MANDATORY = X` in the export, and required-when-shown is correct
+because validation skips hidden fields.
+
+### Characteristics and where values land
+
+| Char | Holds |
+|---|---|
+| `CJ02` | the parcel, or the `-` separated parcel list, also written to the RE note `<intreno>#CJ02#00000000` |
+| `CJ03` | owner BP (`TR0800`) |
+| `CJ04` | applicant BP (`TR0640`) |
+| `CJ10` | the tasheel transaction id, when a property agent launched it |
+| `CJ11` | the citizen's description — `TECH_NAME 'PLOTLONGTEXT'`, also an RE note |
+| `CJ12` | the ZGCX container case id |
+
+The journey object is an RE rental object: company `2000`, business entity
+`CJMUN`, usage type `3000`, RO type `RU`, `PROPERTY` carrying the M-code.
+
+### The payment deviation from EPDA — read this before touching the fee step
+
+**The case is created when the FEES STEP POSTS, not on submit.**
+`ZIF_EGA_FW_CJI~UPDATE( )`:
+
+```abap
+READ TABLE ct_item_data ... WITH KEY technicalname = 'TOTALFEESVALUE'.
+IF sy-subrc = 0 AND line_exists( mt_ui_map[ objectkey = 'FEES_1' ] ).
+  payment_check( ) ... IF caseid IS INITIAL. create_dummy_case( ).
+```
+
+Two consequences a feeder must respect:
+
+- **`TOTALVALUE` must carry `TECH_NAME 'TOTALFEESVALUE'` and reach the post.**
+  Without it the backend creates nothing and the citizen pays against no open
+  item. Seed it hidden and readonly rather than leaving it to the card.
+- **`ZEGA_T_CJ_UI_MAP` needs a `FEES_1` row for that screen** — legacy config, not
+  CJS. No row, no case, ever.
+
+**The base handler already does the Pay press correctly** — `ON_POPUP_EVENT
+( PAYNOW )` sets `PAY_STARTED`, sets `STATUS = 'PAYMENT'`, calls `COMMIT_STEP( )`
+(the post on which the case is created) and returns without reaching the gateway
+if that commit fails. Do not re-implement it; add only what it cannot know.
+
+**`CHECKBOX_3` is a gate, not chrome.** Its `UI_FIELD_LOGICS` is `PAY-E` — it
+*enables* the Pay button on the live screen. CJS cannot reproduce that from
+config: the `PAYFEE` card is drawn whole by the base `RENDER_FIELD( )` with Pay
+inside it, and `REQUIRED` only gates *leaving* the step — which on the last step
+means submitting, not paying. So a citizen can complete a real payment and only
+then be told they had to accept terms. Refuse the press in the handler instead.
+Reordering the checkbox above `PAYFEE` also puts it above the fee table, so terms
+get accepted before the amount is shown.
+
+### The payment card is one field
+
+`NSUBDIVISION_1_3` has 134 export rows and nearly all of them are inside the
+card: `RB1..RB4` (method), `PW_RB1/PW_RB2` (channel), the `FEESLIST` CLIST and
+its template, `REMAININGFEES`, `ATB_FLAG`, `TOTALVALUE`'s display. Seed `PAYFEE`,
+`TOTALVALUE`, `CHECKBOX_3` and `CHECKBOX_4` and **nothing else** — re-creating
+the rest draws the payment screen twice.
+
+Fees come from `ZCL_EGA_MUN_CJ_FEES_<M0xx>->GET_INITIAL_FEE`.
+
+### Attachments: send the document type
+
+Legacy uploaders carry `DATA2 = 1/2/3`, which the BAdI files as
+`ZDT_EGA_CJ_ATTR-DIFFCRT` via `CREATE_ATTACHMENT`'s `DOC_TYPE`. Carry it as
+`DTYPE:n` in `DEFAULT_VAL`.
+
+`CREATE_ATTACHMENT` only checks `OBJTRG` and `OBJSRC`, so a missing type passes
+silently and the case cannot tell a title deed from an Emirates ID. And because
+`GET_ATTACHMENT( )` de-duplicates on `( objsrc, diffcrt, objsrctype, objtrgtype )`,
+**two files on one field come back as one** — so leave `ATTACH_MULTI` off, one
+file per field, even with the type carried.
+
+### The property-agent screens are not fields
+
+A requirement document full of "Property Agent" screenshots is the family's
+tasheel flow, already handled in `MAPPER( )`: a BP value longer than ten
+characters is read as a transaction id, `ZEGA_T_CJ_BP_REL` resolves it to the
+owner/applicant pair, and it lands on `CJ10`. No CJS field, no CJS code — the
+launch parameter decides it.
+
+### The parcel details dialog
+
+Six of its seven tabs are one read, and it is **`GET_EXPANDED_ENTITY`, singular**:
+
+```
+PropertiesSet(Intreno='…',Partnerguid=guid'…')
+  ?$expand=ToProject,ToPartner,ToMeasurement,ToLandUse,ToDevelopment,ToAttachment
+```
+
+A key in the path routes to the singular method; `EntitySet?$expand=` routes to
+`GET_EXPANDED_ENTITYSET`. CJS already holds both key parts — `Intreno` from the
+parcel row, `Partnerguid` from `MS_CTX`. Only the **plural** method is known to
+dereference `IO_EXPAND->GET_CHILDREN( )` unguarded, so the tabs may be one call
+away. Run `ZRAK_CJ_EXPAND_DIAG` before writing anything against it.
+
+`FloorSet` genuinely is behind the plural method (`iv_entity_name = gc_floor`).
 
 ## Never seed a live credential or a test identity
 

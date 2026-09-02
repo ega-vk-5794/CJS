@@ -5,7 +5,7 @@ Seven tables. A journey is rows, not code.
 | Table | Holds |
 |---|---|
 | `ZRAK_T_JNY` | journey header: title, theme, layout, handler class, backend, draft/attachment ownership |
-| `ZRAK_T_JNY_STEP` | steps: `STEP_ID`, `SEQNR`, title, icon, `COLUMNS`, `BKND_SCREEN`, `NEXT_REQ` |
+| `ZRAK_T_JNY_STEP` | steps: `STEP_ID`, `SEQNR`, title, icon, `COLUMNS`, `BKND_SCREEN`, `NEXT_REQUIRES`, `NO_FORWARD` |
 | `ZRAK_T_JNY_FLD` | fields: the bulk of any journey |
 | `ZRAK_T_JNY_OPT` | option lists for SELECT / RADIO / CHECKGROUP / SEGMENTED / MULTISELECT / SEARCH |
 | `ZRAK_T_JNY_RULE` | rules: `SRC_FIELD`, `SRC_OP`, `SRC_VALUE`, `ACTION`, `TGT_FIELD`, `TGT_VALUE` |
@@ -31,7 +31,68 @@ work process keeps serving the old config otherwise.
 | `REQUIRED` + `MSG` | the FIELD flag; does **not** reach grid rows. The grid COLUMN flag is separate and *is* enforced — see Grid columns |
 | `ATTACH_*` | uploads. `ATTACH_LABEL` doubles as the grid Add-row caption |
 | `MIN_LEN` / `MAX_LEN` / `REGEX` / `MIN_VAL` / `MAX_VAL` | validation, with `MSG` (`CHAR(255)`) |
-| `ROLLNAME` / `DOMNAME` / `SHLP` | the three config-driven F4 sources |
+| `ROLLNAME` / `DOMNAME` / `SHLP` | three of the **four** F4 sources — see below |
+| `CLOSED_LIST` | `'X'` on an `FTYPE 'SELECT'` renders `sap.m.Select` instead of the typable `sap.m.ComboBox`. Blank keeps type-ahead, so no existing dropdown changes |
+
+**Get the column names from the DDIC, not from this table.** `NEXT_REQUIRES` was
+written here as `NEXT_REQ` for a while and a feeder using that name simply does
+not compile. One `grep -oE "<FIELDNAME>[A-Z0-9_]+"` over `src/zrak_t_jny*.tabl.xml`
+settles all seven tables in a second.
+
+## Field names have a hard ceiling of 23, not 30
+
+`BUILD_MODEL( )` calls `CL_ABAP_STRUCTDESCR=>CREATE( )` per field, and a model
+component is capped at 30 — but the model also builds `_VS`, `_VST`, `_IDTYPE`,
+`_NAME`, `_IX` and `_EXP` companions on the same name. So **23 is the real limit**,
+and `CX_SY_STRUCT_COMP_NAME` is uncaught: an over-long name kills the whole app
+with UNCAUGHT EXCEPTION rather than hiding one field. Any runtime-derived name
+goes through `ZCL_RAK_JOURNEY_UTIL=>COMP_NAME( )`, never plain `to_upper( )`.
+
+## The fourth option source: an `API:` directive
+
+`DEFAULT_VAL` can carry `API:<api>:<entityset>[:<domain>[:<filter>]]`, read by
+`ZCL_RAK_CJ_OPTS=>RESOLVE( )` **ahead of the DDIC resolver** — an API-bound field
+must never fall through to a domain that happens to share its name, because a
+wrong list is harder to notice than no list.
+
+```
+API:PROPERTY:PropertiesSet::Type=Parcel
+```
+
+The empty domain slot before the filter is required. Only `PROPERTY` and
+`MAPLET` have resolver branches today; `TENANCY`, `SIGN`, `VALUEHELP` and `FND`
+are named in the migrator's bind table and **their wrapper classes do not
+exist** — so a field bound to one of those gets no options and no error.
+
+## The parcel / property composites
+
+| FTYPE | Draws |
+|---|---|
+| `PARCEL` | the live card list, single-select, one Select button per card |
+| `PARCELS` | the same list **multi-select**, a checkbox per card, storing a `-` separated list |
+| `PROPERTY` / `TITLEDEED` | as `PARCEL`, different `Type` filter |
+| `REVIEW` | the engine's own review renderer — one field, nothing to configure, nothing to post |
+
+`PARCELS` stores its list `-` separated because the backend already does:
+`ZIF_EGA_FW_CJI~UPDATE( )` builds the CJ02 note as
+`parcel && '-' && ui_table_column1` and splits it back the same way.
+
+All of them need the `API:` directive as well as the FTYPE. Without it the field
+renders as an empty ComboBox and says nothing.
+
+## Hidden fields are not validated
+
+`ZCL_RAK_JOURNEY_RULES->VALIDATE_STEP( )` skips them outright:
+
+```abap
+IF is_hidden( ls_f ) = abap_true. CONTINUE. ENDIF.
+```
+
+So **`REQUIRED` + hidden is safe**, which is what makes a backend-driven
+conditional document work: the field is authored required because it *is*
+mandatory when shown, and a citizen who never sees it is not blocked. Check this
+before relying on it in any release — the alternative failure is a step nobody
+can leave.
 
 ## Long text: the 150-character ceiling
 
@@ -92,6 +153,41 @@ The Studio's Columns panel labels the two inert ones so an author is not left
 guessing. Do not add a caveat to a label without checking it is still true — one
 said "not enforced yet" long after `REQUIRED` was wired up, which is the more
 damaging direction for a caveat to be wrong in.
+
+### `EDITABLE_TABLE` or the handler cannot touch it
+
+`GET_GRID_DATA( )` and `SET_GRID_DATA( )` work **only** on an `EDITABLE_TABLE`.
+With `FTYPE 'TABLE'` the engine warns and both calls are no-ops:
+
+```
+Grid RAKPARCELS: FTYPE is TABLE, not EDITABLE_TABLE.
+Only an editable grid has rows to read or write.
+```
+
+**And field-level `READONLY` does the same thing.** It takes the rows away from
+the handler as well as from the keyboard. If the intent is "the handler writes
+the rows, the citizen does not type in them" — which is the normal shape for a
+grid the backend fills — then:
+
+- `FTYPE = 'EDITABLE_TABLE'`, field `READONLY` **blank**
+- `ZRAK_T_JNY_COL-READONLY = 'X'` on **every** column
+
+That leaves the grid editable enough for `SET_GRID_DATA( )` and for the per-row
+delete button, with no cell typable.
+
+Do not put `REQUIRED` on a column the backend fills. It is enforced against every
+row that already exists, so it refuses the row the moment the handler adds it and
+before the read can fill the rest.
+
+### Rows are positional at both ends
+
+`SET_GRID_DATA( )` matches `is_data-columns` **by name**, so handing back exactly
+what `GET_GRID_DATA( )` returned is an identity map and cannot shift a value into
+the neighbouring column. Building a fresh column list is how a cell ends up one
+place to the left.
+
+A row shorter than the column list has undefined later cells, not blank ones —
+pad it.
 
 ## Steps
 
