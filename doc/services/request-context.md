@@ -33,6 +33,58 @@ why the subclass attempts kept failing and the unit-test context works: SAP ship
 it as a request context for a DPC with no HTTP request behind it, which is
 exactly this situation.
 
+## SETTLED, AND VERIFIED ON E10
+
+Use **`/IWBEP/CL_MGW_REQUEST`**. Not `_UNITTST`.
+
+That is the reverse of the obvious choice and it cost several rounds, so the
+reason is worth keeping:
+
+| | `_UNITTST` | `/IWBEP/CL_MGW_REQUEST` |
+| --- | --- | --- |
+| Constructor | `IT_HEADERS`, `IO_MODEL` | `IR_REQUEST_DETAILS`, `IT_HEADERS`, `IO_MODEL` |
+| Constructs? | trivially | yes, once the reference is bound |
+| `GET_REQUEST_HEADERS( )`? | **dumps** | **works** |
+
+`_UNITTST` does not redefine `GET_REQUEST_HEADERS( )`, so the inherited one runs:
+
+```abap
+rt_header = mr_request->*-technical_request-request_header.
+```
+
+and nothing in its constructor sets `MR_REQUEST`. It has no
+`IR_REQUEST_DETAILS` to bind either. The object is perfect until the first
+time anything uses it, then raises `DATREF_NOT_ASSIGNED` — **which is not
+catchable**: a `TRY` around the call does not stop it.
+
+So construction succeeding proves nothing. `ZRAK_CJ_REQCTX_DIAG` reported
+`BOUND` for days while every read through the layer would have dumped.
+
+**`BIND_REF( )` is what makes the base class work.** For any mandatory
+constructor parameter that is a *data* reference it: reads the referenced type
+by RTTI, `CREATE DATA`s onto the reference variable itself so the parameter is
+bound rather than null, then walks `TECHNICAL_REQUEST` → `REQUEST_HEADER` and
+puts `x-custom1` there — the exact component the getter reads. Every step is
+guarded; a reference to a class or interface is left alone, because there is
+nothing to fabricate.
+
+### The run that proved it
+
+```
+Headers: x-custom1 IS on the context, 64 characters
+GET_BP user:    HISHAM.M
+GET_BP partner: 3000401630
+```
+
+Session key from `ZRAK_CJ_TESTKEY`, E10, September 2026.
+
+### The fallback that turned out not to be needed
+
+`/IWBEP/IF_MGW_REQ_ENTITYSET` has **41 methods**. Implementing it directly —
+every method empty but `GET_REQUEST_HEADERS( )` — was the last resort if no
+standard class could be made to answer. It is not needed. The full method list
+is printed by `ZRAK_CJ_REQCTX_DIAG` if it ever becomes so.
+
 ## How the factory avoids naming any of it
 
 `ZCL_RAK_CJ_REQ_CTX=>GET( )` reads the candidate class's own `CONSTRUCTOR` by
