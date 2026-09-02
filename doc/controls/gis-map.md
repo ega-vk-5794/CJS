@@ -4,6 +4,49 @@ Written from `RAK-eEGA/egardcjeng` `util/Map.js` and `js/gismappingIM.js`. Both 
 guessed at for several rounds before either source was read; the guesses are recorded
 here so they are not made again.
 
+## SETTLED — the framed map works, and what it took
+
+The parcel dialog's Map tab draws the citizen's parcel, zoomed and outlined, on
+`ZCL_RAK_CJ_PARCEL` **map-fix-21**. Five separate faults stood between the frame
+rendering and the map drawing, and every one of them was invisible from a
+screenshot. In the order they had to be fixed:
+
+| # | fault | why it was invisible |
+| --- | --- | --- |
+| 1 | The snippet shipped only through `FOLLOW_UP_ACTION( )`, which runs from the **main** view's `onAfterRendering` — and a round trip that only opens a dialog need not repaint the main view. | The frame loaded and sat on its splash logo, exactly as it does when the message is refused. |
+| 2 | The load flag was set by `addEventListener("load", …)` **registered from inside the `onload` attribute** — an event that had already fired. | Worked on the first open only, because that one round trip has both channels. Every reopen announced "the viewer did not load" over a viewer that had. |
+| 3 | The iframe id was the constant `rakPclMap`. `sap.ui.core.HTML` is a **preserved** control, so reopening on another parcel kept the first parcel's iframe and document. | Only the first parcel ever rendered. Every channel was working — on an element that no longer belonged to the parcel being asked for. |
+| 4 | The retry counter was also the post counter (`s()` did `n++`, the interval tested `++n>10`), so retries stopped after 5 ticks — 2.5s. | Intermittent. The viewer attaches its `message` listener late; a post before that is dropped silently. |
+| 5 | Widening that window to 12s made it worse: **`DefconReciveMessage` calls `DefconAuth( )` on every message**, so each post restarts the viewer's map. | Nothing drew at all. 24 restarts and it never settled. |
+
+**The rule that came out of 4 and 5 together: what matters is a quiet tail, not a
+long window.** The last post must be early enough that an uninterrupted run
+follows it. `map-fix-16` worked whenever it worked because its counter bug
+clustered 6 posts inside 2.5s and then went silent — the silence was the
+mechanism, not the retrying. The schedule is now `0, 250, 750, 1750, 3500` ms and
+then nothing, stopping early if the viewer replies.
+
+### Two things that cannot be observed, and must not be guessed
+
+- **There is no signal that the map has drawn.** The viewer never replies even on
+  a successful render, so `no reply` cannot mean failure — a warning keyed on it
+  appears underneath working maps. The overlay is therefore lifted on a grace
+  period (4.5s, past the last post) and by a CSS fallback, never on evidence.
+- **A per-parcel failure could not be told from a race** until the post count was
+  put on screen. Which parcel drew *reversed* between two builds that did not
+  touch the messaging, which is what ruled out the GIS data — an absent boundary
+  cannot alternate. The counter (`map: 5x/4 L`) is gone from the screen again;
+  the same figures remain on the note's `title`, and the build/parcel/intreno
+  line returns under `MV_TRACE`.
+
+### Verify by content, and the build says so
+
+`ZCL_RAK_CJ_PARCEL` carries `C_BUILD` and prints it in the dialog under trace.
+Three rounds here were spent re-diagnosing a build that was not running, because
+a pull with the `Overwrite local object` row unticked and a pull that failed to
+activate both leave the previous version live with nothing on screen to say so.
+Read the build tag before believing anything else.
+
 ## CORRECTION — the deployed screen FRAMES the map
 
 **Read this before the rest of the file.** Everything below was derived from `util/Map.js`

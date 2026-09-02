@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-20. Missing this line means SAP has an older copy - see
+*& BUILD map-fix-21. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -98,7 +98,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   the thing being looked at is the thing that was just written, which
 *   is the question that has to be answered FIRST every time and until
 *   now could only be inferred. Bump it with the header stamp.
-    CONSTANTS c_build TYPE string VALUE 'map-fix-20'.
+    CONSTANTS c_build TYPE string VALUE 'map-fix-21'.
 
     METHODS constructor
       IMPORTING io_engine TYPE REF TO zcl_rak_journey_engine.
@@ -1441,28 +1441,23 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         |" from "+window.location.origin+| &&
         |(IN.length?(", viewer replied: "+IN.join(" / "))| &&
         |:", viewer replied nothing");| &&
-*       AND NOW IT COUNTS OUT LOUD, because the hover was not enough.
+*       A REPLY IS STILL WORTH SHOWING - the viewer has volunteered
+*       something, and it is the only voice from inside the frame.
+        |if(IN.length)\{| &&
+        |N.textContent="Map: "+IN.join(" / ");return;\}| &&
+*       OTHERWISE SILENT. An empty line means the map worked, the same
+*       rule as the ArcGIS path in ZCL_RAK_CJ_GIS - and silent BEFORE
+*       load too, because the overlay on top of the frame is what says
+*       the map is coming.
 *
-*       Which parcel draws has now REVERSED between two builds that did
-*       not touch the messaging: 313030024 failed while two others drew,
-*       then 313030024 drew while those two failed. A missing boundary in
-*       the GIS layer cannot alternate, so the parcel data is not the
-*       cause and neither is anything parcel-specific in this class. It
-*       is a race - and five rounds have gone into reasoning about which
-*       delivery channel fires without ever MEASURING whether one did.
-*
-*       So the counts go on screen, not in a title nobody can screenshot.
-*       Terse and factual rather than a warning: this is the number that
-*       says whether the snippet ran for THIS open and how many posts
-*       reached the frame, and it is the one fact that separates "the
+*       THE POST COUNTER THAT WAS HERE HAS BEEN REMOVED. "map: 5x/4 L"
+*       was the instrument that ended the guessing - it separated "the
 *       viewer was never told" from "the viewer was told and drew
-*       nothing". A blank line has been ambiguous in both directions
-*       often enough to have cost more than a few grey characters do.
-*
-*       It comes off once this is settled.
-        |var Z="map: "+n+"x/"+k+(L?" L":" -");| &&
-        |if(IN.length)\{Z=Z+" - "+IN.join(" / ");\}| &&
-        |N.textContent=Z;\}| &&
+*       nothing", which no amount of reasoning had managed - but it is
+*       developer text and a citizen has no use for it. The same figures
+*       are still on N.title, one hover away, which is where they belong
+*       once they are not being read every five minutes.
+        |N.textContent="";\}| &&
 *       THE WAIT OVERLAY, ON AND OFF. It ships visible in the markup, so
 *       this only ever has to take it away - which means a snippet that
 *       never runs leaves the wait showing rather than a bare white box,
@@ -1628,9 +1623,20 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   A cross-origin frame that draws nothing and one that draws a parcel
 *   are indistinguishable from here, and claiming otherwise would be
 *   worse than saying nothing.
-    lo_c->text( text  = |CJS { c_build } · parcel { mo_e->mv_pcl_pid }| &&
-                        | · intreno { mo_e->mv_pcl_det }|
-                class = 'rakPclHint' ).
+*   UNDER TRACE ONLY. This line earned its place - it is what proved the
+*   pull had activated, which had been costing whole rounds of
+*   re-diagnosing a build that was not running, and it names the parcel
+*   so a screenshot is never ambiguous again. But it is developer text in
+*   a citizen's dialog, so it is behind MV_TRACE rather than shipped.
+*
+*   Switch trace on for the journey and it comes back, build and parcel
+*   and intreno, which is exactly what is wanted the next time this map
+*   misbehaves and nothing more than that the rest of the time.
+    IF mo_e->mv_trace = abap_true.
+      lo_c->text( text  = |CJS { c_build } · parcel { mo_e->mv_pcl_pid }| &&
+                          | · intreno { mo_e->mv_pcl_det }|
+                  class = 'rakPclHint' ).
+    ENDIF.
 
     lo_dlg->buttons( )->button( text  = t( iv_en = `Close` iv_ar = `إغلاق` )
                                 press = mo_e->mo_client->_event( |{ c_pfx }CLOSE| ) ).
