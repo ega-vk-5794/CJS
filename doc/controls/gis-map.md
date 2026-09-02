@@ -77,9 +77,39 @@ Three things fall out of that at once:
    application. That is what resolves the alias, and what carries the credentials — which
    is also why `MapUrlSet`'s `TOKEN` column is empty and nothing appeared to need it.
 
-So `esriConfig.request.proxyUrl` is the whole mechanism, and it is derived from the viewer
-page `MapUrlSet` already answers: `https://rakgisstg.rak.ae/CustomerJourneyMap/` +
-`proxy.ashx`. Move the viewer and the proxy moves with it.
+The proxy address itself is derived from the viewer page `MapUrlSet` already answers:
+`https://rakgisstg.rak.ae/CustomerJourneyMap/` + `proxy.ashx`. Move the viewer and the
+proxy moves with it.
+
+#### `proxyUrl` is not the mechanism — `addProxyRule` is
+
+This was written here as "`esriConfig.request.proxyUrl` is the whole mechanism", and that
+was wrong. It cost a round in which the map drew perfectly and no parcel ever appeared on
+it. On the 4.x API:
+
+| what | what it actually does |
+| --- | --- |
+| `esriConfig.request.proxyUrl` | a **fallback** for a request that fails CORS. Routes nothing by itself. |
+| `esriConfig.request.alwaysUseProxy` | **does not exist.** It is 3.x — `esriConfig.defaults.io.alwaysUseProxy`. Assigning it on `cf.request` adds an unknown property: no error, no warning, nothing proxied. |
+| `urlUtils.addProxyRule({ urlPrefix, proxyUrl })` | the thing that actually routes a request. `esri/core/urlUtils`. |
+
+`ZCL_RAK_CJ_GIS` set `proxyUrl` and the 3.x flag, so **no request was ever proxied**. The
+FeatureLayer went straight at `https://gisserver/cadastral/parcel/query`; `gisserver` is a
+dotless internal alias only the proxy can resolve, so DNS refused — and a DNS failure is
+not a CORS failure, so even the `proxyUrl` fallback never fired. The query died as a bare
+
+    The parcel layer refused the query: Failed to fetch
+
+The Esri basemap was unaffected throughout, because its own hosts are real. That is the
+whole reason a beautiful map and a broken layer looked like one working map.
+
+**`urlPrefix` is a bare hostname, not an origin** — `route.arcgis.com`, not
+`https://route.arcgis.com`. The API normalises the prefix and matches on what follows the
+scheme, so a rule carrying `https://` matches nothing and fails exactly as silently as the
+flag it replaced. The rule is registered for the parcel layer's host, and again for the
+property layer's when it differs.
+
+*Verified from the 4.x SDK guide, not from memory. Activation in SAP is outstanding.*
 
 The real ArcGIS roots are on the same host for anything that does not go through the
 alias — `https://rakgisstg.rak.ae/server/rest/services/...` and
@@ -248,6 +278,18 @@ it draws:
 | `3 parcel(s) drawn, zoomed to 313030024` | the layer answered and the view moved |
 | `No feature matched PARCELID IN ('…') - showing all instead` | the layer is reachable but that id is not in it — usually zero-padding |
 | `The parcel layer refused the query: …` | the proxy or the service said no, in its own words |
+
+And that last line now carries **the URL it actually tried**, plus the HTTP status when
+there was one, because the message alone cannot distinguish the failures that matter:
+`Failed to fetch` is what a browser says for *every* request that never reached a server —
+a dotless alias, a blocked origin, a CSP refusal and an unproxied host are identical in it.
+`e.details.url` is the one fact that separates them:
+
+| the URL reported | what it means |
+| --- | --- |
+| starts with the **proxy** | the rule applied; the far side refused — CORS or credentials, on the GIS side |
+| starts with the **layer host** | the rule did not apply at all; the proxy wiring is still wrong here |
+| `no URL reported` | the error came from before the request was composed |
 
 And it zooms to the **extent**, expanded by 60%, rather than to the features: `goTo(features)`
 frames a single parcel edge to edge with no margin, so it reads as a shape rather than as a

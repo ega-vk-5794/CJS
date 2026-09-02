@@ -6,8 +6,14 @@ CLASS zcl_rak_cj_gis DEFINITION
 *&---------------------------------------------------------------------*
 *& RakMap.Map, rebuilt as a CJS renderer.
 *&
-*& BUILD map-fix-6.  Missing this line means SAP has an older copy - see
+*& BUILD map-fix-8.  Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
+*& map-fix-8 contains: the proxy registered as a urlUtils.addProxyRule( )
+*& rather than as cf.request.alwaysUseProxy, which is a 3.x property that
+*& does not exist on 4.x and silently proxied nothing - so the layer was
+*& fetched direct from a dotless alias and died as "Failed to fetch". The
+*& note line now also reports e.details.url, which is what tells a rule
+*& that did not apply from a proxy that refused.
 *& map-fix-3 contains: VALUE IS INITIAL on the two blank string constants
 *& (VALUE '' does not activate, and the class then has no active version,
 *& so every CALLER reports "Method X is unknown"), one ENDMETHOD after
@@ -511,20 +517,58 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
     DATA(lv_req) =
       |L(function()\{require([| &&
       |"esri/config","esri/identity/IdentityManager","esri/Map",| &&
-      |"esri/views/MapView","esri/layers/FeatureLayer"| &&
-      |],function(cf,IM,M,MV,FL)\{try\{| &&
+      |"esri/views/MapView","esri/layers/FeatureLayer",| &&
+      |"esri/core/urlUtils"| &&
+      |],function(cf,IM,M,MV,FL,UU)\{try\{| &&
       |D.textContent="";| &&
-*     THE PROXY FIRST, before any layer is built. esriConfig.request
-*     .proxyUrl makes the API route every service call through it, which
-*     is how the live app reaches an internal alias the browser cannot
-*     resolve and how the credentials get attached.
+*     THE ORIGIN OF THE LAYER, needed by the proxy rule below as well as
+*     by the token interceptor, so it is computed ahead of both.
+      |var p8=C.parcels.indexOf("/",8);| &&
+      |var O=p8>0?C.parcels.substring(0,p8):C.parcels;| &&
+      |var H=O.substring(O.indexOf("//")+2);| &&
+*     THE PROXY, BEFORE ANY LAYER IS BUILT - AND AS A RULE, NOT A FLAG.
+*
+*     This is not a matter of taste. On the 4.x API:
+*
+*       cf.request.alwaysUseProxy   DOES NOT EXIST. It is 3.x, where it
+*                                   was esriConfig.defaults.io
+*                                   .alwaysUseProxy. Assigning it on
+*                                   cf.request adds an unknown property
+*                                   and changes nothing - no error, no
+*                                   warning, and nothing proxied.
+*       cf.request.proxyUrl         is a FALLBACK for a request that
+*                                   fails CORS. It routes nothing by
+*                                   itself.
+*       UU.addProxyRule( )          is what actually routes a request.
+*
+*     Those two facts together are why the map drew and no parcel ever
+*     appeared on it. The layer host is an internal alias with no dot in
+*     it (GISSERVER) that only the viewer's resource proxy can resolve.
+*     Unproxied, the browser tried to reach it directly and DNS refused -
+*     and a DNS failure is not a CORS failure, so the proxyUrl fallback
+*     never fired either. The query died as a bare "Failed to fetch",
+*     which is exactly what reached the note line. The Esri basemap was
+*     unaffected throughout, because its own hosts are real.
+*
+*     URLPREFIX IS A HOST, NOT AN ORIGIN. addProxyRule normalises the
+*     prefix and matches on what follows the scheme, so H goes in rather
+*     than O. A rule carrying https:// matches nothing, and fails every
+*     bit as silently as the flag it replaces.
       |if(C.proxy)\{cf.request.proxyUrl=C.proxy;| &&
-      |cf.request.alwaysUseProxy=true;\}| &&
+      |try\{UU.addProxyRule(\{urlPrefix:H,proxyUrl:C.proxy\});\}| &&
+      |catch(e2)\{\}| &&
+*     And the property layer, when it sits on a different host. The same
+*     host is the normal case, and a duplicate rule is refused, so this
+*     is guarded rather than assumed.
+      |if(C.props)\{var q8=C.props.indexOf("/",8);| &&
+      |var O2=q8>0?C.props.substring(0,q8):C.props;| &&
+      |var H2=O2.substring(O2.indexOf("//")+2);| &&
+      |if(H2&&H2!==H)\{| &&
+      |try\{UU.addProxyRule(\{urlPrefix:H2,proxyUrl:C.proxy\});\}| &&
+      |catch(e3)\{\}\}\}\}| &&
 *     The token as well, when there is one. Belt and braces: the proxy is
 *     what actually authenticates on this system, and MapUrlSet's TOKEN
 *     column is empty - but a system that does answer one should use it.
-      |var p8=C.parcels.indexOf("/",8);| &&
-      |var O=p8>0?C.parcels.substring(0,p8):C.parcels;| &&
       |if(C.token)\{| &&
       |IM.registerToken(\{server:C.parcels,token:C.token,ssl:true\});| &&
       |cf.request.interceptors.push(\{urls:O,before:function(p)\{| &&
@@ -611,7 +655,19 @@ CLASS zcl_rak_cj_gis IMPLEMENTATION.
       |N(r.features.length+" parcel(s) drawn"+| &&
       |(C.focus?", zoomed to "+C.focus:""));| &&
       |\}).catch(function(e)\{| &&
-      |N("The parcel layer refused the query: "+(e&&e.message?e.message:e));| &&
+*     THE MESSAGE ALONE IS NOT ENOUGH, and this is what cost the round
+*     that led here. "Failed to fetch" is what a browser says for every
+*     request that never reached a server - a dotless alias, a blocked
+*     origin, a CSP refusal and an unproxied host are all identical in
+*     it. An ArcGIS error carries DETAILS.URL, which is the one fact
+*     that separates them: if it starts with the proxy the rule applied
+*     and the far side refused; if it starts with the layer host the
+*     rule did not apply at all.
+      |var dt=(e&&e.details)?e.details:\{\};| &&
+      |N("The parcel layer refused the query: "+| &&
+      |(e&&e.message?e.message:e)+| &&
+      |(dt.httpStatus?" (HTTP "+dt.httpStatus+")":"")+| &&
+      |(dt.url?" - tried "+dt.url:" - no URL reported"));| &&
       |\});\}| &&
       |Z(q,C.focus?true:false);|.
 
