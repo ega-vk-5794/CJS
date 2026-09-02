@@ -82,6 +82,12 @@
      <ENTRY>Portal tile prefix (2 chars)</ENTRY>
      <LENGTH>28</LENGTH>
     </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_BADI</KEY>
+     <ENTRY>Read step names and flags from the BAdI</ENTRY>
+     <LENGTH>39</LENGTH>
+    </item>
    </TPOOL>
   </asx:values>
  </asx:abap>

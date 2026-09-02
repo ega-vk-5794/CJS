@@ -233,6 +233,7 @@ CLASS zcl_rak_migrator DEFINITION
                 iv_tile_pfx TYPE string DEFAULT c_tile_pfx
                 iv_bknd_active TYPE abap_bool DEFAULT abap_true
                 iv_handler  TYPE string DEFAULT ''
+                iv_badi     TYPE abap_bool DEFAULT abap_true
       EXPORTING et_report TYPE tt_report
                 ev_log    TYPE string.
 
@@ -258,6 +259,11 @@ CLASS zcl_rak_migrator DEFINITION
 *               looking at a screen, never for testing one.
                 iv_bknd_active   TYPE abap_bool DEFAULT abap_true
                 iv_handler       TYPE string DEFAULT ''
+*               Ask the BAdI what each screen really looks like - step
+*               names and required flags the export does not carry. ON by
+*               default; a journey whose BAdI is not registered simply
+*               gets nothing back and migrates as before.
+                iv_badi          TYPE abap_bool DEFAULT abap_true
                 iv_steps         TYPE string DEFAULT ''   " optional step titles, positional
 *               One legacy SCREEN_NAME (e.g. 'E023') can carry more than one
 *               sub-flow under the SAME journey_of_screen( ) code - NE014_1_*
@@ -431,6 +437,42 @@ CLASS zcl_rak_migrator DEFINITION
       RETURNING VALUE(rt) TYPE tt_kv.
     METHODS build_name_map
       IMPORTING it_rows TYPE tt_row.
+*   ---- what the BAdI says, gathered at migrate time ------------------
+*   THE EXPORT IS HALF THE CONFIGURATION. /QNV/SB_UI_DEFIN describes the
+*   screen as it was DESIGNED; ZIF_EGA_FW_CJI~READ describes it as it is
+*   SERVED - the implementation mutates the definition rows it is handed,
+*   and two of the things it writes are not in the export at all:
+*
+*     ADDITIONALDATA3 on the STAGES row - the step names the citizen sees
+*         ("Parcel Selection,Documents,Fees & Payment" on M016), which is
+*         why derived titles never matched the live service
+*     MANDATORY per field - the required flags as the screen actually
+*         enforces them, which can differ from the design-time column
+*
+*   The engine already reads this on every round trip (see
+*   ZCL_RAK_QNV_BRIDGE->CTRL_OF). Reading it ONCE here, at migrate time,
+*   is what lets a migrated journey start out right rather than be
+*   corrected on first render.
+    TYPES: BEGIN OF ty_badi_fld,
+             screen TYPE string,
+             field  TYPE string,
+             mand   TYPE abap_bool,
+           END OF ty_badi_fld,
+           tt_badi_fld TYPE SORTED TABLE OF ty_badi_fld WITH UNIQUE KEY screen field.
+
+    DATA mt_badi  TYPE tt_badi_fld.
+    DATA mt_stage TYPE string_table.
+    DATA mv_badi_ok TYPE abap_bool.
+
+*   One screen, one call. Fills MT_BADI and - the first time a screen
+*   answers one - MT_STAGE. Silent on failure: a journey whose BAdI is not
+*   registered migrates exactly as it did before.
+    METHODS badi_probe
+      IMPORTING iv_category TYPE string
+                iv_journey  TYPE string
+                iv_screen   TYPE string
+                it_rows     TYPE tt_row.
+
 *   Is this legacy screen the post-submit confirmation page rather than a
 *   step the citizen fills in? See the call site.
     METHODS is_confirmation
@@ -1508,6 +1550,86 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD badi_probe.
+    DATA ls_hdr TYPE /qnv/sbuild_getheader_st.
+    DATA lt_def TYPE /qnv/sbuild_definition_tt.
+    DATA lt_att TYPE /qnv/sbuild_attachments_tt.
+
+*   Seeded exactly as ZCL_RAK_QNV_BRIDGE->READ( ) seeds it, because the
+*   BAdI answers BY FIELD NAME: a row it is not given is a branch that
+*   never fires.
+    LOOP AT it_rows INTO DATA(ls_r) WHERE screen_name = iv_screen.
+      DATA(lv_f) = to_upper( ls_r-field_name ).
+      IF lv_f IS INITIAL OR line_exists( lt_def[ fieldname = lv_f ] ).
+        CONTINUE.
+      ENDIF.
+      APPEND VALUE #( fieldname     = lv_f
+                      technicalname = COND #( WHEN ls_r-technical_name IS NOT INITIAL
+                                              THEN ls_r-technical_name ELSE lv_f )
+                      screenname    = iv_screen
+                      categoryname  = iv_category ) TO lt_def.
+    ENDLOOP.
+
+*   THE STAGES ROW IS NOT IN THE EXPORT and has to be asked for by name.
+*   ZCL_EGA_CJ_ENH_IMPL_E028->READ does
+*
+*       WHEN 'STAGES'. <definition>-additionaldata3 = 'Lease Details,...'
+*
+*   so with no row called STAGES the step names never come back at all.
+    IF NOT line_exists( lt_def[ fieldname = 'STAGES' ] ).
+      APPEND VALUE #( fieldname     = 'STAGES'
+                      technicalname = 'STAGES'
+                      screenname    = iv_screen
+                      categoryname  = iv_category ) TO lt_def.
+    ENDIF.
+
+*   PARAM2 names the journey when PARAM1 misses, which it does here -
+*   there is no case and no draft at migrate time, and that is the normal
+*   cold-read shape the bridge already relies on.
+    ls_hdr-param2       = iv_journey.
+    ls_hdr-param5       = 'CJS'.
+    ls_hdr-screenname   = iv_screen.
+    ls_hdr-categoryname = iv_category.
+
+    TRY.
+        CALL FUNCTION c_fm_read
+          CHANGING cs_header     = ls_hdr
+                   ct_definition = lt_def
+                   ct_attacments = lt_att.
+      CATCH cx_root ##NO_HANDLER.
+*       A journey whose BAdI is not registered, or a screen it refuses,
+*       migrates exactly as it did before this method existed.
+        RETURN.
+    ENDTRY.
+
+    mv_badi_ok = abap_true.
+
+    LOOP AT lt_def INTO DATA(ls_d).
+      DATA(lv_name) = to_upper( CONV string( ls_d-fieldname ) ).
+
+*     The stage list, taken from the FIRST screen that answers one. Every
+*     screen of a journey returns the same list, and asking each of them
+*     to overwrite it would only let a blank one win.
+      IF lv_name = 'STAGES' AND mt_stage IS INITIAL.
+        ASSIGN COMPONENT 'ADDITIONALDATA3' OF STRUCTURE ls_d TO FIELD-SYMBOL(<st>).
+        IF sy-subrc = 0 AND <st> IS NOT INITIAL.
+          SPLIT CONV string( <st> ) AT ',' INTO TABLE mt_stage.
+        ENDIF.
+        CONTINUE.
+      ENDIF.
+
+      ASSIGN COMPONENT 'MANDATORY' OF STRUCTURE ls_d TO FIELD-SYMBOL(<mn>).
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+      INSERT VALUE #( screen = iv_screen
+                      field  = lv_name
+                      mand   = xsdbool( <mn> = 'X' OR <mn> = 'x' ) )
+             INTO TABLE mt_badi. "#EC CI_SUBRC
+    ENDLOOP.
+  ENDMETHOD.
+
+
   METHOD is_confirmation.
 *   CONSERVATIVE ON PURPOSE. A screen with ANY interactive row is never a
 *   confirmation page, whatever it is called - so a real step that happens
@@ -1679,6 +1801,28 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       lv_conf_drp = lv_conf_drp + 1.
     ENDLOOP.
 
+*   ---- ask the BAdI what this screen really looks like ---------------
+*   After the confirmation drop, so a screen that is not going to be a
+*   step is not asked about either.
+    CLEAR: mt_badi, mt_stage, mv_badi_ok.
+    IF iv_badi = abap_true.
+      LOOP AT lt_screens INTO DATA(lv_ps).
+        badi_probe( iv_category = iv_category
+                    iv_journey  = iv_journey
+                    iv_screen   = CONV #( lv_ps )
+                    it_rows     = lt ).
+      ENDLOOP.
+    ENDIF.
+
+*   THE STAGE LIST IS USED ONLY WHEN IT LINES UP. E028's list names three
+*   stages for a journey whose first screen is a licence picker the legacy
+*   framework does not count as one - so a positional map from step 1
+*   would put "Documents" on the parcel step and be confidently wrong.
+*   Equal lengths is the one case where the mapping cannot be ambiguous;
+*   anything else is reported and the derived titles stand.
+    DATA(lv_stage_fit) = xsdbool( mt_stage IS NOT INITIAL
+                                  AND lines( mt_stage ) = lines( lt_screens ) ).
+
     DATA lv_stepno TYPE i.
     DATA lv_ten    TYPE string.
     DATA lv_tar    TYPE string.
@@ -1697,6 +1841,11 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
         ELSE.
           lv_ten = ovr.
         ENDIF.
+      ENDIF.
+
+      " 1.5) the legacy STAGES list - the names the citizen actually reads
+      IF lv_ten IS INITIAL AND lv_stage_fit = abap_true.
+        lv_ten = condense( VALUE #( mt_stage[ lv_stepno ] OPTIONAL ) ).
       ENDIF.
 
       " 2) else derive the section heading (chrome-aware)
@@ -1830,6 +1979,22 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     DATA lv_pay_kept TYPE i.
 
     LOOP AT lt INTO DATA(r).
+
+*     THE BADI'S MANDATORY WINS WHEN IT SAYS YES, and it is applied HERE,
+*     at the top of the loop, because three separate branches below build
+*     a row from R-MANDATORY - the grid column, the pick target and the
+*     field itself - and two of them CONTINUE before the bottom is
+*     reached. Applied lower down it would have reached one of the three.
+*
+*     A UNION, not a replacement: the export's flag stands where the BAdI
+*     said nothing, so an unregistered BAdI never makes a journey LESS
+*     strict than it was.
+      READ TABLE mt_badi INTO DATA(ls_bd)
+           WITH TABLE KEY screen = CONV string( r-screen_name )
+                          field  = to_upper( r-field_name ).
+      IF sy-subrc = 0 AND ls_bd-mand = abap_true.
+        r-mandatory = 'X'.
+      ENDIF.
       ASSIGN et_report[ screen = r-screen_name ] TO FIELD-SYMBOL(<rep>).
       IF sy-subrc <> 0. CONTINUE. ENDIF.
       <rep>-src_rows = <rep>-src_rows + 1.
@@ -2215,6 +2380,22 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     IF lv_grid_drp > 0.
       ev_msg = ev_msg && | ** { lv_grid_drp } table(s) dropped: no LEVEL_CON='T' columns.|.
     ENDIF.
+    IF iv_badi = abap_true.
+      IF mv_badi_ok = abap_false.
+        ev_msg = ev_msg && | ** The BAdI answered nothing for this journey: | &&
+                           |step names and required flags are the export's own.|.
+      ELSEIF mt_stage IS INITIAL.
+        ev_msg = ev_msg && | BAdI read OK, no STAGES row - step names derived.|.
+      ELSEIF lv_stage_fit = abap_true.
+        ev_msg = ev_msg && | Step names from the legacy STAGES list: | &&
+                           |{ concat_lines_of( table = mt_stage sep = ` / ` ) }.|.
+      ELSE.
+        ev_msg = ev_msg && | ** REVIEW: the STAGES list has | &&
+                           |{ lines( mt_stage ) } name(s) for { lines( lt_screens ) } step(s) - | &&
+                           |{ concat_lines_of( table = mt_stage sep = ` / ` ) } - so it was NOT | &&
+                           |applied. Map them by hand or pass IV_STEPS.|.
+      ENDIF.
+    ENDIF.
     IF lv_conf_drp > 0.
       ev_msg = ev_msg && | { lv_conf_drp } confirmation screen(s) dropped: the engine | &&
                          |appends its own Review and submit step.|.
@@ -2260,6 +2441,7 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
           iv_tile_pfx    = iv_tile_pfx
           iv_bknd_active = iv_bknd_active
           iv_handler     = iv_handler
+          iv_badi        = iv_badi
           iv_steps       = job-steps
         IMPORTING
           ev_ok       = DATA(lv_ok)

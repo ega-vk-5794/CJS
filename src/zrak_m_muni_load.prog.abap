@@ -134,6 +134,12 @@ PARAMETERS p_down TYPE abap_bool AS CHECKBOX DEFAULT ' '.
 * validate, collect every answer and submit NOTHING - which is what a
 * migrated journey did before the migrator wrote these three columns.
 PARAMETERS p_bknd TYPE abap_bool AS CHECKBOX DEFAULT 'X'.
+* Ask each screen's BAdI what it really looks like before writing the rows:
+* the STAGES list gives the step names the citizen actually reads, and
+* MANDATORY gives the required flags as the screen enforces them. Neither is
+* in /QNV/SB_UI_DEFIN. A journey whose BAdI is not registered answers nothing
+* and migrates exactly as it did before.
+PARAMETERS p_badi TYPE abap_bool AS CHECKBOX DEFAULT 'X'.
 SELECTION-SCREEN END OF BLOCK b2.
 
 INITIALIZATION.
@@ -326,6 +332,7 @@ START-OF-SELECTION.
         iv_prefix        = lv_pfx
         iv_tile_pfx      = CONV string( p_tpfx )
         iv_bknd_active   = p_bknd
+        iv_badi          = p_badi
 *       Named HERE, not by the UPDATE further down, because the migrator
 *       now decides whether to keep the PAYFEE field on the strength of
 *       it - and a handler set after the fact arrives too late for that.
