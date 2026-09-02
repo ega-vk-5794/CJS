@@ -656,112 +656,83 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
           ELSE mo_e->mv_pcl_det ) ).
       CATCH cx_root ##NO_HANDLER.
     ENDTRY.
-*   URL IS NOT A URL. It is the TOKEN, and the property named TOKEN is
-*   the one that comes back empty:
+*   THE TOKEN IS NEVER IN THE URL. GISMAPPINGIM.JS settles it:
 *
-*     gis   = https://rakgisstg.rak.ae/CustomerJourneyMap/
-*     url   = pDSim1VLimNCZgIBap2hHYTxHPwXwDIcKkmK7aNBCOBf8MQqU2zrgi...
-*     token = (empty)
+*     function DefconReciveMessage(messageData, origin) {
+*       if (!DefconOriginValidation(origin)) { showForbidden(); return; }
+*       if (messageData.parcelId) { Param_ParcelId = messageData.parcelId; }
+*       if (messageData.token)    { Param_Token    = messageData.token;    }
+*       if (messageData.lang)     { App_Language   = messageData.lang;     }
+*       DefconAuth();
+*     }
 *
-*   Which is why every shape tried against it failed differently and none
-*   of the failures said so: GISURL alone opened the viewer with no
-*   parcel, URL alone was resolved as a relative path against this host
-*   and hit SAP's 404, and the two joined as a path hit the GIS server's
-*   own 404. The address is the base plus the token as a QUERY parameter.
-*
-*   Whichever property carries the token is used, so a deployment that
-*   fills TOKEN properly needs no change here.
+*   The page is loaded BARE and the three values arrive by postMessage.
+*   Any of them missing and it shows its forbidden panel; the origin is
+*   checked against an allowlist that already contains devgrpportal.rak.ae.
+*   Six URL shapes were tried against this and none of them could ever
+*   have worked - the viewer was sitting on its splash screen waiting for
+*   a message that never came.
     DATA(lv_base) = COND string( WHEN ls_map-gisurl CP 'http*' THEN ls_map-gisurl
                                  WHEN ls_map-url CP 'http*'    THEN ls_map-url ).
     DATA(lv_tok)  = COND string( WHEN ls_map-token IS NOT INITIAL THEN ls_map-token
                                  WHEN ls_map-url NP 'http*'       THEN ls_map-url ).
+    DATA(lv_pid)  = mo_e->mv_pcl_pid.
 
-    DATA(lv_src) = lv_base.
-    IF lv_src IS NOT INITIAL AND lv_tok IS NOT INITIAL AND lv_src NS 'token='.
-      lv_src = |{ lv_src }{ COND string( WHEN lv_src CS '?' THEN '&' ELSE '?' ) }| &&
-               |token={ lv_tok }|.
-    ENDIF.
-
-    IF lv_src IS NOT INITIAL.
-*     EMBEDDED, the way the legacy dialog draws it - the citizen sees the
-*     parcel outlined on the map inside the tab, not a link that takes them
-*     somewhere else. SANITIZECONTENT must be OFF or the iframe is stripped
-*     and the tab renders blank; the engine already does exactly this for
-*     its own OPEN_URL_HTML( ).
-*
-*     The URL goes into an HTML attribute, so a double quote in it would
-*     close the attribute early and let the rest of the string become
-*     markup. It is percent-encoded rather than trusted - the value comes
-*     from a backend read, not from this code.
-      DATA(lv_esc) = lv_src.
-      REPLACE ALL OCCURRENCES OF '"' IN lv_esc WITH '%22'.
-
-*     HTTP INSIDE AN HTTPS PAGE IS BLOCKED BY THE BROWSER, and Chrome says
-*     so as "This content is blocked. Contact the site owner to fix the
-*     issue." - which reads like a server problem and is not one. The
-*     backend returns whatever scheme it was configured with; the frame
-*     gets the secure one. The LINK below keeps the URL exactly as given,
-*     because a new tab has no mixed-content rule to break.
-*
-*     If the frame is still blocked after this, it is the GIS host
-*     refusing to be framed at all (X-Frame-Options / frame-ancestors) and
-*     nothing on this page can change that - the link is then the answer,
-*     which is why it is there.
-      IF lv_esc CP 'http://*'.
-        lv_esc = |https://{ substring( val = lv_esc off = 7 ) }|.
+    IF lv_base IS NOT INITIAL AND lv_tok IS NOT INITIAL AND lv_pid IS NOT INITIAL.
+*     The frame's own origin, which postMessage needs as its target. Sent
+*     explicitly rather than as '*' - the token is a credential and a
+*     wildcard target hands it to whatever happens to be framed.
+      DATA(lv_org) = lv_base.
+      DATA(lv_p3)  = find( val = lv_org sub = `/` occ = 3 ).
+      IF lv_p3 > 0.
+        lv_org = substring( val = lv_org len = lv_p3 ).
       ENDIF.
+
+*     Single quotes and backslashes cannot reach a JS string literal
+*     intact. None of these three values should contain either, but they
+*     come from a backend read rather than from this code.
+      DATA(lv_jtok) = lv_tok.
+      DATA(lv_jpid) = lv_pid.
+      REPLACE ALL OCCURRENCES OF `\` IN lv_jtok WITH `\\`.
+      REPLACE ALL OCCURRENCES OF `'` IN lv_jtok WITH `\'`.
+      REPLACE ALL OCCURRENCES OF `\` IN lv_jpid WITH `\\`.
+      REPLACE ALL OCCURRENCES OF `'` IN lv_jpid WITH `\'`.
+      DATA(lv_lang) = COND string( WHEN sy-langu = 'A' THEN `ar` ELSE `en` ).
+
+*     RETRIED, not sent once. The listener is attached by the page's own
+*     script, which may not have run when the frame fires load - a single
+*     post would then arrive before anything was listening and the viewer
+*     would wait for ever. Ten attempts half a second apart, then it stops
+*     rather than polling for the life of the dialog.
       lo_map->html(
-        content         = |<iframe src="{ lv_esc }" title="parcel map" | &&
-                          |style="width:100%;height:26rem;border:0"></iframe>|
+        content = |<iframe id="rakPclMap" src="{ lv_base }" title="parcel map" | &&
+                  |style="width:100%;height:26rem;border:0"></iframe>| &&
+                  |<script>(function()\{var f=document.getElementById("rakPclMap");| &&
+                  |if(!f)return;var m=\{parcelId:'{ lv_jpid }',token:'{ lv_jtok }',| &&
+                  |lang:'{ lv_lang }'\};var o='{ lv_org }';var n=0;| &&
+                  |function s()\{try\{f.contentWindow.postMessage(m,o);\}catch(e)\{\}\}| &&
+                  |f.addEventListener("load",s);| &&
+                  |var t=setInterval(function()\{if(++n>10)\{clearInterval(t);return;\}s();\},500);| &&
+                  |\})();</script>|
         sanitizecontent = abap_false ).
 
-*     AND THE LINK STAYS, underneath. The GIS viewer is a third-party page
-*     that sets its own frame policy: if it refuses to be framed the iframe
-*     is a blank rectangle with nothing to explain it, and this line is the
-*     way out. It costs one row and it is the difference between "the map
-*     is broken" and "the map opens in a tab".
       lo_map->link( text   = t( iv_en = `Open the map in a new tab`
                                 iv_ar = `افتح الخريطة في تبويب جديد` )
-                    href   = lv_esc
+                    href   = lv_base
                     target = '_blank'
                     icon   = 'sap-icon://map'
                     class  = 'sapUiTinyMarginTop' ).
 
-*     WHAT IS ACTUALLY BEING FRAMED, on the screen, unconditionally. The
-*     base and the token are settled; the PARAMETER NAME is the one thing
-*     still inferred - 'token' is the obvious spelling and the viewer may
-*     want another. Printing the composed address means a wrong name is
-*     one look away instead of another round trip. Remove this line once
-*     the map opens on the parcel.
-      lo_map->text( text  = |framed: { lv_esc }|
-                    class = 'sapUiTinyMarginTop' ).
-
-*     TWO CANDIDATES, ONE PULL. The service answers a base and a token and
-*     says nothing about how they join. Two forms are plausible and the
-*     evidence cannot separate them from here - the earlier test of the
-*     path form used a token minted for the wrong id, so its 404 proved
-*     nothing. Rather than guess a sixth time, both are offered: whichever
-*     opens the parcel is the answer, and it becomes one line.
-      IF lv_base IS NOT INITIAL AND lv_tok IS NOT INITIAL.
-        DATA(lv_a) = |{ lv_base }{ COND string( WHEN lv_base CS '?' THEN '&' ELSE '?' ) }| &&
-                     |token={ lv_tok }|.
-        DATA(lv_b) = |{ lv_base }{ COND string( WHEN lv_base CP '*/' THEN `` ELSE `/` ) }| &&
-                     |{ lv_tok }|.
-        DATA(lo_try) = lo_map->hbox( class = 'sapUiTinyMarginTop' ).
-        lo_try->link( text = `try A · ?token=` href = lv_a target = '_blank' ).
-        lo_try->link( text = `try B · /token` href = lv_b target = '_blank'
-                      class = 'sapUiSmallMarginBegin' ).
-      ENDIF.
     ELSE.
-*     NAMED, not blank. MapUrlSet answered something - it just could not
-*     be composed into an address, and the three values say which of them
-*     is missing far faster than another round trip would.
+*     NAMED, not blank. The viewer needs all three and shows its forbidden
+*     panel if any is missing, so saying WHICH one is absent is the
+*     difference between a fix and another round trip.
       lo_map->message_strip(
-        text     = |{ t( iv_en = `No map is registered for this parcel`
-                         iv_ar = `لا توجد خريطة مسجلة لهذه القطعة` ) }| &&
-                   | (url={ ls_map-url } gis={ ls_map-gisurl }| &&
-                   | token={ COND string( WHEN ls_map-token IS NOT INITIAL
-                                          THEN 'yes' ELSE 'no' ) })|
+        text     = |{ t( iv_en = `The map cannot be opened for this parcel`
+                         iv_ar = `لا يمكن فتح الخريطة لهذه القطعة` ) }| &&
+                   | (viewer={ COND string( WHEN lv_base IS NOT INITIAL THEN 'yes' ELSE 'MISSING' ) }| &&
+                   | token={ COND string( WHEN lv_tok IS NOT INITIAL THEN 'yes' ELSE 'MISSING' ) }| &&
+                   | parcel={ COND string( WHEN lv_pid IS NOT INITIAL THEN lv_pid ELSE 'MISSING' ) })|
         type     = 'Information'
         showicon = abap_true ).
     ENDIF.

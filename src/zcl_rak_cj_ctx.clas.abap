@@ -207,10 +207,18 @@ CLASS zcl_rak_cj_ctx IMPLEMENTATION.
     IF sy-sysid <> c_sim_sysid OR sy-mandt <> c_sim_mandt.
       RETURN.
     ENDIF.
-    IF cs-session_key IS NOT INITIAL.
-      RETURN.
-    ENDIF.
 
+*   NO EARLY RETURN ON A PRESENT KEY. This method used to bail the moment
+*   CS-SESSION_KEY was filled - which was fine while it was the ONLY
+*   simulation. Then the engine started injecting USERDATA itself, so the
+*   key arrived filled, this returned immediately, and CS-PARTNER was
+*   never set: the parcel list went from three rows to
+*
+*       No partner is known for this journey, so no property can be listed
+*
+*   with nothing changed on the property side at all. Each field is now
+*   filled on its own merits - a blank one is filled, a filled one is left
+*   alone - so neither simulation can switch the other off.
     DATA lv_user TYPE zega_t_cj_us_log-id.
     lv_user = to_upper( io_ctx->get_param( 'SIMUSER' ) ).
     IF lv_user IS INITIAL.
@@ -219,11 +227,10 @@ CLASS zcl_rak_cj_ctx IMPLEMENTATION.
 
 *   The ACTIVE row, which is the one the DPC's GET_BP( ) matches. An
 *   inactive row is a previous session and resolves nobody.
-    SELECT SINGLE user_key FROM zega_t_cj_us_log
-      WHERE id = @lv_user AND active = @abap_true
-      INTO @cs-session_key.
-    IF sy-subrc <> 0.
-      RETURN.
+    IF cs-session_key IS INITIAL.
+      SELECT SINGLE user_key FROM zega_t_cj_us_log
+        WHERE id = @lv_user AND active = @abap_true
+        INTO @cs-session_key.
     ENDIF.
 
 *   And the partner behind that user, so the FILTERS agree with the header.

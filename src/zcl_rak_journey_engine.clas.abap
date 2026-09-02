@@ -235,7 +235,12 @@ CLASS zcl_rak_journey_engine DEFINITION
     CONSTANTS c_sim_mandt TYPE sy-mandt VALUE '200'.
     CONSTANTS c_sim_user  TYPE zega_t_cj_us_log-id VALUE 'HISHAM.M'.
 
-    METHODS sim_userdata RETURNING VALUE(rv) TYPE string.
+*   EV_PARTNER as well as the envelope. The envelope is what the LEGACY
+*   side parses; the partner is what THIS side needs, and tying the second
+*   to the first parsing correctly is how the parcel list went blank.
+    METHODS sim_userdata
+      EXPORTING ev_userdata TYPE string
+                ev_partner  TYPE string.
 *   IV_NAME shape '<GRID_FIELD>.<COL>#<ROW>' - the same compound name
 *   ON_CHANGE already receives for a grid cell (see the GRIDCHG_ branch
 *   in Z2UI5_IF_APP~MAIN). SET_FIELD_STATE( ) dispatches here whenever
@@ -1850,6 +1855,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD sim_userdata.
+    CLEAR: ev_userdata, ev_partner.
     IF sy-sysid <> c_sim_sysid OR sy-mandt <> c_sim_mandt.
       RETURN.
     ENDIF.
@@ -1898,6 +1904,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     DATA(lv_role_bp) = COND string( WHEN lv_bp IS NOT INITIAL
                                     THEN |{ lv_bp ALPHA = OUT }| ).
     CONDENSE lv_role_bp.
+    ev_partner = lv_role_bp.
 
 *   THE ENVELOPE, NOT THE BARE KEY. Two classes are called GET_BP( ) and
 *   they take different things: ZCL_EGA_CJ_UTILITY - the one the engine
@@ -1911,7 +1918,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   acting IN, and the portal's own codes for it are not known here -
 *   inventing one would filter the backend's reads to a role nobody holds,
 *   which is a quieter failure than the blank ROLEBP above was.
-    rv = |\{"ebp":"{ lv_key }","rolebp":"{ lv_role_bp }","rolename":""\}|.
+    ev_userdata = |\{"ebp":"{ lv_key }","rolebp":"{ lv_role_bp }","rolename":""\}|.
   ENDMETHOD.
 
 
@@ -2455,8 +2462,11 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   would from a real portal launch. Nothing downstream knows the
 *   difference, which is the point: the simulated path must not be a
 *   second code path.
+    DATA lv_sim   TYPE string.
+    DATA lv_sim_bp TYPE string.
     IF mv_userdata IS INITIAL.
-      DATA(lv_sim) = sim_userdata( ).
+      sim_userdata( IMPORTING ev_userdata = lv_sim
+                              ev_partner  = lv_sim_bp ).
       IF lv_sim IS NOT INITIAL.
         mv_userdata = lv_sim.
         READ TABLE mt_param ASSIGNING FIELD-SYMBOL(<sim>) WITH KEY key = 'USERDATA'.
@@ -2497,6 +2507,18 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     IF mv_loginbp IS INITIAL AND sy-sysid <> 'E30'.
       mv_loginbp = bp_of( VALUE #( mt_param[ key = 'LOGINBP' ]-value OPTIONAL ) ).
+    ENDIF.
+
+*   THE SIMULATED PARTNER IS A FALLBACK, NOT A SECOND SOURCE. GET_BP( )
+*   above parses the envelope and is believed when it answers. When it
+*   does not - and it is a legacy class whose exact JSON expectations
+*   cannot be checked from here - the partner resolved directly from the
+*   internet user stands in, so a simulated session still knows who it is.
+*   Without this, every downstream read filtered on a blank partner and
+*   the parcel list said "No partner is known for this journey".
+    IF mv_loginbp IS INITIAL AND lv_sim_bp IS NOT INITIAL.
+      mv_loginbp = lv_sim_bp.
+      trace( |IDENT   partner { mv_loginbp } from the simulated user, not from GET_BP| ).
     ENDIF.
 
     IF mv_rolebp IS INITIAL.
