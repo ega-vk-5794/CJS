@@ -96,6 +96,23 @@ CLASS z2ui5_cl_exit IMPLEMENTATION.
       |  sdk.openui5.org *.sdk.openui5.org | &&
       |  cdn.jsdelivr.net *.cdn.jsdelivr.net | &&
       |  cdnjs.cloudflare.com *.cdnjs.cloudflare.com; | &&
+*     FRAME-SRC, or the parcel map is a grey rectangle. The Property
+*     Details dialog embeds the RAK GIS viewer, and with no frame-src of
+*     its own the browser falls back to DEFAULT-SRC - which lists this
+*     host and the UI5 CDNs and nothing else, so the frame is refused:
+*
+*       Framing 'https://rakgisstg.rak.ae/' violates the following
+*       Content Security Policy directive: "default-src 'self' ..."
+*       Note that 'frame-src' was not explicitly set, so 'default-src'
+*       is used as a fallback.
+*
+*     Named as a WILDCARD over rak.ae rather than the one staging host,
+*     because the GIS viewer is a different hostname per environment
+*     (rakgisstg / rakgis) and a CSP that has to be edited per system is
+*     a CSP that will be wrong in one of them. The widening is contained:
+*     FRAME-SRC grants nothing but the right to embed - no script, no
+*     connect, no style - and the framed document brings its own policy.
+      |frame-src 'self' https://*.rak.ae; | &&
       |worker-src 'self' blob:; "/>|.
 
     cs_config-t_security_header = VALUE #(
