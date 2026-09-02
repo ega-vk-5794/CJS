@@ -154,10 +154,28 @@ START-OF-SELECTION.
 
   CONDENSE ls_ctx-partner.
 
+* The guid is what PROPERTIESSET actually filters on, and blank matches
+* nothing rather than everything - so derive it the same way a journey
+* does when the screen leaves it empty, instead of reading zero rows and
+* calling that an answer.
+  DATA(lv_guid_src) = `typed in`.
+  IF ls_ctx-partnerguid IS INITIAL.
+    ls_ctx-partnerguid = zcl_rak_cj_ctx=>guid_of( ls_ctx-partner ).
+    lv_guid_src = COND string( WHEN ls_ctx-partnerguid IS INITIAL
+                               THEN `** none - BUT000 has no row for this partner **`
+                               ELSE `derived from BUT000` ).
+  ENDIF.
+
+* The key may still be handed over as the launch URL's &userdata= JSON.
+* SESSION_KEY_OF( ) returns a non-JSON value unchanged, so this is safe
+* either way and removes the one mistake that resolves nobody, silently.
+  ls_ctx-session_key = zcl_rak_cj_ctx=>session_key_of( ls_ctx-session_key ).
+
   DATA(lv_klen) = strlen( ls_ctx-session_key ).
   WRITE: / 'CJS WRAPPER API - READ TEST'.
   ULINE.
   WRITE: / 'partner', 16 ls_ctx-partner, 40 'guid', 48 ls_ctx-partnerguid.
+  WRITE: / 'guid from', 16 lv_guid_src.
   WRITE: / 'journey', 16 ls_ctx-journey, 40 'screen', 48 ls_ctx-screen.
   WRITE: / 'case', 16 ls_ctx-intreno, 40 'dept', 48 ls_ctx-department.
   WRITE: / 'key length', 16 |{ lv_klen }|.
