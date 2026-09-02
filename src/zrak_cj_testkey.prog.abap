@@ -185,16 +185,42 @@ START-OF-SELECTION.
         IMPORTING
           ev_business_partner = lv_bp.
     CATCH cx_root INTO DATA(lx_fm).
-      WRITE: / 'ZFM_EGA_GET_BP_FROM_INTERNET_U failed:', lx_fm->get_text( ).
-      RETURN.
+      WRITE: / 'ZFM_EGA_GET_BP_FROM_INTERNET_U raised:', lx_fm->get_text( ).
   ENDTRY.
 
-  IF lv_bp <> p_bp.
+  IF lv_bp IS NOT INITIAL AND lv_bp <> p_bp.
+*   A real mismatch: the function module knows this user and says it is
+*   somebody else. Never write that row.
     WRITE: / 'Refused. Internet user', lv_user, 'resolves to partner', lv_bp.
     WRITE: / 'which is not', p_bp.
     RETURN.
   ENDIF.
-  WRITE: / 'Verified:', lv_user, '->', lv_bp.
+
+  IF lv_bp IS INITIAL.
+*   A BLANK resolve is a different thing entirely, and on a development
+*   system it is the normal thing. It means the function module does not
+*   know this internet user - not that the session row would be wrong.
+*   None of the users already in ZEGA_T_CJ_US_LOG on E10 resolve.
+*
+*   So: refuse when the user was GUESSED, because a guess that cannot be
+*   confirmed is worth nothing. Continue when the user was SUPPLIED, because
+*   then it is the tester's assertion and the row still proves everything
+*   this report exists to prove - that the key, the row and the decrypt
+*   round-trip. The partner lookup is downstream of all of that.
+    IF p_user IS INITIAL.
+      WRITE: / 'Refused. The internet user was found by searching, and'.
+      WRITE: / 'ZFM_EGA_GET_BP_FROM_INTERNET_U does not resolve it, so there'.
+      WRITE: / 'is nothing to confirm it against. Supply the user explicitly'.
+      WRITE: / 'if you know it is right.'.
+      RETURN.
+    ENDIF.
+    WRITE: / 'Warning:', lv_user, 'does not resolve to any partner here.'.
+    WRITE: / 'Continuing because you supplied it. The row and the decrypt will'.
+    WRITE: / 'still be proved; GET_BP( ) will return the user but a blank'.
+    WRITE: / 'partner, which is the function module, not this layer.'.
+  ELSE.
+    WRITE: / 'Verified:', lv_user, '->', lv_bp.
+  ENDIF.
   SKIP.
 
 * ---------------------------------------------------------------------
@@ -300,13 +326,30 @@ START-OF-SELECTION.
 
   WRITE: / 'GET_BP( key ) returns user   :', lv_back_user.
   WRITE: / 'GET_BP( key ) returns partner:', lv_back_bp.
-  IF lv_back_bp = p_bp.
-    WRITE: / 'Round trip OK.'.
+  SKIP.
+
+* THE ROUND TRIP IS THE USER, NOT THE PARTNER. Everything this report is
+* responsible for ends at the decrypted user coming back: the key was
+* generated, the row was found by it, ACTIVE was honoured, and the
+* ciphertext decrypted to what went in. The partner is one function-module
+* call further on and can be blank for reasons that have nothing to do with
+* any of that - on E10, no internet user in the table resolves at all.
+*
+* Judging success on the partner would deactivate a perfectly good row.
+  IF lv_back_user = lv_user.
+    WRITE: / 'Round trip OK - the key resolves to the user it was written for.'.
+    IF lv_back_bp IS INITIAL.
+      WRITE: / 'The partner is blank because the function module does not know'.
+      WRITE: / 'this user on this system. That is downstream of this report.'.
+    ELSEIF lv_back_bp <> p_bp.
+      WRITE: / 'But the partner is', lv_back_bp, 'and not', p_bp.
+    ENDIF.
     SKIP.
     PERFORM show_usage.
   ELSE.
     WRITE: / 'ROUND TRIP FAILED. The row was written but GET_BP( ) does not'.
-    WRITE: / 'resolve it. Deactivating so it cannot be used.'.
+    WRITE: / 'return the user it was written for. Deactivating so it cannot'.
+    WRITE: / 'be used.'.
     UPDATE zega_t_cj_us_log SET active = @space WHERE user_key = @lv_key.
     COMMIT WORK.
   ENDIF.
