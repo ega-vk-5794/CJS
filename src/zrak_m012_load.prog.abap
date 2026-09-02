@@ -130,12 +130,12 @@ START-OF-SELECTION.
 * control, and the reason this is flagged rather than quietly shipped.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 10
-      field_name = 'PARCELSEL' ftype = 'PARCEL'
+      field_name = 'PARCELSELECTOR' ftype = 'PARCEL'
       zlabel = 'Your parcels' zlabel_ar = 'قطعك'
       default_val = 'API:PROPERTY:PropertiesSet::Type=Parcel'
       tech_name = 'INTRENO_PARCEL' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 20
-      field_name = 'ADDPARCEL' ftype = 'INPUT'
+      field_name = 'ADDPRCLCTL' ftype = 'INPUT'
       zsection = 'Add a parcel you do not own'
       zlabel = 'Parcel number' zlabel_ar = 'رقم القطعة'
       placeholder = 'Enter the parcel number'
@@ -185,7 +185,7 @@ START-OF-SELECTION.
 * the post discards.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 10
-      field_name = 'PARCELS' ftype = 'TABLE' readonly = 'X'
+      field_name = 'RAKPARCELS' ftype = 'TABLE' readonly = 'X'
       zsection = 'Parcels to merge'
       zlabel = 'Parcels to merge' zlabel_ar = 'القطع المطلوب دمجها'
       default_val = 'PARCELID:Parcel:TEXT'          &&
@@ -203,7 +203,7 @@ START-OF-SELECTION.
       tech_name = 'GS_DATA-PARCELS[]' )
 *   Same field as M011's, same characteristic CJ11, same RE note.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
-      field_name = 'PLOTLONGTEXT' ftype = 'TEXTAREA' required = 'X'
+      field_name = 'ENTERTEXT' ftype = 'TEXTAREA' required = 'X'
       zsection = 'Request Details'
       zlabel = 'Describe the merge you are requesting'
       zlabel_ar = 'اذكر تفاصيل الدمج المطلوب'
@@ -232,7 +232,7 @@ START-OF-SELECTION.
 *   One file per field is the shape that survives the round trip until the
 *   document type is carried. See REVIEW-BE.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 30
-      field_name = 'DOC_SUPPORT' ftype = 'UPLOAD'
+      field_name = 'UPLOADER' ftype = 'UPLOAD'
       zsection = 'Attachments'
       zlabel = 'Supporting document' zlabel_ar = 'مستند مؤيد'
       attach_label = 'Add document' has_attach = 'X'
@@ -253,19 +253,19 @@ START-OF-SELECTION.
       field_name = 'PAYFEE' ftype = 'PAYFEE'
       zlabel = 'Payment' zlabel_ar = 'الدفع' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 20
-      field_name = 'TOTALFEESVALUE' ftype = 'DISPLAY' readonly = 'X'
+      field_name = 'TOTALVALUE' ftype = 'DISPLAY' readonly = 'X'
       hidden = 'X'
       zlabel = 'Total fees' zlabel_ar = 'إجمالي الرسوم'
       tech_name = 'TOTALFEESVALUE' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
-      field_name = 'ACCEPT_TERMS' ftype = 'CHECKBOX' required = 'X'
+      field_name = 'CHECKBOX_3' ftype = 'CHECKBOX' required = 'X'
       zlabel = 'I / We acknowledge and accept the Terms & Conditions applicable and available on the site'
       zlabel_ar = 'أنا / نحن نعترف ونقبل الشروط والأحكام المعمول بها والمتاحة على الموقع'
       msg = 'The Terms & Conditions must be accepted before payment'
       msg_ar = 'يجب قبول الشروط والأحكام قبل الدفع'
       tech_name = 'ACCEPT_TERMS' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 40
-      field_name = 'DONATE' ftype = 'CHECKBOX'
+      field_name = 'CHECKBOX_4' ftype = 'CHECKBOX'
       zlabel = 'I would like to donate five dirhams to Ajer Charity Foundation.'
       zlabel_ar = 'أود التبرع لمؤسسة آجر الخيرية بمبلغ خمسة دراهم.'
       tech_name = 'DONATE' ) ) ).
@@ -320,7 +320,7 @@ START-OF-SELECTION.
   WRITE: / '    passes the mandatory check. GET_ATTACHMENT( ) then'.
   WRITE: / '    de-duplicates on (objsrc, diffcrt, objsrctype, objtrgtype),'.
   WRITE: / '    so two files on ONE field come back as one. ATTACH_MULTI is'.
-  WRITE: / '    off on DOC_SUPPORT for that reason. Affects M011 and M016.'.
+  WRITE: / '    off on UPLOADER for that reason. Affects M011 and M016.'.
   WRITE: / ''.
   WRITE: / 'REVIEW-GRID'.
   WRITE: / '  PARCELS columns are read from GET_PL_TABLE( ) FIELD1..FIELD7'.
@@ -335,7 +335,7 @@ START-OF-SELECTION.
   WRITE: / '  MERGEHINT   guidance paragraph'.
   WRITE: / '  REVIEW      the engine''s review renderer'.
   WRITE: / '  PAYFEE      the payment card'.
-  WRITE: / '  DOC_SUPPORT posts through the attachment channel'.
+  WRITE: / '  UPLOADER    posts through the attachment channel'.
   WRITE: / ''.
   WRITE: / 'NOT MIGRATED'.
   WRITE: / '  As M011 - stage bar, header labels, 111 buttons, the payment'.

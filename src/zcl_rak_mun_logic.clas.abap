@@ -57,24 +57,113 @@ CLASS zcl_rak_mun_logic DEFINITION
 
   PUBLIC SECTION.
 
-*   The parcel the citizen picked. One field name across the family, so this
-*   class can check it without knowing which journey it is running for. The
-*   feeders all use it.
-    CONSTANTS c_fld_parcel  TYPE string VALUE 'PARCELSEL'.
-
-*   The added-parcel grid. Only M012 has one; the check below is guarded on
-*   the field existing, so the constant is harmless on the other two.
+*   ============ EVERY NAME HERE IS THE LEGACY FIELD NAME ================
 *
-*   A FIELD NAME NOT ON THE JOURNEY IS SILENT: get_val/set_val/bind against
-*   it are all legal and all do nothing. That is why this is guarded rather
-*   than assumed - see the guard in HAS_PARCEL( ).
-    CONSTANTS c_fld_parcels TYPE string VALUE 'PARCELS'.
+*   AND THAT IS A HARD REQUIREMENT, NOT A CONVENTION. The backend's field
+*   control only reaches a CJS field whose FIELD_NAME equals the legacy
+*   /QNV/SB_UI_DEFIN FIELD_NAME, because the whole chain is keyed on it:
+*
+*     ZCL_RAK_QNV_BRIDGE->SEED_CTRL( )  looks the field up as
+*         READ TABLE ls_s-fields WITH KEY name = to_upper( iv_field )
+*         where iv_field is the DEFINITION ROW's FIELDNAME - so a CJS field
+*         under any other name is never found, and the row goes out with
+*         the neutral defaults instead of this journey's configuration.
+*     ZCL_RAK_QNV_BRIDGE->CTRL_OF( )    reports back keyed on
+*         is_def-fieldname, the same legacy name.
+*     ZCL_RAK_JOURNEY_BE->APPLY_CTRL( ) then calls SET_HIDDEN / SET_READONLY
+*         / SET_REQUIRED with that name - and SET_HIDDEN( ) on a field name
+*         the journey does not have is legal and does NOTHING.
+*
+*   So a renamed field does not merely miss a nicety: MANDATORY, ENABLED and
+*   VISIBLE from the live field-control engine all silently fail to apply,
+*   and the failure looks exactly like a backend that never sent them.
+*
+*   The first version of these feeders used tidier names - PARCELSEL,
+*   DOC_TITLEDEED, DOC_ID - and would have had no field control at all.
+*   Do not rename them.
+*
+*   RAKPARCELSELECTOR, not PARCELSELECTOR: the export's FIELD_NAME on
+*   NSUBDIVISION_1_1 / NMERGE_1_1 / NCBR_1_1 is PARCELSELECTOR and the
+*   CONTROL_TYPE is RAKPARCELSELECTOR. The FIELD_NAME is what is keyed on.
+    CONSTANTS c_fld_parcel  TYPE string VALUE 'PARCELSELECTOR'.
 
-*   The applicant's own description of what they want done, CJ11 on the
-*   legacy side. Mandatory on all three screens.
-    CONSTANTS c_fld_note    TYPE string VALUE 'PLOTLONGTEXT'.
+*   The chosen-parcels grid. Only M012 has one; PARCEL_ROWS( ) is written so
+*   the constant is harmless on the other two.
+*
+*   A FIELD NAME NOT ON THE JOURNEY IS SILENT: get_val / get_grid_data /
+*   set_val / bind against it are all legal and all do nothing. That is why
+*   HAS_PARCEL( ) checks the selector first rather than trusting a row
+*   count - see the note in PARCEL_ROWS( ).
+    CONSTANTS c_fld_parcels TYPE string VALUE 'RAKPARCELS'.
+
+*   The applicant's own description of what they want done. The legacy
+*   FIELD_NAME is 'EnterText' and the TECHNICAL_NAME is PLOTLONGTEXT; the
+*   field name is what the field control keys on, upper-cased by the engine.
+*   It lands on characteristic CJ11 and on the RE note
+*   <intreno>#CJ11#00000000.
+    CONSTANTS c_fld_note    TYPE string VALUE 'ENTERTEXT'.
+
+*   ---- the two CONDITIONAL DOCUMENT GROUPS ---------------------------
+*   Both are driven entirely by the backend, in
+*   ZCL_EGA_CJ_FW_RO_ABS_V1->FIELD_CONTROL( ), which reads the parcel's own
+*   state and then clears ISVISIBLE on the matching CONTROLGROUP:
+*
+*     NOC     the bank's no-objection certificate. Hidden unless the parcel
+*             is MORTGAGED  (<fs_parcel>-is_mortgaged = abap_true).
+*     LETTER  the other owners' letter of consent. Hidden unless the parcel
+*             has MORE THAN ONE TR0800 owner  (line_exists( partners[ 2 ] )).
+*
+*   THE CJS FIELD IS NAMED AFTER THE CONTAINER, and that is deliberate. In
+*   the legacy screen NOCCONT and LETTERCONT are VBOXes each holding one
+*   RAKUPLOADER (UPLOADER1 and UPLOADER2) plus its labels, and the BAdI
+*   hides the CONTAINER - not the uploader. CJS has no containers, so the
+*   group collapses to the one control that matters and takes the
+*   container's name; the hide then lands on it through the ordinary
+*   mechanism, with nothing duplicated and no second opinion on when to
+*   show it.
+*
+*   THEY ARE REQUIRED AND THAT IS SAFE. Both are MANDATORY = X in the
+*   export, and mandatory is correct WHEN SHOWN - a mortgaged parcel does
+*   need the bank's NOC. ZCL_RAK_JOURNEY_RULES->VALIDATE_STEP( ) skips
+*   hidden fields (`IF is_hidden( ls_f ) = abap_true. CONTINUE.`), so a
+*   sole owner of an unmortgaged parcel is not blocked by two uploads they
+*   can never see. Checked, because the alternative failure is a step
+*   nobody can leave.
+    CONSTANTS c_fld_noc    TYPE string VALUE 'NOCCONT'.
+    CONSTANTS c_fld_letter TYPE string VALUE 'LETTERCONT'.
 
     METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
+
+*   ---- the case, and when it comes into existence ---------------------
+*   MUNICIPALITY DIFFERS FROM EPDA HERE, and it matters for the Pay button.
+*
+*   On these journeys the container case is created the moment the fee step
+*   POSTS - not on submit. ZIF_EGA_FW_CJI~UPDATE( ) does it:
+*
+*       READ TABLE ct_item_data ... WITH KEY technicalname = 'TOTALFEESVALUE'
+*       IF sy-subrc = 0 AND line_exists( mt_ui_map[ objectkey = 'FEES_1' ] ).
+*         payment_check( ) ... IF caseid IS INITIAL. create_dummy_case( ).
+*
+*   so pressing Next on the fees screen is what calls
+*   ZFM_EGA_CREATE_CASE_GEN for case type ZGCX and writes the new case id to
+*   characteristic CJ12.
+*
+*   THE BASE CLASS ALREADY HANDLES THE PAY PRESS CORRECTLY and this class
+*   deliberately does NOT re-implement it. ZCL_RAK_JOURNEY_LOGIC's
+*   ON_POPUP_EVENT( PAYNOW ) sets PAY_STARTED, sets STATUS = 'PAYMENT',
+*   calls COMMIT_STEP( ) - which is the post that makes the backend create
+*   the case if it does not exist yet - and RETURNS without reaching the
+*   gateway when that commit fails. That is exactly "if there is no case,
+*   create it first, then go to payment", and it is why COMMIT_STEP( )
+*   exists at all.
+*
+*   WHAT IS ADDED BELOW is the one thing the base cannot know: the fee
+*   total. The backend only creates the case when TOTALFEESVALUE is in the
+*   posted items, so a Pay press with no total posts, creates nothing, and
+*   sends the citizen to a gateway with no open item to bill against - a
+*   dead payment screen that looks like a gateway fault. Refusing it here
+*   costs one comparison.
+    METHODS zif_rak_journey_logic~on_popup_event REDEFINITION.
 
 *   ---- the two fee-bearing exceptions --------------------------------
 *   These two are the ONE case where not chaining is correct, and they are
@@ -182,6 +271,63 @@ CLASS zcl_rak_mun_logic IMPLEMENTATION.
 *   DELIBERATELY EMPTY - see the declaration. The base strips PAY_* and
 *   PAYFEE out of the field list; these journeys are fee-bearing and need
 *   them to reach the backend. Do not "tidy" this by chaining to super.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_popup_event.
+
+*   THE FEE TOTAL GATE, BEFORE THE BASE DOES ANYTHING.
+*
+*   Checked first and only for the Pay press, because on every other event
+*   this method must reach super untouched: ON_POPUP_EVENT is the BP and
+*   attachment machinery for the whole framework, and a redefinition that
+*   does not chain deletes all of it. That is not hypothetical - it is one
+*   of the four hooks CLAUDE.md names for exactly this reason.
+    IF iv_event CP |*{ c_pay_now }*|.
+
+*     TOTALFEESVALUE IS WHAT MAKES THE BACKEND CREATE THE CASE. See the
+*     declaration: ZIF_EGA_FW_CJI~UPDATE( ) branches on finding it in the
+*     posted items, and without it CREATE_DUMMY_CASE( ) is never reached.
+*     So a Pay press with no total does post, creates nothing, and then
+*     sends the citizen to a gateway with no open item behind it.
+*
+*     PAY_TOTAL is the engine's own carrier for the payable amount, filled
+*     from the backend's fee read - so this asks "does the card know what it
+*     is charging", which is the same question one step earlier.
+      DATA(lv_total) = condense( io_ctx->get_val( c_pay_total ) ).
+
+*     '0' and '0.00' are a total the citizen cannot pay, not a total. A fee
+*     journey whose fee read answered nothing arrives here looking exactly
+*     like one that has not been read yet.
+      REPLACE ALL OCCURRENCES OF '.' IN lv_total WITH ''.
+      REPLACE ALL OCCURRENCES OF ',' IN lv_total WITH ''.
+      SHIFT lv_total LEFT DELETING LEADING '0'.
+
+      IF lv_total IS INITIAL.
+        io_ctx->add_msg(
+          iv_type = 'Error'
+          iv_text = COND string(
+            WHEN sy-langu = 'A'
+            THEN `لم يتم تحديد الرسوم بعد. يرجى العودة إلى خطوة الرسوم والمحاولة مرة أخرى.`
+            ELSE `The fees for this request are not available yet. ` &&
+                 `Go back to the fees step and try again.` ) ).
+*       RETURN without chaining, deliberately and only on this branch: the
+*       point is to stop the payment starting. PAY_STARTED has not been set
+*       yet - the base sets it - so the button stays live and the citizen
+*       can retry once the fees are there.
+        RETURN.
+      ENDIF.
+
+    ENDIF.
+
+*   EVERYTHING ELSE, AND THE PAY PRESS THAT PASSED, GOES TO THE BASE. It is
+*   the base that sets PAY_STARTED, sets STATUS = 'PAYMENT', calls
+*   COMMIT_STEP( ) - the post on which the backend creates the case - and
+*   refuses to reach the gateway if that commit fails.
+    super->zif_rak_journey_logic~on_popup_event( io_ctx   = io_ctx
+                                                 iv_id    = iv_id
+                                                 iv_event = iv_event ).
+
   ENDMETHOD.
 
 

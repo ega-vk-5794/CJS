@@ -37,6 +37,42 @@ CLASS zcl_m011_divide_logic DEFINITION
 *&---------------------------------------------------------------------*
 
   PUBLIC SECTION.
+
+*   ---- M011's own field vocabulary -----------------------------------
+*   EVERY NAME IS THE LEGACY /QNV/SB_UI_DEFIN FIELD_NAME, because that is
+*   what the backend's field control is keyed on end to end - see the long
+*   note on the constants in ZCL_RAK_MUN_LOGIC. Renaming any of these
+*   silently switches off MANDATORY / ENABLED / VISIBLE from the live
+*   field-control engine.
+*
+*   Here rather than in the base because they are M011's screen, and an
+*   enhancement to this journey should not have to re-read the export to
+*   find out what a field is called.
+    CONSTANTS c_fld_upload3 TYPE string VALUE 'UPLOADER3'.   " optional, DATA2=3
+    CONSTANTS c_fld_total   TYPE string VALUE 'TOTALVALUE'.  " tech TOTALFEESVALUE
+    CONSTANTS c_fld_terms   TYPE string VALUE 'CHECKBOX_3'.  " tech ACCEPT_TERMS
+    CONSTANTS c_fld_donate  TYPE string VALUE 'CHECKBOX_4'.  " tech DONATE
+
+*   ---- what the backend decides, and where -----------------------------
+*   Written down so an enhancement does not re-implement it by accident.
+*   ZCL_EGA_CJ_FW_RO_ABS_V1 does all of this on the legacy side:
+*
+*     FIELD_CONTROL( )     hides C_FLD_NOC unless the parcel is mortgaged,
+*                          and C_FLD_LETTER unless it has 2+ TR0800 owners.
+*                          Arrives through the bridge as VISIBLE and is
+*                          applied by APPLY_CTRL( ) - nothing to do here.
+*     VALIDATE( )          the nine domain rules. Messages come back on the
+*                          post through ET_MSG and surface as engine
+*                          messages. Do not duplicate them.
+*     UPDATE( )            creates the ZGCX container case when the fees
+*                          step posts with TOTALFEESVALUE present, and
+*                          writes the case id to characteristic CJ12.
+*     GET_FEES( )          calls ZCL_EGA_MUN_CJ_FEES_M011->GET_INITIAL_FEE.
+*
+*   So the room for a journey-specific rule here is: anything that needs no
+*   table read and improves the round trip before a post. M012's parcel
+*   count is the family's one example. M011 has none today.
+
   PROTECTED SECTION.
   PRIVATE SECTION.
 ENDCLASS.

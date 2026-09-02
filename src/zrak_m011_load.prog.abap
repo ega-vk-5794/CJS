@@ -139,7 +139,7 @@ START-OF-SELECTION.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 10
       title = 'Parcel Selection' title_ar = 'اختيار القطعة'
       icon = 'sap-icon://map' bknd_screen = 'NSUBDIVISION_1_1'
-      next_requires = 'PARCELSEL' active = 'X' )
+      next_requires = 'PARCELSELECTOR' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
       title = 'Documents' title_ar = 'المستندات'
       icon = 'sap-icon://attachment' bknd_screen = 'NSUBDIVISION_1_2'
@@ -187,14 +187,14 @@ START-OF-SELECTION.
 * TECH_NAME the field renders, survives every round trip and reaches the
 * backend as nothing.
 *
-* FIELD NAME LENGTH: 'PARCELSEL' is nine characters. The real cap is 23,
+* FIELD NAME LENGTH: 'PARCELSELECTOR' is 14 characters. The real cap is 23,
 * not 30 - BUILD_MODEL( ) also builds _VS, _VST, _IDTYPE, _NAME, _IX and
 * _EXP companions on the same name, and CX_SY_STRUCT_COMP_NAME is uncaught,
 * so an over-long name kills the whole app with UNCAUGHT EXCEPTION rather
 * than hiding one field.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 10
-      field_name = 'PARCELSEL' ftype = 'PARCEL' required = 'X'
+      field_name = 'PARCELSELECTOR' ftype = 'PARCEL' required = 'X'
       zlabel = 'Parcel Selection' zlabel_ar = 'اختيار القطعة'
       msg = 'Select the parcel you want to divide'
       msg_ar = 'اختر القطعة التي ترغب في تقسيمها'
@@ -234,7 +234,7 @@ START-OF-SELECTION.
 * in NOT MIGRATED so the omission is not read as an oversight.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 10
-      field_name = 'PLOTLONGTEXT' ftype = 'TEXTAREA' required = 'X'
+      field_name = 'ENTERTEXT' ftype = 'TEXTAREA' required = 'X'
       zsection = 'Request Details'
       zlabel = 'Describe the division you are requesting'
       zlabel_ar = 'اذكر تفاصيل التقسيم المطلوب'
@@ -244,30 +244,68 @@ START-OF-SELECTION.
       msg_ar = 'يرجى ذكر تفاصيل التقسيم المطلوب'
       min_len = 10 max_len = 1000
       tech_name = 'PLOTLONGTEXT' )
-*   UPLOADER3 on the legacy screen: the sketch. MANDATORY blank there, so
-*   optional here.
+*   UPLOADER3 - parent PART2, MANDATORY blank, DATA2 = 3. Unconditional and
+*   optional: the only one of the three that is always on screen.
+*
+*   REVIEW-TEXT: its caption comes from the LABEL3 row through
+*   /QNV/SB_LABELT, which is not in the export dump. "Supporting document"
+*   is a neutral stand-in, not the live wording.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
-      field_name = 'DOC_SKETCH' ftype = 'UPLOAD'
+      field_name = 'UPLOADER3' ftype = 'UPLOAD'
       zsection = 'Attachments'
-      zlabel = 'Proposed division sketch' zlabel_ar = 'مخطط التقسيم المقترح'
-      has_attach = 'X' attach_label = 'Add sketch'
+      zlabel = 'Supporting document' zlabel_ar = 'مستند مؤيد'
+      has_attach = 'X' attach_label = 'Add document'
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 )
-*   UPLOADER1 and UPLOADER2: MANDATORY = X in the export, and visible.
+*   ======== THE TWO CONDITIONAL DOCUMENT GROUPS ========================
+*
+*   THE FIRST VERSION OF THIS FEEDER HAD THESE TWO BADLY WRONG. It called
+*   UPLOADER1 "Title deed" and UPLOADER2 "Emirates ID of the owner" and made
+*   both unconditionally REQUIRED - which would have blocked every sole
+*   owner of an unmortgaged parcel behind two uploads the live service does
+*   not even show them. The export says what they actually are:
+*
+*     UPLOADER1  parent NOCCONT     MANDATORY=X  DATA2=1
+*     UPLOADER2  parent LETTERCONT  MANDATORY=X  DATA2=2
+*
+*   and ZCL_EGA_CJ_FW_RO_ABS_V1->FIELD_CONTROL( ) is what decides whether
+*   either is shown. It reads characteristic CJ02 for the parcel, the TR0800
+*   partner, and then ZCL_EGA_MUN_CJ_ODATA_API:
+*
+*     is_mortgaged = false          -> CLEAR isvisible on CONTROLGROUP 'NOC'
+*     fewer than 2 TR0800 owners    -> CLEAR isvisible on CONTROLGROUP 'LETTER'
+*
+*   The wording is the BAdI's own, from GET_PL_TABLE( )'s field7:
+*   'Attach NOC from bank' and 'Letter of consent'.
+*
+*   THE CJS FIELD IS NAMED AFTER THE CONTAINER, NOT THE UPLOADER, and that
+*   is what makes the hide arrive. The BAdI clears ISVISIBLE on the row
+*   whose CONTROLGROUP matches - NOCCONT and LETTERCONT, both VBOXes - and
+*   never on UPLOADER1/UPLOADER2. The bridge then reports back keyed on that
+*   row's FIELDNAME and APPLY_CTRL( ) calls SET_HIDDEN( 'NOCCONT' ). A CJS
+*   field called UPLOADER1 would never hear it. In CJS there are no
+*   containers, so the group collapses to its one real control and takes the
+*   container's name - the mechanism does the work and nothing is
+*   duplicated. See ZCL_RAK_MUN_LOGIC's constants.
+*
+*   REQUIRED IS SAFE HERE. Mandatory is right when shown, and
+*   ZCL_RAK_JOURNEY_RULES->VALIDATE_STEP( ) skips hidden fields, so a hidden
+*   one cannot block the step. Verified in that method rather than assumed,
+*   because the alternative failure is a step nobody can leave.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 30
-      field_name = 'DOC_TITLEDEED' ftype = 'UPLOAD' required = 'X'
+      field_name = 'NOCCONT' ftype = 'UPLOAD' required = 'X'
       zsection = 'Attachments'
-      zlabel = 'Title deed' zlabel_ar = 'سند الملكية'
-      msg = 'The title deed is required'
-      msg_ar = 'سند الملكية مطلوب'
-      has_attach = 'X' attach_label = 'Add title deed'
+      zlabel = 'NOC from the bank' zlabel_ar = 'شهادة عدم اعتراض من البنك'
+      msg = 'A mortgaged parcel needs the bank''s no-objection certificate'
+      msg_ar = 'القطعة المرهونة تتطلب شهادة عدم اعتراض من البنك'
+      has_attach = 'X' attach_label = 'Attach NOC from bank'
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 40
-      field_name = 'DOC_ID' ftype = 'UPLOAD' required = 'X'
+      field_name = 'LETTERCONT' ftype = 'UPLOAD' required = 'X'
       zsection = 'Attachments'
-      zlabel = 'Emirates ID of the owner' zlabel_ar = 'الهوية الإماراتية للمالك'
-      msg = 'The owner''s Emirates ID is required'
-      msg_ar = 'هوية المالك الإماراتية مطلوبة'
-      has_attach = 'X' attach_label = 'Add Emirates ID'
+      zlabel = 'Letter of consent' zlabel_ar = 'خطاب موافقة'
+      msg = 'A parcel with more than one owner needs the other owners'' consent'
+      msg_ar = 'القطعة التي لها أكثر من مالك تتطلب موافقة الملاك الآخرين'
+      has_attach = 'X' attach_label = 'Letter of consent'
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 ) ) ).
 
 * --------------------------------------------------- STPR Review
@@ -309,7 +347,7 @@ START-OF-SELECTION.
       field_name = 'PAYFEE' ftype = 'PAYFEE'
       zlabel = 'Payment' zlabel_ar = 'الدفع' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 20
-      field_name = 'TOTALFEESVALUE' ftype = 'DISPLAY' readonly = 'X'
+      field_name = 'TOTALVALUE' ftype = 'DISPLAY' readonly = 'X'
       hidden = 'X'
       zlabel = 'Total fees' zlabel_ar = 'إجمالي الرسوم'
       tech_name = 'TOTALFEESVALUE' )
@@ -322,7 +360,7 @@ START-OF-SELECTION.
 *   redefinition in the handler - which would then have to chain super or it
 *   would delete the payment card.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
-      field_name = 'ACCEPT_TERMS' ftype = 'CHECKBOX' required = 'X'
+      field_name = 'CHECKBOX_3' ftype = 'CHECKBOX' required = 'X'
       zlabel = 'I / We acknowledge and accept the Terms & Conditions applicable and available on the site'
       zlabel_ar = 'أنا / نحن نعترف ونقبل الشروط والأحكام المعمول بها والمتاحة على الموقع'
       msg = 'The Terms & Conditions must be accepted before payment'
@@ -332,7 +370,7 @@ START-OF-SELECTION.
 *   a group is satisfied by ticking EITHER option, which is how a citizen
 *   donates their way past terms they never accepted.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 40
-      field_name = 'DONATE' ftype = 'CHECKBOX'
+      field_name = 'CHECKBOX_4' ftype = 'CHECKBOX'
       zlabel = 'I would like to donate five dirhams to Ajer Charity Foundation.'
       zlabel_ar = 'أود التبرع لمؤسسة آجر الخيرية بمبلغ خمسة دراهم.'
       tech_name = 'DONATE' ) ) ).
@@ -405,7 +443,9 @@ START-OF-SELECTION.
   WRITE: / '  PARCELHINT  guidance paragraph, nothing to post'.
   WRITE: / '  REVIEW      the engine''s review renderer'.
   WRITE: / '  PAYFEE      the payment card; the card owns the payment state'.
-  WRITE: / '  DOC_*       uploads post through the attachment channel'.
+  WRITE: / '  UPLOADER3   posts through the attachment channel'.
+  WRITE: / '  NOCCONT     conditional NOC upload; attachment channel'.
+  WRITE: / '  LETTERCONT  conditional consent upload; attachment channel'.
   WRITE: / ''.
   WRITE: / 'REVIEW-TEXT'.
   WRITE: / '  PARCELHINT sits in DEFAULT_VAL, which has no _AR twin, so it'.

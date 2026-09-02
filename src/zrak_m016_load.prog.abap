@@ -99,7 +99,7 @@ START-OF-SELECTION.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 10
       title = 'Parcel Selection' title_ar = 'اختيار القطعة'
       icon = 'sap-icon://map' bknd_screen = 'NCBR_1_1'
-      next_requires = 'PARCELSEL' active = 'X' )
+      next_requires = 'PARCELSELECTOR' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
       title = 'Regulation & Documents' title_ar = 'النظام والمستندات'
       icon = 'sap-icon://attachment' bknd_screen = 'NCBR_1_2' active = 'X' )
@@ -114,7 +114,7 @@ START-OF-SELECTION.
 * --------------------------------------------------- STP1 Parcel Selection
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 10
-      field_name = 'PARCELSEL' ftype = 'PARCEL' required = 'X'
+      field_name = 'PARCELSELECTOR' ftype = 'PARCEL' required = 'X'
       zlabel = 'Parcel Selection' zlabel_ar = 'اختيار القطعة'
       msg = 'Select the parcel whose building regulations you want to change'
       msg_ar = 'اختر القطعة التي ترغب في تغيير أنظمة البناء الخاصة بها'
@@ -154,7 +154,7 @@ START-OF-SELECTION.
 * the code reading them behaves.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 10
-      field_name = 'USAGETYPE' ftype = 'SELECT' required = 'X'
+      field_name = 'RAKSELECTUSAGETYPE' ftype = 'SELECT' required = 'X'
       closed_list = 'X'
       zsection = 'Requested Regulation'
       zlabel = 'Requested usage type' zlabel_ar = 'نوع الاستخدام المطلوب'
@@ -169,7 +169,7 @@ START-OF-SELECTION.
 *     recognise renders, validates, posts and arrives as nothing.
       tech_name = 'USAGETYPE' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
-      field_name = 'PLOTLONGTEXT' ftype = 'TEXTAREA' required = 'X'
+      field_name = 'ENTERTEXT' ftype = 'TEXTAREA' required = 'X'
       zsection = 'Request Details'
       zlabel = 'Describe the change you are requesting'
       zlabel_ar = 'اذكر تفاصيل التغيير المطلوب'
@@ -202,33 +202,54 @@ START-OF-SELECTION.
 *   indistinguishable, and a BAdI could map field name to type. But nothing
 *   does that today. ATTACH_MULTI is therefore left OFF on every uploader
 *   here: one file per field is the shape that survives a round trip.
+*   UPLOADER - parent UPLOADERBOX, optional, and the ONE uploader M011 does
+*   not have. It carries no DATA2 at all, where the other three carry 1, 2
+*   and 3, so it is not one of the numbered document types.
+*
+*   REVIEW-TEXT: captions for this and UPLOADER3 come from their LABEL rows
+*   through /QNV/SB_LABELT and are not in the export dump. Both are neutral
+*   stand-ins, not the live wording.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 30
-      field_name = 'DOC_TITLEDEED' ftype = 'UPLOAD' required = 'X'
+      field_name = 'UPLOADER' ftype = 'UPLOAD'
       zsection = 'Attachments'
-      zlabel = 'Title deed' zlabel_ar = 'سند الملكية'
-      msg = 'The title deed is required'
-      msg_ar = 'سند الملكية مطلوب'
-      has_attach = 'X' attach_label = 'Add title deed'
+      zlabel = 'Current building regulation' zlabel_ar = 'نظام البناء الحالي'
+      has_attach = 'X' attach_label = 'Add document'
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 )
+*   UPLOADER3 - parent PART2, optional, DATA2 = 3.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 40
-      field_name = 'DOC_ID' ftype = 'UPLOAD' required = 'X'
-      zsection = 'Attachments'
-      zlabel = 'Emirates ID of the owner' zlabel_ar = 'الهوية الإماراتية للمالك'
-      msg = 'The owner''s Emirates ID is required'
-      msg_ar = 'هوية المالك الإماراتية مطلوبة'
-      has_attach = 'X' attach_label = 'Add Emirates ID'
-      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 )
-    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 50
-      field_name = 'DOC_SITEPLAN' ftype = 'UPLOAD'
-      zsection = 'Attachments'
-      zlabel = 'Site plan' zlabel_ar = 'مخطط الموقع'
-      has_attach = 'X' attach_label = 'Add site plan'
-      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 )
-    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 60
-      field_name = 'DOC_SUPPORT' ftype = 'UPLOAD'
+      field_name = 'UPLOADER3' ftype = 'UPLOAD'
       zsection = 'Attachments'
       zlabel = 'Supporting document' zlabel_ar = 'مستند مؤيد'
       has_attach = 'X' attach_label = 'Add document'
+      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 )
+*   ======== THE TWO CONDITIONAL DOCUMENT GROUPS ========================
+*   Identical to M011's, and for the identical reason - NCBR_1_2 carries the
+*   same NOCCONT and LETTERCONT VBOXes holding UPLOADER1 (DATA2=1) and
+*   UPLOADER2 (DATA2=2), both MANDATORY = X, and the same
+*   ZCL_EGA_CJ_FW_RO_ABS_V1->FIELD_CONTROL( ) decides whether either shows:
+*   NOC hidden unless the parcel is mortgaged, LETTER hidden unless it has
+*   more than one TR0800 owner.
+*
+*   THE CJS FIELD TAKES THE CONTAINER'S NAME so the hide lands on it - the
+*   BAdI clears ISVISIBLE on the CONTROLGROUP row, which is the container,
+*   never the uploader. Full reasoning in ZRAK_M011_LOAD and in
+*   ZCL_RAK_MUN_LOGIC's constants. M012 has NEITHER group, which was
+*   checked rather than assumed from the family.
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 50
+      field_name = 'NOCCONT' ftype = 'UPLOAD' required = 'X'
+      zsection = 'Attachments'
+      zlabel = 'NOC from the bank' zlabel_ar = 'شهادة عدم اعتراض من البنك'
+      msg = 'A mortgaged parcel needs the bank''s no-objection certificate'
+      msg_ar = 'القطعة المرهونة تتطلب شهادة عدم اعتراض من البنك'
+      has_attach = 'X' attach_label = 'Attach NOC from bank'
+      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 60
+      field_name = 'LETTERCONT' ftype = 'UPLOAD' required = 'X'
+      zsection = 'Attachments'
+      zlabel = 'Letter of consent' zlabel_ar = 'خطاب موافقة'
+      msg = 'A parcel with more than one owner needs the other owners'' consent'
+      msg_ar = 'القطعة التي لها أكثر من مالك تتطلب موافقة الملاك الآخرين'
+      has_attach = 'X' attach_label = 'Letter of consent'
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = 5 ) ) ).
 
 * --------------------------------------------------- STPR Review
@@ -244,19 +265,19 @@ START-OF-SELECTION.
       field_name = 'PAYFEE' ftype = 'PAYFEE'
       zlabel = 'Payment' zlabel_ar = 'الدفع' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 20
-      field_name = 'TOTALFEESVALUE' ftype = 'DISPLAY' readonly = 'X'
+      field_name = 'TOTALVALUE' ftype = 'DISPLAY' readonly = 'X'
       hidden = 'X'
       zlabel = 'Total fees' zlabel_ar = 'إجمالي الرسوم'
       tech_name = 'TOTALFEESVALUE' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
-      field_name = 'ACCEPT_TERMS' ftype = 'CHECKBOX' required = 'X'
+      field_name = 'CHECKBOX_3' ftype = 'CHECKBOX' required = 'X'
       zlabel = 'I / We acknowledge and accept the Terms & Conditions applicable and available on the site'
       zlabel_ar = 'أنا / نحن نعترف ونقبل الشروط والأحكام المعمول بها والمتاحة على الموقع'
       msg = 'The Terms & Conditions must be accepted before payment'
       msg_ar = 'يجب قبول الشروط والأحكام قبل الدفع'
       tech_name = 'ACCEPT_TERMS' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 40
-      field_name = 'DONATE' ftype = 'CHECKBOX'
+      field_name = 'CHECKBOX_4' ftype = 'CHECKBOX'
       zlabel = 'I would like to donate five dirhams to Ajer Charity Foundation.'
       zlabel_ar = 'أود التبرع لمؤسسة آجر الخيرية بمبلغ خمسة دراهم.'
       tech_name = 'DONATE' ) ) ).
@@ -328,7 +349,9 @@ START-OF-SELECTION.
   WRITE: / '  PARCELHINT  guidance paragraph'.
   WRITE: / '  REVIEW      the engine''s review renderer'.
   WRITE: / '  PAYFEE      the payment card'.
-  WRITE: / '  DOC_*       uploads post through the attachment channel'.
+  WRITE: / '  UPLOADER(3) post through the attachment channel'.
+  WRITE: / '  NOCCONT     conditional NOC upload; attachment channel'.
+  WRITE: / '  LETTERCONT  conditional consent upload; attachment channel'.
   WRITE: / ''.
   WRITE: / 'NOT MIGRATED'.
   WRITE: / '  As M011 - stage bar, header labels, buttons, the payment'.

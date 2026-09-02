@@ -43,9 +43,43 @@ CLASS zcl_m016_cbr_logic DEFINITION
 
   PUBLIC SECTION.
 
-*   The requested usage type. Here rather than in the base because M016 is
-*   the only journey in the family that asks for one.
-    CONSTANTS c_fld_usage TYPE string VALUE 'USAGETYPE'.
+*   ---- M016's own field vocabulary -----------------------------------
+*   EVERY NAME IS THE LEGACY /QNV/SB_UI_DEFIN FIELD_NAME - the backend's
+*   field control is keyed on it end to end, so renaming one silently
+*   switches off MANDATORY / ENABLED / VISIBLE from the live field-control
+*   engine. See the constants note in ZCL_RAK_MUN_LOGIC.
+*
+*   RAKSELECTUSAGETYPE, not USAGETYPE: on NCBR_1_2 the FIELD_NAME and the
+*   CONTROL_TYPE happen to be the same string, and the FIELD_NAME is what is
+*   keyed on. An earlier version of this constant said USAGETYPE and would
+*   have received no field control at all.
+    CONSTANTS c_fld_usage   TYPE string VALUE 'RAKSELECTUSAGETYPE'.
+
+*   M016 has FOUR uploaders where M011 has three. C_FLD_UPLOAD carries no
+*   DATA2 at all, where the numbered three carry 1, 2 and 3 - so it is not
+*   one of the numbered document types.
+    CONSTANTS c_fld_upload  TYPE string VALUE 'UPLOADER'.     " optional, no DATA2
+    CONSTANTS c_fld_upload3 TYPE string VALUE 'UPLOADER3'.    " optional, DATA2=3
+    CONSTANTS c_fld_total   TYPE string VALUE 'TOTALVALUE'.   " tech TOTALFEESVALUE
+    CONSTANTS c_fld_terms   TYPE string VALUE 'CHECKBOX_3'.   " tech ACCEPT_TERMS
+    CONSTANTS c_fld_donate  TYPE string VALUE 'CHECKBOX_4'.   " tech DONATE
+
+*   ---- what the backend decides, and where -----------------------------
+*   Same contract as M011's - FIELD_CONTROL( ) owns the NOC and LETTER
+*   visibility, VALIDATE( ) owns the nine domain rules and returns their
+*   messages on the post, UPDATE( ) creates the ZGCX case when the fees step
+*   posts with TOTALFEESVALUE, and GET_FEES( ) calls
+*   ZCL_EGA_MUN_CJ_FEES_M016->GET_INITIAL_FEE. None of it is duplicated
+*   here.
+*
+*   THE ONE PLACE AN M016 ENHANCEMENT IS LIKELY TO BE NEEDED is the usage
+*   type. It is REQUIRED and its option list is deliberately empty, because
+*   nothing in the export names the list - see the REVIEW-F4 block in
+*   ZRAK_M016_LOAD. If the list turns out to be dynamic (dependent on the
+*   parcel's current usage type, which would be the natural design), that is
+*   an ON_CHANGE redefinition here reading the parcel and calling
+*   SET_OPTIONS( ) - and it must not become a hardcoded list, which is the
+*   failure mode the empty list exists to prevent.
 
   PROTECTED SECTION.
   PRIVATE SECTION.
