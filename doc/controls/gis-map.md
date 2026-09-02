@@ -4,6 +4,67 @@ Written from `RAK-eEGA/egardcjeng` `util/Map.js` and `js/gismappingIM.js`. Both 
 guessed at for several rounds before either source was read; the guesses are recorded
 here so they are not made again.
 
+## CORRECTION — the deployed screen FRAMES the map
+
+**Read this before the rest of the file.** Everything below was derived from `util/Map.js`
+and concluded that the live control renders an ArcGIS view *in the application page*. The
+DOM of the working **My Properties** screen says otherwise, and the DOM wins:
+
+```
+sap-ui-preserve="__xmlview2--mapIframe"
+  #document  (https://rakgisstg.rak.ae/CustomerJourneyMap/)
+    <html><body><div>
+      <div id="welcome" style="display:none">
+      <div id="cover-spin" style="display:none">
+      <div class="maphoc" style="display:block">
+        <div id="mapViewDiv" class="esri-view esri-view-orientation-landscape …">
+          <div class="esri-view-root"> … <canvas width="941" height="915">
+      <div id="SwitchOverlayDiv" class="switchOverLayClass" style="display:none">
+      <div class="forbidden">
+```
+
+So the ArcGIS view is real — `esri-view`, `mapViewDiv`, a live canvas, the selected parcel
+`310060052` labelled and highlighted — but it is **inside an iframe**, and that iframe's
+document is the `CustomerJourneyMap` viewer. `welcome`, `cover-spin`, `SwitchOverlayDiv`
+and `forbidden` are the viewer application's own furniture, not a UI5 control's.
+
+### Why this is the whole explanation for "Failed to fetch"
+
+The consequence is not cosmetic. Inside that frame the ArcGIS API is running **on the GIS
+host's own origin**, so:
+
+| | in the frame (live) | in the page (what CJS built) |
+| --- | --- | --- |
+| origin of the ArcGIS code | `rakgisstg.rak.ae` | the SAP application server |
+| `proxy.ashx` | **same origin** — just works | cross-origin — needs CORS for the CJS host |
+| `gisserver` alias | resolved by the proxy, same origin | unreachable unless the proxy allows us |
+| token | the viewer obtains its own | CJS has to inject one |
+
+That is why the live map has no proxy problem and CJS's in-page rebuild cannot get past
+one. **The live application never fights the battle `ZCL_RAK_CJS_GIS`'s in-page path is
+fighting.** The doc's earlier line — "the in-page ArcGIS path … is the route worth
+finishing" — was wrong, and so is CLAUDE.md's summary of it.
+
+It also means `GIS_PARCELS` and `GIS_PROPERTIES` are **not needed on the framed path at
+all**: the viewer knows its own layers. Backlog item 6.5's "two strings still to find"
+only applies to the in-page route.
+
+### What is not settled by this
+
+- Whether `util/Map.js` is dead, used on a *different* screen, or the control that renders
+  *inside* the viewer page. The frame's document is a separate app; `Map.js` could well be
+  its map. Not established either way from a DOM.
+- Whether the viewer accepts a `postMessage` from the CJS origin. The portal in this trace
+  is `rakportal1-….dispatcher.ae1.hana.ondemand.com` — a BTP host, which is evidently on
+  the allowlist. CJS is served from `devgrpportal.rak.ae`, which is a different origin and
+  has not been shown to be. `<div class="forbidden">` is exactly what appears when
+  `DefconOriginValidation` refuses, so the failure mode is visible rather than silent.
+
+`ZCL_RAK_CJ_PARCEL` already frames this exact URL — `viewer_of( )` returns
+`https://rakgisstg.rak.ae/CustomerJourneyMap/`, the `src` in the trace above — but only as
+a **fallback**, behind `ZCL_RAK_CJ_GIS=>READY( )`. On this evidence the precedence is
+backwards.
+
 ## `RakMap.Map` — the one the parcel dialog draws
 
 `util/Map.js` is a `sap.ui.core.Control`. Its renderer writes one bare `<div>`, and
