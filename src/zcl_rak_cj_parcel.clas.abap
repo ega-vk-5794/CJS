@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-16. Missing this line means SAP has an older copy - see
+*& BUILD map-fix-17. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -98,7 +98,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   the thing being looked at is the thing that was just written, which
 *   is the question that has to be answered FIRST every time and until
 *   now could only be inferred. Bump it with the header stamp.
-    CONSTANTS c_build TYPE string VALUE 'map-fix-16'.
+    CONSTANTS c_build TYPE string VALUE 'map-fix-17'.
 
     METHODS constructor
       IMPORTING io_engine TYPE REF TO zcl_rak_journey_engine.
@@ -1280,7 +1280,17 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       follow-up channel, and L is initialised from the stamp. A
 *       preserved iframe that loaded on a previous open stays stamped,
 *       which is correct: it has loaded.
-        |var o="{ lv_jorg }";var n=0;var IN=[];| &&
+*       TWO COUNTERS, AND THEY WERE ONE. N counts posts, K counts retry
+*       ticks. They were the same variable: S( ) did n++ on every post
+*       and the interval tested ++n>10 - so each tick incremented it
+*       TWICE and the retries stopped after five ticks, two and a half
+*       seconds. The viewer attaches its message listener from its own
+*       script after its own page has loaded and authenticated, which is
+*       sometimes later than that, and a post that arrives before the
+*       listener exists is simply dropped. Miss the window and the map
+*       never draws; catch it and it does. That is the whole of
+*       "sometimes working, sometimes not".
+        |var o="{ lv_jorg }";var n=0;var k=0;var IN=[];| &&
         |var L=(f.dataset.rakLoaded==="1")?1:0;| &&
 *       THE GUARD SITS HERE, after the state it reports and before the
 *       work it prevents. It used to be the first thing after the element
@@ -1289,7 +1299,13 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       left "Loading the map..." above a map that was drawn and correct.
 *       R( ) is a function declaration and therefore hoisted, so it can
 *       be called from here.
-        |if(f.dataset.rakPosted===m.parcelId)\{R();return;\}| &&
+*       AND THE OVERLAY STILL HAS TO COME OFF ON THIS PATH. The guard
+*       returns before G( ) is reached, so an already-set-up parcel used
+*       to leave the wait to the other channel's listener - or, when
+*       there was no other channel, to the CSS fallback fourteen seconds
+*       later. If the frame has loaded, start the grace here too.
+        |if(f.dataset.rakPosted===m.parcelId)\{| &&
+        |if(L)\{G();\}R();return;\}| &&
         |f.dataset.rakPosted=m.parcelId;| &&
         |function s()\{try\{f.contentWindow.postMessage(m,o);n++;\}catch(e)\{\}\}| &&
         |f.addEventListener("load",function()\{| &&
@@ -1306,8 +1322,15 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         |:JSON.stringify(e.data));\}catch(x)\{IN.push("[unreadable]");\}| &&
         |if(IN.length>4)\{IN.shift();\}| &&
         |s();R();W();\});| &&
+*       AND IT KEEPS TRYING FOR TWELVE SECONDS, not two and a half.
+*       Twenty-four ticks at 500ms, and it STOPS EARLY the moment the
+*       viewer says anything - a reply proves the listener is attached,
+*       so every further post is waste. A bounded retry either way: it
+*       cannot poll for the life of the dialog.
         |var t=setInterval(function()\{| &&
-        |if(++n>10)\{clearInterval(t);return;\}s();R();\},500);| &&
+        |k++;| &&
+        |if(k>24\|\|IN.length)\{clearInterval(t);R();return;\}| &&
+        |s();R();\},500);| &&
 *       A RESIZE NUDGE, once, after the dialog has finished opening.
 *
 *       Chrome present and canvas blank is the classic signature of an
@@ -1368,7 +1391,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         |var N=document.getElementById("{ lv_idn }");| &&
         |if(!N)\{return;\}| &&
         |N.title="parcel "+m.parcelId+" (intreno { lv_jint }), token "+| &&
-        |m.token.length+" chars, posted "+n+"x to "+o+| &&
+        |m.token.length+" chars, posted "+n+"x in "+k+" tries to "+o+| &&
         |" from "+window.location.origin+| &&
         |(IN.length?(", viewer replied: "+IN.join(" / "))| &&
         |:", viewer replied nothing");| &&

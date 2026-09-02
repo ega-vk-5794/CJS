@@ -679,7 +679,7 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |flex-direction:column;align-items:center;justify-content:center;| &&
         |gap:.7rem;background:#eef1f4;border-radius:10px;| &&
         |color:#6a7484;font-size:.85rem;transition:opacity .3s;| &&
-        |animation:rakWaitOut .4s ease 9s forwards;\}| &&
+        |animation:rakWaitOut .4s ease 14s forwards;\}| &&
         |@keyframes rakWaitOut\{to\{opacity:0;visibility:hidden;\}\}| &&
         |.rakPclWait.rakGone\{opacity:0;visibility:hidden;pointer-events:none;\}| &&
 *     A BORDERED CIRCLE WITH ONE SIDE COLOURED, ROTATING - the whole
