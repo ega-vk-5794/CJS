@@ -79,16 +79,38 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
 *
 *     WRITTEN THROUGH ASSIGN COMPONENT over a candidate list, not named in
 *     a MOVE. /QNV/SBUILD_ATTACHMENTS_TT is a legacy DDIC type that cannot
-*     be opened from the environment this was written in, so the column
-*     that carries the type is not known here with certainty - DIFFCRT is
-*     what the BAdI ends up filling, but whether the row handed to the FM
-*     spells it that way, or IDENTIFIER3, or DOCTYPE, is not. A name that
-*     is not a component of this release's structure is skipped rather
-*     than failing activation, and the trace below says which one answered
-*     - so ONE run settles it and this list can be cut down to the answer.
+*     be opened from the environment this was written in. A name that is
+*     not a component of this release's structure is skipped rather than
+*     failing activation, and the trace below says which one answered - so
+*     ONE run settles it and this list can be cut to the answer.
+*
+*     FILE_TYPE IS FIRST, AND IT IS NOT A GUESS. The candidate list here
+*     began with DIFFCRT, which is where the type ENDS UP -
+*     ZDT_EGA_CJ_ATTR-DIFFCRT - and not what the row handed to the FM
+*     calls it. The BAdI source settles the difference, both ways round:
+*
+*       ZIF_EGA_FW_CJI~UPDATE( )   LOOP AT ct_attacments ASSIGNING <fs_att>
+*                                  IF <fs_att>-file_type IS NOT INITIAL.
+*                                    SHIFT <fs_att>-file_type ...
+*                                  create_attachment( doc_type = <fs_att>-file_type )
+*       GET_ATTACHMENT( )          DATA ls_att TYPE LINE OF
+*                                       /qnv/sbuild_attachments_tt.
+*                                  ls_att-file_type = plno.
+*
+*     So FILE_TYPE is a component of that structure, read on the way in and
+*     written on the way out, and DIFFCRT is the column CREATE_ATTACHMENT
+*     stores it in afterwards. Without FILE_TYPE in this list every
+*     candidate would have missed, the trace would have said "no component
+*     on this release takes it", and the fix would have looked delivered
+*     while the document type still never left CJS.
+*
+*     The other five stay after it: they cost nothing, the loop EXITs on
+*     the first hit, and if FILE_TYPE ever is not the name they are what
+*     stops this being a third round.
       IF ls_a-dtype IS NOT INITIAL.
         DATA(lv_put) = ``.
-        LOOP AT VALUE string_table( ( `DIFFCRT` ) ( `DOCTYPE` ) ( `DOC_TYPE` )
+        LOOP AT VALUE string_table( ( `FILE_TYPE` )
+                                    ( `DIFFCRT` ) ( `DOCTYPE` ) ( `DOC_TYPE` )
                                     ( `IDENTIFIER3` ) ( `DATA2` ) )
              INTO DATA(lv_cand).
           ASSIGN COMPONENT lv_cand OF STRUCTURE <ls_att> TO FIELD-SYMBOL(<v>).
