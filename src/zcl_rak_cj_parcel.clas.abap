@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-10. Missing this line means SAP has an older copy - see
+*& BUILD map-fix-11. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -22,6 +22,13 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *& with the note line EMPTY. An earlier comment claimed the frame's own
 *& onload as a second channel, but described an addEventListener INSIDE
 *& the snippet, which cannot help: the snippet must run to attach it.
+*& map-fix-11 contains: the viewer now RENDERS ITS CHROME and leaves the
+*& canvas blank, which is a different failure from the splash logo and
+*& means the postMessage was accepted. So the note reports the token by
+*& LENGTH, keeps whatever the viewer posts back (the only channel a
+*& cross-origin frame has), and nudges the iframe height by one pixel
+*& once the dialog has finished animating - chrome without a canvas is
+*& the signature of a MapView built while its container had no size.
 *& This class will not compile until ZCL_RAK_CJ_GIS is ACTIVE: a class
 *& with no active version has no methods, so its callers report
 *& "Method SCRIPT is unknown or PROTECTED or PRIVATE" instead.
@@ -1155,31 +1162,76 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         |if(f.dataset.rakPosted==="1")\{return;\}| &&
         |f.dataset.rakPosted="1";| &&
         |var m=\{parcelId:"{ lv_jpid }",token:"{ lv_jtok }",lang:"{ lv_lang }"\};| &&
-        |var o="{ lv_jorg }";var n=0;| &&
-        |function s()\{try\{f.contentWindow.postMessage(m,o);\}catch(e)\{\}\}| &&
+        |var o="{ lv_jorg }";var n=0;var IN=[];| &&
+        |function s()\{try\{f.contentWindow.postMessage(m,o);n++;\}catch(e)\{\}\}| &&
         |f.addEventListener("load",s);| &&
+*       WHAT THE VIEWER SAYS BACK, kept and shown. The frame is
+*       cross-origin, so its console and its DOM are both unreadable from
+*       here - a postMessage is the ONLY thing it can tell us, and until
+*       now anything it sent was used as a trigger and then discarded.
+*       If it announces readiness, or an auth failure, that is the one
+*       piece of evidence available about what is happening inside it.
         |window.addEventListener("message",function(e)\{| &&
-        |if(e.origin===o)\{s();\}\});| &&
+        |if(e.origin!==o)\{return;\}| &&
+        |try\{IN.push(typeof e.data==="string"?e.data| &&
+        |:JSON.stringify(e.data));\}catch(x)\{IN.push("[unreadable]");\}| &&
+        |if(IN.length>4)\{IN.shift();\}| &&
+        |s();R();\});| &&
         |var t=setInterval(function()\{| &&
-        |if(++n>10)\{clearInterval(t);return;\}s();\},500);| &&
+        |if(++n>10)\{clearInterval(t);return;\}s();R();\},500);| &&
+*       A RESIZE NUDGE, once, after the dialog has finished opening.
+*
+*       Chrome present and canvas blank is the classic signature of an
+*       ArcGIS MapView constructed while its container had no usable
+*       size: the esri-ui widgets are absolutely positioned and show
+*       regardless, while the view itself has nothing to draw into. A
+*       UI5 dialog animates open, so a frame inside one can very
+*       plausibly load at zero height.
+*
+*       The frame is cross-origin so nothing inside it can be called -
+*       but changing the IFRAME ELEMENT's own height fires a resize
+*       event in the framed document, which is what a MapView listens
+*       to. One pixel out and back is enough and is invisible.
+        |setTimeout(function()\{var h=f.offsetHeight;| &&
+        |if(!h)\{return;\}| &&
+        |f.style.height=(h+1)+"px";| &&
+        |setTimeout(function()\{f.style.height=h+"px";R();\},80);| &&
+        |\},1500);| &&
         |s();| &&
+*       THE NOTE, REWRITABLE. It used to be written once at the end of
+*       this snippet, which was enough while the only question was
+*       whether the snippet ran at all. It is not enough now: the post
+*       count, whatever the viewer replies, and the resize nudge all
+*       arrive AFTER that point, so the line has to be re-rendered.
+*       Declared as a function so it is hoisted above the handlers that
+*       call it.
+*
+*       THE TOKEN IS REPORTED BY LENGTH, NEVER BY VALUE. It is a
+*       credential; a length distinguishes "no token was passed" from
+*       "a token was passed and refused", which is the only thing the
+*       screen needs to tell apart, and it puts nothing on a screenshot
+*       that should not be there.
+*
 *       WHOSE ORIGIN IS BEING JUDGED. gismappingIM.js validates the
 *       SENDER against its own allowlist before it reads anything:
 *
 *           if (!DefconOriginValidation(origin)) { showForbidden(); return; }
 *
-*       and that allowlist is the portal's hosts. CJS is served from the
-*       SAP application server, which is a different origin - so a
-*       correctly addressed, correctly timed message can still be thrown
-*       away, and the viewer sits on its splash screen exactly as it does
-*       when no message arrives at all. Those two are indistinguishable
-*       from the outside, which is why this line prints BOTH origins:
-*       what the frame is, and what we are to it.
+*       so a correctly addressed, correctly timed message can still be
+*       discarded, and the viewer then sits on its splash screen exactly
+*       as it does when no message arrives. Both origins are printed so
+*       that case is readable: what the frame is, and what we are to it.
+        |function R()\{| &&
         |var N=document.getElementById("rakPclMapNote");| &&
-        |if(N)\{N.textContent="Map: posting parcel "+m.parcelId+| &&
-        |" to "+o+" from "+window.location.origin+| &&
-        |". If the viewer shows only its logo, its own origin allowlist| &&
-        | does not include this host.";\}| &&
+        |if(!N)\{return;\}| &&
+        |N.textContent="Map: parcel "+m.parcelId+", token "+| &&
+        |m.token.length+" chars, posted "+n+"x to "+o+| &&
+        |" from "+window.location.origin+| &&
+        |(IN.length?(" - viewer replied: "+IN.join(" / "))| &&
+        |:" - viewer replied nothing. Chrome and a blank canvas usually | &&
+        |means the token was refused; only a logo means this origin is | &&
+        |not on its allowlist.");\}| &&
+        |R();| &&
         |\}())|.
 
 *     CHANNEL ONE: the frame's own onload attribute. Single-quoted, and
