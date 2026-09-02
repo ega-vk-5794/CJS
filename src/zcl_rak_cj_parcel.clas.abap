@@ -6,7 +6,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *&---------------------------------------------------------------------*
 *& RAKPARCELSELECTOR, rebuilt as a CJS control.
 *&
-*& BUILD map-fix-17. Missing this line means SAP has an older copy - see
+*& BUILD map-fix-18. Missing this line means SAP has an older copy - see
 *& the note on unticked 'Overwrite local object' rows in ZRAK_CJ_MAP_DIAG.
 *& map-fix-9 contains: the details dialog's Map tab draws the FRAMED
 *& viewer first and the in-page ArcGIS renderer only as a fallback. That
@@ -98,7 +98,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   the thing being looked at is the thing that was just written, which
 *   is the question that has to be answered FIRST every time and until
 *   now could only be inferred. Bump it with the header stamp.
-    CONSTANTS c_build TYPE string VALUE 'map-fix-17'.
+    CONSTANTS c_build TYPE string VALUE 'map-fix-18'.
 
     METHODS constructor
       IMPORTING io_engine TYPE REF TO zcl_rak_journey_engine.
@@ -1321,16 +1321,62 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         |try\{IN.push(typeof e.data==="string"?e.data| &&
         |:JSON.stringify(e.data));\}catch(x)\{IN.push("[unreadable]");\}| &&
         |if(IN.length>4)\{IN.shift();\}| &&
-        |s();R();W();\});| &&
-*       AND IT KEEPS TRYING FOR TWELVE SECONDS, not two and a half.
-*       Twenty-four ticks at 500ms, and it STOPS EARLY the moment the
-*       viewer says anything - a reply proves the listener is attached,
-*       so every further post is waste. A bounded retry either way: it
-*       cannot poll for the life of the dialog.
-        |var t=setInterval(function()\{| &&
-        |k++;| &&
-        |if(k>24\|\|IN.length)\{clearInterval(t);R();return;\}| &&
-        |s();R();\},500);| &&
+*       ONE POST IN ANSWER, AND NO MORE - the reply proves the listener
+*       is attached, so this is the post that cannot be missed, and the
+*       backoff below stops itself once IN has anything in it.
+*
+*       IT DOES NOT DISMISS THE OVERLAY. A reply means the viewer is
+*       alive and talking, which is not the same as a map that has
+*       drawn - an early handshake would have taken the spinner away and
+*       left a blank frame behind it. The grace and the CSS fallback own
+*       that decision.
+        |s();R();\});| &&
+*       A FEW POSTS ON A BACKOFF - NOT A DRUMBEAT. This matters more than
+*       the window length, and getting it wrong is what turned a race
+*       into a stampede.
+*
+*       Every message RESTARTS THE VIEWER. gismappingIM.js:
+*
+*           function DefconReciveMessage(messageData, origin) {
+*             if (!DefconOriginValidation(origin)) { showForbidden(); return; }
+*             ... DefconAuth();
+*           }
+*
+*       DefconAuth( ) runs on EVERY message, not only the first. So a
+*       500ms interval does not improve the odds of being heard - it
+*       re-authenticates the viewer every half second and restarts its
+*       map before the previous attempt can finish drawing. Twenty-four
+*       ticks meant twenty-four restarts over twelve seconds and the map
+*       never settled at all. The earlier version got away with it only
+*       because its counter bug cut it to six posts in 2.5s and it then
+*       went quiet long enough to draw.
+*
+*       THE PROPERTY THAT MATTERS IS A QUIET TAIL, not a long window.
+*       Every post restarts the viewer, so the last one has to be early
+*       enough that an uninterrupted run follows it. map-fix-16 worked
+*       whenever it worked for exactly that reason and not for the one
+*       its own comment claimed: six posts clustered inside 2.5s and
+*       then silence, which gave the viewer a clear run from 2.5s on.
+*       It failed only when the listener attached after the cluster.
+*
+*       So: four retries clustered early, the last at 3.5 seconds, then
+*       nothing. That covers a listener up to a second later than the
+*       version that worked, and still leaves a clear run - where seven
+*       seconds of attempts would have restarted a map that had already
+*       drawn at one.
+*
+*       THIS IS A JUDGEMENT UNDER REAL UNCERTAINTY and worth saying so:
+*       there is no way to observe that the map has drawn inside a
+*       cross-origin frame, so there is no signal to stop on and the
+*       schedule cannot be derived. It is bounded either way - too early
+*       and a slow listener misses it, too late and a drawn map is
+*       restarted - and 3.5s is the least-bad point given that 2.5s was
+*       observed to work more often than not.
+        |var DL=[250,750,1750,3500];| &&
+        |for(var i=0;i<DL.length;i++)\{| &&
+        |(function(d)\{setTimeout(function()\{| &&
+        |if(IN.length)\{return;\}| &&
+        |k++;s();R();\},d);\}(DL[i]));\}| &&
 *       A RESIZE NUDGE, once, after the dialog has finished opening.
 *
 *       Chrome present and canvas blank is the classic signature of an
@@ -1425,7 +1471,11 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       way: too short shows a map mid-draw, which is what the citizen
 *       would have seen anyway; too long holds a spinner over a finished
 *       map.
-        |function G()\{setTimeout(W,2500);\}| &&
+*       PAST THE LAST POST, not before it. The retries end at 3.5s, so a
+*       2.5s grace used to uncover the frame while attempts were still
+*       going out - the citizen watched a blank panel during the part of
+*       the sequence most likely to be the one that works.
+        |function G()\{setTimeout(W,4500);\}| &&
 *       A REPLY MEANS THE VIEWER IS TALKING, so stop waiting immediately
 *       rather than sitting out the grace period - whatever it said,
 *       the note now carries it and the overlay would only hide it.
