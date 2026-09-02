@@ -58,11 +58,18 @@ CLASS zcl_m016_cbr_logic DEFINITION
 *   M016 has FOUR uploaders where M011 has three. C_FLD_UPLOAD carries no
 *   DATA2 at all, where the numbered three carry 1, 2 and 3 - so it is not
 *   one of the numbered document types.
+*   ONLY WHAT THE BASE DOES NOT ALREADY HAVE. C_FLD_TERMS and
+*   C_FLD_DONATE were declared here too and are inherited from
+*   ZCL_RAK_MUN_LOGIC - an inherited attribute cannot be redeclared, and
+*   the Class Builder says so plainly: "There is already an attribute
+*   called C_FLD_DONATE". They moved to the base when the Pay press
+*   started checking the terms, and this copy should have gone with them.
+*
+*   The same applies to C_FLD_PARCEL, C_FLD_PARCELS, C_FLD_NOTE,
+*   C_FLD_NOC and C_FLD_LETTER - all inherited, none redeclared here.
     CONSTANTS c_fld_upload  TYPE string VALUE 'UPLOADER'.     " optional, no DATA2
     CONSTANTS c_fld_upload3 TYPE string VALUE 'UPLOADER3'.    " optional, DATA2=3
     CONSTANTS c_fld_total   TYPE string VALUE 'TOTALVALUE'.   " tech TOTALFEESVALUE
-    CONSTANTS c_fld_terms   TYPE string VALUE 'CHECKBOX_3'.   " tech ACCEPT_TERMS
-    CONSTANTS c_fld_donate  TYPE string VALUE 'CHECKBOX_4'.   " tech DONATE
 
 *   ---- what the backend decides, and where -----------------------------
 *   Same contract as M011's - FIELD_CONTROL( ) owns the NOC and LETTER

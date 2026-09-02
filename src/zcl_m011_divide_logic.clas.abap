@@ -48,10 +48,17 @@ CLASS zcl_m011_divide_logic DEFINITION
 *   Here rather than in the base because they are M011's screen, and an
 *   enhancement to this journey should not have to re-read the export to
 *   find out what a field is called.
+*   ONLY WHAT THE BASE DOES NOT ALREADY HAVE. C_FLD_TERMS and
+*   C_FLD_DONATE were declared here too and are inherited from
+*   ZCL_RAK_MUN_LOGIC - an inherited attribute cannot be redeclared, and
+*   the Class Builder says so plainly: "There is already an attribute
+*   called C_FLD_DONATE". They moved to the base when the Pay press
+*   started checking the terms, and this copy should have gone with them.
+*
+*   The same applies to C_FLD_PARCEL, C_FLD_PARCELS, C_FLD_NOTE,
+*   C_FLD_NOC and C_FLD_LETTER - all inherited, none redeclared here.
     CONSTANTS c_fld_upload3 TYPE string VALUE 'UPLOADER3'.   " optional, DATA2=3
     CONSTANTS c_fld_total   TYPE string VALUE 'TOTALVALUE'.  " tech TOTALFEESVALUE
-    CONSTANTS c_fld_terms   TYPE string VALUE 'CHECKBOX_3'.  " tech ACCEPT_TERMS
-    CONSTANTS c_fld_donate  TYPE string VALUE 'CHECKBOX_4'.  " tech DONATE
 
 *   ---- what the backend decides, and where -----------------------------
 *   Written down so an enhancement does not re-implement it by accident.
