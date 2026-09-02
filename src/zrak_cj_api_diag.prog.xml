@@ -1,0 +1,220 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_PROG" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <PROGDIR>
+    <NAME>ZRAK_CJ_API_DIAG</NAME>
+    <SUBC>1</SUBC>
+    <RSTAT>K</RSTAT>
+    <RLOAD>E</RLOAD>
+    <FIXPT>X</FIXPT>
+    <UCCHECK>X</UCCHECK>
+   </PROGDIR>
+   <TPOOL>
+    <item>
+     <ID>R</ID>
+     <ENTRY>Read test for the CJS wrapper APIs</ENTRY>
+     <LENGTH>34</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>B01</KEY>
+     <ENTRY>Identity (as the journey knows it)</ENTRY>
+     <LENGTH>34</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>B02</KEY>
+     <ENTRY>Journey context</ENTRY>
+     <LENGTH>15</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>B03</KEY>
+     <ENTRY>CUSTOMERJOURNEY - no request context needed</ENTRY>
+     <LENGTH>43</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>B04</KEY>
+     <ENTRY>PropertiesSet family - needs the request context</ENTRY>
+     <LENGTH>48</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>B05</KEY>
+     <ENTRY>Chemical history (RFC)</ENTRY>
+     <LENGTH>22</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>B06</KEY>
+     <ENTRY>Port accommodation and workers (RFC)</ENTRY>
+     <LENGTH>36</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>B07</KEY>
+     <ENTRY>Output</ENTRY>
+     <LENGTH>6</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_KEY</KEY>
+     <ENTRY>Portal session key (USER_KEY)</ENTRY>
+     <LENGTH>29</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_BP</KEY>
+     <ENTRY>Business partner</ENTRY>
+     <LENGTH>16</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_GUID</KEY>
+     <ENTRY>Partner GUID</ENTRY>
+     <LENGTH>12</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_ROLE</KEY>
+     <ENTRY>Partner role</ENTRY>
+     <LENGTH>12</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_DEPT</KEY>
+     <ENTRY>Department</ENTRY>
+     <LENGTH>10</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_JNY</KEY>
+     <ENTRY>Journey code</ENTRY>
+     <LENGTH>12</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_SCRN</KEY>
+     <ENTRY>Screen id</ENTRY>
+     <LENGTH>9</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_CASE</KEY>
+     <ENTRY>Case / Intreno</ENTRY>
+     <LENGTH>14</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_FEES</KEY>
+     <ENTRY>FeesSet</ENTRY>
+     <LENGTH>7</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_TRK</KEY>
+     <ENTRY>TrackerSet</ENTRY>
+     <LENGTH>10</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_PROJ</KEY>
+     <ENTRY>ProjectSet</ENTRY>
+     <LENGTH>10</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_PARC</KEY>
+     <ENTRY>Parcels</ENTRY>
+     <LENGTH>7</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_UNIT</KEY>
+     <ENTRY>Units</ENTRY>
+     <LENGTH>5</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_OWN</KEY>
+     <ENTRY>Managed owners</ENTRY>
+     <LENGTH>14</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_MAP</KEY>
+     <ENTRY>Map url and token</ENTRY>
+     <LENGTH>17</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_PID</KEY>
+     <ENTRY>Parcel id to check</ENTRY>
+     <LENGTH>18</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_CHEM</KEY>
+     <ENTRY>Read chemical history</ENTRY>
+     <LENGTH>21</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_PERMT</KEY>
+     <ENTRY>Permit</ENTRY>
+     <LENGTH>6</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_LIC</KEY>
+     <ENTRY>Trade licence</ENTRY>
+     <LENGTH>13</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_EMIR</KEY>
+     <ENTRY>Registered emirate</ENTRY>
+     <LENGTH>18</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_IE</KEY>
+     <ENTRY>Import 1 / Export 2</ENTRY>
+     <LENGTH>19</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_ACCOM</KEY>
+     <ENTRY>Read port objects</ENTRY>
+     <LENGTH>17</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_PORT</KEY>
+     <ENTRY>Port</ENTRY>
+     <LENGTH>4</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_RESV</KEY>
+     <ENTRY>Reserved items only</ENTRY>
+     <LENGTH>19</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_WLIC</KEY>
+     <ENTRY>Fishery licence (workers)</ENTRY>
+     <LENGTH>25</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_ROWS</KEY>
+     <ENTRY>Rows to print per read</ENTRY>
+     <LENGTH>22</LENGTH>
+    </item>
+   </TPOOL>
+  </asx:values>
+ </asx:abap>
+</abapGit>
