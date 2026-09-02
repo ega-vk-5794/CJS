@@ -264,6 +264,12 @@ These raise nothing and render nothing. They account for most of the bugs found 
   (`tt_map TYPE STANDARD TABLE OF ty_map WITH EMPTY KEY`) and write `VALUE tt_map( … )`.
   A named type is fine inline — `VALUE string_table( … )`, `VALUE abap_parmbind_tab( … )`
   — which is what makes the invalid form look plausible.
+- **`TYPE HANDLE` takes a VARIABLE, never a method call.** `CREATE DATA lr TYPE
+  HANDLE lo_tt->get_table_line_type( )` fails with **`No method can be specified in
+  the current position`** — a message that names neither `TYPE HANDLE` nor the call.
+  Assign the descriptor to a `DATA lo_line TYPE REF TO cl_abap_datadescr` first.
+  Same family as the `VALUE` trap above: the error describes where the parser gave
+  up, not what is wrong.
 - **An ABAP source line stops at 255 characters.** Past that the Class Builder truncates and
   reports `Field "LV_V" is unknown` - naming whatever the cut left behind, at the line it cut,
   never the length. Three unrelated-looking unknown-field errors on three neighbouring lines is

@@ -306,10 +306,20 @@ CLASS zcl_rak_cj_req_ctx IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   LO_LINE is a variable, not the call itself. TYPE HANDLE takes a type
+*   description OBJECT, and a functional method call is not allowed in that
+*   position - 'CREATE DATA ... TYPE HANDLE lo_tt->get_table_line_type( )'
+*   fails with "No method can be specified in the current position", which
+*   names neither TYPE HANDLE nor the call. Same family as VALUE needing a
+*   type name: the message describes where the parser gave up, not what is
+*   wrong.
+    DATA lo_line TYPE REF TO cl_abap_datadescr.
+
     TRY.
         DATA(lo_tt) = CAST cl_abap_tabledescr(
                         cl_abap_typedescr=>describe_by_data( <tab> ) ).
-        CREATE DATA lr_row TYPE HANDLE lo_tt->get_table_line_type( ).
+        lo_line = lo_tt->get_table_line_type( ).
+        CREATE DATA lr_row TYPE HANDLE lo_line.
       CATCH cx_root.
 *       Not a table, or a line type that cannot be created. The context is
 *       still built, just without a header - which is where this class
