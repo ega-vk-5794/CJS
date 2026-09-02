@@ -326,6 +326,11 @@ START-OF-SELECTION.
         iv_prefix        = lv_pfx
         iv_tile_pfx      = CONV string( p_tpfx )
         iv_bknd_active   = p_bknd
+*       Named HERE, not by the UPDATE further down, because the migrator
+*       now decides whether to keep the PAYFEE field on the strength of
+*       it - and a handler set after the fact arrives too late for that.
+        iv_handler       = COND string( WHEN ls_m-pay = abap_true
+                                        THEN 'ZCL_RAK_JOURNEY_LOGIC' )
         iv_screen_prefix = ls_m-pfx           " never the default N<code>_*
       IMPORTING
         ev_ok            = lv_ok

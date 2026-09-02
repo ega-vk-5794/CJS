@@ -31,6 +31,12 @@ CLASS zcl_rak_journey_be DEFINITION
                           RETURNING VALUE(rt_kv) TYPE zif_rak_journey=>tt_kv.
 
   PRIVATE SECTION.
+
+*   Apply the field control the BAdI wrote onto the definition rows. See
+*   the implementation for why only MANDATORY is acted on today.
+    METHODS apply_ctrl
+      IMPORTING it_ctrl TYPE zif_rak_journey=>tt_kv.
+
     DATA mo_e TYPE REF TO zcl_rak_journey_engine.
 ENDCLASS.
 
@@ -132,6 +138,66 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD apply_ctrl.
+*   WHAT THE BADI SAID ABOUT THE FIELDS, applied to the engine's own
+*   overrides. SET_REQUIRED / SET_READONLY / SET_HIDDEN are read at render
+*   time, so calling them here lands on the step about to be drawn.
+*
+*   ONLY MANDATORY IS ACTED ON, and that is deliberate. 'X' means required
+*   and blank means not - unambiguous, and it is the flag that changes what
+*   the citizen must do. ENABLED and VISIBLE are collected and traced but
+*   NOT applied, because their blank is ambiguous: if a legacy row leaves
+*   ENABLED empty on a field that is perfectly editable, reading blank as
+*   "disabled" would make every such field read-only at once - a far worse
+*   failure than the one being fixed, and one that would look like the
+*   backend refusing the whole screen.
+*
+*   The trace prints the distribution instead. One run on a real screen
+*   settles the convention, and then this becomes three lines rather than
+*   one.
+    IF it_ctrl IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA lv_req  TYPE i.
+    DATA lv_seen TYPE i.
+
+    LOOP AT it_ctrl INTO DATA(ls_c).
+      SPLIT ls_c-key AT '/' INTO DATA(lv_fld) DATA(lv_att).
+      IF lv_fld IS INITIAL OR lv_att IS INITIAL.
+        CONTINUE.
+      ENDIF.
+
+      CASE lv_att.
+        WHEN 'MANDATORY'.
+          lv_seen = lv_seen + 1.
+          DATA(lv_on) = xsdbool( ls_c-value = 'X' OR ls_c-value = 'x' ).
+          mo_e->zif_rak_journey~set_required( iv_field = lv_fld iv_on = lv_on ).
+          IF lv_on = abap_true.
+            lv_req = lv_req + 1.
+          ENDIF.
+
+        WHEN 'ENABLED' OR 'VISIBLE' OR 'READONLY'.
+*         Harvested, traced, not applied. See above.
+          IF ls_c-value IS NOT INITIAL.
+            mo_e->trace( |CTRL    { lv_fld } { lv_att }={ ls_c-value }| ).
+          ENDIF.
+
+        WHEN OTHERS.
+*         ADDITIONALDATA1..4. ADDITIONALDATA3 on the STAGES row is the
+*         legacy step list ("Parcel Selection,Documents,Fees & Payment"),
+*         which is not in /QNV/SB_UI_DEFIN and is why migrated step titles
+*         are wrong. Traced so the next run names it; nothing consumes it
+*         yet.
+          mo_e->trace( |CTRL    { lv_fld } { lv_att }={ ls_c-value }| ).
+      ENDCASE.
+    ENDLOOP.
+
+    mo_e->trace( |CTRL    { lv_seen } field(s) carried a MANDATORY flag, | &&
+                 |{ lv_req } of them required| ).
+  ENDMETHOD.
+
+
   METHOD backend_read.
     READ TABLE mo_e->ms_config-steps INTO DATA(ls_step) INDEX iv_step + 1.
     IF sy-subrc <> 0.
@@ -166,6 +232,7 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
         iv_loginbp     = mo_e->mv_loginbp
       IMPORTING
         et_values      = DATA(lt_val)
+        et_ctrl        = DATA(lt_ctrl)
         et_attachments = DATA(lt_beatt)
 *       The key as the backend currently understands it. See the adoption block
 *       below - this is the half of the contract that was missing.
@@ -175,6 +242,8 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
     DATA(lv_rms) = mo_e->tock( lv_rt0 ).
 
     mo_e->trace( |READ    { lines( lt_val ) } value(s) back · { lines( lt_beatt ) } attachment(s) · { lines( lt_m ) } message(s) · { lv_rms } ms| ).
+
+    apply_ctrl( lt_ctrl ).
     mo_e->trace_perf( iv_label = |READ { ls_step-bknd_screen }| iv_ms = lv_rms ).
 
 *   ---- adopt what the read said about the key ------------------------------

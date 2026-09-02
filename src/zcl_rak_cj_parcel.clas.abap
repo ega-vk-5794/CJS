@@ -630,8 +630,23 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         ls_map = api( )->map_url( iv_parcel = mo_e->mv_pcl_det ).
       CATCH cx_root ##NO_HANDLER.
     ENDTRY.
-    DATA(lv_src) = COND string( WHEN ls_map-gisurl IS NOT INITIAL
-                                THEN ls_map-gisurl ELSE ls_map-url ).
+*   URL FIRST, GISURL SECOND. MapUrlSet answers three properties and they
+*   are not interchangeable: the read is filtered on Parcel, so URL is the
+*   one that can carry it, while GISURL is the viewer's own address - which
+*   is why framing GISURL rendered the GIS application's splash logo and no
+*   parcel. If a deployment only fills GISURL the frame still works, it
+*   just opens the viewer at its default extent.
+    DATA(lv_src) = COND string( WHEN ls_map-url IS NOT INITIAL
+                                THEN ls_map-url ELSE ls_map-gisurl ).
+
+*   The token rides the URL when the viewer expects one and the URL does
+*   not already carry it. Appended with the right separator rather than
+*   assumed to be the first parameter.
+    IF ls_map-token IS NOT INITIAL AND lv_src IS NOT INITIAL
+       AND lv_src NS 'token='.
+      lv_src = |{ lv_src }{ COND string( WHEN lv_src CS '?' THEN '&' ELSE '?' ) }| &&
+               |token={ ls_map-token }|.
+    ENDIF.
     IF lv_src IS NOT INITIAL.
 *     EMBEDDED, the way the legacy dialog draws it - the citizen sees the
 *     parcel outlined on the map inside the tab, not a link that takes them

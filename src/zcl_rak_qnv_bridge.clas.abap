@@ -71,6 +71,12 @@ CLASS zcl_rak_qnv_bridge DEFINITION
 *               bridge was discarding it.
                 ev_guid        TYPE string
                 ev_case        TYPE string
+*               Field control as the BAdI left it, one row per attribute:
+*               KEY is |<FIELDNAME>/<ATTRIBUTE>| and VALUE is the flag it
+*               carried. A KV table rather than a typed structure so a
+*               newly interesting column - an ADDITIONALDATA slot, say -
+*               costs a line here and nothing anywhere else.
+                et_ctrl        TYPE zif_rak_journey=>tt_kv
                 et_msg         TYPE zif_rak_journey=>tt_msg.
 
     " One grid's rows. The legacy read does NOT return table data: the OData layer
@@ -105,6 +111,13 @@ CLASS zcl_rak_qnv_bridge DEFINITION
 
   PROTECTED SECTION.
   PRIVATE SECTION.
+
+*   One definition row's field control, flattened into KV rows. The shape
+*   is READ( )'s business and nobody else's.
+    METHODS ctrl_of
+      IMPORTING is_def  TYPE any
+      CHANGING  ct_ctrl TYPE zif_rak_journey=>tt_kv.
+
     CONSTANTS c_fm_read_table TYPE string VALUE 'ZFM_EGA_CJ_FW_READ_TABLE_DATAN'.
 *   The name the fee list answers to. Part of the read FM's contract with every
 *   department, not a per-journey configuration value - which is precisely why it
@@ -302,6 +315,36 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD ctrl_of.
+    DATA(lv_fld) = to_upper( CONV string( is_def-fieldname ) ).
+    IF lv_fld IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   Every attribute the legacy field control is known to travel in. A name
+*   that is not a component of this release's structure is skipped, so the
+*   list can name more than any one system has.
+    DATA(lt_want) = VALUE string_table(
+      ( `MANDATORY` ) ( `ENABLED` ) ( `VISIBLE` ) ( `READONLY` )
+      ( `ADDITIONALDATA1` ) ( `ADDITIONALDATA2` )
+      ( `ADDITIONALDATA3` ) ( `ADDITIONALDATA4` ) ).
+
+    LOOP AT lt_want INTO DATA(lv_want).
+      ASSIGN COMPONENT lv_want OF STRUCTURE is_def TO FIELD-SYMBOL(<v>).
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+      DATA(lv_val) = condense( CONV string( <v> ) ).
+*     A blank ADDITIONALDATA is noise - there are four of them on every
+*     row. A blank flag is NOT: "not mandatory" is an answer.
+      IF lv_val IS INITIAL AND lv_want CP 'ADDITIONALDATA*'.
+        CONTINUE.
+      ENDIF.
+      APPEND VALUE #( key = |{ lv_fld }/{ lv_want }| value = lv_val ) TO ct_ctrl.
+    ENDLOOP.
+  ENDMETHOD.
+
+
   METHOD read.
     DATA ls_hdr TYPE /qnv/sbuild_getheader_st.
     DATA lt_def TYPE /qnv/sbuild_definition_tt.
@@ -381,8 +424,26 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
         RETURN.
     ENDTRY.
 
+*   THE BADI ANSWERS MORE THAN A VALUE, and for as long as this has
+*   existed only the value was kept.
+*
+*   ZIF_EGA_FW_CJI~READ hands the implementation the whole definition
+*   table and the implementation mutates it: values, yes, but also the
+*   FIELD CONTROL - which fields are mandatory, enabled, visible on this
+*   screen in this state - and the ADDITIONALDATA slots that carry the
+*   stage list and BAdI-filled option lists. That is the legacy service's
+*   field-control engine, and CJS was throwing all of it away on every
+*   round trip. It is why a migrated journey's required markers, read-only
+*   states and step titles do not match the live one.
+*
+*   Read BY NAME through ASSIGN COMPONENT rather than named in a MOVE: the
+*   definition structure is a legacy DDIC type that cannot be opened from
+*   the environment this was written in, and a column that turns out not
+*   to exist yields nothing instead of failing activation. The engine
+*   decides what to DO with each - see BACKEND_READ( ).
     LOOP AT lt_def INTO DATA(ls_d).
       APPEND VALUE #( key = ls_d-fieldname value = ls_d-value ) TO et_values.
+      ctrl_of( EXPORTING is_def = ls_d CHANGING ct_ctrl = et_ctrl ).
     ENDLOOP.
 
 *   Same rule as POST, and stated the same way so the two cannot drift.

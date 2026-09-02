@@ -1827,6 +1827,7 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     DATA lv_grid_drp TYPE i.
     DATA lv_pick_cnt TYPE i.
     DATA lv_pay_drp  TYPE i.
+    DATA lv_pay_kept TYPE i.
 
     LOOP AT lt INTO DATA(r).
       ASSIGN et_report[ screen = r-screen_name ] TO FIELD-SYMBOL(<rep>).
@@ -1964,11 +1965,25 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      " ---- payment needs a handler class - report, do not ship a stub ---
-      IF r-ftype = 'PAYFEE'.
+      " ---- payment needs a handler class ---------------------------------
+*     AND NOW IT CAN HAVE ONE. The field was dropped unconditionally
+*     because without a handler the engine renders a red "payment
+*     unavailable" strip AT the citizen - true, but it made the drop
+*     permanent: twelve of the fifteen Municipality journeys are
+*     fee-bearing and ended up with no pay control at all, so the fee step
+*     rendered empty and the journey could not be completed.
+*
+*     ZCL_RAK_JOURNEY_LOGIC is CREATE PUBLIC and concrete: it supplies the
+*     payment card and the PAID gate with no subclass. So a caller that
+*     names a handler gets the field, and one that does not keeps the old
+*     behaviour exactly.
+      IF r-ftype = 'PAYFEE' AND iv_handler IS INITIAL.
         lv_pay_drp = lv_pay_drp + 1.
         <rep>-discarded = <rep>-discarded + 1.
         CONTINUE.
+      ENDIF.
+      IF r-ftype = 'PAYFEE'.
+        lv_pay_kept = lv_pay_kept + 1.
       ENDIF.
 
       DATA(rawkey) = |{ r-screen_name }/{ to_upper( r-field_name ) }|.
@@ -2208,6 +2223,10 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       ev_msg = ev_msg && | ** BKND_ACTIVE is blank: this journey renders but | &&
                          |POSTS NOTHING at submit.|.
     ENDIF.
+    IF lv_pay_kept > 0.
+      ev_msg = ev_msg && | { lv_pay_kept } payment field(s) kept, handled by | &&
+                         |{ to_upper( iv_handler ) }.|.
+    ENDIF.
     IF lv_pay_drp > 0.
       ev_msg = ev_msg && | ** { lv_pay_drp } payment step(s) dropped: set handler_class | &&
                          |(subclass of ZCL_RAK_JOURNEY_LOGIC) and add PAYFEE in the Studio.|.
@@ -2444,6 +2463,12 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 *       accommodation query; ZEGA_CJ_EPDA_PORT_OBJECTS answers it.
         OR 'ACCOM'.
         rv = to_upper( iv_ftype ).
+*     PAYFEE passes through. The field loop above decides whether to keep
+*     it - it has IV_HANDLER and this method does not - so a blanket drop
+*     here would overrule that decision one gate later, which is exactly
+*     how the API-backed composites were lost.
+      WHEN 'PAYFEE'.
+        rv = 'PAYFEE'.
       WHEN 'DATERANGE' OR 'CALENDAR'.
         rv = 'DATE'.
       WHEN 'HOURS'.
