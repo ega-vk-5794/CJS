@@ -76,21 +76,26 @@ CLASS zcl_rak_property_api DEFINITION
 *   TS_ name - and the table type is completed here. The DPC's own
 *   ET_ENTITYSET keeps the generic type, and a standard table of the same
 *   row type binds to it, so nothing on the call side changes.
-    TYPES ty_property TYPE LINE OF zcl_zega_cj_mpc=>tt_properties.
-    TYPES ty_partner  TYPE LINE OF zcl_zega_cj_mpc=>tt_partner.
-    TYPES ty_mapurl   TYPE LINE OF zcl_zega_cj_mpc=>tt_mapurl.
+*   AND IT CANNOT BE CALLED TT_PARTNER EITHER. This class inherits the
+*   generated DPC, so every type that chain declares is already in scope
+*   here - "There is already a type called TT_PARTNER" is what naming one
+*   of them again costs. The local types therefore carry a _ROW / _ROWS
+*   suffix that the generator never emits.
+    TYPES ty_prop_row    TYPE LINE OF zcl_zega_cj_mpc=>tt_properties.
+    TYPES ty_partner_row TYPE LINE OF zcl_zega_cj_mpc=>tt_partner.
+    TYPES ty_mapurl_row  TYPE LINE OF zcl_zega_cj_mpc=>tt_mapurl.
 
-    TYPES tt_properties TYPE STANDARD TABLE OF ty_property WITH DEFAULT KEY.
-    TYPES tt_partner    TYPE STANDARD TABLE OF ty_partner  WITH DEFAULT KEY.
-    TYPES tt_mapurl     TYPE STANDARD TABLE OF ty_mapurl   WITH DEFAULT KEY.
+    TYPES tt_prop_rows    TYPE STANDARD TABLE OF ty_prop_row    WITH DEFAULT KEY.
+    TYPES tt_partner_rows TYPE STANDARD TABLE OF ty_partner_row WITH DEFAULT KEY.
+    TYPES tt_mapurl_rows  TYPE STANDARD TABLE OF ty_mapurl_row  WITH DEFAULT KEY.
 
     TYPES: BEGIN OF ty_prop_res,
-             rows TYPE tt_properties,
+             rows TYPE tt_prop_rows,
              msg  TYPE bapiret2_t,
            END OF ty_prop_res.
 
     TYPES: BEGIN OF ty_partner_res,
-             rows TYPE tt_partner,
+             rows TYPE tt_partner_rows,
              msg  TYPE bapiret2_t,
            END OF ty_partner_res.
 
@@ -264,7 +269,7 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
 
   METHOD parcel_exists.
     DATA lt_flt TYPE /iwbep/t_mgw_select_option.
-    DATA lt_row TYPE tt_properties.
+    DATA lt_row TYPE tt_prop_rows.
 
     IF iv_parcel_id IS INITIAL.
       RETURN.
@@ -346,7 +351,7 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
 
   METHOD map_url.
     DATA lt_flt TYPE /iwbep/t_mgw_select_option.
-    DATA lt_row TYPE tt_mapurl.
+    DATA lt_row TYPE tt_mapurl_rows.
 
     guard( IMPORTING ev_guid = DATA(lv_guid)
            CHANGING  ct_msg  = rs-msg ).

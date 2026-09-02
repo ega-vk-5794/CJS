@@ -46,26 +46,30 @@ CLASS zcl_rak_fees_api DEFINITION
 *   TS_ name - and the table type is completed here. The DPC's own
 *   ET_ENTITYSET keeps the generic type, and a standard table of the same
 *   row type binds to it, so nothing on the call side changes.
-    TYPES ty_fee     TYPE LINE OF zcl_zega_cj_mpc=>tt_fees.
-    TYPES ty_track   TYPE LINE OF zcl_zega_cj_mpc=>tt_tracker.
-    TYPES ty_project TYPE LINE OF zcl_zega_cj_mpc=>tt_project.
+*   AND IT CANNOT REUSE THE GENERATOR'S NAME EITHER. This class inherits
+*   the generated DPC, so every type that chain declares is already in
+*   scope - redeclaring one is "There is already a type called TT_X".
+*   Hence the _ROW / _ROWS suffix, which the generator never emits.
+    TYPES ty_fee_row     TYPE LINE OF zcl_zega_cj_mpc=>tt_fees.
+    TYPES ty_track_row   TYPE LINE OF zcl_zega_cj_mpc=>tt_tracker.
+    TYPES ty_project_row TYPE LINE OF zcl_zega_cj_mpc=>tt_project.
 
-    TYPES tt_fees    TYPE STANDARD TABLE OF ty_fee     WITH DEFAULT KEY.
-    TYPES tt_tracker TYPE STANDARD TABLE OF ty_track   WITH DEFAULT KEY.
-    TYPES tt_project TYPE STANDARD TABLE OF ty_project WITH DEFAULT KEY.
+    TYPES tt_fee_rows     TYPE STANDARD TABLE OF ty_fee_row     WITH DEFAULT KEY.
+    TYPES tt_track_rows   TYPE STANDARD TABLE OF ty_track_row   WITH DEFAULT KEY.
+    TYPES tt_project_rows TYPE STANDARD TABLE OF ty_project_row WITH DEFAULT KEY.
 
     TYPES: BEGIN OF ty_fees_res,
-             rows TYPE tt_fees,
+             rows TYPE tt_fee_rows,
              msg  TYPE bapiret2_t,
            END OF ty_fees_res.
 
     TYPES: BEGIN OF ty_tracker_res,
-             rows TYPE tt_tracker,
+             rows TYPE tt_track_rows,
              msg  TYPE bapiret2_t,
            END OF ty_tracker_res.
 
     TYPES: BEGIN OF ty_project_res,
-             rows TYPE tt_project,
+             rows TYPE tt_project_rows,
              msg  TYPE bapiret2_t,
            END OF ty_project_res.
 
