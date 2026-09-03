@@ -45,7 +45,7 @@ CLASS zcl_m020_rgr_logic DEFINITION
 *   The three named uploads, in the export's own screen order.
     CONSTANTS c_fld_sz_letter TYPE string VALUE 'UPLOADER1_1'.
     CONSTANTS c_fld_just_doc  TYPE string VALUE 'UPLOADER2_1'.
-    CONSTANTS c_fld_noc       TYPE string VALUE 'UPLOADER3_1'.
+*    CONSTANTS c_fld_noc       TYPE string VALUE 'UPLOADER3_1'.
 
 *   The free text and the file that describes it.
 *   ENTERTEXT is the CJS name; the export spells it EnterText, mixed case,
@@ -56,11 +56,13 @@ CLASS zcl_m020_rgr_logic DEFINITION
 
     METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
 
+protected section.
+private section.
 ENDCLASS.
 
 
 
-CLASS zcl_m020_rgr_logic IMPLEMENTATION.
+CLASS ZCL_M020_RGR_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
@@ -103,6 +105,4 @@ CLASS zcl_m020_rgr_logic IMPLEMENTATION.
     RETURN.
 
   ENDMETHOD.
-
-
 ENDCLASS.

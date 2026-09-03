@@ -210,24 +210,6 @@ CLASS ZCL_D020_MOD_SCHOOL_DAY_LOGIC IMPLEMENTATION.
         DATA(cycle3_lessons) = io_ctx->get_val( 'CYCLE3_LESSONS' ).
         DATA(cycle3_duration) = io_ctx->get_val( 'CYCLE3_DURATION' ).
 
-*       BK2_END and DURATION were read into locals here and then never
-*       appended - each of the five stage blocks appended BK2_ST and
-*       LESSONS TWICE instead, so break-2 end and lesson duration reached
-*       the backend as a copy of their neighbour and the citizen's own
-*       value was discarded. That is D020's "Lesson Duration already
-*       filled and I got error": the field IS filled, the cell that
-*       carries it is not. Ten cells, two per stage.
-*
-*       The blank filler cells were written |' '|, which is a string
-*       template around a QUOTED space - it puts the three characters
-*       ' ' into the backend column, not a blank. The neighbouring blocks
-*       spell the same thing || and | |; this now uses || throughout.
-*
-*       NOT changed: the stage marker sits in a different column in each
-*       block (14 for PREKG, 1 for KG, 2 for CYCLE1/3, 3 for CYCLE2).
-*       That looks wrong too, but the column order is config
-*       (ZRAK_T_JNY_FLD-DEFAULT_VAL for the HOURS grid) and cannot be
-*       read from here - guessing it would move real values, not blanks.
         IF lv_prekg IS NOT INITIAL OR lv_kg IS NOT INITIAL OR lv_cycle1 IS NOT INITIAL
           OR lv_cycle2 IS NOT INITIAL OR lv_cycle3 IS NOT INITIAL.
           CLEAR rs_data-rows.
@@ -242,10 +224,10 @@ CLASS ZCL_D020_MOD_SCHOOL_DAY_LOGIC IMPLEMENTATION.
                           ( |{ prekg_bk1_st }| )
                           ( |{ prekg_bk1_end }| )
                           ( |{ prekg_bk2_st }| )
-                          ( |{ prekg_bk2_end }| )
+                          ( |{ prekg_bk2_st }| )
                           ( |{ prekg_lessons }| )
-                          ( |{ prekg_duration }| )
-                          ( || )
+                          ( |{ prekg_lessons }| )
+                          ( |' '| )
                           ( |{ lv_PREKG }| ) ) TO rs_data-rows.
         ENDIF.
         IF lv_kg IS NOT INITIAL.
@@ -258,59 +240,59 @@ CLASS ZCL_D020_MOD_SCHOOL_DAY_LOGIC IMPLEMENTATION.
                           ( |{ kg_bk1_st }| )
                           ( |{ kg_bk1_end }| )
                           ( |{ kg_bk2_st }| )
-                          ( |{ kg_bk2_end }| )
+                          ( |{ kg_bk2_st }| )
                           ( |{ kg_lessons }| )
-                          ( |{ kg_duration }| )
+                          ( |{ kg_lessons }| )
                           ( | | )
                           ( | | ) ) TO rs_data-rows.
         ENDIF.
         IF lv_cycle1 IS NOT INITIAL.
-          APPEND VALUE #( ( || )
+          APPEND VALUE #( ( |' '| )
                          ( |{ lv_cycle1 }| )
-                         ( || )
-                         ( || )
+                         ( |' '| )
+                         ( |' '| )
                          ( |{ cycle1_sch_st }| )
                          ( |{ cycle1_sch_end }| )
                          ( |{ cycle1_bk1_st }| )
                          ( |{ cycle1_bk1_end }| )
                          ( |{ cycle1_bk2_st }| )
-                         ( |{ cycle1_bk2_end }| )
+                         ( |{ cycle1_bk2_st }| )
                          ( |{ cycle1_lessons }| )
-                         ( |{ cycle1_duration }| )
-                         ( || )
-                         ( || ) ) TO rs_data-rows.
+                         ( |{ cycle1_lessons }| )
+                         ( |' '| )
+                         ( |' '| ) ) TO rs_data-rows.
         ENDIF.
         IF lv_cycle3 IS NOT INITIAL.
-          APPEND VALUE #( ( || )
+          APPEND VALUE #( ( |' '| )
                          ( |{ lv_cycle3 }| )
-                         ( || )
-                         ( || )
+                         ( |' '| )
+                         ( |' '| )
                          ( |{ cycle3_sch_st }| )
                          ( |{ cycle3_sch_end }| )
                          ( |{ cycle3_bk1_st }| )
                          ( |{ cycle3_bk1_end }| )
                          ( |{ cycle3_bk2_st }| )
-                         ( |{ cycle3_bk2_end }| )
+                         ( |{ cycle3_bk2_st }| )
                          ( |{ cycle3_lessons }| )
-                         ( |{ cycle3_duration }| )
-                         ( || )
-                         ( || ) ) TO rs_data-rows.
+                         ( |{ cycle3_lessons }| )
+                         ( |' '| )
+                         ( |' '| ) ) TO rs_data-rows.
         ENDIF.
         IF lv_cycle2 IS NOT INITIAL.
-          APPEND VALUE #( ( || )
-                         ( || )
+          APPEND VALUE #( ( |' '| )
+                         ( |' '| )
                          ( |{ lv_cycle2 }| )
-                         ( || )
+                         ( |' '| )
                          ( |{ cycle2_sch_st }| )
                          ( |{ cycle2_sch_end }| )
                          ( |{ cycle2_bk1_st }| )
                          ( |{ cycle2_bk1_end }| )
                          ( |{ cycle2_bk2_st }| )
-                         ( |{ cycle2_bk2_end }| )
+                         ( |{ cycle2_bk2_st }| )
                          ( |{ cycle2_lessons }| )
-                         ( |{ cycle2_duration }| )
-                         ( || )
-                         ( || ) ) TO rs_data-rows.
+                         ( |{ cycle2_lessons }| )
+                         ( |' '| )
+                         ( |' '| ) ) TO rs_data-rows.
 
         ENDIF.
 ****        REFRESH rs_data-columns[].
@@ -383,6 +365,243 @@ CLASS ZCL_D020_MOD_SCHOOL_DAY_LOGIC IMPLEMENTATION.
     " ct_kv = VALUE #( BASE ct_kv
     "   ( key = 'GS_DATA-SCHOOL_TIME-PREKG-SCH_ST' value = ct_kv[ key = 'SCHOOLHOURS_PREKG_SCH_ST' ]-value ) ).
 **    DELETE ct_kv WHERE key CP 'SCHOOLHOURS_*'.
+
+**io_ctx->set_val( iv_name = 'HOURS' iv_value = iv_id ).
+    DATA(ls_g) = io_ctx->get_grid_data( 'HOURS' ).
+    DATA(ls_new) = VALUE zif_rak_journey=>ty_table( columns = ls_g-columns ).
+    DATA lv_found TYPE abap_bool.
+    DATA lt_row   TYPE zif_rak_journey=>tt_string.
+    DATA(lt_new_row) = zcl_rak_journey_util=>blank_row( ls_g-columns ).
+
+    DATA(lv_prekg) = io_ctx->get_val( 'PREKG' ).
+    IF lv_prekg IS NOT INITIAL.
+      zcl_rak_journey_util=>put_cell(
+         EXPORTING it_cols = ls_g-columns iv_name = 'PREKG_1'
+                   iv_val  = io_ctx->get_val( 'PREKG' )
+         CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+       EXPORTING it_cols = ls_g-columns iv_name = 'SCHOOL_ST_5'
+                 iv_val  = io_ctx->get_val( 'PREKG_SCH_ST' )
+       CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'SCHOOL_END_5'
+                  iv_val  = io_ctx->get_val( 'PREKG_SCH_END' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_1_ST_5'
+                  iv_val  = io_ctx->get_val( 'PREKG_BK1_ST' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_1_END_5'
+                  iv_val  = io_ctx->get_val( 'PREKG_BK1_END' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_2_ST_5'
+                  iv_val  = io_ctx->get_val( 'PREKG_BK2_ST' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_2_END_5'
+                  iv_val  = io_ctx->get_val( 'PREKG_BK2_END' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'LESSONS_5'
+                  iv_val  = io_ctx->get_val( 'PREKG_LESSONS' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'LESSON_DURAT_5'
+                  iv_val  = io_ctx->get_val( 'PREKG_DURATION' )
+        CHANGING  ct_row  = lt_new_row ).
+      APPEND lt_new_row TO ls_new-rows.
+      io_ctx->set_grid_data( iv_field = 'HOURS' is_data = ls_new ).
+      CLEAR: lt_new_row.
+    ENDIF.
+
+    lt_new_row = zcl_rak_journey_util=>blank_row( ls_g-columns ).
+    DATA(lv_kg) = io_ctx->get_val( 'KG' ).
+    IF lv_kg IS NOT INITIAL.
+      zcl_rak_journey_util=>put_cell(
+       EXPORTING it_cols = ls_g-columns iv_name = 'KINDERGARTEN_1'
+                 iv_val  = io_ctx->get_val( 'KG' )
+       CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+       EXPORTING it_cols = ls_g-columns iv_name = 'SCHOOL_ST_5'
+                 iv_val  = io_ctx->get_val( 'KG_SCH_ST' )
+       CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'SCHOOL_END_5'
+                  iv_val  = io_ctx->get_val( 'KG_SCH_END' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_1_ST_5'
+                  iv_val  = io_ctx->get_val( 'KG_BK1_ST' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_1_END_5'
+                  iv_val  = io_ctx->get_val( 'KG_BK1_END' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_2_ST_5'
+                  iv_val  = io_ctx->get_val( 'KG_BK2_ST' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_2_END_5'
+                  iv_val  = io_ctx->get_val( 'KG_BK2_END' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'LESSONS_5'
+                  iv_val  = io_ctx->get_val( 'KG_LESSONS' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'LESSON_DURAT_5'
+                  iv_val  = io_ctx->get_val( 'KG_DURATION' )
+        CHANGING  ct_row  = lt_new_row ).
+      APPEND lt_new_row TO ls_new-rows.
+      io_ctx->set_grid_data( iv_field = 'HOURS' is_data = ls_new ).
+      CLEAR: lt_new_row.
+    ENDIF.
+
+    lt_new_row = zcl_rak_journey_util=>blank_row( ls_g-columns ).
+    DATA(lv_cycle1) = io_ctx->get_val( 'CYCLE1' ).
+    IF lv_cycle1 IS NOT INITIAL.
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'CYCLE_1_1'
+                  iv_val  = io_ctx->get_val( 'CYCLE1' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'SCHOOL_ST_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE1_SCH_ST' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'SCHOOL_END_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE1_SCH_END' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_1_ST_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE1_BK1_ST' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_1_END_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE1_BK1_END' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_2_ST_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE1_BK2_ST' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_2_END_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE1_BK2_END' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'LESSONS_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE1_LESSONS' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'LESSON_DURAT_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE1_DURATION' )
+        CHANGING  ct_row  = lt_new_row ).
+      APPEND lt_new_row TO ls_new-rows.
+      io_ctx->set_grid_data( iv_field = 'HOURS' is_data = ls_new ).
+      CLEAR: lt_new_row.
+    ENDIF.
+
+    lt_new_row = zcl_rak_journey_util=>blank_row( ls_g-columns ).
+    DATA(lv_cycle2) = io_ctx->get_val( 'CYCLE2' ).
+    IF lv_cycle2 IS NOT INITIAL.
+      zcl_rak_journey_util=>put_cell(
+       EXPORTING it_cols = ls_g-columns iv_name = 'CYCLE_2_1'
+                 iv_val  = io_ctx->get_val( 'CYCLE2' )
+       CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+       EXPORTING it_cols = ls_g-columns iv_name = 'SCHOOL_ST_5'
+                 iv_val  = io_ctx->get_val( 'CYCLE2_SCH_ST' )
+       CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'SCHOOL_END_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE2_SCH_END' )
+        CHANGING  ct_row  = lt_new_row ).
+
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_1_ST_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE2_BK1_ST' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_1_END_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE2_BK1_END' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_2_ST_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE2_BK2_ST' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_2_END_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE2_BK2_END' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'LESSONS_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE2_LESSONS' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'LESSON_DURAT_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE2_DURATION' )
+        CHANGING  ct_row  = lt_new_row ).
+      APPEND lt_new_row TO ls_new-rows.
+      io_ctx->set_grid_data( iv_field = 'HOURS' is_data = ls_new ).
+      CLEAR: lt_new_row.
+    ENDIF.
+
+    lt_new_row = zcl_rak_journey_util=>blank_row( ls_g-columns ).
+    DATA(lv_cycle3) = io_ctx->get_val( 'CYCLE3' ).
+    IF lv_cycle3 IS NOT INITIAL.
+      zcl_rak_journey_util=>put_cell(
+       EXPORTING it_cols = ls_g-columns iv_name = 'CYCLE_3_1'
+                 iv_val  = io_ctx->get_val( 'CYCLE3' )
+       CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+       EXPORTING it_cols = ls_g-columns iv_name = 'SCHOOL_ST_5'
+                 iv_val  = io_ctx->get_val( 'CYCLE3_SCH_ST' )
+       CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'SCHOOL_END_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE3_SCH_END' )
+        CHANGING  ct_row  = lt_new_row ).
+
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_1_ST_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE3_BK1_ST' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_1_END_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE3_BK1_END' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_2_ST_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE3_BK2_ST' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'BK_2_END_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE3_BK2_END' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'LESSONS_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE3_LESSONS' )
+        CHANGING  ct_row  = lt_new_row ).
+      zcl_rak_journey_util=>put_cell(
+        EXPORTING it_cols = ls_g-columns iv_name = 'LESSON_DURAT_5'
+                  iv_val  = io_ctx->get_val( 'CYCLE3_DURATION' )
+        CHANGING  ct_row  = lt_new_row ).
+      APPEND lt_new_row TO ls_new-rows.
+      io_ctx->set_grid_data( iv_field = 'HOURS' is_data = ls_new ).
+      CLEAR: lt_new_row.
+    ENDIF.
+
+**    zcl_rak_journey_util=>put_cell(
+**      EXPORTING it_cols = ls_g-columns iv_name = 'RAMADAN_1'
+**                iv_val  = io_ctx->get_val( 'TELEPHONE_POP' )
+**      CHANGING  ct_row  = lt_new_row ).
+
+**IF ls_g is NOT INITIAL.
+**
+**ENDIF.
   ENDMETHOD.
 
 

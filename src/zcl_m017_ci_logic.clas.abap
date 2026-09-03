@@ -53,7 +53,7 @@ CLASS zcl_m017_ci_logic DEFINITION
 *   CI_ENTITY_CODE (read in VALIDATE( )), CI_NOTE (the CJ11 long text in
 *   READ( )'s CASE), CHECKBOX_2 and CHECKBOX_3 (both forced TOSAVE).
     CONSTANTS c_fld_entity  TYPE string VALUE 'CI_ENTITY_SELECT'.
-    CONSTANTS c_fld_note    TYPE string VALUE 'ENTERTEXT'.
+*    CONSTANTS c_fld_note    TYPE string VALUE 'ENTERTEXT'.
 
 *   CONFIRMED FROM THE EXPORT. NCI_1_1 carries exactly one RAKUPLOADER
 *   and it is called UPLOADER, with no DATA2 - so the attachment
@@ -70,11 +70,13 @@ CLASS zcl_m017_ci_logic DEFINITION
 
     METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
 
+protected section.
+private section.
 ENDCLASS.
 
 
 
-CLASS zcl_m017_ci_logic IMPLEMENTATION.
+CLASS ZCL_M017_CI_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
@@ -107,6 +109,4 @@ CLASS zcl_m017_ci_logic IMPLEMENTATION.
     RETURN.
 
   ENDMETHOD.
-
-
 ENDCLASS.

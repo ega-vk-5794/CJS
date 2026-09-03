@@ -299,6 +299,9 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
     DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
     DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
 
+
+    lv_loginbp = '3000000049'.
+
     io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
     io_ctx->set_val( iv_name = c_owner_bp iv_value = |{ lv_loginbp }| ).
 
@@ -357,6 +360,11 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
       io_ctx->set_grid_data( iv_field = c_grid is_data = ls_owners ).
 
     ENDIF.
+
+    DATA(lv_sel) = io_ctx->get_val( 'SCH_KG1' ).
+    DATA(lv_sel1) = io_ctx->get_val( 'BKS_KG1' ).
+
+
   ENDMETHOD.
 
 

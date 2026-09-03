@@ -66,13 +66,7 @@ private section.
 * none and sees the applicant's whole history. That is the domain's answer;
 * inventing a third value would return nothing, which looks exactly like an
 * applicant who has never declared anything.
-* VALUE IS INITIAL, never VALUE ''. A string constant does not take an
-* empty literal: the class then has NO ACTIVE VERSION, the runtime keeps
-* running the previous one, and the error surfaces at every caller as
-* "Method X is unknown or PROTECTED or PRIVATE" - nowhere near here. That
-* is why the OWN_EDIT( ) and OWN_FORM_SAVE( ) fixes already in git never
-* reached the tested screen.
-  constants C_IMPEXP type STRING value IS INITIAL ##NO_TEXT.
+  constants C_IMPEXP type STRING value '' ##NO_TEXT.
 
 *  CONSTANTS c_hs_pop TYPE string VALUE 'HS_CODE' ##NO_TEXT.
 **  c_edit_pop
@@ -659,29 +653,21 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
     CASE iv_step.
 
       WHEN 0.
-*       RE-DERIVED, NOT REFUSED.
-*
-*       PARTNER_OWNER/PARTNER_REP and PERMIT_YES/PERMIT_NO are not answers
-*       in their own right - they are WRITE_FLAGS( )'s projection of
-*       APPLICANT_ROLE and PERMIT_HELD, which are the fields the citizen
-*       actually fills in. This used to refuse the step whenever the role
-*       was set and its flags were not, with "Re-select Owner or
-*       Representative before continuing."
-*
-*       The citizen had already selected it. WRITE_FLAGS( ) only runs from
-*       ON_CHANGE( ), so any round trip that reinstates the model without
-*       raising a change on APPLICANT_ROLE - a backend read answering the
-*       step, the BP search coming back - leaves the role set and the flags
-*       blank. Re-selecting the same value raises no CHANGE either, so the
-*       one instruction the message gave could not clear it: the journey
-*       stopped at step 1. Reported on all three chemical journeys as
-*       "error showing we u select representative and search with owner EID
-*       details, not moving to next step".
-*
-*       Rewriting them is what the handler does at post time anyway -
-*       ON_BEFORE_POST( ) calls WRITE_FLAGS( ) before every post - so doing
-*       it here costs nothing and removes the only state that could block.
-        write_flags( io_ctx ).
+        IF io_ctx->get_val( c_role ) IS NOT INITIAL
+           AND io_ctx->get_val( 'PARTNER_OWNER' ) IS INITIAL
+           AND io_ctx->get_val( 'PARTNER_REP' )   IS INITIAL.
+          APPEND VALUE #( type  = 'Error'
+*                          field = c_role
+                          text  = `Re-select Owner or Representative before continuing.` ) TO rt.
+        ENDIF.
+
+        IF io_ctx->get_val( c_permit ) IS NOT INITIAL
+           AND io_ctx->get_val( 'PERMIT_YES' ) IS INITIAL
+           AND io_ctx->get_val( 'PERMIT_NO' )  IS INITIAL.
+          APPEND VALUE #( type  = 'Error'
+*                          field = c_permit
+                          text  = `Re-select the permit answer before continuing.` ) TO rt.
+        ENDIF.
 
       WHEN 2.
         DATA(ls_grid) = io_ctx->get_grid_data( c_grid ).
@@ -773,14 +759,12 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
         io_ctx->open_popup( c_chem ).
 
       WHEN c_evt_ownok. "'OWNER_ADD'. "
-*       Nothing here used to check any field - Add saved whatever was typed,
-*       blank fields included. All fourteen are now tested, mirroring the
-*       REQUIRED markers in ON_RENDER_POPUP( ) one for one.
+*       RENDER_OWN_POPUP( ) marks HS Code, Packing, Quantity, Gross Weight,
+*       UOM, Invoice Number, Country of Origin, Point of Entrance/End User,
+*       Bill of Lading and Transport Company rakReq, but nothing here ever
+*       checked any of them - Add saved whatever was typed, blank fields
+*       included.
         IF io_ctx->get_val( c_hs_code_pop )          IS INITIAL
-           OR io_ctx->get_val( c_material_name_pop )    IS INITIAL
-           OR io_ctx->get_val( c_chemical_name_pop )    IS INITIAL
-           OR io_ctx->get_val( c_cas_pop )              IS INITIAL
-           OR io_ctx->get_val( c_chemical_formula_pop ) IS INITIAL
            OR io_ctx->get_val( c_packaging_pop )     IS INITIAL
            OR io_ctx->get_val( c_quantity_pop )      IS INITIAL
            OR io_ctx->get_val( c_gross_weight_pop )  IS INITIAL
@@ -856,29 +840,18 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 
 *       REQUIRED here is the marker only - DIALOG_FORM( ) sets it on the label
 *       and enforces nothing; a popup's enforcement is the handler's own, in the
-*       OK event. So this list mirrors WHEN c_evt_ownok exactly - now all
-*       fourteen marked and all fourteen tested, per CJSMIG-697 Issue 4 "all
-*       fields should be mandatory". Move one end and the other has to move
-*       with it.
+*       OK event. So this list mirrors WHEN c_evt_ownok exactly: the ten fields
+*       it tests are marked, the four it does not are left alone.
         dialog_form(
           io_ctx     = io_ctx
           io_popup   = io_popup
           iv_title   = 'Add Chemical'
-*         Two per row. "Alignment instead each row one filed, can have 2 or
-*         more field for better user experiences" - same ticket.
-          iv_columns = 2
           it_fields  = VALUE #(
-*                             The history picker stays out: "Use a previous
-*                             declaration - field not required". HISTORY_OPTS( )
-*                             and HISTORY_APPLY( ) are kept for the legacy
-*                             Search-from-History screen the same ticket asks
-*                             for, which is a different control.
-                                ( name = c_hs_code_pop          label = 'HS Code' required = abap_true
-                                  placeholder = 'e.g. 2933.99.90' )
-                                ( name = c_material_name_pop    label = 'Material Name' required = abap_true )
-                                ( name = c_chemical_name_pop    label = 'Chemical Name' required = abap_true )
-                                ( name = c_cas_pop              label = 'CAS Number' maxlen = 20 required = abap_true )
-                                ( name = c_chemical_formula_pop label = 'Chemical Formula' required = abap_true )
+                                ( name = c_hs_code_pop          label = 'HS Code' required = abap_true )
+                                ( name = c_material_name_pop    label = 'Material Name' )
+                                ( name = c_chemical_name_pop    label = 'Chemical Name' )
+                                ( name = c_cas_pop              label = 'CAS Number' maxlen = 20 )
+                                ( name = c_chemical_formula_pop label = 'Chemical Formula' )
                                 ( name = c_packaging_pop        label = 'Packing' required = abap_true )
                                 ( name = c_quantity_pop         label = 'Quantity' required = abap_true )
                                 ( name = c_gross_weight_pop     label = 'Gross Weight' required = abap_true )
@@ -894,6 +867,7 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
                                 ( name = c_bol_pop              label = 'Bill of Lading' required = abap_true )
                                 ( name = c_trans_comp           label = 'Transport Company' required = abap_true )
                               )
+
           iv_ok_text = 'Add'
           iv_ok_evt  = c_evt_ownok
           iv_cxl_evt = c_evt_owncx ).

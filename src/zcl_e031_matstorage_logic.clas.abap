@@ -1,19 +1,57 @@
-CLASS zcl_e031_matstorage_logic DEFINITION
- PUBLIC INHERITING FROM zcl_rak_journey_logic CREATE PUBLIC.
-  PUBLIC SECTION.
-    METHODS zif_rak_journey_logic~on_search          REDEFINITION.
-    METHODS zif_rak_journey_logic~on_change          REDEFINITION.
-    METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
-    METHODS zif_rak_journey_logic~on_before_post     REDEFINITION.
-  PRIVATE SECTION.
-    CONSTANTS c_min_search_len TYPE i      VALUE 3.
-    CONSTANTS c_default_idtype TYPE string VALUE 'YFS002'.
-    CONSTANTS c_owner_bp       TYPE string VALUE 'OWNER_BP'.
-    CONSTANTS c_step_storage   TYPE i      VALUE 2.   " 0-based: APPL,COMP,STORAGE
-    TYPES: BEGIN OF ty_fan, src TYPE string, key_a TYPE string, fld_a TYPE string, fld_b TYPE string, END OF ty_fan.
-    TYPES: tt_fan TYPE STANDARD TABLE OF ty_fan WITH EMPTY KEY.
-    METHODS fan_map RETURNING VALUE(rt) TYPE tt_fan .
+class ZCL_E031_MATSTORAGE_LOGIC definition
+  public
+  inheriting from ZCL_RAK_JOURNEY_LOGIC
+  create public .
 
+public section.
+
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_POST
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+protected section.
+private section.
+
+  types:
+    BEGIN OF ty_fan, src TYPE string, key_a TYPE string, fld_a TYPE string, fld_b TYPE string, END OF ty_fan .
+  types:
+    tt_fan TYPE STANDARD TABLE OF ty_fan WITH EMPTY KEY .
+
+  constants C_MIN_SEARCH_LEN type I value 3 ##NO_TEXT.
+  constants C_DEFAULT_IDTYPE type STRING value 'YFS002' ##NO_TEXT.
+  constants C_OWNER_BP type STRING value 'OWNER_BP' ##NO_TEXT.
+  constants C_STEP_STORAGE type I value 2 ##NO_TEXT.  " 0-based: APPL,COMP,STORAGE
+  constants C_APP_NAME type STRING value 'APP_NAME' ##NO_TEXT.
+  constants C_APP_ID type STRING value 'APP_ID' ##NO_TEXT.
+  constants C_APP_MOBILE type STRING value 'APP_MOBILE' ##NO_TEXT.
+  constants C_APP_EMAIL type STRING value 'APP_EMAIL' ##NO_TEXT.
+  constants C_PERMIT_MODE type STRING value 'PERMIT_MODE' ##NO_TEXT.
+  constants C_PERMIT_NUMBER type STRING value 'PERMIT_NUMBER' ##NO_TEXT.
+  constants C_OWNER_BP_IDTYPE type STRING value 'OWNER_BP_IDTYPE' ##NO_TEXT.
+  constants C_OWNER_NAME type STRING value 'OWNER_NAME' ##NO_TEXT.
+  constants C_OWNER_MOBILE type STRING value 'OWNER_PHONE' ##NO_TEXT.
+  constants C_OWNER_EMAIL type STRING value 'OWNER_EMAIL' ##NO_TEXT.
+  constants C_OWNER_DOB type STRING value 'OWNER_DOB' ##NO_TEXT.
+  constants C_OWNER_NATIONALITY type STRING value 'OWNER_NATIONALITY' ##NO_TEXT.
+  constants C_OWNER_SEG type STRING value 'APP_ROLE' ##NO_TEXT.
+  constants C_OWNER type STRING value 'OWNER' ##NO_TEXT.
+  constants C_LOGIN_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
+  constants C_LANG_EN type STRING value 'E' ##NO_TEXT.
+  constants C_APP_ROLE type STRING value 'APP_ROLE' ##NO_TEXT.
+  constants C_REP type STRING value 'REP' ##NO_TEXT.
+  constants C_PERMIT_LOADED type STRING value 'PERMIT_LOADED' ##NO_TEXT.
+
+  methods FAN_MAP
+    returning
+      value(RT) type TT_FAN .
 ENDCLASS.
 
 
@@ -98,22 +136,169 @@ CLASS ZCL_E031_MATSTORAGE_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_search.
-    CHECK to_upper( iv_field ) = c_owner_bp.
-    DATA(lv_term) = condense( io_ctx->get_val( c_owner_bp ) ).
-    IF strlen( lv_term ) < c_min_search_len.
-      io_ctx->add_msg( iv_type = 'Warning' iv_text = |Enter at least { c_min_search_len } characters to search| ).
-      RETURN.
+    IF iv_field = c_owner_bp.
+*      CHECK to_upper( iv_field ) = c_owner_bp.
+*      DATA(lv_term) = condense( io_ctx->get_val( c_owner_bp ) ).
+*      IF strlen( lv_term ) < c_min_search_len.
+*        io_ctx->add_msg( iv_type = 'Warning' iv_text = |Enter at least { c_min_search_len } characters to search| ).
+*        RETURN.
+*      ENDIF.
+*      DATA(lv_idt) = io_ctx->get_val( |{ c_owner_bp }_IDTYPE| ).
+*      IF lv_idt IS INITIAL. lv_idt = c_default_idtype. ENDIF.
+*      SELECT SINGLE a~partner, a~zzfull_name_eng
+*        FROM but000 AS a LEFT JOIN but0id AS b ON b~partner = a~partner AND b~type = @lv_idt
+*        WHERE b~idnumber = @lv_term OR a~partner = @lv_term INTO @DATA(ls_bp).
+*      IF sy-subrc <> 0.
+*        io_ctx->add_msg( iv_type = 'Error' iv_text = |Nothing found for { lv_term }| ).
+*        RETURN.
+*      ENDIF.
+*      io_ctx->set_val( iv_name = c_owner_bp iv_value = |{ ls_bp-partner }| ).
+*      io_ctx->set_val( iv_name = |{ c_owner_bp }_NAME| iv_value = |{ ls_bp-zzfull_name_eng }| ).
+
+      DATA(lv_eid) = condense( io_ctx->get_val( c_owner_bp ) ).
+*    IF strlen( lv_eid ) < c_min_search_len.
+*      io_ctx->add_msg( iv_type = 'Warning'
+*                       iv_text = |Enter at least { c_min_search_len } characters to search| ).
+*      RETURN.
+*    ENDIF.
+
+      DATA(lv_idtype) = io_ctx->get_val( c_owner_bp_idtype ).
+      IF lv_idtype IS INITIAL.
+        lv_idtype = c_default_idtype.
+      ENDIF.
+
+      DATA: lv_eid_no   TYPE bu_id_number,
+            lv_eid_type TYPE bu_id_type.
+
+      lv_eid_no = lv_eid.
+      lv_eid_type = lv_idtype.
+
+
+      DATA ev_partner         TYPE partner.
+      DATA ev_id_number       TYPE bu_id_number.
+      DATA ev_passport        TYPE bu_id_number.
+      DATA ev_name            TYPE bu_name1tx.
+      DATA ev_phone           TYPE farp_mobile.
+      DATA ev_email           TYPE ad_smtpadr.
+      DATA ev_nationality     TYPE natio50.
+      DATA ev_nationality_key TYPE bu_natio.
+      DATA ev_date_of_birth   TYPE bu_birthdt.
+      DATA ev_message         TYPE bapiret2-message.
+
+      CALL FUNCTION 'ZFE_CJ_SEARCH_BP_BY_ID'
+        EXPORTING
+          iv_type            = lv_eid_type
+          iv_idnumber        = lv_eid_no
+*         IV_APP             = IV_APP
+        IMPORTING
+          ev_partner         = ev_partner
+          ev_id_number       = ev_id_number
+          ev_passport        = ev_passport
+          ev_name            = ev_name
+          ev_phone           = ev_phone
+          ev_email           = ev_email
+          ev_nationality     = ev_nationality
+          ev_nationality_key = ev_nationality_key
+          ev_date_of_birth   = ev_date_of_birth
+          ev_message         = ev_message.
+
+      io_ctx->set_val( iv_name = c_owner_name        iv_value = ' ' ).
+      io_ctx->set_val( iv_name = c_owner_mobile      iv_value = ' ' ).
+      io_ctx->set_val( iv_name = c_owner_email       iv_value = ' ' ).
+      io_ctx->set_val( iv_name = c_owner_dob         iv_value = ' ' ).
+      io_ctx->set_val( iv_name = c_owner_nationality iv_value = ' ' ).
+
+
+      io_ctx->set_val( iv_name = c_owner_bp          iv_value = |{ lv_eid }| ).
+      io_ctx->set_val( iv_name = c_owner_name        iv_value = |{ ev_name }| ).
+      io_ctx->set_val( iv_name = c_owner_mobile      iv_value = |{ ev_phone }| ).
+      io_ctx->set_val( iv_name = c_owner_email       iv_value = |{ ev_email }| ).
+      io_ctx->set_val( iv_name = c_owner_dob         iv_value = |{ ev_date_of_birth }| ).
+      io_ctx->set_val( iv_name = c_owner_nationality iv_value = |{ ev_nationality }| ).
+
+    ELSEIF iv_field = c_permit_number.
+      DATA(lv_permit) = condense( io_ctx->get_val( c_permit_number ) ).
+
+      IF lv_permit IS NOT INITIAL.
+        SELECT SINGLE contractname
+        FROM zv_epdapmmast
+        INTO @DATA(lv_contrat)
+        WHERE permitid = @lv_permit.
+
+        IF lv_contrat IS NOT INITIAL.
+          io_ctx->set_val( iv_name = c_permit_number  iv_value = |{ lv_permit }| ).
+          io_ctx->set_val( iv_name = c_permit_loaded  iv_value = |{ lv_contrat }| ).
+        ELSE.
+          io_ctx->set_val( iv_name = c_permit_loaded  iv_value  = ' ' ).
+          io_ctx->add_msg( iv_type = 'Error'
+                             iv_text = |Enter Valid Permit No to search| ).
+        ENDIF.
+      ENDIF.
+
     ENDIF.
-    DATA(lv_idt) = io_ctx->get_val( |{ c_owner_bp }_IDTYPE| ).
-    IF lv_idt IS INITIAL. lv_idt = c_default_idtype. ENDIF.
-    SELECT SINGLE a~partner, a~zzfull_name_eng
-      FROM but000 AS a LEFT JOIN but0id AS b ON b~partner = a~partner AND b~type = @lv_idt
-      WHERE b~idnumber = @lv_term OR a~partner = @lv_term INTO @DATA(ls_bp).
-    IF sy-subrc <> 0.
-      io_ctx->add_msg( iv_type = 'Error' iv_text = |Nothing found for { lv_term }| ).
-      RETURN.
-    ENDIF.
-    io_ctx->set_val( iv_name = c_owner_bp iv_value = |{ ls_bp-partner }| ).
-    io_ctx->set_val( iv_name = |{ c_owner_bp }_NAME| iv_value = |{ ls_bp-zzfull_name_eng }| ).
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_init.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+*  EXPORTING
+*    IO_CTX =
+*    .
+
+*    DATA: lv_loginbp TYPE bu_partner.
+*    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+*    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+*    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
+*
+*
+*    IF lv_loginbp IS NOT INITIAL.
+*      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+*        EXPORTING
+*          iv_bp_id      = lv_loginbp
+*        IMPORTING
+*          es_bp_details = DATA(ls_bp) ).
+*
+*      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+*
+*      IF sy-langu = c_lang_en.
+*        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name ) ).
+*      ELSE.
+*        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+*      ENDIF.
+*
+*      io_ctx->set_val( iv_name = c_app_id     iv_value = CONV #( ls_bp-emirates_id ) ).
+*      io_ctx->set_val( iv_name = c_app_mobile iv_value = CONV #( ls_bp-mobile_number ) ).
+*      io_ctx->set_val( iv_name = c_app_email  iv_value = CONV #( ls_bp-email_address ) ).
+**      io_ctx->set_val( iv_name = c_app_role iv_value = |{ lv_role }| ).
+*      io_ctx->set_val( iv_name = c_app_role iv_value = |{ c_rep }| ).
+
+*    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_value_help.
+
+    DATA(lv_step) = io_ctx->get_step( ).
+    CASE iv_field.
+      WHEN 'MATERIALS_DET.MATERIAL_TYPE'.
+
+        rt = VALUE #( ( key = '001' text = 'Coal' )
+                      ( key = '002' text = 'Clinker' )
+                    ).
+
+      WHEN 'MATERIALS_DET.UNIT'.
+        rt = VALUE #( ( key = '001' text = 'KG' )
+                      ( key = '002' text = 'MT' )
+                    ).
+
+      WHEN 'MATERIALS_DET.DURATION_DAYS'.
+
+        rt = VALUE #( ( key = '01' text = '10 Days' )
+                      ( key = '02' text = '30 Days' )
+                      ( key = '03' text = '60 Days' )
+                      ( key = '04' text = '90 Days' ) ).
+    ENDCASE.
+
   ENDMETHOD.
 ENDCLASS.
