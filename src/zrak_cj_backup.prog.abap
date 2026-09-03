@@ -201,7 +201,7 @@ CLASS lcl_bkp IMPLEMENTATION.
       IF lv_where IS INITIAL.
         SELECT * FROM (ls_t-tabname) INTO TABLE @<tab>.
       ELSE.
-        SELECT * FROM (ls_t-tabname) INTO TABLE @<tab> WHERE (lv_where).
+        SELECT * FROM (ls_t-tabname) WHERE (lv_where) INTO TABLE @<tab>.
       ENDIF.
 
       DATA(lv_cnt) = lines( <tab> ).
@@ -255,8 +255,8 @@ CLASS lcl_bkp IMPLEMENTATION.
     SELECT snap_id, journey_id, tabname, rowcnt, snapnote,
            created_by, created_at
       FROM zrak_cj_bkp
-      INTO TABLE @DATA(lt_b)
-      ORDER BY snap_id DESCENDING, tabname ASCENDING.
+      ORDER BY snap_id DESCENDING, tabname ASCENDING
+      INTO TABLE @DATA(lt_b).
 
     IF lines( lt_b ) = 0.
       WRITE: / 'No snapshots yet.' COLOR col_total.
@@ -289,9 +289,9 @@ CLASS lcl_bkp IMPLEMENTATION.
 
     SELECT tabname, journey_id, rowcnt, snapnote, created_by, created_at
       FROM zrak_cj_bkp
-      INTO TABLE @DATA(lt_b)
       WHERE snap_id = @p_snap
-      ORDER BY tabname.
+      ORDER BY tabname
+      INTO TABLE @DATA(lt_b).
 
     IF lines( lt_b ) = 0.
       WRITE: / 'No such snapshot:', p_snap COLOR col_negative.
@@ -319,7 +319,7 @@ CLASS lcl_bkp IMPLEMENTATION.
       IF lv_where IS INITIAL.
         SELECT COUNT(*) FROM (ls_t-tabname) INTO @lv_live.
       ELSE.
-        SELECT COUNT(*) FROM (ls_t-tabname) INTO @lv_live WHERE (lv_where).
+        SELECT COUNT(*) FROM (ls_t-tabname) WHERE (lv_where) INTO @lv_live.
       ENDIF.
 
       WRITE: / ls_b-tabname, 34 ls_b-rowcnt, 50 lv_live.
@@ -332,8 +332,8 @@ CLASS lcl_bkp IMPLEMENTATION.
 
   METHOD snap_journeys.
     SELECT DISTINCT journey_id FROM zrak_cj_bkp
-      INTO TABLE @DATA(lt_j)
-      WHERE snap_id = @iv_snap.
+      WHERE snap_id = @iv_snap
+      INTO TABLE @DATA(lt_j).
     LOOP AT lt_j INTO DATA(ls_j).
       APPEND CONV string( ls_j-journey_id ) TO rt.
     ENDLOOP.
@@ -346,8 +346,9 @@ CLASS lcl_bkp IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    SELECT * FROM zrak_cj_bkp INTO TABLE @DATA(lt_b)
-      WHERE snap_id = @p_snap ORDER BY tabname.
+    SELECT * FROM zrak_cj_bkp
+      WHERE snap_id = @p_snap ORDER BY tabname
+      INTO TABLE @DATA(lt_b).
     IF lines( lt_b ) = 0.
       WRITE: / 'No such snapshot:', p_snap COLOR col_negative.
       RETURN.
@@ -439,8 +440,9 @@ CLASS lcl_bkp IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    SELECT * FROM zrak_cj_bkp INTO TABLE @DATA(lt_b)
-      WHERE snap_id = @p_snap ORDER BY tabname.
+    SELECT * FROM zrak_cj_bkp
+      WHERE snap_id = @p_snap ORDER BY tabname
+      INTO TABLE @DATA(lt_b).
     IF lines( lt_b ) = 0.
       WRITE: / 'No such snapshot:', p_snap COLOR col_negative.
       RETURN.
