@@ -143,6 +143,19 @@ CLASS zcl_rak_mun_logic DEFINITION
     CONSTANTS c_fld_terms  TYPE string VALUE 'CHECKBOX_3'.
     CONSTANTS c_fld_donate TYPE string VALUE 'CHECKBOX_4'.
 
+*   ---- the field that makes the backend create the case ---------------
+*   TOTALVALUE is the journey field; its TECH_NAME is TOTALFEESVALUE, and
+*   that is the item ZIF_EGA_FW_CJI~UPDATE( ) looks for before it reaches
+*   PAYMENT_CHECK( ) and CREATE_DUMMY_CASE( ). No total in the post, no
+*   case - and then no open item for the gateway to bill.
+*
+*   All three journeys name it identically, so it belongs here rather than
+*   once per subclass. It USED to be declared in M011 and M016; both were
+*   removed when it moved up, because an inherited constant redeclared in
+*   a subclass is "There is already an attribute called ..." and the class
+*   does not activate.
+    CONSTANTS c_fld_total  TYPE string VALUE 'TOTALVALUE'.
+
     METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
 
 *   ---- the case, and when it comes into existence ---------------------
@@ -214,6 +227,29 @@ CLASS zcl_rak_mun_logic DEFINITION
       IMPORTING io_ctx    TYPE REF TO zif_rak_journey
       RETURNING VALUE(rv) TYPE i.
 
+*   ---- what the citizen is actually being asked to pay -----------------
+*   READ THE SAME SOURCE THE CARD READS, which is the PAYFEE backend grid -
+*   NOT the PAY_TOTAL model field.
+*
+*   PAY_TOTAL is written in exactly one place, PREPARE_PAYMENT( ), from the
+*   AMOUNT the gateway read returns - and that read cannot happen until the
+*   case exists and FI-CA has posted its open item. ZCL_RAK_JOURNEY_LOGIC
+*   says so in its own words at the card: "Before the citizen presses Pay,
+*   PAY_TOTAL is legitimately empty."
+*
+*   So a gate on PAY_TOTAL is a DEADLOCK, and it was one: this class refused
+*   the press because the total was blank, the base therefore never ran,
+*   COMMIT_STEP( ) never posted, the case was never created, the open item
+*   never appeared - and PAY_TOTAL stayed blank for ever. The card showed
+*   "Total 1.000,00 AED" the whole time, because the card sums the grid.
+*   Same amount, different source; only one of the two exists this early.
+*
+*   Returns the sum as a plain decimal string - no thousands separator, no
+*   locale - because it goes out as TOTALFEESVALUE, not onto a screen.
+    METHODS fee_total
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+      RETURNING VALUE(rv) TYPE string.
+
 ENDCLASS.
 
 
@@ -243,6 +279,63 @@ CLASS zcl_rak_mun_logic IMPLEMENTATION.
 *   in. HAS_PARCEL( ) is the method that knows that and checks the selector
 *   first; a caller reading this one on its own has to know it too.
     rv = lines( io_ctx->get_grid_data( c_fld_parcels )-rows ).
+  ENDMETHOD.
+
+
+  METHOD fee_total.
+
+*   PAY_TOTAL FIRST, but only when it is already filled - which means the
+*   gateway read has run at least once and its AMOUNT is authoritative.
+*   On the first press it is blank and this falls through, which is the
+*   normal path, not the exception.
+    DATA(lv_pay) = condense( io_ctx->get_val( c_pay_total ) ).
+    IF lv_pay IS NOT INITIAL.
+      rv = lv_pay.
+      RETURN.
+    ENDIF.
+
+*   GET_BACKEND_TABLE, not GET_GRID_DATA. PAYFEE is filled by the backend
+*   fee read, not by the citizen, and the trace confirms it arrives:
+*   "READ grid PAYFEE stored · 1 row(s) x 2 col(s)".
+*
+*   Column 2 is the amount, per the KEY:Label:TYPE spec the card renders
+*   from - and column order here is POSITIONAL at both ends, so if a
+*   journey ever configures PAYFEE with the amount somewhere else this is
+*   the line that has to change with it.
+    DATA lv_sum TYPE kbetr.
+    DATA(ls_be) = io_ctx->get_backend_table( c_pay_field ).
+    LOOP AT ls_be-rows INTO DATA(lt_row).
+      DATA(lv_amt) = VALUE string( lt_row[ 2 ] OPTIONAL ).
+      CONDENSE lv_amt.
+      IF lv_amt IS INITIAL.
+        CONTINUE.
+      ENDIF.
+
+*     Thousands separators only. The decimal point is left alone - stripping
+*     it would turn 1,000.00 into 100000 and bill the citizen a hundred
+*     times over, which is the kind of arithmetic that must not be silent.
+      REPLACE ALL OCCURRENCES OF ',' IN lv_amt WITH ``.
+
+      TRY.
+          lv_sum = lv_sum + CONV kbetr( lv_amt ).
+        CATCH cx_root.
+*         A cell that will not convert is a backend answer this journey
+*         cannot read. Skipping it would understate the total silently, so
+*         say nothing here and let the zero-total branch below refuse the
+*         press - a refusal with a reason beats a wrong amount.
+          CLEAR lv_sum.
+          RETURN.
+      ENDTRY.
+    ENDLOOP.
+
+    IF lv_sum IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   |{ }| on a packed field renders the decimal point, never the locale
+*   separator, which is what the backend wants. CONDENSE removes the
+*   leading blanks a packed conversion leaves.
+    rv = condense( |{ lv_sum }| ).
   ENDMETHOD.
 
 
@@ -302,17 +395,19 @@ CLASS zcl_rak_mun_logic IMPLEMENTATION.
 *     So a Pay press with no total does post, creates nothing, and then
 *     sends the citizen to a gateway with no open item behind it.
 *
-*     PAY_TOTAL is the engine's own carrier for the payable amount, filled
-*     from the backend's fee read - so this asks "does the card know what it
-*     is charging", which is the same question one step earlier.
-      DATA(lv_total) = condense( io_ctx->get_val( c_pay_total ) ).
+*     FEE_TOTAL( ) reads the PAYFEE grid - the source the card displays -
+*     and falls back to PAY_TOTAL only once the gateway read has filled it.
+*     See the method comment: gating on PAY_TOTAL alone deadlocked, because
+*     the only code that writes it is the code this gate was stopping.
+      DATA(lv_total) = fee_total( io_ctx ).
 
 *     '0' and '0.00' are a total the citizen cannot pay, not a total. A fee
 *     journey whose fee read answered nothing arrives here looking exactly
 *     like one that has not been read yet.
-      REPLACE ALL OCCURRENCES OF '.' IN lv_total WITH ''.
-      REPLACE ALL OCCURRENCES OF ',' IN lv_total WITH ''.
-      SHIFT lv_total LEFT DELETING LEADING '0'.
+      DATA(lv_zero) = lv_total.
+      REPLACE ALL OCCURRENCES OF '.' IN lv_zero WITH ''.
+      REPLACE ALL OCCURRENCES OF ',' IN lv_zero WITH ''.
+      SHIFT lv_zero LEFT DELETING LEADING '0'.
 
 *     AND THE TERMS, WHICH IS THE LEGACY 'PAY-E' SEMANTIC ENFORCED.
 *
@@ -357,7 +452,7 @@ CLASS zcl_rak_mun_logic IMPLEMENTATION.
         RETURN.
       ENDIF.
 
-      IF lv_total IS INITIAL.
+      IF lv_zero IS INITIAL.
         io_ctx->add_msg(
           iv_type = 'Error'
           iv_text = COND string(
@@ -370,6 +465,51 @@ CLASS zcl_rak_mun_logic IMPLEMENTATION.
 *       yet - the base sets it - so the button stays live and the citizen
 *       can retry once the fees are there.
         RETURN.
+      ENDIF.
+
+*     ---- HAND THE TOTAL TO THE POST -----------------------------------
+*     THIS IS WHAT CREATES THE CASE, and without it nothing downstream
+*     works: ZIF_EGA_FW_CJI~UPDATE( ) reads CT_ITEM_DATA for
+*     TOTALFEESVALUE and only then calls PAYMENT_CHECK( ) and
+*     CREATE_DUMMY_CASE( ). No item, no ZGCX case, no open item in DFKKOP,
+*     and PREPARE_PAYMENT( ) reports "no case number came back from the
+*     commit" on every poll while the citizen watches a timer.
+*
+*     The card never wrote it. RENDER_FIELD( ) computes the total into a
+*     LOCAL variable to draw the card and drops it - the feeders' own
+*     REVIEW-BE note flagged exactly this as unverified. It is verified
+*     now, and this is the line that closes it.
+*
+*     Set BEFORE super, because super's first real act on this branch is
+*     COMMIT_STEP( ), and POST_ITEMS( ) flattens the model at that moment.
+*     Setting it afterwards would post one press late.
+*
+*     The field is READONLY and HIDDEN in config, and neither matters here:
+*     FLATTEN_KV( ) filters on TYPE - UPLOAD, TABLE, REQPANEL - and not on
+*     either flag, so a hidden readonly DISPLAY field posts normally. That
+*     is precisely why the feeders carry it as a field rather than leaving
+*     the value to the card.
+      io_ctx->set_val( iv_name = c_fld_total iv_value = lv_total ).
+
+*     SAY THE NUMBER, under trace only. This value decides whether a case
+*     gets created, and every way it can be wrong - blank, zero, a locale
+*     separator read as a decimal point - looks identical from the screen:
+*     a Pay press that appears to do nothing. One line settles in a single
+*     round trip what the last two rounds of inference did not.
+*
+*     Cast rather than a new interface method, and the CATCH matters: a
+*     test double passed as IO_CTX is not the engine and must not be broken
+*     by instrumentation. Same pattern the base uses at the Pay press.
+      DATA lo_eng TYPE REF TO zcl_rak_journey_engine.
+      TRY.
+          lo_eng = CAST #( io_ctx ).
+        CATCH cx_sy_move_cast_error.
+          CLEAR lo_eng.
+      ENDTRY.
+      IF lo_eng IS BOUND.
+        lo_eng->trace( |MUN     pay press · { c_fld_total } = { lv_total } | &&
+                       |· posts as TOTALFEESVALUE, which is what makes the | &&
+                       |BAdI create the ZGCX case| ).
       ENDIF.
 
     ENDIF.

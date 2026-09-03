@@ -66,10 +66,12 @@ CLASS zcl_m016_cbr_logic DEFINITION
 *   started checking the terms, and this copy should have gone with them.
 *
 *   The same applies to C_FLD_PARCEL, C_FLD_PARCELS, C_FLD_NOTE,
-*   C_FLD_NOC and C_FLD_LETTER - all inherited, none redeclared here.
+*   C_FLD_NOC, C_FLD_LETTER and now C_FLD_TOTAL - all inherited, none
+*   redeclared here. C_FLD_TOTAL moved up when the Pay press started
+*   writing TOTALFEESVALUE into the post; all three journeys name that
+*   field identically, so one declaration serves them.
     CONSTANTS c_fld_upload  TYPE string VALUE 'UPLOADER'.     " optional, no DATA2
     CONSTANTS c_fld_upload3 TYPE string VALUE 'UPLOADER3'.    " optional, DATA2=3
-    CONSTANTS c_fld_total   TYPE string VALUE 'TOTALVALUE'.   " tech TOTALFEESVALUE
 
 *   ---- what the backend decides, and where -----------------------------
 *   Same contract as M011's - FIELD_CONTROL( ) owns the NOC and LETTER
