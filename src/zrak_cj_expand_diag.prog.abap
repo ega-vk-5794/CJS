@@ -75,6 +75,98 @@ START-OF-SELECTION.
   DATA lv_txt   TYPE string.
   DATA lv_n     TYPE i.
 
+* ------------------------------------------------- what the interface IS
+* ADDED AFTER READING THE DPC SOURCE, which settled the two questions this
+* report was written for and left exactly one open.
+*
+* Settled: GET_EXPANDED_ENTITY is an INTERFACE method
+* (/IWBEP/IF_MGW_APPL_SRV_RUNTIME~), so it is public and there is no
+* generated-name truncation to discover; and IO_EXPAND, though declared
+* OPTIONAL, is dereferenced UNCONDITIONALLY - `io_expand->get_children( )`
+* runs before any child is fetched, and each of the six tabs is then gated
+* on line_exists( children[ tech_nav_prop_name = 'TOPARTNER' ] ).
+*
+* So an expand object is required AND has to report the six nav names. An
+* empty one returns an entity with every tab blank, which looks exactly
+* like a backend with no data.
+*
+* Open: how to build one. Either implement the interface - for which the
+* method list has to be known, and guessing it is what cost
+* ZCL_RAK_CJ_REQ_CTX three activation rounds - or instantiate a standard
+* class that already does, which the implementer list below names.
+*
+* This block answers the first half. It is read-only RTTI and prints the
+* interface's own methods with their parameters, so a small
+* ZCL_RAK_CJ_EXPAND can be written against what the system declares
+* rather than against what seems likely.
+  DATA lo_it   TYPE REF TO cl_abap_intfdescr.
+  DATA lo_itd  TYPE REF TO cl_abap_typedescr.
+
+  WRITE: / 'Methods ON', p_intf.
+  ULINE.
+
+  TRY.
+      CALL METHOD cl_abap_typedescr=>describe_by_name
+        EXPORTING  p_name         = p_intf
+        RECEIVING  p_descr_ref    = lo_itd
+        EXCEPTIONS type_not_found = 1
+                   OTHERS         = 2.
+      IF sy-subrc = 0.
+        lo_it ?= lo_itd.
+      ENDIF.
+    CATCH cx_root.
+      CLEAR lo_it.
+  ENDTRY.
+
+  IF lo_it IS NOT BOUND.
+    WRITE: / 'Could not describe it. Either the name is wrong or it is not'.
+    WRITE: / 'an interface - check the spelling on the selection screen.'.
+  ELSE.
+    DESCRIBE TABLE lo_it->methods LINES lv_n.
+    lv_txt = |{ lv_n } method(s) - every one of them has to be implemented|.
+    WRITE: / lv_txt.
+    SKIP.
+    LOOP AT lo_it->methods INTO DATA(ls_im).
+      SKIP.
+      lv_txt = |  { ls_im-name }|.
+      WRITE: / lv_txt.
+
+      IF ls_im-parameters IS INITIAL.
+        WRITE: / '     (no parameters declared)'.
+        CONTINUE.
+      ENDIF.
+
+*     EXACTLY the shape the DPC section below already proves: NAME,
+*     PARM_KIND and IS_OPTIONAL on the row, and the type from
+*     GET_METHOD_PARAMETER_TYPE( ). Not a component called TYPE - this
+*     report activation-failed on that once already.
+      LOOP AT ls_im-parameters INTO DATA(ls_ip).
+        DATA lo_ipt  TYPE REF TO cl_abap_typedescr.
+        DATA lv_ityp TYPE string.
+        CLEAR: lo_ipt, lv_ityp.
+
+        CALL METHOD lo_it->get_method_parameter_type
+          EXPORTING  p_method_name       = ls_im-name
+                     p_parameter_name    = ls_ip-name
+          RECEIVING  p_descr_ref         = lo_ipt
+          EXCEPTIONS parameter_not_found = 1
+                     method_not_found    = 2
+                     OTHERS              = 3.
+        IF sy-subrc = 0 AND lo_ipt IS BOUND.
+          lv_ityp = lo_ipt->absolute_name.
+        ELSE.
+          lv_ityp = '(type not readable)'.
+        ENDIF.
+
+        lv_txt = |     { ls_ip-name } · kind { ls_ip-parm_kind }| &&
+                 | · optional { ls_ip-is_optional }| &&
+                 | · { lv_ityp }|.
+        WRITE: / lv_txt.
+      ENDLOOP.
+    ENDLOOP.
+  ENDIF.
+  SKIP.
+
   WRITE: / 'Implementers of', p_intf.
   ULINE.
 

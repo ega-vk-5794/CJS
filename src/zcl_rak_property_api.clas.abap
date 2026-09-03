@@ -128,6 +128,23 @@ CLASS zcl_rak_property_api DEFINITION
              msg    TYPE bapiret2_t,
            END OF ty_map_res.
 
+*   One expanded property. ENTITY is the whole structure the DPC built -
+*   the flat TS_PROPERTIES fields plus the six child tables - and the six
+*   references below point INTO it, so they stay valid exactly as long as
+*   ENTITY does. A child the DPC did not fill comes back UNBOUND rather
+*   than as an empty table, which is what lets a tab tell "no rows" apart
+*   from "never asked for".
+    TYPES: BEGIN OF ty_detail_res,
+             entity   TYPE REF TO data,
+             partners TYPE REF TO data,   " ToPartner
+             landuse  TYPE REF TO data,   " ToLandUse
+             measure  TYPE REF TO data,   " ToMeasurement
+             develop  TYPE REF TO data,   " ToDevelopment
+             project  TYPE REF TO data,   " ToProject
+             attach   TYPE REF TO data,   " ToAttachment
+             msg      TYPE bapiret2_t,
+           END OF ty_detail_res.
+
 *   Partnerrole, in the spelling PROPERTIESSET_GET_ENTITYSET reads.
     CONSTANTS c_role_owner TYPE string VALUE 'TR0800'.
     CONSTANTS c_role_grant TYPE string VALUE 'YTR080'.
@@ -189,6 +206,53 @@ CLASS zcl_rak_property_api DEFINITION
       IMPORTING iv_parcel TYPE string OPTIONAL
       RETURNING VALUE(rs) TYPE ty_map_res.
 
+*   ---- the full-details dialog: one read, six tabs --------------------
+*   READ OFF ZCL_ZEGA_CJ_DPC_EXT, not inferred. The method is
+*   /IWBEP/IF_MGW_APPL_SRV_RUNTIME~GET_EXPANDED_ENTITY - an INTERFACE
+*   method, which is why the 30-character generated-name problem this
+*   class's header worried about does not arise, and why it is PUBLIC
+*   rather than protected like the _GET_ENTITYSET pair.
+*
+*   Three hard facts from its body, each of which is a silent empty
+*   result if broken:
+*
+*   1  IT_KEY_TAB must carry BOTH 'Intreno' and 'Partnerguid', spelled
+*      exactly like that. The DPC reads them with
+*      `it_key_tab[ name = 'Intreno' ]` inside TRY/CATCH
+*      CX_SY_ITAB_LINE_NOT_FOUND and RETURNS on a miss - no message, no
+*      exception, an empty entity. A blank Partnerguid returns too, and
+*      so does a Partnerguid with no BUT000 row.
+*
+*   2  IO_EXPAND IS DEREFERENCED UNGUARDED despite being declared
+*      OPTIONAL: `DATA(lt_children) = io_expand->get_children( ).` runs
+*      before any of the six children are fetched. Passing nothing raises
+*      CX_SY_REF_IS_INITIAL. And an EMPTY expand object is not enough
+*      either - each child is gated on
+*      `line_exists( lt_children[ tech_nav_prop_name = 'TOPARTNER' ] )`,
+*      so the object has to REPORT the six nav names or every tab comes
+*      back empty while the call itself succeeds. That is the one piece
+*      still missing and it is why IO_EXPAND is an importing parameter
+*      here rather than something this method builds.
+*
+*   3  The children come back INSIDE ER_ENTITY, not as separate exports:
+*      the DPC builds a local structure that INCLUDEs TS_PROPERTIES and
+*      adds TOPARTNER, TOLANDUSE, TOMEASUREMENT, TODEVELOPMENT,
+*      TOATTACHMENT and TOPROJECT as tables, then COPY_DATA_TO_REF's the
+*      whole thing into ER_ENTITY.
+*
+*   RETURNED AS REFERENCES, DELIBERATELY. Typing the six child tables
+*   here would mean naming TS_PARTNER, TS_LANDUSE, TS_MEASUREMENT,
+*   TS_DEVELOPMENT, TS_ATTACHMENT and TS_PROJECT - six more generated
+*   names to get wrong, and this class's own header records what guessing
+*   a generated shape costs. The caller reads cells with ASSIGN COMPONENT
+*   exactly as ZCL_RAK_CJ_PARCEL->CELL( ) already does for the flat list,
+*   so nothing downstream needs the type either.
+    METHODS details
+      IMPORTING iv_intreno    TYPE string
+                io_expand     TYPE REF TO /iwbep/if_mgw_odata_expand OPTIONAL
+                iv_owner_guid TYPE string OPTIONAL
+      RETURNING VALUE(rs)     TYPE ty_detail_res.
+
   PROTECTED SECTION.
 
 *   The partner guid this call should filter on, and a message when there
@@ -198,6 +262,17 @@ CLASS zcl_rak_property_api DEFINITION
       IMPORTING iv_owner_guid TYPE string OPTIONAL
       EXPORTING ev_guid       TYPE string
       CHANGING  ct_msg        TYPE bapiret2_t.
+
+*   A reference to one component of the expanded entity, by name, or
+*   UNBOUND when the structure has no such component. ASSIGN COMPONENT
+*   sets SY-SUBRC and raises nothing, so a name that turns out to be
+*   spelled differently on this MPC degrades to an empty tab rather than
+*   a dump - which is the right trade for six names read off a source
+*   listing rather than from the dictionary.
+    METHODS child
+      IMPORTING ir_entity TYPE REF TO data
+                iv_comp   TYPE string
+      RETURNING VALUE(rr) TYPE REF TO data.
 
   PRIVATE SECTION.
 ENDCLASS.
@@ -412,6 +487,130 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
       rs-gisurl = ls_row-gisurl.
       rs-token  = ls_row-token.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD child.
+    FIELD-SYMBOLS <ls_ent>  TYPE any.
+    FIELD-SYMBOLS <lt_comp> TYPE ANY TABLE.
+
+    IF ir_entity IS NOT BOUND OR iv_comp IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    ASSIGN ir_entity->* TO <ls_ent>.
+    IF <ls_ent> IS NOT ASSIGNED.
+      RETURN.
+    ENDIF.
+
+*   TO A TABLE FIELD SYMBOL, so a component that exists but is a scalar
+*   cannot be handed back as if it were a child list. The six are all
+*   tables in the DPC's local TY_PROPERTY; anything else means the name
+*   collided with a flat TS_PROPERTIES field.
+    ASSIGN COMPONENT to_upper( iv_comp ) OF STRUCTURE <ls_ent> TO <lt_comp>.
+    IF sy-subrc <> 0 OR <lt_comp> IS NOT ASSIGNED.
+      RETURN.
+    ENDIF.
+
+    GET REFERENCE OF <lt_comp> INTO rr.
+  ENDMETHOD.
+
+
+  METHOD details.
+
+    guard( EXPORTING iv_owner_guid = iv_owner_guid
+           IMPORTING ev_guid       = DATA(lv_guid)
+           CHANGING  ct_msg        = rs-msg ).
+    IF lv_guid IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    IF iv_intreno IS INITIAL.
+*     The DPC would RETURN silently on the missing key. Say it here, where
+*     the caller can still tell which parcel it asked about.
+      APPEND VALUE #( type = 'E' message =
+        `Property details need the Intreno of the parcel. The parcel list ` &&
+        `returns it on every row - carry it through with the parcel id.` )
+        TO rs-msg.
+      RETURN.
+    ENDIF.
+
+*   ---- the one thing this cannot yet build itself ---------------------
+*   IO_EXPAND is OPTIONAL on the DPC and dereferenced unconditionally in
+*   its body, so calling without one is a dump, not an empty result.
+*   Refusing here turns that into a message that names what is missing.
+*
+*   Building it needs the method list of /IWBEP/IF_MGW_ODATA_EXPAND, or a
+*   standard class that already implements it. ZRAK_CJ_EXPAND_DIAG prints
+*   both - its own interface methods, and every implementer in the
+*   repository with that implementer's CONSTRUCTOR. One run answers it.
+*   Nothing is guessed here on purpose: hand-writing the shape of a
+*   standard object that cannot be opened from the editing environment is
+*   what cost ZCL_RAK_CJ_REQ_CTX three activation rounds.
+    IF io_expand IS NOT BOUND.
+      APPEND VALUE #( type = 'E' message =
+        `Property details need an expand object. GET_EXPANDED_ENTITY reads ` &&
+        `io_expand->get_children( ) before it fetches anything and gates each ` &&
+        `of the six tabs on the nav name appearing there. Run ` &&
+        `ZRAK_CJ_EXPAND_DIAG to get the implementer, then pass one in.` )
+        TO rs-msg.
+      RETURN.
+    ENDIF.
+
+*   ---- the key, both halves, spelled the DPC's way --------------------
+*   MIXED CASE, and it is not cosmetic: the DPC reads
+*   `it_key_tab[ name = 'Intreno' ]` and `[ name = 'Partnerguid' ]` on a
+*   CHAR field, so 'INTRENO' misses and the method returns an empty
+*   entity with no message at all.
+    DATA lt_key TYPE /iwbep/t_mgw_name_value_pair.
+    APPEND VALUE #( name = `Intreno`     value = iv_intreno ) TO lt_key.
+    APPEND VALUE #( name = `Partnerguid` value = lv_guid )    TO lt_key.
+
+    DATA lr_ent  TYPE REF TO data.
+    DATA ls_ctx  TYPE /iwbep/if_mgw_appl_srv_runtime=>ty_s_mgw_response_entity_cntxt.
+    DATA lt_cl   TYPE string_table.
+    DATA lt_tcl  TYPE string_table.
+
+    TRY.
+        /iwbep/if_mgw_appl_srv_runtime~get_expanded_entity(
+          EXPORTING
+            iv_entity_name           = `Properties`
+            iv_entity_set_name       = `PropertiesSet`
+            iv_source_name           = ``
+            it_key_tab               = lt_key
+            it_navigation_path       = VALUE #( )
+            io_expand                = io_expand
+            io_tech_request_context  = mo_req
+          IMPORTING
+            er_entity                = lr_ent
+            es_response_context      = ls_ctx
+            et_expanded_clauses      = lt_cl
+            et_expanded_tech_clauses = lt_tcl ).
+      CATCH cx_root INTO DATA(lx).
+        to_msg( EXPORTING io_exc = lx CHANGING ct_msg = rs-msg ).
+        RETURN.
+    ENDTRY.
+
+    IF lr_ent IS NOT BOUND.
+*     Every RETURN in the DPC's key handling lands here: a missing key, a
+*     blank Partnerguid, a guid with no BUT000 row, or a parcel that is
+*     not this partner's. They are indistinguishable from outside, so the
+*     message says what was asked rather than asserting which one it was.
+      APPEND VALUE #( type = 'W' message =
+        |No details came back for Intreno { iv_intreno }. The read answers | &&
+        |nothing when the parcel is not held by this partner, so check the | &&
+        |Intreno against the parcel list this card was drawn from.| )
+        TO rs-msg.
+      RETURN.
+    ENDIF.
+
+    rs-entity   = lr_ent.
+    rs-partners = child( ir_entity = lr_ent iv_comp = `TOPARTNER` ).
+    rs-landuse  = child( ir_entity = lr_ent iv_comp = `TOLANDUSE` ).
+    rs-measure  = child( ir_entity = lr_ent iv_comp = `TOMEASUREMENT` ).
+    rs-develop  = child( ir_entity = lr_ent iv_comp = `TODEVELOPMENT` ).
+    rs-project  = child( ir_entity = lr_ent iv_comp = `TOPROJECT` ).
+    rs-attach   = child( ir_entity = lr_ent iv_comp = `TOATTACHMENT` ).
   ENDMETHOD.
 
 
