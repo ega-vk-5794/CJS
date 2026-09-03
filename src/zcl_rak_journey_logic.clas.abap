@@ -279,6 +279,15 @@ CLASS zcl_rak_journey_logic DEFINITION
                 iv_in   TYPE string
                 iv_what TYPE string.
 
+*   Every early exit in PREPARE_PAYMENT( ) used to be silent under
+*   IV_QUIET, and the poll runs quiet for 48 ticks - two minutes in which
+*   the citizen sees a spinner and the developer sees nothing at all.
+*   TRACE( ) emits only under &trace=x, so this costs a production run
+*   nothing and answers "why did the gateway not open" in one round trip.
+    METHODS pay_trace
+      IMPORTING io_ctx  TYPE REF TO zif_rak_journey
+                iv_text TYPE string.
+
     METHODS pay_field_step
       IMPORTING io_ctx         TYPE REF TO zif_rak_journey
       RETURNING VALUE(rv_step) TYPE i.
@@ -565,6 +574,11 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *   cost this step a round: the trace showed the gate searching for
 *   'IM00100123344' with case 1959738 sitting in SCASE, and nothing said
 *   the two were related or that one of them was the wrong one.
+    pay_trace( io_ctx = io_ctx iv_text = |PAY     case key { iv_in } -> { iv_what }| ).
+  ENDMETHOD.
+
+
+  METHOD pay_trace.
     DATA lo_eng TYPE REF TO zcl_rak_journey_engine.
     TRY.
         lo_eng = CAST #( io_ctx ).
@@ -572,7 +586,7 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
         CLEAR lo_eng.
     ENDTRY.
     IF lo_eng IS BOUND.
-      lo_eng->trace( |PAY     case key { iv_in } -> { iv_what }| ).
+      lo_eng->trace( iv_text ).
     ENDIF.
   ENDMETHOD.
 
@@ -972,6 +986,9 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
                        iv_text = `Payment cannot start: no case number came back from the ` &&
                                  `commit, on either the case or the journey key. Nothing ` &&
                                  `can be billed until the backend has created the case.` ).
+      pay_trace( io_ctx  = io_ctx
+                 iv_text = `PAY     prepare STOP NOCASE - no case number on either ` &&
+                           `CASE_NUMBER or the journey key` ).
       zcl_rak_cj_evt=>add( iv_type   = zcl_rak_cj_evt=>c_type-pay_block
                            iv_case   = lv_case
                            iv_result = 'BLOCK'
@@ -983,6 +1000,10 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
     IF lv_screen IS INITIAL.
       io_ctx->add_msg( iv_type = 'Error'
                        iv_text = 'Payment cannot start: PAY_SCREEN is not set. It names the backend screen whose read BAdI resolves the gateway - the payment step''s own BKND_SCREEN.' ).
+      pay_trace( io_ctx  = io_ctx
+                 iv_text = `PAY     prepare STOP NOSCREEN - PAY_SCREEN is blank and the ` &&
+                           `payment step has no BKND_SCREEN to derive it from, so no read ` &&
+                           `BAdI can be called and no gateway can ever resolve` ).
       zcl_rak_cj_evt=>add( iv_type   = zcl_rak_cj_evt=>c_type-pay_block
                            iv_case   = lv_case
                            iv_result = 'BLOCK'
@@ -1107,6 +1128,13 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
       ls_cfg-backend-category = lv_category.
     ENDIF.
 
+*   WHAT WENT OUT. Which screen, under which category and backend journey,
+*   and with which case - four values that between them decide whether the
+*   read BAdI is even the right one, and none of which were visible.
+    pay_trace( io_ctx  = io_ctx
+               iv_text = |PAY     prepare read screen={ lv_screen } case={ lv_case } | &&
+                         |cat={ ls_cfg-backend-category } jny={ ls_cfg-backend-journey }| ).
+
     NEW zcl_rak_qnv_bridge( ls_cfg )->read(
       EXPORTING
         iv_screen  = lv_screen
@@ -1127,8 +1155,39 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
       ENDLOOP.
     ENDIF.
 
+*   THE BACKEND'S OWN WORDS, ON THE TRACE, WHATEVER IV_QUIET SAYS. Quiet
+*   suppresses what the CITIZEN sees; it was also suppressing the one
+*   thing that explains a failure, for all 48 poll ticks. If the BAdI
+*   refused, it said why here and nobody could read it.
+    LOOP AT lt_msg INTO DATA(ls_bmsg).
+      pay_trace( io_ctx  = io_ctx
+                 iv_text = |PAY     prepare backend { ls_bmsg-type }: { ls_bmsg-text }| ).
+    ENDLOOP.
+
+*   WHAT CAME BACK. A missing APPLICATIONURL has two completely different
+*   causes that look identical from here - the BAdI was never really
+*   called or answered nothing, versus it answered fine and the address
+*   is under a key of another name. Listing the keys separates them in
+*   one run, instead of a round per guess.
+    DATA lv_keys TYPE string.
+    LOOP AT lt_vals INTO DATA(ls_kv).
+      IF strlen( lv_keys ) > 300.
+        lv_keys = |{ lv_keys },...|.
+        EXIT.
+      ENDIF.
+      lv_keys = COND string( WHEN lv_keys IS INITIAL
+                             THEN CONV string( ls_kv-key )
+                             ELSE |{ lv_keys },{ ls_kv-key }| ).
+    ENDLOOP.
+    pay_trace( io_ctx  = io_ctx
+               iv_text = |PAY     prepare read returned { lines( lt_vals ) } value(s), | &&
+                         |{ lines( lt_msg ) } message(s) - keys: { lv_keys }| ).
+
     DATA(lv_url) = VALUE string( lt_vals[ key = 'APPLICATIONURL' ]-value OPTIONAL ).
     IF lv_url IS INITIAL.
+      pay_trace( io_ctx  = io_ctx
+                 iv_text = `PAY     prepare STOP NOURL - the read answered but carried no ` &&
+                           `APPLICATIONURL` ).
       IF iv_quiet = abap_false.
         io_ctx->add_msg( iv_type = 'Error'
                          iv_text = |The payment journey returned no gateway address for case { lv_case }. | &&
@@ -1137,6 +1196,9 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
       ENDIF.
       RETURN.
     ENDIF.
+
+    pay_trace( io_ctx  = io_ctx
+               iv_text = |PAY     prepare OK - gateway address resolved ({ strlen( lv_url ) } chars)| ).
 
 *   BUILD_PAY_URL prefers PAY_APPURL over everything else, so writing it here is
 *   the whole handover. The reference is carried too, for the poll and for anyone
@@ -1649,11 +1711,21 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
           io_ctx->set_val( iv_name = c_pay_tries iv_value = |{ lv_try }| ).
 
           DATA(lv_last) = xsdbool( lv_try >= c_pay_max_try ).
+
+*         WHICH TICK THIS IS. The waiting card looks identical on tick 1
+*         and tick 47, and until now so did the trace - so there was no
+*         way to tell a poll that is still early from one about to give
+*         up, or to tell that the poll was running at all.
+          pay_trace( io_ctx  = io_ctx
+                     iv_text = |PAY     poll tick { lv_try } of { c_pay_max_try }| ).
+
           prepare_payment( io_ctx   = io_ctx
                            iv_quiet = xsdbool( lv_last = abap_false ) ).
 
           DATA(lv_now) = build_pay_url( io_ctx ).
           IF lv_now IS NOT INITIAL.
+            pay_trace( io_ctx  = io_ctx
+                       iv_text = |PAY     poll opening gateway on tick { lv_try }| ).
             io_ctx->open_url( lv_now ).
             RETURN.
           ENDIF.

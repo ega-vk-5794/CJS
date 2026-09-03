@@ -314,8 +314,60 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
 
 
   METHOD open_url_html.
-    DATA(lv_js) = |window.open('| && esc_js( iv_url ) && |','_blank');this.remove();|.
-    DATA(lv_html) = |<div><img src="data:," style="display:none" onerror="| && lv_js && |"/></div>|.
+
+*   WINDOW.OPEN IS POPUP-BLOCKED OUTSIDE A USER GESTURE, and that is the
+*   whole difference between this working on DOK and EPDA and not working
+*   on Municipality. There the open item already exists when Pay is
+*   pressed, so the gateway address resolves on the PRESS round trip -
+*   inside the browser's transient user activation, where a popup is
+*   allowed. On Municipality the open item is raised by a later workflow,
+*   so the address only arrives on a POLL TICK: a timer-driven round trip
+*   with no activation behind it, which Chrome blocks SILENTLY. No error,
+*   no tab, and a card that goes on saying "Complete your payment in the
+*   new tab" for two minutes while nothing happens.
+*
+*   So the open is now attempted AND CHECKED. A blocked call returns null
+*   rather than throwing, and the fallback puts a real link in the page -
+*   clicking that IS a gesture, so it cannot be blocked in turn. Where the
+*   popup succeeds nothing changes at all: the image removes itself
+*   exactly as before, which is why this is safe for the two families
+*   that work today.
+*
+*   AN ATTRIBUTE, NOT A <script>. A script inserted through html( )
+*   reaches the DOM as innerHTML and is inert by specification, so it
+*   would never run; an inline event attribute does. Same channel
+*   RENDER_UPLOADER( ) has always used.
+*
+*   BACKTICKS, NOT A |...| TEMPLATE. The snippet needs braces for its if
+*   and try blocks, and a brace inside an ABAP string template opens an
+*   embedded expression. Escaping them for UI5 is a different problem
+*   with the same character and is still done at the end.
+    DATA(lv_js) =
+      `var u='` && esc_js( iv_url ) && `';var w=null;` &&
+      `try{w=window.open(u,'_blank');}catch(e){}` &&
+      `var p=this.parentNode;this.remove();` &&
+      `if(!w){` &&
+        `var a=document.createElement('a');` &&
+        `a.href=u;a.target='_blank';a.rel='noopener';` &&
+        `a.textContent='Open the payment page';` &&
+        `a.setAttribute('style','display:inline-block;margin:8px 0 4px 0;` &&
+        `padding:10px 18px;background:#b30000;color:#fff;border-radius:6px;` &&
+        `text-decoration:none;font-weight:600');` &&
+        `var n=document.createElement('div');` &&
+        `n.textContent='Your browser blocked the payment window. ` &&
+        `Use the button above to open it.';` &&
+        `n.setAttribute('style','margin-bottom:8px;font-size:0.875rem;color:#666');` &&
+        `p.appendChild(a);p.appendChild(n);` &&
+      `}`.
+
+*   THE ATTRIBUTE IS DOUBLE-QUOTED AND THE SNIPPET IS SINGLE-QUOTED, so
+*   the only double quote that can appear here came from the URL through
+*   ESC_JS( ), which escapes it for JAVASCRIPT and not for HTML - leaving
+*   a bare quote that would end the attribute early. Encoding it lets the
+*   parser hand JS back exactly what ESC_JS( ) intended.
+    REPLACE ALL OCCURRENCES OF `"` IN lv_js WITH `&quot;`.
+
+    DATA(lv_html) = `<div><img src="data:," style="display:none" onerror="` && lv_js && `"/></div>`.
     REPLACE ALL OCCURRENCES OF `{` IN lv_html WITH `\{`.
     REPLACE ALL OCCURRENCES OF `}` IN lv_html WITH `\}`.
     rv = lv_html.
