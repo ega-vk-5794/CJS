@@ -386,16 +386,43 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *
 *   All three are passed ONLY when there is more than one column, so the
 *   one-column dialog keeps the exact markup it had before this parameter existed.
+
+*   THE PENDING MESSAGES, REPEATED INSIDE THE DIALOG.
+*
+*   RENDER_POPUP( ) draws the dialog and nothing else - it never renders
+*   MT_MSG. So a handler that refuses an OK from ON_POPUP_EVENT( ) and
+*   leaves the dialog open (which is the correct thing to do - the citizen
+*   keeps what they typed) put its warning on the STEP BEHIND a MODAL
+*   dialog. The strip was drawn, correctly, where it could not be read:
+*   from the citizen's side the Add button simply stopped working.
+*
+*   Reported three times over as "mandatory data field message is showing
+*   in main screen - it should show in add chemical screen". It is not
+*   specific to those dialogs; every popup built here had it.
+*
+*   Drawn before the form so it reads first, and only when there is
+*   something to say - an empty loop adds no markup, so a dialog opening
+*   clean looks exactly as it always did.
+    DATA(lo_cnt) = lo_dlg->content( ).
+    DATA(lt_pending) = io_ctx->msgs( ).
+    LOOP AT lt_pending INTO DATA(ls_msg).
+      lo_cnt->message_strip( text     = ls_msg-text
+                             type     = COND string( WHEN ls_msg-type IS NOT INITIAL
+                                                     THEN ls_msg-type ELSE 'Information' )
+                             showicon = abap_true
+                             class    = 'sapUiSmallMarginBeginEnd sapUiTinyMarginTop' ).
+    ENDLOOP.
+
     DATA lo_form TYPE REF TO z2ui5_cl_xml_view.
     IF lv_cols = 1.
-      lo_form = lo_dlg->content(
-        )->simple_form( editable  = abap_true
+      lo_form = lo_cnt->simple_form(
+                        editable  = abap_true
                         layout    = 'ResponsiveGridLayout'
                         columnsxl = '1' columnsl = '1' columnsm = '1'
         )->content( ns = 'form' ).
     ELSE.
-      lo_form = lo_dlg->content(
-        )->simple_form( editable                = abap_true
+      lo_form = lo_cnt->simple_form(
+                        editable                = abap_true
                         layout                  = 'ResponsiveGridLayout'
                         columnsxl               = |{ lv_cols }|
                         columnsl                = |{ lv_cols }|

@@ -110,6 +110,7 @@ CLASS zcl_rak_text DEFINITION
         fb_average    TYPE symsgno VALUE '048',
         fb_poor       TYPE symsgno VALUE '049',
         fb_verypoor   TYPE symsgno VALUE '050',
+        fb_skip       TYPE symsgno VALUE '131',
         att_required  TYPE symsgno VALUE '051',
         choose_file   TYPE symsgno VALUE '074',
         num_min       TYPE symsgno VALUE '052',
@@ -393,6 +394,7 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
       ( msgno = c_no-fb_title     en = `How was your experience?`      ar = `كيف كانت تجربتك؟` )
       ( msgno = c_no-fb_thanks    en = `Thanks for your feedback`      ar = `شكراً لملاحظاتك` )
       ( msgno = c_no-fb_send      en = `Send feedback`                 ar = `إرسال الملاحظات` )
+      ( msgno = c_no-fb_skip      en = `Not now`                       ar = `ليس الآن` )
       ( msgno = c_no-fb_hint
         en = `Anything you would like us to know? (optional)`
         ar = `هل هناك ما تود إخبارنا به؟ (اختياري)` )

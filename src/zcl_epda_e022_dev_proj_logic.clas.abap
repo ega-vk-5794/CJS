@@ -267,11 +267,20 @@ CLASS ZCL_EPDA_E022_DEV_PROJ_LOGIC IMPLEMENTATION.
 
       io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
 
-      IF sy-langu = c_lang_en.
-        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name ) ).
-      ELSE.
-        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
-      ENDIF.
+*     WRITTEN ONCE. C_PARTNER_NAME is 'APP_NAME' and C_PARTNER_ID is
+*     'APP_ID', and both were then written a SECOND time below this IF, under
+*     a different language rule - so the two disagreed and the later one won.
+*     The pair below the IF was also outside this guard, so a launch with no
+*     login partner blanked the applicant's name and ID rather than leaving
+*     them alone.
+*
+*     The rule kept is the one that degrades: an Arabic session with no
+*     Arabic name on the partner record falls back to the English name
+*     rather than showing an empty applicant.
+      io_ctx->set_val( iv_name  = c_partner_name
+                       iv_value = COND #( WHEN sy-langu <> c_lang_en AND ls_bp-bp_name_ar IS NOT INITIAL
+                                          THEN CONV string( ls_bp-bp_name_ar )
+                                          ELSE CONV string( ls_bp-bp_name ) ) ).
 
       io_ctx->set_val( iv_name = c_partner_id iv_value = CONV #( ls_bp-emirates_id ) ).
 
@@ -282,12 +291,6 @@ CLASS ZCL_EPDA_E022_DEV_PROJ_LOGIC IMPLEMENTATION.
       io_ctx->set_val( iv_name = c_applicanttype iv_value = |{ lv_role }| ).
 
     ENDIF.
-
-    io_ctx->set_val( iv_name = 'APP_NAME' iv_value = COND #(
-      WHEN sy-langu <> 'E' AND ls_bp-bp_name_ar IS NOT INITIAL
-      THEN CONV string( ls_bp-bp_name_ar )
-      ELSE CONV string( ls_bp-bp_name ) ) ).
-    io_ctx->set_val( iv_name = 'APP_ID' iv_value = CONV #( ls_bp-emirates_id ) ).
 
 
   ENDMETHOD.
@@ -433,19 +436,18 @@ CLASS ZCL_EPDA_E022_DEV_PROJ_LOGIC IMPLEMENTATION.
     CASE iv_step.
 
       WHEN 0.
-        IF io_ctx->get_val( c_role ) IS NOT INITIAL
-           AND io_ctx->get_val( 'PARTNER_OWNER' ) IS INITIAL
-           AND io_ctx->get_val( 'PARTNER_REP' )   IS INITIAL.
-          APPEND VALUE #( type  = 'Error' "field = c_role
-                          text  = `Re-select Owner or Representative before continuing.` ) TO rt.
-        ENDIF.
-
-        IF io_ctx->get_val( c_permit ) IS NOT INITIAL
-           AND io_ctx->get_val( 'PERMIT_YES' ) IS INITIAL
-           AND io_ctx->get_val( 'PERMIT_NO' )  IS INITIAL.
-          APPEND VALUE #( type  = 'Error' "field = c_permit
-                          text  = `Re-select the permit answer before continuing.` ) TO rt.
-        ENDIF.
+*       RE-DERIVED, NOT REFUSED - the same change made on E016/E017/E018,
+*       which carry a copy of this method.
+*
+*       PARTNER_OWNER/PARTNER_REP and PERMIT_YES/PERMIT_NO are WRITE_FLAGS( )'s
+*       projection of APPLICANT_ROLE and PERMIT_HELD, not answers the citizen
+*       gives. WRITE_FLAGS( ) runs only from ON_CHANGE( ), so any round trip
+*       that rebuilds the model without raising a change on the role leaves the
+*       role set and the flags blank - and the step then refused with
+*       "Re-select Owner or Representative before continuing", which
+*       re-selecting could not clear because selecting the same value raises no
+*       CHANGE. Reported here as "the initial page loads with error messages".
+        write_flags( io_ctx ).
 
       WHEN 2.
 *        DATA(ls_grid) = io_ctx->get_grid_data( c_grid ).

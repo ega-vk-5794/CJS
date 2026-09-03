@@ -210,6 +210,24 @@ CLASS ZCL_D020_MOD_SCHOOL_DAY_LOGIC IMPLEMENTATION.
         DATA(cycle3_lessons) = io_ctx->get_val( 'CYCLE3_LESSONS' ).
         DATA(cycle3_duration) = io_ctx->get_val( 'CYCLE3_DURATION' ).
 
+*       BK2_END and DURATION were read into locals here and then never
+*       appended - each of the five stage blocks appended BK2_ST and
+*       LESSONS TWICE instead, so break-2 end and lesson duration reached
+*       the backend as a copy of their neighbour and the citizen's own
+*       value was discarded. That is D020's "Lesson Duration already
+*       filled and I got error": the field IS filled, the cell that
+*       carries it is not. Ten cells, two per stage.
+*
+*       The blank filler cells were written |' '|, which is a string
+*       template around a QUOTED space - it puts the three characters
+*       ' ' into the backend column, not a blank. The neighbouring blocks
+*       spell the same thing || and | |; this now uses || throughout.
+*
+*       NOT changed: the stage marker sits in a different column in each
+*       block (14 for PREKG, 1 for KG, 2 for CYCLE1/3, 3 for CYCLE2).
+*       That looks wrong too, but the column order is config
+*       (ZRAK_T_JNY_FLD-DEFAULT_VAL for the HOURS grid) and cannot be
+*       read from here - guessing it would move real values, not blanks.
         IF lv_prekg IS NOT INITIAL OR lv_kg IS NOT INITIAL OR lv_cycle1 IS NOT INITIAL
           OR lv_cycle2 IS NOT INITIAL OR lv_cycle3 IS NOT INITIAL.
           CLEAR rs_data-rows.
@@ -224,10 +242,10 @@ CLASS ZCL_D020_MOD_SCHOOL_DAY_LOGIC IMPLEMENTATION.
                           ( |{ prekg_bk1_st }| )
                           ( |{ prekg_bk1_end }| )
                           ( |{ prekg_bk2_st }| )
-                          ( |{ prekg_bk2_st }| )
+                          ( |{ prekg_bk2_end }| )
                           ( |{ prekg_lessons }| )
-                          ( |{ prekg_lessons }| )
-                          ( |' '| )
+                          ( |{ prekg_duration }| )
+                          ( || )
                           ( |{ lv_PREKG }| ) ) TO rs_data-rows.
         ENDIF.
         IF lv_kg IS NOT INITIAL.
@@ -240,59 +258,59 @@ CLASS ZCL_D020_MOD_SCHOOL_DAY_LOGIC IMPLEMENTATION.
                           ( |{ kg_bk1_st }| )
                           ( |{ kg_bk1_end }| )
                           ( |{ kg_bk2_st }| )
-                          ( |{ kg_bk2_st }| )
+                          ( |{ kg_bk2_end }| )
                           ( |{ kg_lessons }| )
-                          ( |{ kg_lessons }| )
+                          ( |{ kg_duration }| )
                           ( | | )
                           ( | | ) ) TO rs_data-rows.
         ENDIF.
         IF lv_cycle1 IS NOT INITIAL.
-          APPEND VALUE #( ( |' '| )
+          APPEND VALUE #( ( || )
                          ( |{ lv_cycle1 }| )
-                         ( |' '| )
-                         ( |' '| )
+                         ( || )
+                         ( || )
                          ( |{ cycle1_sch_st }| )
                          ( |{ cycle1_sch_end }| )
                          ( |{ cycle1_bk1_st }| )
                          ( |{ cycle1_bk1_end }| )
                          ( |{ cycle1_bk2_st }| )
-                         ( |{ cycle1_bk2_st }| )
+                         ( |{ cycle1_bk2_end }| )
                          ( |{ cycle1_lessons }| )
-                         ( |{ cycle1_lessons }| )
-                         ( |' '| )
-                         ( |' '| ) ) TO rs_data-rows.
+                         ( |{ cycle1_duration }| )
+                         ( || )
+                         ( || ) ) TO rs_data-rows.
         ENDIF.
         IF lv_cycle3 IS NOT INITIAL.
-          APPEND VALUE #( ( |' '| )
+          APPEND VALUE #( ( || )
                          ( |{ lv_cycle3 }| )
-                         ( |' '| )
-                         ( |' '| )
+                         ( || )
+                         ( || )
                          ( |{ cycle3_sch_st }| )
                          ( |{ cycle3_sch_end }| )
                          ( |{ cycle3_bk1_st }| )
                          ( |{ cycle3_bk1_end }| )
                          ( |{ cycle3_bk2_st }| )
-                         ( |{ cycle3_bk2_st }| )
+                         ( |{ cycle3_bk2_end }| )
                          ( |{ cycle3_lessons }| )
-                         ( |{ cycle3_lessons }| )
-                         ( |' '| )
-                         ( |' '| ) ) TO rs_data-rows.
+                         ( |{ cycle3_duration }| )
+                         ( || )
+                         ( || ) ) TO rs_data-rows.
         ENDIF.
         IF lv_cycle2 IS NOT INITIAL.
-          APPEND VALUE #( ( |' '| )
-                         ( |' '| )
+          APPEND VALUE #( ( || )
+                         ( || )
                          ( |{ lv_cycle2 }| )
-                         ( |' '| )
+                         ( || )
                          ( |{ cycle2_sch_st }| )
                          ( |{ cycle2_sch_end }| )
                          ( |{ cycle2_bk1_st }| )
                          ( |{ cycle2_bk1_end }| )
                          ( |{ cycle2_bk2_st }| )
-                         ( |{ cycle2_bk2_st }| )
+                         ( |{ cycle2_bk2_end }| )
                          ( |{ cycle2_lessons }| )
-                         ( |{ cycle2_lessons }| )
-                         ( |' '| )
-                         ( |' '| ) ) TO rs_data-rows.
+                         ( |{ cycle2_duration }| )
+                         ( || )
+                         ( || ) ) TO rs_data-rows.
 
         ENDIF.
 ****        REFRESH rs_data-columns[].

@@ -69,6 +69,9 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mv_step      TYPE i.
     DATA mv_submitted TYPE abap_bool.
     DATA mv_fb_done    TYPE abap_bool.
+*   The citizen declined to rate. Feedback is OFFERED on the closing page,
+*   never required - see the FBSKIP branch.
+    DATA mv_fb_skip    TYPE abap_bool.
     DATA mv_fb_rating  TYPE string.
     DATA mv_case_guid TYPE string.
     DATA mv_case_number TYPE string.
@@ -487,7 +490,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
             CATCH cx_root.
           ENDTRY.
         ENDIF.
-        IF mv_fb_done = abap_true OR lv_fbw = abap_false.
+        IF mv_fb_done = abap_true OR mv_fb_skip = abap_true OR lv_fbw = abap_false.
           mv_close_page = abap_true.
         ENDIF.
       ENDIF.
@@ -564,6 +567,24 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         ENDTRY.
       ENDIF.
       mv_fb_done = abap_true.
+      IF mv_closed = abap_true.
+        mv_close_page = abap_true.
+      ENDIF.
+
+*   FEEDBACK IS OFFERED, NEVER REQUIRED.
+*
+*   Pressing Close set MV_CLOSED and MV_SUBMITTED but left MV_CLOSE_PAGE
+*   false while feedback was wanted and not yet given, and the Send button
+*   is disabled until a face is picked. So a citizen who did not want to
+*   rate the service had no way out of the closing page at all - the only
+*   control that ended the journey was one they had to answer first.
+*   Reported on four journeys as "feedback is mandatory".
+*
+*   This does not mark MV_FB_DONE: nothing was submitted, so ON_FEEDBACK( )
+*   must not run and the thank-you card must not claim a rating that was
+*   never given.
+    ELSEIF lv_event = 'FBSKIP'.
+      mv_fb_skip = abap_true.
       IF mv_closed = abap_true.
         mv_close_page = abap_true.
       ENDIF.
@@ -1388,6 +1409,11 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
   METHOD zif_rak_journey~add_msg.
     APPEND VALUE #( type = iv_type text = iv_text ) TO mt_msg.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey~msgs.
+    rt_msg = mt_msg.
   ENDMETHOD.
 
 

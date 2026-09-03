@@ -47,10 +47,31 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
 
 
   METHOD attachments_for_backend.
+    DATA lv_skipped TYPE i.
+
     LOOP AT mo_e->mt_attach INTO DATA(ls_a).
       zcl_rak_cj_att_store=>get( EXPORTING iv_guid = ls_a-guid
                                  IMPORTING ev_b64  = DATA(lv_b64) ).
+
+*     A STAGED FILE WITH NO CONTENT USED TO LEAVE HERE IN SILENCE.
+*
+*     The chip is drawn from MT_ATTACH and the content from the store, so a
+*     row whose content the store cannot return still shows on screen as an
+*     attached file and simply never goes out. Every file failing that way
+*     produces a case created with no attachments, no error and no trace -
+*     which is "case created but attachments are not saved", reported on
+*     four journeys with no way in from the outside to tell it apart from a
+*     BAdI that received them and dropped them.
+*
+*     Named per file on the trace, and counted once on screen. The count is
+*     a Warning rather than an Error deliberately: the submit itself
+*     succeeded and the case is real, so refusing it here would lose work
+*     the citizen has already done - what they need is to be told the files
+*     did not go, while they are still on the page that says so.
       IF lv_b64 IS INITIAL.
+        lv_skipped = lv_skipped + 1.
+        mo_e->trace( |ATTACH  { ls_a-name } ({ ls_a-field }) SKIPPED - the store returned no | &&
+                     |content for guid { ls_a-guid }| ).
         CONTINUE.
       ENDIF.
 *     identifier1 carries the field and, when the file belongs to one occurrence
@@ -125,6 +146,14 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
                                   ELSE '** no component on this release takes it **' ) ).
       ENDIF.
     ENDLOOP.
+
+    mo_e->trace( |ATTACH  { lines( rt ) } file(s) going out, { lv_skipped } skipped| ).
+    IF lv_skipped > 0.
+      mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg
+        ( type = 'Warning'
+          text = |{ lv_skipped } attached file(s) could not be read and were not sent | &&
+                 |with this application. Please attach them again.| ) ).
+    ENDIF.
   ENDMETHOD.
 
 

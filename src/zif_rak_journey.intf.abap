@@ -268,6 +268,16 @@ INTERFACE zif_rak_journey
   METHODS add_msg
     IMPORTING iv_type TYPE string
               iv_text TYPE string.
+* The messages raised SO FAR on this round trip, in the order they were
+* added. Read-only - ADD_MSG is still the only way to raise one.
+*
+* It exists because RENDER_POPUP( ) does not draw them. A handler that
+* refuses an OK from ON_POPUP_EVENT( ) and leaves the dialog open puts its
+* warning on the STEP BEHIND a modal dialog, where the citizen cannot read
+* it: the dialog just declines to close for no stated reason. DIALOG_FORM( )
+* now reads this and repeats the pending strips inside the dialog itself.
+  METHODS msgs
+    RETURNING VALUE(rt_msg) TYPE tt_msg.
   METHODS get_step
     RETURNING VALUE(rv_step) TYPE i.
   METHODS get_config
