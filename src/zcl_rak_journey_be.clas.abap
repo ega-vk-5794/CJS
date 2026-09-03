@@ -204,16 +204,44 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
 *     it is nothing having run at all, which means the FM matched no
 *     implementation for these three values. Naming them is the whole
 *     content of the message.
+*     THE PARTNER COMES FIRST NOW, AND THAT IS A CORRECTION. This message
+*     used to name a missing BAdI registration as the cause, on the
+*     reasoning above - and it was wrong, expensively. The FM has an
+*     earlier exit than GET BADI:
+*
+*         IF loginbp IS INITIAL AND anonymous <> 'X'.
+*           RETURN.                       "Authentication not valid
+*         ENDIF.
+*         GET BADI cj_badi FILTERS journey_type = journeytype.
+*
+*     A blank partner returns with no draft, no message and about a
+*     millisecond - INDISTINGUISHABLE from a filter matching nothing. So
+*     three Municipality journeys were diagnosed as unregistered BAdIs
+*     when PARAM3 simply was not being sent, and the message itself is
+*     what sent people to SE18.
+*
+*     So it reports what CJS actually sent, partner included, and offers
+*     the cheaper cause first. A reader can now tell the two apart from
+*     the screen rather than from a debugger session.
       mo_e->trace_gate( |CREATE on screen { ls_step-bknd_screen } returned no draft | &&
                         |reference AND no message, in { lv_ms } ms. A create that ran | &&
-                        |and refused would return messages, so this is the FM matching | &&
-                        |no BAdI implementation rather than one rejecting the data. | &&
+                        |and refused would return messages, so nothing ran: either the | &&
+                        |FM returned before GET BADI, or it matched no implementation. | &&
                         |CJS sent categoryname { mo_e->ms_config-backend-category }, | &&
-                        |screenname { ls_step-bknd_screen } and a JOURNEYTYPE item of | &&
-                        |{ mo_e->ms_config-backend-journey } to | &&
-                        |{ mo_e->ms_config-backend-fm_post }. Check an implementation of | &&
-                        |ZIF_EGA_FW_CJI is registered and ACTIVE for that filter | &&
-                        |combination, and that ZEGA_T_CJ_2_OBJ has rows for | &&
+                        |screenname { ls_step-bknd_screen }, a JOURNEYTYPE item of | &&
+                        |{ mo_e->ms_config-backend-journey } and PARAM3 (loginbp) | &&
+                        |{ COND string( WHEN mo_e->mv_loginbp IS NOT INITIAL
+                                        THEN mo_e->mv_loginbp
+                                        ELSE COND string(
+                                          WHEN mo_e->ms_config-backend-loginbp_dev IS NOT INITIAL
+                                          THEN |{ mo_e->ms_config-backend-loginbp_dev } (dev default)|
+                                          ELSE 'BLANK' ) ) } to | &&
+                        |{ mo_e->ms_config-backend-fm_post }. CHECK THE PARTNER FIRST: | &&
+                        |ZFM_EGA_CJ_FW_POST_N returns before GET BADI when LOGINBP is | &&
+                        |blank and the journey is not anonymous, which looks exactly | &&
+                        |like a filter miss. If the partner is there, check an | &&
+                        |implementation of ZIF_EGA_FW_CJI is registered and ACTIVE for | &&
+                        |that filter combination, and that ZEGA_T_CJ_2_OBJ has rows for | &&
                         |{ mo_e->ms_config-backend-journey }.| ).
       mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Error'
         text = 'The backend did not return a draft reference. The application cannot be started.' ) ).

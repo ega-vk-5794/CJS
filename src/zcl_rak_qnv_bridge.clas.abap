@@ -212,6 +212,46 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
     ls_hdr-screenname   = iv_screen.
     ls_hdr-functionin   = ms_config-backend-fm_post.
 
+*   ---- PARAM3 IS THE PARTNER, AND THE POST WAS NOT SENDING IT --------
+*   READ( ) HAS ALWAYS SET IT AND POST( ) NEVER DID. That asymmetry is
+*   the whole defect: reads resolved the citizen, posts arrived with
+*   LOGINBP blank, and ZFM_EGA_CJ_FW_POST_N returns before it ever gets
+*   to the BAdI:
+*
+*       IF loginbp IS INITIAL AND anonymous <> 'X'.
+*         RETURN.                       "Authentication not valid
+*       ENDIF.
+*       GET BADI cj_badi FILTERS journey_type = journeytype.
+*
+*   WHICH IS WHY THIS LOOKED LIKE A MISSING BAdI IMPLEMENTATION. The FM
+*   returns with no messages and no draft reference in about a
+*   millisecond - exactly what a filter matching nothing looks like from
+*   outside - and CJS's own blocker text said so, sending three people to
+*   SE18 to check a registration that was never the problem. Confirmed in
+*   the debugger instead: stack frame 18, the arrow on the RETURN at line
+*   67, LOGINBP holding spaces.
+*
+*   IT WORKED THIS MORNING because the FM filled the gap itself:
+*
+*       * IF loginbp IS INITIAL AND sy-sysid <> 'E30'.
+*       *   loginbp = lc_test_bp.
+*       * ENDIF.
+*
+*   That block is commented out now, and CJS was relying on it without
+*   anything saying so. A dev-only hardcode in a legacy FM is not a
+*   channel to depend on - the FM is not in this repository and cannot be
+*   changed from here - so the partner travels in the payload where the
+*   read already put it.
+*
+*   SAME PRECEDENCE AS READ( ): the session's resolved partner first, the
+*   dev `&loginbp=` override second. PARAM4 carries ROLEBP because the FM
+*   defaults ROLEBP from LOGINBP when it is blank, and letting it do that
+*   silently would post one partner as though it were the other.
+    ls_hdr-param3 = COND #( WHEN iv_loginbp IS NOT INITIAL
+                            THEN iv_loginbp
+                            ELSE ms_config-backend-loginbp_dev ).
+    ls_hdr-param4 = ms_config-backend-rolebp.
+
     CONSTANTS c_caller_fld TYPE string VALUE 'ZCJS_CALLER'.
     CONSTANTS c_caller_id  TYPE string VALUE 'CJS'.
 
