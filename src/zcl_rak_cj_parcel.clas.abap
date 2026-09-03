@@ -257,6 +257,25 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   COLUMNS are the live dialog's own headers, so the tab that appears
 *   when GET_EXPANDED_ENTITYSET is solved is this one with rows in it -
 *   not a redesign. IV_COLS is caret-separated.
+*   ---- General, which never needed the expand read --------------------
+*   THREE OF ITS FOUR COLUMNS ARE ALREADY IN HAND. Area Name, Address and
+*   Property Type are AREATEXT, ADDRESS and TYPE on the flat
+*   PropertiesSet row the card in front of the citizen was drawn from -
+*   ZCL_ZEGA_CJ_DPC_EXT fills all three in PROPERTIESSET_GET_ENTITYSET,
+*   the read CJS already makes.
+*
+*   So this tab was showing "not available yet" over data it was holding.
+*   It got lumped in with the other five because they are drawn by one
+*   loop and ToProject is in its header, and only Active Projects
+*   actually comes from ToProject.
+*
+*   The other five are genuinely blocked and stay as they are: ToPartner,
+*   ToLandUse, ToDevelopment, ToMeasurement and ToAttachment have no flat
+*   equivalent anywhere in the service.
+    METHODS general_tab
+      IMPORTING io_bar TYPE REF TO z2ui5_cl_xml_view
+                iv_pid TYPE string.
+
     METHODS blocked_tab
       IMPORTING io_bar  TYPE REF TO z2ui5_cl_xml_view
                 iv_key  TYPE string
@@ -1597,7 +1616,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       listener exists is simply dropped. Miss the window and the map
 *       never draws; catch it and it does. That is the whole of
 *       "sometimes working, sometimes not".
-        |var o="{ lv_jorg }";var n=0;var k=0;var IN=[];| &&
+        |var o="{ lv_jorg }";var n=0;var k=0;var IN=[];var A=0;| &&
         |var L=(f.dataset.rakLoaded==="1")?1:0;| &&
 *       THE GUARD SITS HERE, after the state it reports and before the
 *       work it prevents. It used to be the first thing after the element
@@ -1628,16 +1647,33 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         |try\{IN.push(typeof e.data==="string"?e.data| &&
         |:JSON.stringify(e.data));\}catch(x)\{IN.push("[unreadable]");\}| &&
         |if(IN.length>4)\{IN.shift();\}| &&
-*       ONE POST IN ANSWER, AND NO MORE - the reply proves the listener
-*       is attached, so this is the post that cannot be missed, and the
-*       backoff below stops itself once IN has anything in it.
+*       ONE POST IN ANSWER, AND NO MORE - AND `A` IS WHAT MAKES THAT
+*       TRUE. It used to say this and not do it: s( ) ran on EVERY
+*       inbound message, and the viewer's own messages are inbound
+*       messages. So the viewer answering "Error In Finding Plot Number
+*       202040187" triggered another post, DefconReciveMessage called
+*       DefconAuth( ) again, the lookup failed again, and that error was
+*       another message. A FEEDBACK LOOP with the viewer, and the five
+*       stacked error toasts on screen are five laps of it - not five
+*       retries, which is what it looked like and why it read as the
+*       backoff being too aggressive.
+*
+*       The backoff was never the problem here: it already stops itself
+*       on `if(IN.length){return;}` the moment anything arrives. Only
+*       this handler kept posting, and nothing bounded it.
+*
+*       So the answering post happens once. A reply proves the listener
+*       is attached, which is the one post that cannot be missed;
+*       everything after that is the viewer talking to itself through
+*       us. R( ) still runs each time, because the note showing what the
+*       viewer said should keep up with what it last said.
 *
 *       IT DOES NOT DISMISS THE OVERLAY. A reply means the viewer is
 *       alive and talking, which is not the same as a map that has
 *       drawn - an early handshake would have taken the spinner away and
 *       left a blank frame behind it. The grace and the CSS fallback own
 *       that decision.
-        |s();R();\});| &&
+        |if(!A)\{A=1;s();\}R();\});| &&
 *       A FEW POSTS ON A BACKOFF - NOT A DRUMBEAT. This matters more than
 *       the window length, and getting it wrong is what turned a race
 *       into a stampede.
@@ -1892,9 +1928,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   ---- the six behind GET_EXPANDED_ENTITYSET. Drawn with the LIVE
 *   dialog's own column headers so that filling them later is a data call
 *   and not a redesign - see doc/controls/shapeit-reads.md.
-    blocked_tab( io_bar = lo_bar iv_key = 'GEN'  iv_exp = 'ToProject'
-                 iv_text = t( iv_en = `General` iv_ar = `عام` )
-                 iv_cols = `Area Name^Address^Property Type^Active Projects` ).
+    general_tab( io_bar = lo_bar iv_pid = lv_pid ).
     blocked_tab( io_bar = lo_bar iv_key = 'BP'   iv_exp = 'ToPartner'
                  iv_text = t( iv_en = `Business Partners` iv_ar = `الشركاء` )
                  iv_cols = `Role^BP number^Name^Valid From` ).
@@ -1948,6 +1982,86 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     lo_dlg->buttons( )->button( text  = t( iv_en = `Close` iv_ar = `إغلاق` )
                                 press = mo_e->mo_client->_event( |{ c_pfx }CLOSE| ) ).
     rv_drawn = abap_true.
+  ENDMETHOD.
+
+
+  METHOD general_tab.
+    DATA(lo_v) = io_bar->icon_tab_filter(
+                   key  = 'GEN'
+                   text = t( iv_en = `General` iv_ar = `عام` ) )->content( )->vbox( ).
+
+*   THE SAME PADDED/TRIMMED RESOLUTION TOGGLE( ) AND PICK( ) DO, and for
+*   the same reason: a card press carries whichever form the button was
+*   built with, while the row holds the service's own. Comparing one
+*   spelling against the other finds nothing and draws an empty tab over
+*   a parcel that is right there in the list.
+    DATA(lv_want) = iv_pid.
+    SHIFT lv_want LEFT DELETING LEADING '0'.
+
+    DATA ls_hit TYPE zcl_rak_property_api=>ty_prop_row.
+    LOOP AT rows( ) INTO DATA(ls_r).
+      DATA(lv_k) = cell( is_row = ls_r iv_comp = 'PARCELID' ).
+      IF lv_k IS INITIAL.
+        lv_k = cell( is_row = ls_r iv_comp = 'BUILDING' ).
+      ENDIF.
+      DATA(lv_kt) = lv_k.
+      SHIFT lv_kt LEFT DELETING LEADING '0'.
+      IF lv_kt = lv_want AND lv_want IS NOT INITIAL.
+        ls_hit = ls_r.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+
+*   NO ITEMS BINDING, deliberately - BLOCKED_TAB( ) calls table( ) the
+*   same way. The single row below is a literal ColumnListItem in the
+*   items aggregation, which UI5 renders as one static row; a binding
+*   would need a model member and there is nothing to bind.
+    DATA(lo_t) = lo_v->table( ).
+    DATA(lo_h) = lo_t->columns( ).
+    lo_h->column( )->text( t( iv_en = `Area Name`       iv_ar = `اسم المنطقة` ) ).
+    lo_h->column( )->text( t( iv_en = `Address`         iv_ar = `العنوان` ) ).
+    lo_h->column( )->text( t( iv_en = `Property Type`   iv_ar = `نوع العقار` ) ).
+    lo_h->column( )->text( t( iv_en = `Active Projects` iv_ar = `المشاريع النشطة` ) ).
+
+    DATA(lv_area) = cell( is_row = ls_hit iv_comp = 'AREATEXT' ).
+    IF lv_area IS INITIAL.
+      lv_area = cell( is_row = ls_hit iv_comp = 'SECTORTEXT' ).
+    ENDIF.
+    DATA(lv_addr) = cell( is_row = ls_hit iv_comp = 'ADDRESS' ).
+    DATA(lv_type) = cell( is_row = ls_hit iv_comp = 'TYPE' ).
+
+*   ONE ROW, DRAWN BY HAND. Binding the whole list here would show every
+*   parcel the citizen owns inside a dialog opened about ONE of them.
+    DATA(lo_row) = lo_t->items( )->column_list_item( )->cells( ).
+    lo_row->text( zcl_rak_journey_util=>esc( lv_area ) ).
+    lo_row->text( zcl_rak_journey_util=>esc( lv_addr ) ).
+    lo_row->text( zcl_rak_journey_util=>esc( lv_type ) ).
+
+*   ACTIVE PROJECTS IS THE ONE COLUMN THAT REALLY IS BLOCKED. It is a
+*   count over ToProject, which only GET_EXPANDED_ENTITY returns, so an
+*   em dash rather than a 0 - a zero here would state that this parcel
+*   has no active projects, which is not something this read knows.
+    lo_row->text( `—` ).
+
+    IF lv_addr IS INITIAL AND lv_area IS INITIAL AND lv_type IS INITIAL.
+*     Nothing matched. Says which parcel it looked for, because the two
+*     ways this happens - a key spelled differently, and a dialog opened
+*     from a list that has since been re-read - are indistinguishable
+*     otherwise.
+      lo_v->message_strip(
+        text     = |{ t( iv_en = `No details found for parcel `
+                         iv_ar = `لم يتم العثور على تفاصيل للقطعة ` ) }{ iv_pid }|
+        type     = 'Warning'
+        showicon = abap_true
+        class    = 'sapUiTinyMarginTop' ).
+    ELSE.
+      lo_v->message_strip(
+        text     = t( iv_en = `Active Projects comes from the PropertiesSet(key) $expand read, which is not wired yet.`
+                      iv_ar = `عدد المشاريع النشطة يأتي من قراءة PropertiesSet(key) بـ $expand، وهي غير مُهيأة بعد.` )
+        type     = 'Information'
+        showicon = abap_true
+        class    = 'sapUiTinyMarginTop' ).
+    ENDIF.
   ENDMETHOD.
 
 
