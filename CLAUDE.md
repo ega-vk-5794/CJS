@@ -132,6 +132,28 @@ This shows up in several places that all trace back to the same rule:
 - **The PAID gate (above) and the case guid are two ends of the same rule.** A case's payment
   status and its identity must always refer to the same underlying application — never re-derive
   either independently in handler code.
+- **The journey key is NOT always the case id, and the payment path needs the case.**
+  `DFKKOP-ZZEXT_KEY` is a case id. On DOK and EPDA the backend re-points the journey key at
+  the case the moment `CREATE_CASE` runs, so the key *is* the case and the whole payment path
+  worked by coincidence. On **Municipality it does not**: the create makes an RE rental object
+  and the key stays its INTRENO (`IM00100123344`) while the case is a separate number
+  (`1959738`). The gate searched `DFKKOP` for that INTRENO — matching nothing, for ever —
+  while the citizen watched the timer under "Complete your payment in the new tab".
+  `ZCL_RAK_JOURNEY_LOGIC->CASE_KEY_OF( )` is the one resolver, and it is **not a new lookup**:
+  it is the first two branches of `ZCL_RAK_PAY_ENGINE->RESOLVE_CASE( )`, which has always known
+  both shapes — `SCMG_T_CASE_ATTR-EXT_KEY` for a case, `VIBDCHARACT-SUPPLEMENTINFO` under
+  `FIXFITCHARACT = 'CJ12'` for an INTRENO. The pay engine resolved correctly and the *gate in
+  front of it* did not, so the gate refused before the engine was ever asked. Three things hold
+  it together and each has already been got wrong: **resolve at every read, never once at
+  write** — `TAKE_CASE( )` publishes whatever the backend returned, which on Municipality is
+  the INTRENO, so a resolved-and-cached `CASE_NUMBER` is resolved too early; **blank means wait
+  for the case, not "no fee yet"** — both are legitimate not-yet states and only one is fixed
+  by waiting for billing, so saying the wrong one sends the reader to the wrong place; and
+  **both selects stay wrapped in `CATCH cx_root`** — a journey key can be a `GUID_22` with
+  punctuation in it, and an `SCMG_EXT_KEY` comparison against one raises
+  `CX_SY_OPEN_SQL_DATA_ERROR` rather than simply missing, mid-payment with the gateway open in
+  another tab. `IV_CASEID` takes the resolved case; `IV_INTRENO` keeps the raw key. They are
+  different parameters and were being handed the same value.
 
 ## Silent-failure traps
 
