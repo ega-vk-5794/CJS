@@ -167,7 +167,8 @@ CLASS lcl_fix IMPLEMENTATION.
       WRITE: / 'STILL TO DO IN THE STUDIO - not mechanical, not attempted here'
                COLOR col_group.
       ULINE.
-      LOOP AT worklist( ) INTO DATA(ls_t).
+      DATA(lt_todo) = worklist( ).
+      LOOP AT lt_todo INTO DATA(ls_t).
         WRITE: / ls_t-ticket, 12 ls_t-jrny, 20 ls_t-what.
       ENDLOOP.
     ENDIF.
