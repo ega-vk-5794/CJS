@@ -153,7 +153,18 @@ This shows up in several places that all trace back to the same rule:
   punctuation in it, and an `SCMG_EXT_KEY` comparison against one raises
   `CX_SY_OPEN_SQL_DATA_ERROR` rather than simply missing, mid-payment with the gateway open in
   another tab. `IV_CASEID` takes the resolved case; `IV_INTRENO` keeps the raw key. They are
-  different parameters and were being handed the same value.
+  different parameters and were being handed the same value. **The resolver is
+  identity-fallback and must stay that way** — it sets its answer to the key it was given
+  first and overwrites it only on a confirmed hit, so every exit (both `CATCH` blocks
+  included) leaves the caller holding exactly what it passed in. That is the whole reason
+  the change is safe for DOK and EPDA, which pay on the raw key and do so whether or not
+  `SCMG_T_CASE_ATTR` answers at the moment Pay is pressed. The first version returned
+  **blank** when it could not confirm a case and the gate refused on blank — which would
+  have blocked two families that have never depended on a case-attribute row. `IS_CASE`
+  reports only whether a case was *confirmed*, and it picks the **wording** of a wait,
+  never the control flow. Resist making any of this Municipality-specific: a family branch
+  has to be kept right as families are added, whereas identity fallback is right by
+  construction.
 
 ## Silent-failure traps
 
