@@ -213,6 +213,23 @@ These raise nothing and render nothing. They account for most of the bugs found 
 - **`type = 'Number'` on a non-numeric value** renders an empty `sap.m.Input`.
 - **A step whose `BKND_SCREEN` has no legacy configuration rows** renders, validates and posts, and
   creates nothing. `ZCL_RAK_CJS_XCHECK` exists for this; it runs in the Studio on load and save.
+- **`/QNV/SB_UI_DEFIN` is only half the screen contract, and Municipality runs on the other
+  half.** DOK and EPDA BAdIs branch on the screen *name* (`IF cs_general_data-screenname EQ
+  'ND026_1_2'`) — X03/X04/X11/X12 cover that. `ZCL_EGA_CJ_FW_RO_ABS_V1`, which every M journey
+  posts through, uses the name as a **key into `ZEGA_T_CJ_UI_MAP`** and then runs each operation
+  only where an `OBJECTKEY` row exists: `ATTACHMENT` → `GET_ATTACHMENT( )`, `PLDTL` →
+  `GET_PARCELS( )`, `INITIAL`/`FINAL` → `GET_FEES( )`, `CPG_1`/`CPG_2` → the gateway block, and
+  **`FEES_1` → `PAYMENT_CHECK( )` + `CREATE_DUMMY_CASE( )`**, which is the only thing that creates
+  the container case. A screen correct in `/QNV` and missing from the map posts, returns success,
+  and does nothing — and on the fee step that is the gateway opening against a case with no open
+  item. Rule **X16** checks it, from the CJS side: it derives what each step needs from the step's
+  own fields (an `UPLOAD` field wants `ATTACHMENT`, `PARCEL` wants `PLDTL`, `PAYFEE` wants
+  `FEES_*`) and reports only what is both needed and unmapped, so a DOK/EPDA journey with no map
+  rows gets one note rather than a page of false blockers. **CJS never reads that table at
+  runtime and must not start** — the engine sends a screen name and the department's map decides
+  the rest, which is what keeps a legacy table rename out of the engine. X16 resolves the table
+  **and** its columns dynamically for the same reason; when the map is renamed, add the new name
+  to `LT_TAB` in X16 and nothing else changes.
 - **`ftype = 'TABLE'` never reaches `RENDER_FIELD( )`.** `RENDER_BLOCK( )` answers TABLE itself -
   it calls `GET_TABLE( )` and draws the grid there - so a TABLE field never passes through
   `RENDER_ONE( )`, the only caller of the handler hook. Claiming one in `RENDER_FIELD( )` is dead
