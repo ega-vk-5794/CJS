@@ -98,7 +98,7 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   the thing being looked at is the thing that was just written, which
 *   is the question that has to be answered FIRST every time and until
 *   now could only be inferred. Bump it with the header stamp.
-    CONSTANTS c_build TYPE string VALUE 'mun-5'.
+    CONSTANTS c_build TYPE string VALUE 'mun-6'.
 
     METHODS constructor
       IMPORTING io_engine TYPE REF TO zcl_rak_journey_engine.
@@ -1866,8 +1866,12 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         |if(L)\{G();\}R();return;\}| &&
         |f.dataset.rakPosted=m.parcelId;| &&
         |function s()\{try\{f.contentWindow.postMessage(m,o);n++;\}catch(e)\{\}\}| &&
+*       C( ) RATHER THAN ONE s( ). See the cluster below for why one post
+*       at load is not enough: the viewer's listener is registered by its
+*       own script after the ArcGIS API is required, which begins at load
+*       and ends at an unknown time after it.
         |f.addEventListener("load",function()\{| &&
-        |f.dataset.rakLoaded="1";L=1;s();R();G();\});| &&
+        |f.dataset.rakLoaded="1";L=1;R();G();C();\});| &&
 *       WHAT THE VIEWER SAYS BACK, kept and shown. The frame is
 *       cross-origin, so its console and its DOM are both unreadable from
 *       here - a postMessage is the ONLY thing it can tell us, and until
@@ -1947,11 +1951,49 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *       and a slow listener misses it, too late and a drawn map is
 *       restarted - and 3.5s is the least-bad point given that 2.5s was
 *       observed to work more often than not.
-        |var DL=[250,750,1750,3500];| &&
+*       ANCHORED TO THE FRAME'S LOAD, NOT TO THIS SNIPPET'S START. That
+*       is the whole change, and it is aimed at the one failure this
+*       comment already named: "it failed only when the listener attached
+*       after the cluster."
+*
+*       The cluster ran at 250/750/1750/3500ms from MARKUP INSERTION. But
+*       nothing about the viewer is measured from there - what varies,
+*       and varies by seconds, is how long the viewer's own document
+*       takes to load and authenticate. On a warm cache the cluster lands
+*       after the listener and the map draws; on a cold one every post in
+*       it is dropped before the listener exists. Same code, same parcel,
+*       different outcome: "sometimes renders, sometimes not".
+*
+*       A post already went out on LOAD, and it is not enough on its own.
+*       gismappingIM.js registers its message listener from its own
+*       script, after the ArcGIS API has been required - work that STARTS
+*       at load and finishes some unknown time later. So a single post at
+*       load can still arrive before the listener, and when it does there
+*       is nothing behind it.
+*
+*       C( ) is therefore three posts measured from load: now, +400ms and
+*       +1200ms, then silence. The last is comfortably past an async init
+*       that begins at load, and the quiet tail after it is the mechanism
+*       the whole of fault 4 and 5 came down to - the last post must have
+*       an uninterrupted run behind it, because every post restarts the
+*       viewer's map.
+*
+*       THE START-ANCHORED CLUSTER IS GONE, and removing it is a fix in
+*       itself rather than a tidy-up. Its posts either landed before the
+*       listener - wasted - or, worse, landed just after a fast frame had
+*       drawn, restarting a map that was already correct. The single
+*       immediate s( ) below stays: it costs one message and catches a
+*       frame that is already loaded and listening.
+*
+*       AND A FLOOR, because LOAD IS NOT GUARANTEED. A preserved iframe
+*       that completed on an earlier open fires no load event for this
+*       one. Ten seconds with no load, and the cluster runs anyway.
+        |function C()\{var DL=[0,400,1200];| &&
         |for(var i=0;i<DL.length;i++)\{| &&
         |(function(d)\{setTimeout(function()\{| &&
         |if(IN.length)\{return;\}| &&
-        |k++;s();R();\},d);\}(DL[i]));\}| &&
+        |k++;s();R();\},d);\}(DL[i]));\}\}| &&
+        |setTimeout(function()\{if(!L)\{C();\}\},10000);| &&
 *       A RESIZE NUDGE, once, after the dialog has finished opening.
 *
 *       Chrome present and canvas blank is the classic signature of an

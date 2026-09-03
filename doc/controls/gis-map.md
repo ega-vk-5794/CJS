@@ -23,8 +23,42 @@ screenshot. In the order they had to be fixed:
 long window.** The last post must be early enough that an uninterrupted run
 follows it. `map-fix-16` worked whenever it worked because its counter bug
 clustered 6 posts inside 2.5s and then went silent — the silence was the
-mechanism, not the retrying. The schedule is now `0, 250, 750, 1750, 3500` ms and
-then nothing, stopping early if the viewer replies.
+mechanism, not the retrying.
+
+### 6 — and the tail was measured from the wrong end
+
+The schedule that came out of 4 and 5 was `0, 250, 750, 1750, 3500` ms **from
+markup insertion**, and it left the map intermittent. Nothing about the viewer is
+measured from there. What varies, and varies by seconds, is how long the viewer's
+own document takes to load and authenticate: on a warm cache the cluster lands
+after its listener and the map draws, on a cold one every post is dropped before
+the listener exists. Same code, same parcel, different outcome.
+
+A post already went out on the frame's `load`, and one is not enough on its own —
+`gismappingIM.js` registers its `message` listener from its own script *after* the
+ArcGIS API has been required, work that begins at `load` and ends an unknown time
+later.
+
+So the cluster is now anchored to `load`: **`load + 0, +400, +1200`, then
+silence**, stopping early if the viewer replies. The start-anchored cluster is
+gone, and removing it is a fix rather than a tidy-up — its posts either landed
+before the listener, wasted, or just after a fast frame had drawn, restarting a
+map that was already correct. A single immediate post stays, because it costs one
+message and catches a frame that is already loaded and listening. A floor at 10s
+runs the cluster anyway if `load` never fires, which is what a preserved iframe
+from an earlier open does.
+
+Simulated against a virtual clock before pushing, since this is the third schedule:
+
+| frame loads at | posts at | last post |
+| --- | --- | --- |
+| 200 ms | 0, 200, 600, 1400 | 1.2 s after load |
+| 2 s | 0, 2000, 2400, 3200 | 1.2 s after load |
+| 6 s | 0, 6000, 6400, 7200 | 1.2 s after load — **the case that used to fail** |
+| never | 0, 10000, 10400, 11200 | the floor |
+
+Every row ends in a quiet tail, which is the rule from 4 and 5, and the tail is now
+1.2 s after the viewer finished loading rather than 3.5 s after CJS drew markup.
 
 ### Two things that cannot be observed, and must not be guessed
 
