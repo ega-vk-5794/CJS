@@ -66,4 +66,21 @@ CLASS lcl_event_receiver IMPLEMENTATION.
         go_editor->property_icon_click( EXPORTING e_row_id = e_row_id e_column_id  = e_column_id es_row_no = es_row_no ).
     ENDCASE.
   ENDMETHOD.
+  METHOD data_changed.
+    CASE sender.
+      WHEN go_editor->lo_property_grid.
+        go_editor->property_data_changed( EXPORTING er_data_changed = er_data_changed
+                                                    e_onf4          = e_onf4
+                                                    e_onf4_before   = e_onf4_before
+                                                    e_onf4_after    = e_onf4_after
+                                                    e_ucomm         = e_ucomm ).
+    ENDCASE.
+  ENDMETHOD.
+  METHOD data_changed_finished.
+    CASE sender.
+      WHEN go_editor->lo_property_grid.
+        go_editor->property_data_changed_finished( EXPORTING e_modified    = e_modified
+                                                             et_good_cells = et_good_cells ).
+    ENDCASE.
+  ENDMETHOD.
 ENDCLASS.

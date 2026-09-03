@@ -25,7 +25,15 @@ CLASS lcl_event_receiver DEFINITION.
       hotspot_click
         FOR EVENT hotspot_click
         OF cl_gui_alv_grid
-        IMPORTING sender e_row_id e_column_id es_row_no.
+        IMPORTING sender e_row_id e_column_id es_row_no,
+      data_changed
+        FOR EVENT data_changed
+        OF cl_gui_alv_grid
+        IMPORTING sender er_data_changed e_onf4 e_onf4_before e_onf4_after e_ucomm,
+      data_changed_finished
+        FOR EVENT data_changed_finished
+        OF cl_gui_alv_grid
+        IMPORTING sender e_modified et_good_cells.
 
 
 ENDCLASS.
@@ -73,7 +81,8 @@ CLASS lcl_editor DEFINITION.
           lt_prop               TYPE tt_properties,
           lc_event_receiver     TYPE REF TO lcl_event_receiver,
           lo_line_behaviour     TYPE REF TO cl_dragdrop,
-          lo_fav_behaviour      TYPE REF TO cl_dragdrop.
+          lo_fav_behaviour      TYPE REF TO cl_dragdrop,
+          mv_selected_node      TYPE lvc_nkey.
 
     METHODS:
       constructor,
@@ -95,6 +104,13 @@ CLASS lcl_editor DEFINITION.
       property_icon_click IMPORTING e_row_id    TYPE  lvc_s_row
                                     e_column_id TYPE  lvc_s_col
                                     es_row_no   TYPE  lvc_s_roid,
+      property_data_changed IMPORTING er_data_changed	TYPE REF TO	cl_alv_changed_data_protocol
+                                      e_onf4          TYPE  char01
+                                      e_onf4_before   TYPE  char01
+                                      e_onf4_after    TYPE  char01
+                                      e_ucomm         TYPE  sy-ucomm,
+      property_data_changed_finished IMPORTING e_modified    TYPE  char01
+                                               et_good_cells TYPE  lvc_t_modi,
       search_controls IMPORTING text TYPE any.
 
 ENDCLASS.
@@ -294,8 +310,13 @@ CLASS lcl_editor IMPLEMENTATION.
             e_new_node_key   = <ls_library>-id.
         LOOP AT <ls_library>-controls ASSIGNING FIELD-SYMBOL(<ls_control>).
           MOVE-CORRESPONDING <ls_control> TO ls_search_category.
-          ls_node-n_image   = icon_layout_control.
-          ls_node-exp_image = icon_layout_control.
+          IF <ls_control>-sapicon IS NOT INITIAL.
+            ls_node-n_image   = <ls_control>-sapicon.
+            ls_node-exp_image = <ls_control>-sapicon.
+          ELSE.
+            ls_node-n_image   = icon_layout_control.
+            ls_node-exp_image = icon_layout_control.
+          ENDIF.
           me->lo_line_behaviour->get_handle( IMPORTING handle = DATA(dnd_handle) ).
           ls_node-dragdropid = dnd_handle.
           CALL METHOD me->lo_controls->add_node
@@ -527,7 +548,11 @@ CLASS lcl_editor IMPLEMENTATION.
         it_fieldcatalog = lt_fcat[]
         it_outtab       = me->lt_prop.
 
+    me->lo_property_grid->register_edit_event( cl_gui_alv_grid=>mc_evt_modified ).
+    me->lo_property_grid->register_edit_event( cl_gui_alv_grid=>mc_evt_enter ).
+
     SET HANDLER lc_event_receiver->hotspot_click FOR me->lo_property_grid.
+    SET HANDLER lc_event_receiver->data_changed_finished  FOR me->lo_property_grid.
   ENDMETHOD.
   METHOD add_editor_node.
     me->lo_fav_behaviour->get_handle( IMPORTING handle = DATA(dnd_handle) ).
@@ -553,9 +578,10 @@ CLASS lcl_editor IMPLEMENTATION.
     CALL METHOD cl_gui_cfw=>flush.
   ENDMETHOD.
   METHOD select_editor_node.
-
+    me->lo_property_grid->check_changed_data( ).
     READ TABLE me->lt_editor INTO DATA(ls_editor) WITH KEY node_key = node_key.
     IF sy-subrc EQ 0.
+      me->mv_selected_node = node_key.
       READ TABLE me->lt_controls INTO DATA(ls_control)
       WITH KEY fullname = ls_editor-fullname BINARY SEARCH.
       IF sy-subrc EQ 0.
@@ -624,6 +650,14 @@ CLASS lcl_editor IMPLEMENTATION.
         ENDIF.
       WHEN 'BINDING'.
     ENDCASE.
+  ENDMETHOD.
+  METHOD property_data_changed.
+  ENDMETHOD.
+  METHOD property_data_changed_finished.
+    READ TABLE me->lt_editor ASSIGNING FIELD-SYMBOL(<ls_editor>) WITH KEY node_key = me->mv_selected_node.
+    IF sy-subrc EQ 0.
+      <ls_editor>-prop[] = me->lt_prop[].
+    ENDIF.
   ENDMETHOD.
   METHOD search_controls.
 *    DATA: lv_search TYPE string.
