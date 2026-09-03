@@ -476,18 +476,19 @@ START-OF-SELECTION.
   WRITE: / '  - Initial fees come from ZCL_EGA_MUN_CJ_FEES_M011'.
   WRITE: / '    ->GET_INITIAL_FEE. The estimated-remaining-fees link behind'.
   WRITE: / '    RAKREMAININGFEES is a separate read and is not identified.'.
-  WRITE: / '  - ATTACHMENT DOCUMENT TYPE IS NOT SENT. The legacy uploaders'.
-  WRITE: / '    carry DATA2 = 1/2/3 as the document type and the BAdI files'.
-  WRITE: / '    it as ZDT_EGA_CJ_ATTR-DIFFCRT. But'.
-  WRITE: / '    ZCL_RAK_JOURNEY_BE->ATTACHMENTS_FOR_BACKEND( ) sets only'.
-  WRITE: / '    identifier1/2, file_name and file_content, so DIFFCRT'.
-  WRITE: / '    arrives blank - and CREATE_ATTACHMENT only checks OBJTRG'.
-  WRITE: / '    and OBJSRC, so it passes silently. The case cannot then'.
-  WRITE: / '    tell a title deed from an Emirates ID, and because'.
-  WRITE: / '    GET_ATTACHMENT( ) de-duplicates on'.
-  WRITE: / '    (objsrc, diffcrt, objsrctype, objtrgtype), two files on ONE'.
-  WRITE: / '    field come back as one on re-read. That is why ATTACH_MULTI'.
-  WRITE: / '    is off on every uploader here. Affects M012 and M016 too.'.
+  WRITE: / '  - ATTACHMENT DOCUMENT TYPE IS SENT. Each uploader declares'.
+  WRITE: / '    its legacy DATA2 as DTYPE: in DEFAULT_VAL, and'.
+  WRITE: / '    ATTACHMENTS_FOR_BACKEND( ) writes it into the attachment'.
+  WRITE: / '    row - FILE_TYPE first in a candidate list, which is what'.
+  WRITE: / '    the BAdI reads and passes to CREATE_ATTACHMENT as DOC_TYPE'.
+  WRITE: / '    before filing it as ZDT_EGA_CJ_ATTR-DIFFCRT. The trace'.
+  WRITE: / '    line ATTACH names which component took it, so one run'.
+  WRITE: / '    cuts that list to the answer.'.
+  WRITE: / '  - ATTACH_MULTI IS STILL OFF, and the type does not change it.'.
+  WRITE: / '    Two files on the SAME field share a field and so share a'.
+  WRITE: / '    type, and GET_ATTACHMENT( ) de-duplicates on'.
+  WRITE: / '    (objsrc, diffcrt, objsrctype, objtrgtype). Multi-file needs'.
+  WRITE: / '    the OCCURRENCE key in identifier1 - a different mechanism.'.
   WRITE: / ''.
   WRITE: / 'REVIEW-TECH  (fields with no TECH_NAME, each deliberate)'.
   WRITE: / '  PARCELHINT  guidance paragraph, nothing to post'.

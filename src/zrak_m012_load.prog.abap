@@ -249,22 +249,21 @@ START-OF-SELECTION.
 *   ATTACH_MULTI IS OFF, and it is worth saying why because this is the one
 *   field on the three journeys where multiple files would be natural.
 *
-*   The legacy uploaders carry DATA2 = 1/2/3 as a document type, which the
-*   BAdI files as ZDT_EGA_CJ_ATTR-DIFFCRT. CJS does not send it:
-*   ZCL_RAK_JOURNEY_BE->ATTACHMENTS_FOR_BACKEND( ) sets only identifier1/2,
-*   file_name and file_content. So DIFFCRT arrives blank, and
-*   GET_ATTACHMENT( ) de-duplicates on
-*   ( objsrc, diffcrt, objsrctype, objtrgtype ) - all four of which are
-*   identical for two files uploaded to the SAME field. The second file is
-*   then dropped on re-read and the citizen sees one document where they
-*   attached two, with nothing anywhere reporting it.
+*   THE DOCUMENT TYPE IS SENT NOW, and ATTACH_MULTI still stays off. Those
+*   are two separate facts and this comment used to run them together.
 *
-*   ATTACH_MULTI STAYS OFF, and carrying the document type does not change
-*   that. ZCL_RAK_JOURNEY_BE now sends DIFFCRT where the field declares one
-*   - which is what lets a case tell a title deed from an Emirates ID - but
-*   two files on the SAME field share a field and therefore share a type,
-*   so they still de-duplicate to one on re-read. Multi-file needs the
-*   OCCURRENCE key in identifier1, which is a different mechanism.
+*   ZCL_RAK_JOURNEY_BE->ATTACHMENTS_FOR_BACKEND( ) writes the field's
+*   declared DTYPE: into the attachment row - FILE_TYPE, which is what the
+*   BAdI reads and passes to CREATE_ATTACHMENT as DOC_TYPE before filing it
+*   as ZDT_EGA_CJ_ATTR-DIFFCRT. So a case can tell one document from
+*   another.
+*
+*   It does not make two files on ONE field distinguishable, because they
+*   share a field and therefore share a type, and GET_ATTACHMENT( )
+*   de-duplicates on ( objsrc, diffcrt, objsrctype, objtrgtype ) - all four
+*   identical. The second is dropped on re-read with nothing reporting it.
+*   Multi-file needs the OCCURRENCE key in identifier1, which is a
+*   different mechanism.
 *
 *   NMERGE_1_2's single UPLOADER carries no DATA2 at all, so this field
 *   declares no DTYPE: rather than inventing one.
@@ -427,15 +426,19 @@ START-OF-SELECTION.
   WRITE: / '    is NOT established - VALIDATE( ) has no such rule. If it'.
   WRITE: / '    permits one, this journey is stricter than the service it'.
   WRITE: / '    replaces, and that is the owning team''s call.'.
-  WRITE: / '  - ATTACHMENT DOCUMENT TYPE IS NOT SENT. The legacy uploaders'.
-  WRITE: / '    carry DATA2 = 1/2/3 as the document type and the BAdI files'.
-  WRITE: / '    it as ZDT_EGA_CJ_ATTR-DIFFCRT, but'.
-  WRITE: / '    ATTACHMENTS_FOR_BACKEND( ) sets only identifier1/2,'.
-  WRITE: / '    file_name and file_content - so DIFFCRT arrives blank and'.
-  WRITE: / '    passes the mandatory check. GET_ATTACHMENT( ) then'.
-  WRITE: / '    de-duplicates on (objsrc, diffcrt, objsrctype, objtrgtype),'.
-  WRITE: / '    so two files on ONE field come back as one. ATTACH_MULTI is'.
-  WRITE: / '    off on UPLOADER for that reason. Affects M011 and M016.'.
+  WRITE: / '  - ATTACHMENT DOCUMENT TYPE IS SENT. Each uploader declares'.
+  WRITE: / '    its legacy DATA2 as DTYPE: in DEFAULT_VAL, and'.
+  WRITE: / '    ATTACHMENTS_FOR_BACKEND( ) writes it into the attachment'.
+  WRITE: / '    row - FILE_TYPE first in a candidate list, which is what'.
+  WRITE: / '    the BAdI reads and passes to CREATE_ATTACHMENT as DOC_TYPE'.
+  WRITE: / '    before filing it as ZDT_EGA_CJ_ATTR-DIFFCRT. The trace'.
+  WRITE: / '    line ATTACH names which component took it, so one run'.
+  WRITE: / '    cuts that list to the answer.'.
+  WRITE: / '  - ATTACH_MULTI IS STILL OFF, and the type does not change it.'.
+  WRITE: / '    Two files on the SAME field share a field and so share a'.
+  WRITE: / '    type, and GET_ATTACHMENT( ) de-duplicates on'.
+  WRITE: / '    (objsrc, diffcrt, objsrctype, objtrgtype). Multi-file needs'.
+  WRITE: / '    the OCCURRENCE key in identifier1 - a different mechanism.'.
   WRITE: / ''.
   WRITE: / 'REVIEW-GRID'.
   WRITE: / '  PARCELS columns are read from GET_PL_TABLE( ) FIELD1..FIELD7'.

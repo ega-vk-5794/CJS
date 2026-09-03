@@ -213,22 +213,20 @@ START-OF-SELECTION.
 *   CT_ATTACMENTS-FILE_TYPE, passes it to CREATE_ATTACHMENT as DOC_TYPE, and
 *   files it as ZDT_EGA_CJ_ATTR-DIFFCRT.
 *
-*   REVIEW-BE, AND THIS ONE IS NOT COSMETIC: CJS DOES NOT SEND IT.
-*   ZCL_RAK_JOURNEY_BE->ATTACHMENTS_FOR_BACKEND( ) sets identifier1,
-*   identifier2, file_name and file_content and nothing else, so FILE_TYPE
-*   arrives blank and every document is filed with a blank DIFFCRT.
-*   CREATE_ATTACHMENT's own mandatory check only tests OBJTRG and OBJSRC, so
-*   a blank type passes silently. Two consequences:
+*   AND CJS SENDS IT NOW. This block said the opposite, in capitals, and
+*   the correction is worth the words: each uploader declares its DATA2 as
+*   DTYPE: in DEFAULT_VAL, and ZCL_RAK_JOURNEY_BE->ATTACHMENTS_FOR_BACKEND( )
+*   writes it into CT_ATTACMENTS-FILE_TYPE - the component the BAdI reads,
+*   not DIFFCRT, which is only where the value ends up.
 *
-*     - the case cannot tell a title deed from a site plan;
-*     - GET_ATTACHMENT( ) de-duplicates on
-*       ( objsrc, diffcrt, objsrctype, objtrgtype ), so two files uploaded to
-*       ONE field come back as one - the newest - on re-read.
+*   ATTACH_MULTI IS STILL OFF, and the type does not change that. Two files
+*   on the SAME field share a field and therefore share a type, so
+*   GET_ATTACHMENT( )'s de-duplication on
+*   ( objsrc, diffcrt, objsrctype, objtrgtype ) still collapses them to one
+*   - the newest - on re-read. Multi-file needs the OCCURRENCE key in
+*   identifier1, which is a different mechanism. One file per field remains
+*   the shape that survives a round trip.
 *
-*   identifier1 does carry the CJS field name, so the documents are not
-*   indistinguishable, and a BAdI could map field name to type. But nothing
-*   does that today. ATTACH_MULTI is therefore left OFF on every uploader
-*   here: one file per field is the shape that survives a round trip.
 *   UPLOADER - parent UPLOADERBOX, optional, and the ONE uploader M011 does
 *   not have. It carries no DATA2 at all, where the other three carry 1, 2
 *   and 3, so it is not one of the numbered document types.
@@ -427,16 +425,19 @@ START-OF-SELECTION.
   WRITE: / '  - USAGETYPE''s TECH_NAME is a GUESS. The legacy control has no'.
   WRITE: / '    TECHNICAL_NAME, so the name the backend expects is unknown.'.
   WRITE: / '    A wrong one posts nothing, silently.'.
-  WRITE: / '  - ATTACHMENT DOCUMENT TYPE IS NOT SENT. The legacy uploaders'.
-  WRITE: / '    carry DATA2 = 1/2/3 as the document type; the BAdI files it'.
-  WRITE: / '    as ZDT_EGA_CJ_ATTR-DIFFCRT. ATTACHMENTS_FOR_BACKEND( ) sets'.
-  WRITE: / '    only identifier1/2, file_name and file_content, so DIFFCRT'.
-  WRITE: / '    arrives blank and passes the mandatory check. The case then'.
-  WRITE: / '    cannot tell a title deed from a site plan, and because'.
-  WRITE: / '    GET_ATTACHMENT( ) de-duplicates on'.
-  WRITE: / '    (objsrc, diffcrt, objsrctype, objtrgtype), two files on one'.
-  WRITE: / '    field come back as one. ATTACH_MULTI is off everywhere here'.
-  WRITE: / '    for that reason. Affects M011 and M012 identically.'.
+  WRITE: / '  - ATTACHMENT DOCUMENT TYPE IS SENT. Each uploader declares'.
+  WRITE: / '    its legacy DATA2 as DTYPE: in DEFAULT_VAL, and'.
+  WRITE: / '    ATTACHMENTS_FOR_BACKEND( ) writes it into the attachment'.
+  WRITE: / '    row - FILE_TYPE first in a candidate list, which is what'.
+  WRITE: / '    the BAdI reads and passes to CREATE_ATTACHMENT as DOC_TYPE'.
+  WRITE: / '    before filing it as ZDT_EGA_CJ_ATTR-DIFFCRT. The trace'.
+  WRITE: / '    line ATTACH names which component took it, so one run'.
+  WRITE: / '    cuts that list to the answer.'.
+  WRITE: / '  - ATTACH_MULTI IS STILL OFF, and the type does not change it.'.
+  WRITE: / '    Two files on the SAME field share a field and so share a'.
+  WRITE: / '    type, and GET_ATTACHMENT( ) de-duplicates on'.
+  WRITE: / '    (objsrc, diffcrt, objsrctype, objtrgtype). Multi-file needs'.
+  WRITE: / '    the OCCURRENCE key in identifier1 - a different mechanism.'.
   WRITE: / '  - The domain validations run in the BAdI on post and are not'.
   WRITE: / '    re-implemented in CJS. See ZCL_RAK_MUN_LOGIC.'.
   WRITE: / '  - Fees come from ZCL_EGA_MUN_CJ_FEES_M016->GET_INITIAL_FEE.'.
