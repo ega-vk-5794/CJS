@@ -309,65 +309,59 @@ START-OF-SELECTION.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 10
       field_name = 'PAYFEE' ftype = 'PAYFEE'
       zlabel = 'Payment' zlabel_ar = 'الدفع' )
-*   ---- THE PAYMENT SERVICE IS NOT THIS JOURNEY ------------------------
-*   THREE CARRIERS, AND THEY MUST BE SET TOGETHER. PREPARE_PAYMENT( )
-*   reads PAY_SCREEN, PAY_JOURNEY and PAY_CATEGORY and overlays them onto
-*   the config it hands the bridge, so the gateway read goes to a
-*   different SERVICE from the rest of the journey - different screen,
-*   different BE journey, different category. Setting one and not the
-*   other two aims the read at a screen the wrong BAdI answers.
+*   ---- PAY_SCREEN ONLY. NEVER PAY_JOURNEY, NEVER PAY_CATEGORY --------
+*   THE JOURNEY TYPE MUST NOT CHANGE, and setting PAY_JOURNEY changes it.
+*   PREPARE_PAYMENT( ) overlays that value onto LS_CFG-BACKEND-JOURNEY,
+*   the bridge sends it as CS_HEADER-PARAM2, and ZFM_EGA_CJ_FW_READ_N does
 *
-*   THIS ROW USED TO SAY NCBR_1_3 AND THAT WAS WRONG. The
-*   reasoning was that PREPARE_PAYMENT( )'s own message names "the
-*   payment step's own BKND_SCREEN", so the step's screen must be it.
-*   The debugger says otherwise (observed on M011, same shape here):
-*   MT_UI_MAP comes back holding one row - INITIAL - so the CPG block is
-*   skipped and the read answers the fee screen's own fields
-*   perfectly while carrying no MERCHANTID, no PAYCHANNEL, no
-*   REFERENCEID and no address of any kind. Nothing errors. That is what
-*   the poll waited 48 ticks for.
+*       IF journeytype IS INITIAL.
+*         journeytype = cs_header-param2.
+*       ENDIF.
+*       GET BADI cj_badi FILTERS journey_type = journeytype.
 *
-*   The same case read under NPAY_1_1 / PG01 / PAY answers in full -
-*   AMOUNT, MERCHANTID, SERVICEID, SECRETKEY, REFERENCEID, PAYCHANNEL,
-*   REDIRECTURL. So the payment screen sits under its own category, which
-*   is exactly the case these three carriers exist for.
+*   so the filter selects on whatever PAY_JOURNEY said. Setting it to PAY
+*   was tried: the debugger showed CS_HEADER-PARAM2 = PAY and
+*   JOURNEYTYPE = PAY, the filter matched no Municipality implementation,
+*   and the read came back with 23 CPG definition keys and every one of
+*   them empty. The screen existed; the BAdI behind it did not.
 *
-*   NSUBDIVISION_1_4 IS NOT IT EITHER, and that is worth writing down
-*   because ZEGA_T_CJ_UI_MAP does carry a CPG_1 row against it. A row in
-*   the map is not the same as the screen the payload comes back on: the
-*   map is keyed per journey and this journey's gateway lives in the PAY
-*   service. Reading the map and following it here was tried and aimed at
-*   the wrong screen.
+*   PAY_JOURNEY AND PAY_CATEGORY ARE FOR A DIFFERENT SCENARIO and are
+*   correctly blank here. Once a case exists it can also be paid from the
+*   standalone payment application, which is a different journey under a
+*   different category - that is what those two carriers are for. This
+*   journey pays inside itself, so both stay unset and the engine keeps
+*   the journey's own M0xx / MML.
+*
+*   ONLY THE SCREEN MOVES. ZEGA_T_CJ_UI_MAP puts the fee list and the
+*   gateway on two different screens of the same journey:
+*
+*       M011   INITIAL NSUBDIVISION_1_3   CPG_1 NSUBDIVISION_1_4
+*       M012   INITIAL NMERGE_1_3         CPG_1 NMERGE_1_4
+*       M016   INITIAL NCBR_1_3           CPG_1 NCBR_1_4
+*
+*   CJS reads *_1_3, which is why the fee total displays and the case is
+*   created, and why the gateway never resolved. The CPG_1 rows are the
+*   only ones in the whole table - MP00..MP04, the standalone payment
+*   journeys, carry none - so this is where the payload comes from.
+*
+*   LOOKED UP, NOT COMPUTED. The gap is not a fixed offset: M017 is
+*   _1_2 / _1_3, M018 _1_5 / _1_6, M028 _1_4 / _1_6, M030 puts CPG_1 on
+*   _1_11. Read it off the map per journey.
+*
+*   HIDDEN AND READONLY: configuration, not something a citizen sees. It
+*   still posts, which is harmless - FLATTEN_KV( ) filters on TYPE and
+*   not on either flag, so hiding it does not stop it reaching the model,
+*   which is where PREPARE_PAYMENT( ) reads it from.
 *
 *   DO NOT WAIT FOR APPLICATIONURL ON THIS ROUTE. ROUTE_GATEWAY( ) picks
-*   the route from ZDT_PG_DEP_MAP: an ATB department gets a ready-made
-*   APPLICATIONURL, everything else - PW_RB1 set and ATB_FLAG DISABLED,
-*   which is what M011 comes back as - goes to the standard CPG through
-*   the payments Web Dynpro, where no pre-built URL exists at all.
-*
-*   HIDDEN AND READONLY: configuration, not something a citizen sees.
-*   They still post, which is harmless - FLATTEN_KV( ) filters on TYPE
-*   and not on either flag, so hiding them does not stop them reaching
-*   the model, which is where PREPARE_PAYMENT( ) reads them from.
-*
-*   ZCL_RAK_CJS_XCHECK X16 CROSS-CHECKS THIS against the ShapeIt UI map
-*   offline, so a screen with no CPG_1/CPG_2 row is reported before a
-*   citizen meets it rather than after.
+*   from ZDT_PG_DEP_MAP - an ATB department gets a ready-made
+*   APPLICATIONURL, and everything else, which is what M011 comes back
+*   as, goes to the standard CPG where no pre-built URL exists.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 15
       field_name = 'PAY_SCREEN' ftype = 'DISPLAY'
       readonly = 'X' hidden = 'X'
-      default_val = 'NPAY_1_1'
+      default_val = 'NCBR_1_4'
       zlabel = 'Payment screen' zlabel_ar = 'شاشة الدفع' )
-    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 16
-      field_name = 'PAY_JOURNEY' ftype = 'DISPLAY'
-      readonly = 'X' hidden = 'X'
-      default_val = 'PAY'
-      zlabel = 'Payment BE journey' zlabel_ar = 'رحلة الدفع' )
-    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 17
-      field_name = 'PAY_CATEGORY' ftype = 'DISPLAY'
-      readonly = 'X' hidden = 'X'
-      default_val = 'PG01'
-      zlabel = 'Payment category' zlabel_ar = 'فئة الدفع' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 20
       field_name = 'TOTALVALUE' ftype = 'DISPLAY' readonly = 'X'
       hidden = 'X'
