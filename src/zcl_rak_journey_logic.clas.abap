@@ -1270,15 +1270,55 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
       lv_src = `built from REFERENCEID`.
     ENDIF.
 
+*   DID A PAYMENT SCREEN ANSWER AT ALL? The two ways of getting no address
+*   look identical from here and lead to completely different places, and
+*   the old message named neither of them.
+*
+*   ZCL_EGA_CJ_FW_RO_ABS_V1 builds the CPG payload only inside
+*   IF line_exists( mt_ui_map[ objectkey = 'CPG_1' ] ) OR ... 'CPG_2',
+*   and MT_UI_MAP is selected on (JOURNEYID, SCREEN, RWMODE). So a screen
+*   with no CPG row in ZEGA_T_CJ_UI_MAP returns its own fields perfectly
+*   and not one payment field - no MERCHANTID, no PAYCHANNEL, no
+*   REFERENCEID, and no address of any kind. Nothing errors.
+*
+*   That is what M011 was doing. PAY_SCREEN was derived from the payment
+*   step's own BKND_SCREEN, NSUBDIVISION_1_3, whose map holds a single
+*   row - objectkey INITIAL, rwmode 1 - so the CPG branch was skipped on
+*   every one of the 48 poll ticks. The same case read under NPAY_1_1 /
+*   PG01 / PAY returns the whole payload.
+*
+*   PAY_SCREEN, PAY_JOURNEY and PAY_CATEGORY exist precisely for a
+*   department whose payment screen sits under a different category from
+*   the rest of its journey, which is what Municipality is. Deriving
+*   PAY_SCREEN from the step is right where payment IS a step of the
+*   journey - DOK and EPDA - and silently wrong otherwise, so the message
+*   below names the three fields instead of sending the reader to the
+*   backend.
+    DATA(lv_has_cpg) = xsdbool( line_exists( lt_vals[ key = 'MERCHANTID' ] )
+                             OR line_exists( lt_vals[ key = 'PAYCHANNEL' ] )
+                             OR line_exists( lt_vals[ key = 'REFERENCEID' ] ) ).
+
     IF lv_url IS INITIAL.
       pay_trace( io_ctx  = io_ctx
-                 iv_text = `PAY     prepare STOP NOURL - the read carried no APPLICATIONURL, ` &&
-                           `no REDIRECTURL and no REFERENCEID` ).
+                 iv_text = COND string(
+                   WHEN lv_has_cpg = abap_false
+                   THEN |PAY     prepare STOP NOTAPAYSCREEN - { lv_screen } answered with no | &&
+                        |CPG payload at all, so it has no CPG_1/CPG_2 row in ZEGA_T_CJ_UI_MAP|
+                   ELSE `PAY     prepare STOP NOURL - CPG payload came back but carried no ` &&
+                        `APPLICATIONURL, no REDIRECTURL and no REFERENCEID` ) ).
       IF iv_quiet = abap_false.
-        io_ctx->add_msg( iv_type = 'Error'
-                         iv_text = |The payment journey returned no gateway address for case { lv_case }. | &&
-                                   |Either the case still carries no open item, or the department is not | &&
-                                   |routed to a gateway - both are backend configuration, not this journey.| ).
+        IF lv_has_cpg = abap_false.
+          io_ctx->add_msg( iv_type = 'Error'
+            iv_text = |Screen { lv_screen } is not a payment screen - it answered with no | &&
+                      |gateway fields at all. Set PAY_SCREEN, PAY_JOURNEY and PAY_CATEGORY | &&
+                      |on this journey to the payment service, or the payment step will go | &&
+                      |on reading its own screen.| ).
+        ELSE.
+          io_ctx->add_msg( iv_type = 'Error'
+            iv_text = |The payment journey returned no gateway address for case { lv_case }. | &&
+                      |Either the case still carries no open item, or the department is not | &&
+                      |routed to a gateway - both are backend configuration, not this journey.| ).
+        ENDIF.
       ENDIF.
       RETURN.
     ENDIF.
