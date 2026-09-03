@@ -43,37 +43,41 @@ CLASS zcl_m018_og_logic DEFINITION
   PUBLIC SECTION.
 
 *   ---- step 1: grant type and beneficiary -----------------------------
-*   REVIEW-BE: NONE of the names in this class are confirmed against a
-*   /QNV export for NOG_1_*, which has not been read. They are the best
-*   reading of the screenshots plus the naming the rest of the family
-*   uses. Every one of them is a legacy FIELD_NAME and the field-control
-*   chain is keyed on it, so check them before relying on MANDATORY /
-*   ENABLED / VISIBLE arriving from the backend for these fields.
-    CONSTANTS c_fld_grant_type TYPE string VALUE 'GRANT_TYPE'.
-    CONSTANTS c_fld_benef      TYPE string VALUE 'GRANT_BENEFICIARY'.
-    CONSTANTS c_fld_grantees   TYPE string VALUE 'SHARED_GRANTEES'.
+*   NAMES CONFIRMED FROM EXPORT_DEFIN.XLSX for NOG_1_1..NOG_1_4.
+*   ONE EXCEPTION, deliberately: C_FLD_LOAN_STAT is RB1_LOAN, a CJS
+*   name. The export calls the loan toggle RB1 on NOG_1_3 and the
+*   beneficiary toggle RB1 on NOG_1_1 - legacy names are per SCREEN
+*   and BUILD_MODEL( ) is flat per JOURNEY, so the two would have
+*   shared one model component and each would have set the other.
+*   The feeder gives that field TECH_NAME = RB1, which is what the
+*   BAdI maps values by; only FIELD_CONTROL on it is lost, and a
+*   CTRL_OF( ) miss now reads as no instruction rather than as
+*   forced-optional. Do not "fix" this back to RB1.
+    CONSTANTS c_fld_grant_type TYPE string VALUE 'RB3'.
+    CONSTANTS c_fld_benef      TYPE string VALUE 'RB1'.
+    CONSTANTS c_fld_grantees   TYPE string VALUE 'NUMINPUT'.
 
 *   The partner list the citizen builds with the search. A grid, so
 *   GET_GRID_DATA( ) reaches it and GET_VAL( ) does not.
-    CONSTANTS c_fld_bplist     TYPE string VALUE 'RAKBPLIST'.
+    CONSTANTS c_fld_bplist     TYPE string VALUE 'TABLE_FETCHER'.
 
 *   ---- step 2: family details -----------------------------------------
 *   Number of wives is a five-option radio (0..4) and the children count
 *   per wife is a dropdown that appears once per wife the citizen
 *   declared. Four carriers, only as many shown as the radio allows -
 *   which is rule work in ZRAK_T_JNY_RULE, not code.
-    CONSTANTS c_fld_wives      TYPE string VALUE 'NO_OF_WIVES'.
-    CONSTANTS c_fld_child1     TYPE string VALUE 'CHILDREN_W1'.
-    CONSTANTS c_fld_child2     TYPE string VALUE 'CHILDREN_W2'.
-    CONSTANTS c_fld_child3     TYPE string VALUE 'CHILDREN_W3'.
-    CONSTANTS c_fld_child4     TYPE string VALUE 'CHILDREN_W4'.
+    CONSTANTS c_fld_wives      TYPE string VALUE 'RB0'.
+    CONSTANTS c_fld_child1     TYPE string VALUE 'CHILD1CB'.
+    CONSTANTS c_fld_child2     TYPE string VALUE 'CHILD2CB'.
+    CONSTANTS c_fld_child3     TYPE string VALUE 'CHILD3CB'.
+    CONSTANTS c_fld_child4     TYPE string VALUE 'CHILD4CB'.
 
 *   ---- step 3: program details ----------------------------------------
-    CONSTANTS c_fld_housing    TYPE string VALUE 'HOUSING_REF_NO'.
-    CONSTANTS c_fld_loan_stat  TYPE string VALUE 'LOAN_STATUS'.
-    CONSTANTS c_fld_loan_val   TYPE string VALUE 'LOAN_VALUE'.
-    CONSTANTS c_fld_loan_from  TYPE string VALUE 'LOAN_FROM_DATE'.
-    CONSTANTS c_fld_loan_to    TYPE string VALUE 'LOAN_TO_DATE'.
+    CONSTANTS c_fld_housing    TYPE string VALUE 'HOUSEREFINPUT'.
+    CONSTANTS c_fld_loan_stat  TYPE string VALUE 'RB1_LOAN'.  " CJS name; TECH_NAME is RB1
+    CONSTANTS c_fld_loan_val   TYPE string VALUE 'LOANVALUEINPUT'.
+    CONSTANTS c_fld_loan_from  TYPE string VALUE 'FROMDATE'.
+    CONSTANTS c_fld_loan_to    TYPE string VALUE 'TODATE'.
 
 *   The beneficiary values. SHARED is what turns the grantee count and
 *   the partner list on.

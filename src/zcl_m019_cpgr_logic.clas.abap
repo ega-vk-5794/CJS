@@ -36,24 +36,24 @@ CLASS zcl_m019_cpgr_logic DEFINITION
   PUBLIC SECTION.
 
 *   ---- the grant the citizen picked -----------------------------------
-*   REVIEW-BE: the selector's FIELD_NAME is not confirmed against a /QNV
-*   export for NCPGR_1_1. PARCELSELECTOR is what M011, M012 and M016 all
-*   use for the same control and is the best available reading.
+*   PARCELSELECTOR, CONFIRMED FROM THE EXPORT: NCPGR_1_1 carries a
+*   RAKPARCELSELECTOR called exactly that, the same control M011,
+*   M012 and M016 use. Only the ROLE it reads with differs.
     CONSTANTS c_fld_grant      TYPE string VALUE 'PARCELSELECTOR'.
 
 *   ---- step 2: the grant letter ---------------------------------------
 *   Four fields in one row on screen - letter reference, grant
 *   reference, program type, and the letter's expiry date.
-    CONSTANTS c_fld_letter_ref TYPE string VALUE 'LETTER_REF_NO'.
-    CONSTANTS c_fld_grant_ref  TYPE string VALUE 'GRANT_REF_NO'.
-    CONSTANTS c_fld_prog_type  TYPE string VALUE 'PROGRAM_TYPE'.
-    CONSTANTS c_fld_expiry     TYPE string VALUE 'GRANT_LETTER_EXPIRY'.
+    CONSTANTS c_fld_letter_ref TYPE string VALUE 'REFNUM'.
+    CONSTANTS c_fld_grant_ref  TYPE string VALUE 'GRANTREFNUM'.
+    CONSTANTS c_fld_prog_type  TYPE string VALUE 'COMBOBOX'.
+    CONSTANTS c_fld_expiry     TYPE string VALUE 'DATEPICKER'.
 
 *   ---- step 2: grant status -------------------------------------------
-    CONSTANTS c_fld_loan_stat  TYPE string VALUE 'LOAN_STATUS'.
-    CONSTANTS c_fld_loan_val   TYPE string VALUE 'LOAN_VALUE'.
-    CONSTANTS c_fld_loan_from  TYPE string VALUE 'LOAN_FROM_DATE'.
-    CONSTANTS c_fld_loan_to    TYPE string VALUE 'LOAN_TO_DATE'.
+    CONSTANTS c_fld_loan_stat  TYPE string VALUE 'RB1'.
+    CONSTANTS c_fld_loan_val   TYPE string VALUE 'LOANVALUEINPUT'.
+    CONSTANTS c_fld_loan_from  TYPE string VALUE 'FROMDATE'.
+    CONSTANTS c_fld_loan_to    TYPE string VALUE 'TODATE'.
 
 *   ---- step 2: the one document ---------------------------------------
     CONSTANTS c_fld_sz_appr    TYPE string VALUE 'UPLOADER'.

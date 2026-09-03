@@ -24,9 +24,18 @@
 *& GRANTS ABSTRACT: case ZGCR, owner role ZTR080, party list in note
 *& CJ03. The handler inherits ZCL_RAK_GRANT_LOGIC.
 *&
-*& WHAT IS NOT VERIFIED. No /QNV export for NRGR_1_* has been read.
-*& JUST_DETAILS is confirmed from the grants abstract's own READ( ) - it
-*& is the CJ11 long text - and every other name is a reading of the spec.
+*& FIELD NAMES ARE FROM THE EXPORT. Every FIELD_NAME below is the
+*& legacy name as EXPORT_DEFIN.XLSX gives it for NRGR_1_*, not a
+*& reading of the spec screenshots - so backend FIELD_CONTROL and the
+*& BAdI's own value mapping both key on them correctly.
+*&
+*& WHAT IS STILL NOT VERIFIED: the OPTION KEYS behind each radio and
+*& dropdown, and the SEARCH HELP contents. The export gives the field
+*& and its search help name, not the values; the keys used here come
+*& from the legacy handler source where it names them and are marked
+*& REVIEW-BE where they do not. A wrong option key does not stop the
+*& screen - it stops a RULE, silently, so a field stays hidden or
+*& shown against what the citizen picked.
 *&---------------------------------------------------------------------*
 REPORT zrak_m020_load.
 
@@ -117,12 +126,14 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M020'.
 *   two. Marking them REQUIRED would refuse a submit the department
 *   accepts.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
-      field_name = 'UPLOADER' ftype = 'UPLOAD'
+      field_name = 'UPLOADER1_1' ftype = 'UPLOAD'
+      default_val = 'DTYPE:1'
       zlabel = 'Sheikh Zayed Program Letter' zlabel_ar = 'خطاب برنامج الشيخ زايد'
       attach_label = 'Sheikh Zayed Program Letter'
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 30
-      field_name = 'UPLOADER2' ftype = 'UPLOAD'
+      field_name = 'UPLOADER2_1' ftype = 'UPLOAD'
+      default_val = 'DTYPE:2'
       zlabel = 'Justification' zlabel_ar = 'المبرر'
       attach_label = 'Justification'
       attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5' )
@@ -133,7 +144,8 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M020'.
 *   GET_VAL( ) would refuse every submit, because BUILD_MODEL( ) gives an
 *   UPLOAD field no model component at all.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 40
-      field_name = 'UPLOADER3' ftype = 'UPLOAD' required = 'X'
+      field_name = 'UPLOADER3_1' ftype = 'UPLOAD' required = 'X'
+      default_val = 'DTYPE:3'
       zlabel = 'N.O.C From the Mortgaged Holder'
       zlabel_ar = 'شهادة عدم اعتراض من الجهة المرتهنة'
       attach_label = 'N.O.C From the Mortgaged Holder'
@@ -146,7 +158,16 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M020'.
 *   one is not a guess. TEXTAREA, and the placeholder is the spec's own
 *   wording.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 50
-      field_name = 'JUST_DETAILS' ftype = 'TEXTAREA' required = 'X'
+*   ENTERTEXT WITH A TECH_NAME, AND THE CASE IS THE WHOLE POINT. The
+*   export spells this field EnterText - mixed case, the only field on
+*   any of these four screens that is. ZCL_RAK_QNV_BRIDGE sends
+*   FIELDNAME from the CJS name after TO_UPPER( ) (items_from_kv( )
+*   upper-cases every key), so FIELD_CONTROL on it can never match and
+*   there is nothing a feeder can do about that. TECH_NAME is NOT
+*   upper-cased - it goes out verbatim - so carrying the exact spelling
+*   there keeps the BAdI's TECHNICALNAME value mapping working, which is
+*   the half that actually moves the citizen's text to the case.
+      field_name = 'ENTERTEXT' tech_name = 'EnterText' ftype = 'TEXTAREA' required = 'X'
       max_len = '1000'
       zlabel = 'Renewal Grant Request Details'
       zlabel_ar = 'تفاصيل طلب تجديد المنحة'
@@ -160,6 +181,7 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M020'.
 *   literally "Upload a File to describe your text above".
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 60
       field_name = 'UPLOADER4' ftype = 'UPLOAD'
+      default_val = 'DTYPE:4'
       zlabel = 'Upload a File to describe your text above'
       zlabel_ar = 'أرفق ملفاً يوضح النص أعلاه'
       attach_label = 'Supporting file'

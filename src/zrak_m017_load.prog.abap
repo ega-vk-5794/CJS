@@ -30,12 +30,18 @@
 *& reason, so do not add a parcel requirement to make it match its
 *& siblings.
 *&
-*& WHAT IS NOT VERIFIED. No /QNV/SB_UI_DEFIN export for NCI_1_* has been
-*& read. CI_ENTITY_CODE, CI_NOTE, CHECKBOX_2 and CHECKBOX_3 are
-*& CONFIRMED from ZCL_EGA_CJ_ENH_IMPL_M017_V1's own source; the
-*& uploader's name is a guess and is marked REVIEW-BE at the row. A field
-*& name that is not the legacy one still renders and still posts under
-*& its TECH_NAME - what it loses is backend field control, silently.
+*& FIELD NAMES ARE FROM THE EXPORT. Every FIELD_NAME below is the
+*& legacy name as EXPORT_DEFIN.XLSX gives it for NCI_1_*, not a
+*& reading of the spec screenshots - so backend FIELD_CONTROL and the
+*& BAdI's own value mapping both key on them correctly.
+*&
+*& WHAT IS STILL NOT VERIFIED: the OPTION KEYS behind each radio and
+*& dropdown, and the SEARCH HELP contents. The export gives the field
+*& and its search help name, not the values; the keys used here come
+*& from the legacy handler source where it names them and are marked
+*& REVIEW-BE where they do not. A wrong option key does not stop the
+*& screen - it stops a RULE, silently, so a field stays hidden or
+*& shown against what the citizen picked.
 *&---------------------------------------------------------------------*
 REPORT zrak_m017_load.
 
@@ -111,13 +117,10 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M017'.
       zsection_ar = 'يرجى إدخال التفاصيل أدناه'
       zlabel = '' zlabel_ar = '' )
 
-*   REVIEW-BE: THE UPLOADER'S FIELD_NAME IS A GUESS. No /QNV export for
-*   NCI_1_1 has been read; UPLOADER is what the other Municipality
-*   screens call their first uploader. The upload works regardless -
-*   attachments travel in the attachment table, not by field name - but
-*   MANDATORY / ENABLED / VISIBLE arriving from the backend's
-*   FIELD_CONTROL( ) are keyed on the legacy name and will silently not
-*   apply if this is wrong.
+*   UPLOADER, CONFIRMED FROM THE EXPORT for NCI_1_1 - the single
+*   uploader on this screen, carrying no DATA2, so no DTYPE: default
+*   is seeded and the attachment reaches the case with a blank
+*   DIFFCRT. That is what the legacy screen does too.
 *
 *   REQUIRED ON AN UPLOADER IS ENFORCED, and correctly:
 *   ZCL_RAK_JOURNEY_RULES checks the staged list by FIELD NAME
@@ -135,16 +138,19 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M017'.
 *   CI_ENTITY_CODE - it is the entity the open-case check keys on, joined
 *   to characteristic CJ07.
 *
-*   REVIEW-BE: the OPTION LIST is not seeded. The spec shows one value
-*   ("To whom it concerns") and the real list is a domain or a search
-*   help on the legacy control, which the export would name. Left with no
+*   REVIEW-BE: the OPTION LIST is still not seeded, and the export does
+*   not close this one. It names the field and its type but gives NO
+*   search help for CI_ENTITY_SELECT, unlike M018/M019 where it names
+*   ZSH_CJ_GRANTS_CHILDREN and ZSH_CJ_GRANT_PGM_TYPE. So the list is
+*   built somewhere the definition table does not reach - most likely
+*   the legacy control filling it from a read. Left with no
 *   ZRAK_T_JNY_OPT rows on purpose: a hand-typed list that drifts from
 *   the backend's own is worse than an empty dropdown, because the
 *   citizen can pick a code the case cannot accept. Fill ROLLNAME,
-*   DOMNAME or SHLP once the export is read - see config-tables.md on
+*   DOMNAME or SHLP once the source is known - see config-tables.md on
 *   the four option sources.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 30
-      field_name = 'CI_ENTITY_CODE' ftype = 'SELECT' required = 'X'
+      field_name = 'CI_ENTITY_SELECT' ftype = 'SELECT' required = 'X'
       closed_list = 'X'
       zlabel = 'Entity' zlabel_ar = 'الجهة'
       placeholder = 'To whom it concerns'
@@ -156,7 +162,16 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M017'.
 *   class reads it back through READ_NOTE( ) on the RE note, which is why
 *   it is a TEXTAREA and not an INPUT.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 40
-      field_name = 'CI_NOTE' ftype = 'TEXTAREA'
+*   ENTERTEXT WITH A TECH_NAME, AND THE CASE IS THE WHOLE POINT. The
+*   export spells this field EnterText - mixed case, the only field on
+*   any of these four screens that is. ZCL_RAK_QNV_BRIDGE sends
+*   FIELDNAME from the CJS name after TO_UPPER( ) (items_from_kv( )
+*   upper-cases every key), so FIELD_CONTROL on it can never match and
+*   there is nothing a feeder can do about that. TECH_NAME is NOT
+*   upper-cased - it goes out verbatim - so carrying the exact spelling
+*   there keeps the BAdI's TECHNICALNAME value mapping working, which is
+*   the half that actually moves the citizen's text to the case.
+      field_name = 'ENTERTEXT' tech_name = 'EnterText' ftype = 'TEXTAREA'
       max_len = '1000'
       zlabel = 'Add a Comment (optional)' zlabel_ar = 'أضف تعليقاً (اختياري)'
       tech_name = 'CI_NOTE' ) ) ).

@@ -52,15 +52,12 @@ CLASS zcl_m017_ci_logic DEFINITION
 *   CONFIRMED from ZCL_EGA_CJ_ENH_IMPL_M017_V1's own source:
 *   CI_ENTITY_CODE (read in VALIDATE( )), CI_NOTE (the CJ11 long text in
 *   READ( )'s CASE), CHECKBOX_2 and CHECKBOX_3 (both forced TOSAVE).
-    CONSTANTS c_fld_entity  TYPE string VALUE 'CI_ENTITY_CODE'.
-    CONSTANTS c_fld_note    TYPE string VALUE 'CI_NOTE'.
+    CONSTANTS c_fld_entity  TYPE string VALUE 'CI_ENTITY_SELECT'.
+    CONSTANTS c_fld_note    TYPE string VALUE 'ENTERTEXT'.
 
-*   REVIEW-BE: the family-book uploader's FIELD_NAME is NOT confirmed -
-*   the /QNV export for NCI_1_1 has not been read. UPLOADER is the name
-*   the other Municipality screens use for their first uploader, so it is
-*   the best available guess and it is a guess. Check the export before
-*   trusting field control on it; the upload itself works either way,
-*   because attachments travel by the attachment table and not by name.
+*   CONFIRMED FROM THE EXPORT. NCI_1_1 carries exactly one RAKUPLOADER
+*   and it is called UPLOADER, with no DATA2 - so the attachment
+*   reaches the case with a blank DIFFCRT, as the legacy screen does.
     CONSTANTS c_fld_family  TYPE string VALUE 'UPLOADER'.
 
 *   Both checkboxes come back with TOSAVE forced true by the backend

@@ -30,9 +30,18 @@
 *& GRANTS ABSTRACT: case ZGCR, owner role ZTR080, party list in note
 *& CJ03. The handler inherits ZCL_RAK_GRANT_LOGIC.
 *&
-*& WHAT IS NOT VERIFIED. No /QNV export for NCPGR_1_* has been read.
-*& JUST_DETAILS is confirmed from the grants abstract's own READ( );
-*& every other name is a reading of the spec and is marked REVIEW-BE.
+*& FIELD NAMES ARE FROM THE EXPORT. Every FIELD_NAME below is the
+*& legacy name as EXPORT_DEFIN.XLSX gives it for NCPGR_1_*, not a
+*& reading of the spec screenshots - so backend FIELD_CONTROL and the
+*& BAdI's own value mapping both key on them correctly.
+*&
+*& WHAT IS STILL NOT VERIFIED: the OPTION KEYS behind each radio and
+*& dropdown, and the SEARCH HELP contents. The export gives the field
+*& and its search help name, not the values; the keys used here come
+*& from the legacy handler source where it names them and are marked
+*& REVIEW-BE where they do not. A wrong option key does not stop the
+*& screen - it stops a RULE, silently, so a field stays hidden or
+*& shown against what the citizen picked.
 *&---------------------------------------------------------------------*
 REPORT zrak_m019_load.
 
@@ -130,20 +139,21 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M019'.
 *   FOUR FIELDS IN ONE ROW on screen. FGROUP 'ROW:GRANT' is what puts
 *   them side by side instead of stacking them.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 10
-      field_name = 'LETTER_REF_NO' ftype = 'INPUT' required = 'X'
+      field_name = 'REFNUM' ftype = 'INPUT' required = 'X'
       max_len = '20' fgroup = 'ROW:GRANT'
       zsection = 'Grant Type' zsection_ar = 'نوع المنحة'
       zlabel = 'Letter Reference Number' zlabel_ar = 'رقم مرجع الخطاب'
       msg = 'Enter the letter reference number'
       msg_ar = 'يرجى إدخال رقم مرجع الخطاب' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
-      field_name = 'GRANT_REF_NO' ftype = 'INPUT' required = 'X'
+      field_name = 'GRANTREFNUM' ftype = 'INPUT' required = 'X'
       max_len = '20' fgroup = 'ROW:GRANT'
       zlabel = 'Grant Reference Number' zlabel_ar = 'رقم مرجع المنحة'
       msg = 'Enter the grant reference number'
       msg_ar = 'يرجى إدخال رقم مرجع المنحة' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 30
-      field_name = 'PROGRAM_TYPE' ftype = 'SELECT' required = 'X'
+      field_name = 'COMBOBOX' ftype = 'SELECT' required = 'X'
+      shlp = 'ZSH_CJ_GRANT_PGM_TYPE'
       closed_list = 'X' fgroup = 'ROW:GRANT'
       zlabel = 'Program Type' zlabel_ar = 'نوع البرنامج'
       msg = 'Choose the program type' msg_ar = 'يرجى اختيار نوع البرنامج' )
@@ -154,7 +164,7 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M019'.
 *   through the binding anyway. So this field can hold anything, and the
 *   handler only has an opinion about a value it can read.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 40
-      field_name = 'GRANT_LETTER_EXPIRY' ftype = 'DATE' required = 'X'
+      field_name = 'DATEPICKER' ftype = 'DATE' required = 'X'
       fgroup = 'ROW:GRANT'
       zlabel = 'Grant letter Expiry Date' zlabel_ar = 'تاريخ انتهاء خطاب المنحة'
       msg = 'REQUIRED:Enter the grant letter expiry date;RANGE:The grant letter has expired'
@@ -162,19 +172,19 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M019'.
 
 *   ---- grant status ---------------------------------------------------
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 50
-      field_name = 'LOAN_STATUS' ftype = 'SEGMENTED' required = 'X'
+      field_name = 'RB1' ftype = 'SEGMENTED' required = 'X'
       zsection = 'Grant status' zsection_ar = 'حالة المنحة'
       zlabel = 'Loan Status' zlabel_ar = 'حالة القرض'
       msg = 'Choose whether the grant carries a loan'
       msg_ar = 'يرجى اختيار ما إذا كانت المنحة بقرض' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 60
-      field_name = 'LOAN_VALUE' ftype = 'CURRENCY' fgroup = 'ROW:LOAN'
+      field_name = 'LOANVALUEINPUT' ftype = 'CURRENCY' fgroup = 'ROW:LOAN'
       zlabel = 'Loan Value' zlabel_ar = 'قيمة القرض' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 70
-      field_name = 'LOAN_FROM_DATE' ftype = 'DATE' fgroup = 'ROW:LOAN'
+      field_name = 'FROMDATE' ftype = 'DATE' fgroup = 'ROW:LOAN'
       zlabel = 'From Date' zlabel_ar = 'من تاريخ' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 80
-      field_name = 'LOAN_TO_DATE' ftype = 'DATE' fgroup = 'ROW:LOAN'
+      field_name = 'TODATE' ftype = 'DATE' fgroup = 'ROW:LOAN'
       zlabel = 'To Date' zlabel_ar = 'إلى تاريخ' )
 
 *   ---- the one document -----------------------------------------------
@@ -230,14 +240,14 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M019'.
 * with CS, so correct both together.
   INSERT zrak_t_jny_rule FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny rule_id = 'R01'
-      src_field = 'LOAN_STATUS' src_op = 'EQ' src_value = 'WITH'
-      action = 'SHOW' tgt_field = 'LOAN_VALUE' )
+      src_field = 'RB1' src_op = 'EQ' src_value = 'WITHLOAN'
+      action = 'SHOW' tgt_field = 'LOANVALUEINPUT' )
     ( mandt = sy-mandt journey_id = c_jny rule_id = 'R02'
-      src_field = 'LOAN_STATUS' src_op = 'EQ' src_value = 'WITH'
-      action = 'SHOW' tgt_field = 'LOAN_FROM_DATE' )
+      src_field = 'RB1' src_op = 'EQ' src_value = 'WITHLOAN'
+      action = 'SHOW' tgt_field = 'FROMDATE' )
     ( mandt = sy-mandt journey_id = c_jny rule_id = 'R03'
-      src_field = 'LOAN_STATUS' src_op = 'EQ' src_value = 'WITH'
-      action = 'SHOW' tgt_field = 'LOAN_TO_DATE' ) ) ).
+      src_field = 'RB1' src_op = 'EQ' src_value = 'WITHLOAN'
+      action = 'SHOW' tgt_field = 'TODATE' ) ) ).
 
   COMMIT WORK AND WAIT.
   zcl_rak_cj_cfg_cache=>invalidate( iv_journey = CONV #( c_jny ) ).

@@ -33,24 +33,25 @@ CLASS zcl_m020_rgr_logic DEFINITION
 
   PUBLIC SECTION.
 
-*   REVIEW-BE: no /QNV export for NRGR_1_* has been read, so every name
-*   below is a reading of the screenshots against the family's naming.
-*   Each is a legacy FIELD_NAME and backend field control keys on it.
+*   NAMES CONFIRMED FROM EXPORT_DEFIN.XLSX for NRGR_1_1 / NRGR_1_2.
+*   NRGR_1_2 carries TWO uploader sets - UPLOADER1_1 / UPLOADER2_1 /
+*   UPLOADER3_1 with screen sequences 280/330/380, and an UPLOADER1 /
+*   UPLOADER2 / UPLOADER3 set at 490/510 with no sequence on the
+*   third. The sequenced _1 set plus UPLOADER4 (460) is the one the
+*   citizen sees, and it is the one used here.
     CONSTANTS c_fld_grant    TYPE string VALUE 'PARCELSELECTOR'.
 
 *   ---- step 2 -----------------------------------------------------------
-*   The three named uploads, in screen order. NOCCONT is the name the MML
-*   journeys use for the bank NOC container and is the closest existing
-*   precedent for the mortgage NOC here.
-    CONSTANTS c_fld_sz_letter TYPE string VALUE 'UPLOADER'.
-    CONSTANTS c_fld_just_doc  TYPE string VALUE 'UPLOADER2'.
-    CONSTANTS c_fld_noc       TYPE string VALUE 'UPLOADER3'.
+*   The three named uploads, in the export's own screen order.
+    CONSTANTS c_fld_sz_letter TYPE string VALUE 'UPLOADER1_1'.
+    CONSTANTS c_fld_just_doc  TYPE string VALUE 'UPLOADER2_1'.
+    CONSTANTS c_fld_noc       TYPE string VALUE 'UPLOADER3_1'.
 
-*   The free text and the file that describes it. JUST_DETAILS is the
-*   grants abstract's own name for the CJ11 long text - confirmed in
-*   ZCL_EGA_CJ_FW_RO_GRANT_ABS_V1->READ( )'s CASE on TECHNICALNAME - so
-*   this one is NOT a guess.
-    CONSTANTS c_fld_details   TYPE string VALUE 'JUST_DETAILS'.
+*   The free text and the file that describes it.
+*   ENTERTEXT is the CJS name; the export spells it EnterText, mixed case,
+*   and the feeder carries that exact spelling in TECH_NAME because the
+*   bridge upper-cases FIELDNAME but not TECHNICALNAME.
+    CONSTANTS c_fld_details   TYPE string VALUE 'ENTERTEXT'.
     CONSTANTS c_fld_extra     TYPE string VALUE 'UPLOADER4'.
 
     METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
