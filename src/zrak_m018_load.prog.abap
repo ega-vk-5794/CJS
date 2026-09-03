@@ -336,47 +336,47 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M018'.
       zsection = 'Documents' zsection_ar = 'المستندات'
       zlabel = 'Emirates ID / Passport' zlabel_ar = 'الهوية الإماراتية / جواز السفر'
       attach_label = 'Emirates ID / Passport'
-      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5' )
-      default_val = 'DTYPE:1'
+      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5'
+      default_val = 'DTYPE:1' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 20
       field_name = 'UPLOADER2' ftype = 'UPLOAD' required = 'X'
       zlabel = 'Family Book' zlabel_ar = 'خلاصة القيد'
       attach_label = 'Family Book'
-      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5' )
-      default_val = 'DTYPE:2'
+      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5'
+      default_val = 'DTYPE:2' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 30
       field_name = 'UPLOADER3' ftype = 'UPLOAD' required = 'X'
       zlabel = 'Sheikh Zayed Program Pledge Approval'
       zlabel_ar = 'موافقة تعهد برنامج الشيخ زايد'
       attach_label = 'Sheikh Zayed Program Pledge Approval'
-      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5' )
-      default_val = 'DTYPE:3'
+      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5'
+      default_val = 'DTYPE:3' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 40
       field_name = 'UPLOADER4' ftype = 'UPLOAD' required = 'X'
       zlabel = 'Financial Ability' zlabel_ar = 'القدرة المالية'
       attach_label = 'Financial Ability'
-      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5' )
-      default_val = 'DTYPE:4'
+      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5'
+      default_val = 'DTYPE:4' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 50
       field_name = 'UPLOADER5' ftype = 'UPLOAD' required = 'X'
       zlabel = 'To Whom It May Concern from SZHP'
       zlabel_ar = 'إلى من يهمه الأمر من برنامج الشيخ زايد للإسكان'
       attach_label = 'To Whom It May Concern from SZHP'
-      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5' )
-      default_val = 'DTYPE:5'
+      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5'
+      default_val = 'DTYPE:5' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 60
       field_name = 'UPLOADER6' ftype = 'UPLOAD'
       zlabel = 'Others' zlabel_ar = 'أخرى'
       attach_label = 'Others'
-      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5' )
-      default_val = 'DTYPE:6'
+      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5'
+      default_val = 'DTYPE:6' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 70
       field_name = 'UPLOADER7' ftype = 'UPLOAD'
       zlabel = 'Owner Continuity Of Marriage (Optional)'
       zlabel_ar = 'استمرارية الزواج للمالك (اختياري)'
       attach_label = 'Owner Continuity Of Marriage'
-      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5' ) ) ).
-      default_val = 'DTYPE:7'
+      attach_types = 'pdf,jpg,jpeg,png' attach_maxmb = '5'
+      default_val = 'DTYPE:7' ) ) ).
 
 * ------------------------------------------------ STP5 Fees & Payment
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
