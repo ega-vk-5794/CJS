@@ -166,6 +166,42 @@ This shows up in several places that all trace back to the same rule:
   has to be kept right as families are added, whereas identity fallback is right by
   construction.
 
+- **`APPLICATIONURL` is the ATB path's field, and most journeys do not take that path.**
+  `ZCL_RAK_PAY_ENGINE->ROUTE_GATEWAY( )` picks the route from `ZDT_PG_DEP_MAP`: an ATB
+  department gets a ready-made `APPLICATIONURL`, and **everything else** — `PW_RB1` set,
+  `ATB_FLAG` DISABLED — goes to the standard CPG through the payments Web Dynpro, where
+  **no pre-built URL exists and none is ever going to arrive.** M011 polled 48 times and
+  gave up waiting for one, while the read was answering richly the whole time (`AMOUNT`,
+  `MERCHANTID`, `SERVICEID`, `SECRETKEY`, `REFERENCEID`, `PAYCHANNEL`, `REDIRECTURL`) and
+  every value was discarded because one field it never sets was blank.
+  **`REDIRECTURL` is the launch address, not a return address** — the name is misleading.
+  `ZCL_CJ_DEMO_P001` settles it: after filling the same details it returns `EV_URL` built
+  as `ZWDA_EGA_EUSER_PAYMENTS?sap-language=EN?referenceId=…`, character for character what
+  the BAdI puts in `REDIRECTURL`, doubled `?` included (that is the legacy's own
+  construction and the WD app accepts it — do not "fix" it). **That app holds the CPG form
+  and posts it**, which is why `SECRETKEY` never has to reach a CJS page — building the CPG
+  registration in CJS would ship a shared secret to the browser and is the wrong answer.
+  `PREPARE_PAYMENT( )` resolves in order — `APPLICATIONURL`, `REDIRECTURL`,
+  `WD_PAY_URL( REFERENCEID )` — and **ATB stays first** so a department already routed to it
+  is untouched. `/sap/bc/zrak_cj_pay`, which `BUILD_PAY_URL( )` used to fall back to, was
+  never built and 404s.
+- **`window.open( )` is pop-up blocked outside a user gesture, and the payment poll is a
+  timer.** `ZCL_RAK_JOURNEY_UTIL=>OPEN_URL_HTML( )` launches the gateway from an inline
+  `onerror` attribute (the correct channel — a `<script>` through `html( )` is inert). On
+  DOK and EPDA the open item already exists when Pay is pressed, so the address resolves on
+  the **press** round trip, inside the browser's transient activation, and the pop-up is
+  allowed. Where the address only arrives on a **poll tick** there is no activation and
+  Chrome blocks it silently — no error, no tab. The snippet now checks the return value and,
+  when blocked, writes a real link into the card; clicking that is itself a gesture and
+  cannot be blocked in turn.
+- **The payment poll runs quiet for 47 of its 48 ticks.** `PREPARE_PAYMENT( iv_quiet = X )`
+  suppresses what the citizen sees, and it was suppressing every diagnosis with it — two
+  minutes of spinner and nothing on the trace. It now names the exit taken (`NOCASE`,
+  `NOSCREEN`, `NOURL`), what went out to the read (screen, case, category, backend journey),
+  the backend's own messages **regardless of `IV_QUIET`**, and the **keys** that came back —
+  which is what separates "the BAdI answered nothing" from "it answered and the address is
+  under another name". `TRACE( )` emits only under `&trace=x`.
+
 ## Silent-failure traps
 
 These raise nothing and render nothing. They account for most of the bugs found so far.
