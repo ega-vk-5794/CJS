@@ -439,6 +439,77 @@ START-OF-SELECTION.
       zlabel_ar = 'أود التبرع لمؤسسة آجر الخيرية بمبلغ خمسة دراهم.'
       tech_name = 'DONATE' ) ) ).
 
+
+* ------------------------------------------------ the parcel details table
+* THE SAME CONTROL M012 HAS, so all three Municipality journeys read the
+* same way. The legacy screens show the chosen parcel's details as a table
+* under the selector and this is that table, column for column.
+*
+* IT IS FILLED WITHOUT ANY UI-MAP ROW. ZCL_EGA_CJ_FW_RO_ABS_V1's read ends
+* with
+*
+*     "Get parcel full details
+*     IF ct_table_data IS INITIAL.
+*       get_pl_table( CHANGING ct_table_data = ct_table_data ).
+*     ENDIF.
+*
+* - unconditional, unlike GET_PARCELS( ) which needs a PLDTL row. It reads
+* the CJ02 note, splits it on '-', and fills seven columns per parcel:
+* the number, mortgaged/self-owned, location, address, ownership method,
+* grant type, and the action the citizen still has to take. That is
+* exactly the spec below, which is why M012's columns match it - they
+* were written against this method.
+*
+* NO TECH_NAME, AND THAT IS THE ONE DIFFERENCE FROM M012. FLATTEN_KV( )
+* skips an EDITABLE_TABLE whose TECH_NAME is blank, so this grid displays
+* and posts nothing. M012 needs its rows to post - they ARE the merge
+* list, and UPDATE( ) builds the CJ02 note from CT_TABLE_DATA - but on
+* M011 and M016 the parcel is chosen by the single-select and the table is
+* there to show what came back. Giving it a TECH_NAME here would post a
+* parcel list built from a display table and let it overwrite the note the
+* selector wrote.
+*
+* EDITABLE_TABLE WITH PER-COLUMN READONLY, not a READONLY field. The
+* engine says so out loud otherwise - "Grid RAKPARCELS: FTYPE is TABLE,
+* not EDITABLE_TABLE. Only an editable grid has rows to read or write" -
+* and READONLY on the FIELD takes the rows away from the backend read as
+* well as from the citizen. ZRAK_T_JNY_COL-READONLY per column is what
+* makes it untypable while still holding rows.
+  INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 50
+      field_name = 'RAKPARCELS' ftype = 'EDITABLE_TABLE'
+      zsection = 'Parcel to divide' zsection_ar = 'تفاصيل القطعة'
+      zlabel = 'Parcel to divide' zlabel_ar = 'تفاصيل القطعة'
+      default_val = 'PARCELID:Parcel:TEXT'          &&
+                    '|OWNSTATE:Ownership:TEXT'      &&
+                    '|LOCATION:Location:TEXT'       &&
+                    '|ADDRESS:Address:TEXT'         &&
+                    '|OWNMETHOD:Ownership method:TEXT' &&
+                    '|GRANTTYPE:Grant type:TEXT'    &&
+                    '|ACTIONREQ:Action required:TEXT' ) ) ).
+
+  INSERT zrak_t_jny_col FROM TABLE @( VALUE #(
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' field_name = 'RAKPARCELS'
+      col_name = 'PARCELID'  seqnr = 1 zlabel = 'Parcel' zlabel_ar = 'القطعة'
+      ctrl = 'INPUT' readonly = 'X' width = '9rem' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' field_name = 'RAKPARCELS'
+      col_name = 'OWNSTATE'  seqnr = 2 zlabel = 'Ownership' zlabel_ar = 'الملكية'
+      ctrl = 'INPUT' readonly = 'X' width = '9rem' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' field_name = 'RAKPARCELS'
+      col_name = 'LOCATION'  seqnr = 3 zlabel = 'Location' zlabel_ar = 'الموقع'
+      ctrl = 'INPUT' readonly = 'X' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' field_name = 'RAKPARCELS'
+      col_name = 'ADDRESS'   seqnr = 4 zlabel = 'Address' zlabel_ar = 'العنوان'
+      ctrl = 'INPUT' readonly = 'X' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' field_name = 'RAKPARCELS'
+      col_name = 'OWNMETHOD' seqnr = 5 zlabel = 'Ownership method' zlabel_ar = 'طريقة الملكية'
+      ctrl = 'INPUT' readonly = 'X' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' field_name = 'RAKPARCELS'
+      col_name = 'GRANTTYPE' seqnr = 6 zlabel = 'Grant type' zlabel_ar = 'نوع المنحة'
+      ctrl = 'INPUT' readonly = 'X' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' field_name = 'RAKPARCELS'
+      col_name = 'ACTIONREQ' seqnr = 7 zlabel = 'Action required' zlabel_ar = 'الإجراء المطلوب'
+      ctrl = 'INPUT' readonly = 'X' ) ) ).
   COMMIT WORK AND WAIT.
 
 * INVALIDATE, ALWAYS. A versioned per-work-process cache means another work

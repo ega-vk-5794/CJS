@@ -851,7 +851,27 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *         so the state still shows - only the quiet path is lost, and
 *         only if C_PAGE_SIZE was raised without adding attributes.
       ENDCASE.
+
+*     ONE LINE PER SLOT, under trace only - and it is here because two
+*     rounds of reasoning about the tick boxes produced no change on
+*     screen. The binding, the slots and the quiet flag are all in the
+*     source; what nobody can see from a screenshot is whether the
+*     ACTIVE version is running them. This says so directly: a trace with
+*     these lines is the new code, a trace without them is the old.
+*
+*     And it separates the two failures the report keeps arriving as one.
+*     If WAS is X for a parcel the citizen just ticked, the tick reached
+*     the field and the problem is the repaint. If it is blank, TOGGLE( )
+*     did not land and the binding is irrelevant.
+      mo_e->trace( |PARCEL  slot { lv_slot } · { lv_k } · sel { COND string(
+                      WHEN lv_on = abap_true THEN 'X' ELSE '-' ) }| ).
     ENDLOOP.
+
+*   THE WHOLE LIST TOO, because the slots only show the current page and
+*   the selection is journey-wide - a parcel ticked on page 1 and looked
+*   for on page 2 is a different question from a tick that never landed.
+    mo_e->trace( |PARCEL  ticks field { mv_fld } · multi { mv_multi } · | &&
+                 |{ lines( sel_list( ) ) } selected · raw [{ mo_e->val_get( mv_fld ) }]| ).
   ENDMETHOD.
 
 
