@@ -357,36 +357,65 @@ START-OF-SELECTION.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 10
       field_name = 'PAYFEE' ftype = 'PAYFEE'
       zlabel = 'Payment' zlabel_ar = 'الدفع' )
-*   ---- PAY_SCREEN: THE CARRIER, NOT DECORATION ------------------------
-*   PREPARE_PAYMENT( ) refuses to open the gateway without it, and its
-*   own message names the value: the payment step's own BKND_SCREEN. The
-*   read BAdI behind that screen is what resolves the open item, picks
-*   the gateway, draws the reference and returns APPLICATIONURL.
+*   ---- THE PAYMENT SERVICE IS NOT THIS JOURNEY ------------------------
+*   THREE CARRIERS, AND THEY MUST BE SET TOGETHER. PREPARE_PAYMENT( )
+*   reads PAY_SCREEN, PAY_JOURNEY and PAY_CATEGORY and overlays them onto
+*   the config it hands the bridge, so the gateway read goes to a
+*   different SERVICE from the rest of the journey - different screen,
+*   different BE journey, different category. Setting one and not the
+*   other two aims the read at a screen the wrong BAdI answers.
 *
-*   WITHOUT THIS ROW M011 GOT ALL THE WAY THERE AND STOPPED. The ZGCX
-*   case was created, the parcel, both partners and all three attachments
-*   were linked, the sales order was raised - and then "Payment cannot
-*   start: PAY_SCREEN is not set", because one string naming a screen the
-*   engine already knew was blank.
+*   THIS ROW USED TO SAY NSUBDIVISION_1_3 AND THAT WAS WRONG. The
+*   reasoning was that PREPARE_PAYMENT( )'s own message names "the
+*   payment step's own BKND_SCREEN", so the step's screen must be it.
+*   The debugger says otherwise: read under NSUBDIVISION_1_3 and
+*   MT_UI_MAP comes back holding one row - INITIAL - so the CPG block is
+*   skipped and the read answers the subdivision screen's own fields
+*   perfectly while carrying no MERCHANTID, no PAYCHANNEL, no
+*   REFERENCEID and no address of any kind. Nothing errors. That is what
+*   the poll waited 48 ticks for.
 *
-*   ZCL_RAK_CJS_XCHECK LOOKS FOR EXACTLY THIS ROW on the payment step and
-*   calls it the carrier, and it checks the value against the step's own
-*   BKND_SCREEN - so the two must not drift.
+*   The same case read under NPAY_1_1 / PG01 / PAY answers in full -
+*   AMOUNT, MERCHANTID, SERVICEID, SECRETKEY, REFERENCEID, PAYCHANNEL,
+*   REDIRECTURL. So the payment screen sits under its own category, which
+*   is exactly the case these three carriers exist for.
 *
-*   HIDDEN AND READONLY: it is configuration the citizen has no business
-*   seeing. It still posts, which is harmless, and FLATTEN_KV( ) filters
-*   on TYPE rather than on either flag, so hiding it does not stop it
-*   reaching the model.
+*   NSUBDIVISION_1_4 IS NOT IT EITHER, and that is worth writing down
+*   because ZEGA_T_CJ_UI_MAP does carry a CPG_1 row against it. A row in
+*   the map is not the same as the screen the payload comes back on: the
+*   map is keyed per journey and this journey's gateway lives in the PAY
+*   service. Reading the map and following it here was tried and aimed at
+*   the wrong screen.
 *
-*   ZCL_RAK_JOURNEY_LOGIC NOW DERIVES THIS WHEN BLANK, from the current
-*   step's BKND_SCREEN, so a journey that forgets the row still pays. The
-*   row stays anyway: it is the documented mechanism, XCHECK expects it,
-*   and a derived value is a fallback rather than a design.
+*   DO NOT WAIT FOR APPLICATIONURL ON THIS ROUTE. ROUTE_GATEWAY( ) picks
+*   the route from ZDT_PG_DEP_MAP: an ATB department gets a ready-made
+*   APPLICATIONURL, everything else - PW_RB1 set and ATB_FLAG DISABLED,
+*   which is what M011 comes back as - goes to the standard CPG through
+*   the payments Web Dynpro, where no pre-built URL exists at all.
+*
+*   HIDDEN AND READONLY: configuration, not something a citizen sees.
+*   They still post, which is harmless - FLATTEN_KV( ) filters on TYPE
+*   and not on either flag, so hiding them does not stop them reaching
+*   the model, which is where PREPARE_PAYMENT( ) reads them from.
+*
+*   ZCL_RAK_CJS_XCHECK X16 CROSS-CHECKS THIS against the ShapeIt UI map
+*   offline, so a screen with no CPG_1/CPG_2 row is reported before a
+*   citizen meets it rather than after.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 15
       field_name = 'PAY_SCREEN' ftype = 'DISPLAY'
       readonly = 'X' hidden = 'X'
-      default_val = 'NSUBDIVISION_1_3'
+      default_val = 'NPAY_1_1'
       zlabel = 'Payment screen' zlabel_ar = 'شاشة الدفع' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 16
+      field_name = 'PAY_JOURNEY' ftype = 'DISPLAY'
+      readonly = 'X' hidden = 'X'
+      default_val = 'PAY'
+      zlabel = 'Payment BE journey' zlabel_ar = 'رحلة الدفع' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 17
+      field_name = 'PAY_CATEGORY' ftype = 'DISPLAY'
+      readonly = 'X' hidden = 'X'
+      default_val = 'PG01'
+      zlabel = 'Payment category' zlabel_ar = 'فئة الدفع' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 20
       field_name = 'TOTALVALUE' ftype = 'DISPLAY' readonly = 'X'
       hidden = 'X'
