@@ -252,10 +252,32 @@ CLASS zcl_rak_journey_logic DEFINITION
 *   INTRENO, SCMG_T_CASE_ATTR-EXT_KEY for a case. The pay engine resolved
 *   correctly and the GATE in front of it did not, so the gate refused
 *   before the engine was ever asked.
+*
+*   IDENTITY IS THE FALLBACK, and that is the whole safety property. When
+*   neither lookup confirms a case, -KEY comes back UNCHANGED, so every
+*   caller behaves exactly as it did before this method existed. It can
+*   only ever replace an INTRENO with the case behind it; it can never
+*   take a key away from a path that already works. DOK and EPDA run on
+*   the raw key today and must go on doing so whether or not
+*   SCMG_T_CASE_ATTR happens to answer at the moment Pay is pressed.
+*
+*   -IS_CASE says whether a case was positively CONFIRMED. It picks the
+*   wording of a wait, never the control flow: a caller that used to
+*   proceed on an unresolved key still proceeds on it.
+    TYPES: BEGIN OF ty_case_key,
+             key     TYPE string,
+             is_case TYPE abap_bool,
+           END OF ty_case_key.
+
     METHODS case_key_of
       IMPORTING io_ctx    TYPE REF TO zif_rak_journey
                 iv_key    TYPE string
-      RETURNING VALUE(rv) TYPE scmg_ext_key.
+      RETURNING VALUE(rs) TYPE ty_case_key.
+
+    METHODS trace_key
+      IMPORTING io_ctx  TYPE REF TO zif_rak_journey
+                iv_in   TYPE string
+                iv_what TYPE string.
 
     METHODS pay_field_step
       IMPORTING io_ctx         TYPE REF TO zif_rak_journey
@@ -465,22 +487,31 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 
   METHOD case_key_of.
 
-    CLEAR rv.
+*   THE KEY COMES BACK UNCHANGED UNLESS A CASE IS POSITIVELY FOUND. Set
+*   first and overwritten only on a confirmed hit, so every exit from
+*   here - including both CATCH blocks - leaves the caller with exactly
+*   the key it passed in. An earlier version of this returned BLANK when
+*   it could not confirm a case, and the payment gate refused on blank:
+*   that would have made a missing or not-yet-committed case-attribute
+*   row break DOK and EPDA, two families that have never depended on one.
+    rs-key = iv_key.
+
     DATA(lv_in) = condense( iv_key ).
     IF lv_in IS INITIAL.
       RETURN.
     ENDIF.
 
 *   IS IT ALREADY A CASE? The DOK and EPDA path, and it must stay first:
-*   there the journey key IS the case id, and a needless second lookup on
-*   an INTRENO that does not exist would only cost a select.
+*   there the journey key IS the case id, so the answer is the key itself
+*   and no INTRENO lookup is worth running.
 *
 *   WRAPPED, because this is the failure the comments around here have
 *   been warning about for months. A journey key can be a GUID_22 with
 *   punctuation in it, and an SCMG_EXT_KEY comparison against one raises
 *   CX_SY_OPEN_SQL_DATA_ERROR rather than simply missing - mid-payment,
-*   with the gateway open in another tab. Catching it makes an unmatchable
-*   key behave as "no case yet", which is the honest answer.
+*   with the gateway open in another tab. Catching it leaves the key
+*   untouched and unconfirmed, which is the honest answer and is also
+*   what the caller did with it before.
     DATA lv_ek TYPE scmg_ext_key.
     TRY.
         lv_ek = |{ CONV scmg_ext_key( lv_in ) ALPHA = IN }|.
@@ -488,7 +519,8 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
           WHERE ext_key = @lv_ek
           INTO @DATA(lv_hit).
         IF sy-subrc = 0 AND lv_hit IS NOT INITIAL.
-          rv = lv_hit.
+          rs-is_case = abap_true.
+          trace_key( io_ctx = io_ctx iv_in = lv_in iv_what = `already a case` ).
           RETURN.
         ENDIF.
       CATCH cx_root ##NO_HANDLER.
@@ -496,7 +528,14 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 
 *   THEN AS AN INTRENO. VIBDCHARACT carries the case id against the RE
 *   object under FIXFITCHARACT 'CJ12' - the same read RESOLVE_CASE( )
-*   does first, and the one that turns IM00100123344 into 1959738.
+*   does first, and the one that turns IM00100123344 into 1959738. This
+*   is the ONLY branch that changes what a caller sees, and it changes it
+*   only when the database has positively said the two are the same
+*   application.
+*
+*   Returned unpadded, the way the raw key always was. ALPHA = IN belongs
+*   at the DFKKOP read, where it has always been, not here - padding it
+*   early would change the value every other caller receives.
     DATA lv_int TYPE vibdcharact-intreno.
     TRY.
         lv_int = lv_in.
@@ -504,15 +543,28 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
           WHERE intreno = @lv_int AND fixfitcharact = 'CJ12'
           INTO @DATA(lv_sup).
         IF sy-subrc = 0 AND lv_sup IS NOT INITIAL.
-          rv = |{ CONV scmg_ext_key( lv_sup ) ALPHA = IN }|.
+          rs-key     = condense( CONV string( lv_sup ) ).
+          rs-is_case = abap_true.
+          trace_key( io_ctx  = io_ctx
+                     iv_in   = lv_in
+                     iv_what = |case { rs-key } via VIBDCHARACT CJ12| ).
+          RETURN.
         ENDIF.
       CATCH cx_root ##NO_HANDLER.
     ENDTRY.
 
-*   SAY WHICH IT WAS. Two keys that look alike and mean different things
-*   is precisely what cost this step a round: the trace showed the gate
-*   searching for 'IM00100123344' with a case 1959738 sitting in SCASE,
-*   and nothing said the two were related or that one was the wrong one.
+    trace_key( io_ctx  = io_ctx
+               iv_in   = lv_in
+               iv_what = `no case confirmed - key used unchanged` ).
+
+  ENDMETHOD.
+
+
+  METHOD trace_key.
+*   Two keys that look alike and mean different things is precisely what
+*   cost this step a round: the trace showed the gate searching for
+*   'IM00100123344' with case 1959738 sitting in SCASE, and nothing said
+*   the two were related or that one of them was the wrong one.
     DATA lo_eng TYPE REF TO zcl_rak_journey_engine.
     TRY.
         lo_eng = CAST #( io_ctx ).
@@ -520,12 +572,8 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
         CLEAR lo_eng.
     ENDTRY.
     IF lo_eng IS BOUND.
-      lo_eng->trace( |PAY     case key { lv_in } -> | &&
-                     COND string( WHEN rv IS INITIAL THEN 'no case yet'
-                                  WHEN rv = lv_ek    THEN 'already a case'
-                                  ELSE |case { rv } via VIBDCHARACT CJ12| ) ).
+      lo_eng->trace( |PAY     case key { iv_in } -> { iv_what }| ).
     ENDIF.
-
   ENDMETHOD.
 
 
@@ -577,7 +625,7 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *   RESOLVE_CASE( ) can turn an INTRENO into a case, which is why
 *   IV_INTRENO keeps the raw key.
     ro = NEW zcl_rak_pay_engine(
-           iv_caseid    = case_key_of( io_ctx = io_ctx iv_key = lv_case )
+           iv_caseid    = CONV #( case_key_of( io_ctx = io_ctx iv_key = lv_case )-key )
 *          The CASE, not the journey key. RESOLVE_CASE( ) puts this straight into
 *          VIBDCHARACT-INTRENO and SCMG_T_CASE_ATTR-EXT_KEY, and a CJS journey key is
 *          a GUID_22 with punctuation in it - which raises CX_SY_OPEN_SQL_DATA_ERROR
@@ -983,29 +1031,18 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *   for 'IM00100123344' while the case sat in SCASE as 1959738, and no
 *   open item could ever match. The citizen watched the payment timer
 *   under a gateway that was never going to open.
-    DATA(lv_extkey) = case_key_of( io_ctx = io_ctx iv_key = lv_case ).
+*
+*   THE SELECT BELOW IS UNTOUCHED, and that is deliberate. CASE_KEY_OF( )
+*   hands the key back unchanged unless it positively finds a case, so on
+*   DOK and EPDA this reads exactly the value it read before - including
+*   when SCMG_T_CASE_ATTR does not answer, which today does not stop
+*   those two families paying and must not start.
+    DATA(ls_ck) = case_key_of( io_ctx = io_ctx iv_key = lv_case ).
 
-*   NO CASE YET IS NOT THE SAME AS NO FEE YET, and saying the wrong one
-*   sends the reader to the wrong place. The case is created by the Pay
-*   press and the open item follows a workflow, so both are legitimate
-*   "not yet" states - but only one of them is fixed by waiting for
-*   billing. This one is fixed by waiting for the case.
-    IF lv_extkey IS INITIAL.
-      io_ctx->add_msg( iv_type = 'Information'
-                       iv_text = |TRACE case: journey key '{ lv_case }' is not a case | &&
-                                 |and no case is linked to it yet - waiting| ).
-      IF iv_quiet = abap_false.
-        io_ctx->add_msg( iv_type = 'Error'
-          iv_text = `The application's case has not been created yet, so the payment ` &&
-                    `page cannot open. The application is saved - reopen it in a few ` &&
-                    `minutes to pay.` ).
-      ENDIF.
-      zcl_rak_cj_evt=>add( iv_type   = zcl_rak_cj_evt=>c_type-pay_block
-                           iv_case   = lv_case
-                           iv_result = 'BLOCK'
-                           iv_detail = `NOCASEYET` ).
-      RETURN.
-    ENDIF.
+    DATA lv_ek TYPE scmg_ext_key.
+    lv_ek = ls_ck-key.
+    DATA lv_extkey TYPE scmg_ext_key.
+    lv_extkey = |{ lv_ek ALPHA = IN }|.
 
     SELECT SINGLE opbel FROM dfkkop INTO @DATA(lv_opbel)
       WHERE zzext_key = @lv_extkey
@@ -1018,12 +1055,27 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *     separates those two.
       io_ctx->add_msg( iv_type = 'Information'
                        iv_text = |TRACE dfkkop: no open item yet for ext_key '{ lv_extkey }'| ).
+
+*     NO CASE YET IS NOT THE SAME AS NO FEE YET, and saying the wrong one
+*     sends the reader to the wrong place. Both are legitimate "not yet"
+*     states - the case is created by the post, the open item follows a
+*     workflow - but only one of them is fixed by waiting for billing.
+*     WORDING ONLY: the wait, the event and the RETURN below are the same
+*     ones this branch has always taken, so a journey that used to sit
+*     here and poll still sits here and polls.
       IF iv_quiet = abap_false.
-        io_ctx->add_msg( iv_type = 'Error'
-          iv_text = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-pay_nofee
-                        iv_default = `The fee for this application has not been raised yet, so `
-                                  && `the payment page cannot open. The application is saved - `
-                                  && `reopen it in a few minutes to pay.` ) ).
+        IF ls_ck-is_case = abap_false.
+          io_ctx->add_msg( iv_type = 'Error'
+            iv_text = `The application's case has not been created yet, so the payment `
+                   && `page cannot open. The application is saved - reopen it in a few `
+                   && `minutes to pay.` ).
+        ELSE.
+          io_ctx->add_msg( iv_type = 'Error'
+            iv_text = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-pay_nofee
+                          iv_default = `The fee for this application has not been raised yet, so `
+                                    && `the payment page cannot open. The application is saved - `
+                                    && `reopen it in a few minutes to pay.` ) ).
+        ENDIF.
       ENDIF.
 
 *     Outside the IV_QUIET guard on purpose. Quiet suppresses the message to the
@@ -1031,7 +1083,8 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
       zcl_rak_cj_evt=>add( iv_type   = zcl_rak_cj_evt=>c_type-pay_block
                            iv_case   = lv_case
                            iv_result = 'BLOCK'
-                           iv_detail = `NOFEE` ).
+                           iv_detail = COND #( WHEN ls_ck-is_case = abap_false
+                                               THEN `NOCASEYET` ELSE `NOFEE` ) ).
       RETURN.
     ENDIF.
 
@@ -1437,17 +1490,18 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *       row and no SCMG case would ever match, and every consumer
 *       downstream inherited it.
 *
-*       Now the key goes through CASE_KEY_OF( ): unchanged when it is
-*       already a case, converted when VIBDCHARACT knows the case behind
-*       the INTRENO, and LEFT BLANK when neither answers. Blank is the
-*       important one - it means the case does not exist yet, and the
-*       payment step is supposed to wait for it rather than proceed on a
-*       key that cannot work.
+*       Now the key goes through CASE_KEY_OF( ): converted when
+*       VIBDCHARACT knows the case behind the INTRENO, and handed back
+*       UNCHANGED otherwise - so on DOK and EPDA this still writes
+*       exactly what GET_CASE( ) returned, and a Municipality journey
+*       whose case is not linked yet still writes the key it used to.
+*       The value is resolved again at every read, so a key written
+*       before the link existed is not stuck with it.
         IF io_ctx->get_val( c_pay_case ) IS INITIAL.
           DATA(lv_key) = case_key_of( io_ctx = io_ctx
-                                      iv_key = io_ctx->get_case( ) ).
+                                      iv_key = io_ctx->get_case( ) )-key.
           IF lv_key IS NOT INITIAL.
-            io_ctx->set_val( iv_name = c_pay_case iv_value = CONV string( lv_key ) ).
+            io_ctx->set_val( iv_name = c_pay_case iv_value = lv_key ).
           ENDIF.
         ENDIF.
 
