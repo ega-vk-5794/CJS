@@ -199,9 +199,9 @@ CLASS lcl_bkp IMPLEMENTATION.
 
       DATA(lv_where) = where_for( is_tab = ls_t iv_jrny = p_jrny ).
       IF lv_where IS INITIAL.
-        SELECT * FROM (ls_t-tabname) INTO TABLE <tab>.
+        SELECT * FROM (ls_t-tabname) INTO TABLE @<tab>.
       ELSE.
-        SELECT * FROM (ls_t-tabname) INTO TABLE <tab> WHERE (lv_where).
+        SELECT * FROM (ls_t-tabname) INTO TABLE @<tab> WHERE (lv_where).
       ENDIF.
 
       DATA(lv_cnt) = lines( <tab> ).
@@ -411,7 +411,7 @@ CLASS lcl_bkp IMPLEMENTATION.
       ENDIF.
 
       IF lines( <tab> ) > 0.
-        INSERT (ls_t-tabname) FROM TABLE <tab>.
+        INSERT (ls_t-tabname) FROM TABLE @<tab>.
       ENDIF.
     ENDLOOP.
 
