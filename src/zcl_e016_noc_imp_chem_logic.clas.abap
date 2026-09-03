@@ -44,6 +44,10 @@ private section.
   constants C_ORIGIN_POP type STRING value 'ORIGIN_POP' ##NO_TEXT.
   constants C_END_USER_POP type STRING value 'END_USER_POP' ##NO_TEXT.
   constants C_BOL_POP type STRING value 'BOL_POP' ##NO_TEXT.
+* "Transporter Details field is missing" - CJSMIG-686 Issue 4. E017 and
+* E018 both carry this field; E016 was the only one of the three without
+* it. The name matches E018's so the three dialogs stay comparable.
+  constants C_TRANS_COMP type STRING value 'TRANS_COMP' ##NO_TEXT.
   constants C_CHEM type STRING value 'CHEM' ##NO_TEXT.
 * The previous-declarations picker at the top of the Add Chemical dialog,
 * and the event its selection raises. See HISTORY_OPTS( ).
@@ -115,6 +119,7 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
     io_ctx->set_val( iv_name = C_ORIGIN_POP           iv_value = '' ).
     io_ctx->set_val( iv_name = C_END_USER_POP         iv_value = '' ).
     io_ctx->set_val( iv_name = C_BOL_POP              iv_value = '' ).
+    io_ctx->set_val( iv_name = C_TRANS_COMP           iv_value = '' ).
 
 
     IF iv_id IS INITIAL.
@@ -149,6 +154,7 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
       io_ctx->set_val( iv_name = C_ORIGIN_POP           iv_value = VALUE #( lt_r[ 11 ] OPTIONAL ) ).
       io_ctx->set_val( iv_name = C_END_USER_POP         iv_value = VALUE #( lt_r[ 12 ] OPTIONAL ) ).
       io_ctx->set_val( iv_name = C_BOL_POP              iv_value = VALUE #( lt_r[ 13 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = C_TRANS_COMP           iv_value = VALUE #( lt_r[ 14 ] OPTIONAL ) ).
       EXIT.
     ENDLOOP.
 
@@ -518,11 +524,14 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
         io_ctx->close_popup( ).
 
       WHEN c_evt_ownok.
-*       RENDER_OWN_POPUP( ) marks HS Code, Packing, Quantity, Gross Weight,
-*       UOM, Invoice Number, Country of Origin, Point of Entrance/End User
-*       and Bill of Lading rakReq, but nothing here ever checked any of
-*       them - Add saved whatever was typed, blank fields included.
+*       Nothing here used to check any field - Add saved whatever was typed,
+*       blank fields included. All fourteen are now tested, mirroring the
+*       REQUIRED markers in ON_RENDER_POPUP( ) one for one.
         IF io_ctx->get_val( c_hs_code_pop )      IS INITIAL
+           OR io_ctx->get_val( c_material_name_pop )    IS INITIAL
+           OR io_ctx->get_val( c_chemical_name_pop )    IS INITIAL
+           OR io_ctx->get_val( c_cas_pop )              IS INITIAL
+           OR io_ctx->get_val( c_chemical_formula_pop ) IS INITIAL
            OR io_ctx->get_val( c_packaging_pop )     IS INITIAL
            OR io_ctx->get_val( c_quantity_pop )      IS INITIAL
            OR io_ctx->get_val( c_gross_weight_pop )  IS INITIAL
@@ -530,7 +539,8 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
            OR io_ctx->get_val( c_invoice_pop )       IS INITIAL
            OR io_ctx->get_val( c_origin_pop )        IS INITIAL
            OR io_ctx->get_val( c_end_user_pop )      IS INITIAL
-           OR io_ctx->get_val( c_bol_pop )           IS INITIAL.
+           OR io_ctx->get_val( c_bol_pop )           IS INITIAL
+           OR io_ctx->get_val( c_trans_comp )        IS INITIAL.
           io_ctx->add_msg( iv_type = 'Warning'
                            iv_text = 'Kindly fill required details.' ).
           RETURN.
@@ -611,23 +621,23 @@ super->zif_rak_journey_logic~on_render_popup(
           io_ctx     = io_ctx
           io_popup   = io_popup
           iv_title   = 'Add Chemical'
+*         Two per row. "Alignment instead each row one filed, can have 2 or
+*         more field for better user experiences" - CJSMIG-686 Issue 4.
+          iv_columns = 2
           it_fields  = VALUE #(
-*                             THE HISTORY PICKER, first because it fills the
-*                             rest of the form. Empty options means this
-*                             applicant has declared nothing before, or the
-*                             lookup failed - HISTORY_OPTS( ) has already put
-*                             a Warning on screen in the second case, and
-*                             DIALOG_FORM( ) falls a SELECT with no resolved
-*                             list through to a plain input, so the dialog
-*                             never shows an empty dropdown.
-                                ( name = c_hist_pop label = 'Use a previous declaration'
-                                  type = 'SELECT' options = history_opts( io_ctx )
-                                  change_evt = c_evt_hist )
-                                ( name = c_hs_code_pop          label = 'HS Code' required = abap_true )
-                                ( name = c_material_name_pop    label = 'Material Name' )
-                                ( name = c_chemical_name_pop    label = 'Chemical Name' )
-                                ( name = c_cas_pop              label = 'CAS Number' maxlen = 20 )
-                                ( name = c_chemical_formula_pop label = 'Chemical Formula' )
+*                             THE HISTORY PICKER IS GONE, not commented out:
+*                             "Use a previous declaration - field not
+*                             required", same ticket. HISTORY_OPTS( ) and
+*                             HISTORY_APPLY( ) stay - the same ticket asks
+*                             for the legacy Search-from-History screen,
+*                             which reads the same ChemicalHistorySet
+*                             through a different control.
+                                ( name = c_hs_code_pop          label = 'HS Code' required = abap_true
+                                  placeholder = 'e.g. 2933.99.90' )
+                                ( name = c_material_name_pop    label = 'Material Name' required = abap_true )
+                                ( name = c_chemical_name_pop    label = 'Chemical Name' required = abap_true )
+                                ( name = c_cas_pop              label = 'CAS Number' maxlen = 20 required = abap_true )
+                                ( name = c_chemical_formula_pop label = 'Chemical Formula' required = abap_true )
                                 ( name = c_packaging_pop        label = 'Packing' required = abap_true )
                                 ( name = c_quantity_pop         label = 'Quantity' required = abap_true )
                                 ( name = c_gross_weight_pop     label = 'Gross Weight' required = abap_true )
@@ -641,7 +651,7 @@ super->zif_rak_journey_logic~on_render_popup(
                                 ( name = c_origin_pop           label = 'Country of Origin' shlp = 'H_T005' required = abap_true )
                                 ( name = c_end_user_pop         label = 'Point of Entrance' required = abap_true )
                                 ( name = c_bol_pop              label = 'Bill of Lading' required = abap_true )
-**                                ( name = c_trans_comp           label = 'Transport Company'  )
+                                ( name = c_trans_comp           label = 'Transport Company' required = abap_true )
                               )
           iv_ok_text = 'Add'
           iv_ok_evt  = c_evt_ownok
@@ -843,6 +853,15 @@ super->zif_rak_journey_logic~on_render_popup(
 *   dropped. Neither raises anything. Before adding or reordering a field here,
 *   read the grid spec in ZRAK_T_JNY_FLD-DEFAULT_VAL for this grid field and
 *   match it - the display methods in this class only corroborate the first few.
+*
+*   CONFIG STILL OWED FOR CELL 14. Transport Company was added here for
+*   CJSMIG-686 Issue 4 ("Transporter Details field is missing"), which makes
+*   this row fourteen cells against a spec that has thirteen. Appending past
+*   the last configured column is DROPPED SILENTLY - the dialog will collect
+*   the value and the grid will not show it - so E016's CHEMICALS_DETAILS
+*   spec in ZRAK_T_JNY_FLD-DEFAULT_VAL needs a fourteenth column before this
+*   reaches the case. Nothing here can add it; it is a config row, and it is
+*   the only part of that ticket item not carried by this change.
     DATA(ls_g)  = io_ctx->get_grid_data( c_grid ).
     DATA(lv_id) = io_ctx->get_val( c_hs_code_pop ).
 
@@ -868,6 +887,7 @@ super->zif_rak_journey_logic~on_render_popup(
       APPEND io_ctx->get_val( c_origin_pop )            TO lt_row.
       APPEND io_ctx->get_val( c_end_user_pop )          TO lt_row.
       APPEND io_ctx->get_val( c_bol_pop )               TO lt_row.
+      APPEND io_ctx->get_val( c_trans_comp )            TO lt_row.
       APPEND lt_row TO ls_new-rows.
       ELSE.
         APPEND lt_r TO ls_new-rows.
@@ -889,6 +909,7 @@ super->zif_rak_journey_logic~on_render_popup(
       APPEND io_ctx->get_val( c_origin_pop )            TO lt_row.
       APPEND io_ctx->get_val( c_end_user_pop )          TO lt_row.
       APPEND io_ctx->get_val( c_bol_pop )               TO lt_row.
+      APPEND io_ctx->get_val( c_trans_comp )            TO lt_row.
       APPEND lt_row TO ls_new-rows.
     ENDIF.
 

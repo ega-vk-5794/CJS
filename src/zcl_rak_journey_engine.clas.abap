@@ -1352,6 +1352,11 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_rak_journey~msgs.
+    rt_msg = mt_msg.
+  ENDMETHOD.
+
+
   METHOD zif_rak_journey~get_step.
     rv_step = mv_step.
   ENDMETHOD.

@@ -66,7 +66,13 @@ private section.
 * none and sees the applicant's whole history. That is the domain's answer;
 * inventing a third value would return nothing, which looks exactly like an
 * applicant who has never declared anything.
-  constants C_IMPEXP type STRING value '' ##NO_TEXT.
+* VALUE IS INITIAL, never VALUE ''. A string constant does not take an
+* empty literal: the class then has NO ACTIVE VERSION, the runtime keeps
+* running the previous one, and the error surfaces at every caller as
+* "Method X is unknown or PROTECTED or PRIVATE" - nowhere near here. That
+* is why the OWN_EDIT( ) and OWN_FORM_SAVE( ) fixes already in git never
+* reached the tested screen.
+  constants C_IMPEXP type STRING value IS INITIAL ##NO_TEXT.
 
 *  CONSTANTS c_hs_pop TYPE string VALUE 'HS_CODE' ##NO_TEXT.
 **  c_edit_pop
@@ -759,12 +765,14 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
         io_ctx->open_popup( c_chem ).
 
       WHEN c_evt_ownok. "'OWNER_ADD'. "
-*       RENDER_OWN_POPUP( ) marks HS Code, Packing, Quantity, Gross Weight,
-*       UOM, Invoice Number, Country of Origin, Point of Entrance/End User,
-*       Bill of Lading and Transport Company rakReq, but nothing here ever
-*       checked any of them - Add saved whatever was typed, blank fields
-*       included.
+*       Nothing here used to check any field - Add saved whatever was typed,
+*       blank fields included. All fourteen are now tested, mirroring the
+*       REQUIRED markers in ON_RENDER_POPUP( ) one for one.
         IF io_ctx->get_val( c_hs_code_pop )          IS INITIAL
+           OR io_ctx->get_val( c_material_name_pop )    IS INITIAL
+           OR io_ctx->get_val( c_chemical_name_pop )    IS INITIAL
+           OR io_ctx->get_val( c_cas_pop )              IS INITIAL
+           OR io_ctx->get_val( c_chemical_formula_pop ) IS INITIAL
            OR io_ctx->get_val( c_packaging_pop )     IS INITIAL
            OR io_ctx->get_val( c_quantity_pop )      IS INITIAL
            OR io_ctx->get_val( c_gross_weight_pop )  IS INITIAL
@@ -840,26 +848,29 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 
 *       REQUIRED here is the marker only - DIALOG_FORM( ) sets it on the label
 *       and enforces nothing; a popup's enforcement is the handler's own, in the
-*       OK event. So this list mirrors WHEN c_evt_ownok exactly: the ten fields
-*       it tests are marked, the four it does not are left alone.
+*       OK event. So this list mirrors WHEN c_evt_ownok exactly - now all
+*       fourteen marked and all fourteen tested, per CJSMIG-697 Issue 4 "all
+*       fields should be mandatory". Move one end and the other has to move
+*       with it.
         dialog_form(
           io_ctx     = io_ctx
           io_popup   = io_popup
           iv_title   = 'Add Chemical'
+*         Two per row. "Alignment instead each row one filed, can have 2 or
+*         more field for better user experiences" - same ticket.
+          iv_columns = 2
           it_fields  = VALUE #(
-*                             The history picker, first because it fills the
-*                             rest of the form. A SELECT whose list resolves
-*                             to nothing falls through to a plain input in
-*                             DIALOG_FORM( ), so an applicant with no history
-*                             never sees an empty dropdown.
-*                                ( name = c_hist_pop label = 'Use a previous declaration'
-*                                  type = 'SELECT' options = history_opts( io_ctx )
-*                                  change_evt = c_evt_hist )
-                                ( name = c_hs_code_pop          label = 'HS Code' required = abap_true )
-                                ( name = c_material_name_pop    label = 'Material Name' )
-                                ( name = c_chemical_name_pop    label = 'Chemical Name' )
-                                ( name = c_cas_pop              label = 'CAS Number' maxlen = 20 )
-                                ( name = c_chemical_formula_pop label = 'Chemical Formula' )
+*                             The history picker stays out: "Use a previous
+*                             declaration - field not required". HISTORY_OPTS( )
+*                             and HISTORY_APPLY( ) are kept for the legacy
+*                             Search-from-History screen the same ticket asks
+*                             for, which is a different control.
+                                ( name = c_hs_code_pop          label = 'HS Code' required = abap_true
+                                  placeholder = 'e.g. 2933.99.90' )
+                                ( name = c_material_name_pop    label = 'Material Name' required = abap_true )
+                                ( name = c_chemical_name_pop    label = 'Chemical Name' required = abap_true )
+                                ( name = c_cas_pop              label = 'CAS Number' maxlen = 20 required = abap_true )
+                                ( name = c_chemical_formula_pop label = 'Chemical Formula' required = abap_true )
                                 ( name = c_packaging_pop        label = 'Packing' required = abap_true )
                                 ( name = c_quantity_pop         label = 'Quantity' required = abap_true )
                                 ( name = c_gross_weight_pop     label = 'Gross Weight' required = abap_true )
