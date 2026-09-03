@@ -243,14 +243,31 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
 *   changed from here - so the partner travels in the payload where the
 *   read already put it.
 *
+*   NOT ON THE HEADER, THOUGH - THAT WAS THE FIRST ATTEMPT AND IT DOES
+*   NOT COMPILE. READ( )'s header and POST( )'s are different structures:
+*   POST( ) uses /QNV/SBUILD_SAVEHEADER_ST, which carries CATEGORYNAME,
+*   SCREENNAME and FUNCTIONIN and has no PARAM1..PARAM4 at all. "The data
+*   object LS_HDR does not have a component called PARAM3" is the whole of
+*   it, and assuming the two headers matched because both are called
+*   LS_HDR is the same class of mistake as the rest of today.
+*
+*   IT IS AN FM PARAMETER. The FM's own source separates the two cases:
+*   JOURNEYTYPE it has to dig out of the payload -
+*
+*       journeytype = VALUE #( ct_item_data[ technicalname = 'JOURNEYTYPE' ]-value ).
+*
+*   - while LOGINBP and ROLEBP it simply uses, at line 61, with no
+*   extraction anywhere above. A value used bare like that arrives as a
+*   parameter, and CJS's CALL FUNCTION below passed only the four CHANGING
+*   tables.
+*
 *   SAME PRECEDENCE AS READ( ): the session's resolved partner first, the
-*   dev `&loginbp=` override second. PARAM4 carries ROLEBP because the FM
-*   defaults ROLEBP from LOGINBP when it is blank, and letting it do that
-*   silently would post one partner as though it were the other.
-    ls_hdr-param3 = COND #( WHEN iv_loginbp IS NOT INITIAL
-                            THEN iv_loginbp
-                            ELSE ms_config-backend-loginbp_dev ).
-    ls_hdr-param4 = ms_config-backend-rolebp.
+*   dev `&loginbp=` override second. Computed HERE rather than inside the
+*   BP-item guard below, because both that item and the parameter need it
+*   and the guard may not run.
+    DATA(lv_partner) = COND string( WHEN iv_loginbp IS NOT INITIAL
+                                    THEN iv_loginbp
+                                    ELSE ms_config-backend-loginbp_dev ).
 
     CONSTANTS c_caller_fld TYPE string VALUE 'ZCJS_CALLER'.
     CONSTANTS c_caller_id  TYPE string VALUE 'CJS'.
@@ -312,12 +329,9 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
 *   characteristics through their own config table by TECHNICALNAME, so an
 *   item no row names is ignored rather than written anywhere.
     IF NOT line_exists( lt_item[ technicalname = 'BP' ] ).
-      DATA(lv_bp) = COND string( WHEN iv_loginbp IS NOT INITIAL
-                                 THEN iv_loginbp
-                                 ELSE ms_config-backend-loginbp_dev ).
-      IF lv_bp IS NOT INITIAL.
+      IF lv_partner IS NOT INITIAL.
         APPEND VALUE #( fieldname = 'BP' technicalname = 'BP'
-                        value = lv_bp ) TO lt_item.
+                        value = lv_partner ) TO lt_item.
       ENDIF.
     ENDIF.
 
@@ -372,13 +386,59 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
     lt_tab = it_tables.
     lt_att = it_attachments.
 
+*   ---- LOGINBP GOES OUT AS A PARAMETER, WITH A WAY BACK -------------
+*   TWO CALLS, AND THE SECOND IS THE OLD ONE. The FM name is dynamic, so
+*   a parameter it does not declare is a RUNTIME error rather than a
+*   syntax error - CX_SY_DYN_CALL_ILLEGAL_PARAM, raised while binding and
+*   therefore BEFORE the function body runs, so a failed attempt has no
+*   side effects and nothing is posted twice.
+*
+*   That is what makes this safe to ship without an ADT connection. The
+*   parameter names are read off the FM's source rather than its
+*   signature - the source shows LOGINBP, ROLEBP and ROLE used bare and
+*   passed on to the BAdI's MAPPER, which is strong but not the same as
+*   reading the interface - so if any of the three is named differently
+*   the retry posts exactly what it posted before this change and the
+*   trace says so. A wrong guess costs a message, not a broken create.
+    DATA(lv_dyn) = abap_false.
     TRY.
-        CALL FUNCTION ms_config-backend-fm_post
-          CHANGING
-            cs_general_data = ls_hdr
-            ct_item_data    = lt_item
-            ct_attacments   = lt_att
-            ct_tabledata    = lt_tab.
+        TRY.
+            CALL FUNCTION ms_config-backend-fm_post
+              EXPORTING
+                loginbp         = lv_partner
+                rolebp          = ms_config-backend-rolebp
+                role            = ms_config-backend-role
+              CHANGING
+                cs_general_data = ls_hdr
+                ct_item_data    = lt_item
+                ct_attacments   = lt_att
+                ct_tabledata    = lt_tab.
+          CATCH cx_sy_dyn_call_illegal_param
+                cx_sy_dyn_call_param_missing
+                cx_sy_dyn_call_param_not_found INTO DATA(lx_dyn).
+*           The three the parameter binding raises, caught SEPARATELY from
+*           the CX_ROOT below so a genuine backend failure is never
+*           retried - re-posting a create that half ran is how duplicate
+*           cases are made.
+            lv_dyn = abap_true.
+            CALL FUNCTION ms_config-backend-fm_post
+              CHANGING
+                cs_general_data = ls_hdr
+                ct_item_data    = lt_item
+                ct_attacments   = lt_att
+                ct_tabledata    = lt_tab.
+        ENDTRY.
+
+        IF lv_dyn = abap_true.
+*         TYPE / TEXT, not TYPE / MESSAGE. ET_MSG is
+*         ZIF_RAK_JOURNEY=>TT_MSG and its words are the engine's -
+*         'Warning', not the BAPIRET2 'W' this was first written with.
+          APPEND VALUE #( type = 'Warning' text =
+            |{ ms_config-backend-fm_post } does not declare LOGINBP/ROLEBP/ROLE | &&
+            |as parameters - posted without them, so the partner did not reach it. | &&
+            |{ lx_dyn->get_text( ) }| ) TO et_msg.
+        ENDIF.
+
       CATCH cx_root INTO DATA(lx).
 
 *       NAME THE ONE THAT LOOKS LIKE NOTHING. Every other exception here reads as
