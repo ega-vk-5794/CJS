@@ -606,15 +606,21 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
 *       functional call that is itself an assignment source is refused,
 *       and this shape sidesteps that whole question.
 *
-*       TYPED FROM THE DPC'S OWN DECLARATION. Its GET_EXPANDED_ENTITY
-*       declares `aos TYPE ztt_ega_ao_list` beside the GET_PROJECTS( )
-*       call, which is the only evidence available for this shape from
-*       here - so if activation rejects it, the type is what to correct
-*       and the rest of this method stands.
-        DATA lt_pj TYPE ztt_ega_ao_list.
-        CLEAR lt_pj.
+*       INLINE DATA( ), AND NOT A TYPE OF MY CHOOSING. This was written
+*       as `DATA lt_pj TYPE ztt_ega_ao_list` first, on the strength of an
+*       `aos TYPE ztt_ega_ao_list` declaration sitting near the call in
+*       the DPC - but the DPC does not pass AOS here. It writes
+*       `IMPORTING projects = DATA(proj)`, so that type was a guess about
+*       a shape this environment cannot read, which is the one mistake
+*       this file's header is entirely about.
+*
+*       The inline form takes whatever the method declares and needs to
+*       know nothing. CLAUDE.md's inline-DATA trap does not apply: it is
+*       about an inline declaration in the IMPORTING part of a FUNCTIONAL
+*       call that is itself an assignment's source, and this is a plain
+*       method call statement - which is exactly how the DPC writes it.
         TRY.
-            lo_obj->get_projects( IMPORTING projects = lt_pj ).
+            lo_obj->get_projects( IMPORTING projects = DATA(lt_pj) ).
             CREATE DATA rs-project LIKE lt_pj.
             ASSIGN rs-project->* TO FIELD-SYMBOL(<lt_pj>).
             IF <lt_pj> IS ASSIGNED.
@@ -644,13 +650,14 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
             lv_pcl = |{ lv_pcl ALPHA = IN }|.
           ENDIF.
           TRY.
-              DATA lt_dc TYPE ztt_ega_building_prm_data.
-              CLEAR lt_dc.
+*             INLINE HERE TOO, same reason as GET_PROJECTS( ) above: the
+*             DPC writes `IMPORTING docs = DATA(fn_docs)` and never names
+*             the type, so neither does this.
               me->get_filenet_docs(
                 EXPORTING partner   = lv_bp
                           iv_parcel = CONV #( lv_pcl )
                           iv_aoid   = CONV #( iv_aoid )
-                IMPORTING docs      = lt_dc ).
+                IMPORTING docs      = DATA(lt_dc) ).
               CREATE DATA rs-attach LIKE lt_dc.
               ASSIGN rs-attach->* TO FIELD-SYMBOL(<lt_dc>).
               IF <lt_dc> IS ASSIGNED.
