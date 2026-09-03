@@ -49,39 +49,19 @@ CLASS zcl_rak_property_api DEFINITION
 *& table one. A journey in the GRANTS category selects with YTR080; every
 *& other Municipality journey selects with TR0800.
 *&
-*& WHAT IS DELIBERATELY NOT HERE.
-*&   - The full-details dialog. IT IS GET_EXPANDED_ENTITY, SINGULAR, and
-*&     this comment said ENTITYSET until the live URL was read:
+*& THE FULL-DETAILS DIALOG IS NOW HERE TOO - see DETAILS( ). This block
+*& used to list it under "deliberately not here", behind an expand object
+*& that could not be built from this environment. It turned out not to
+*& need one: the six children are plain method calls on
+*& ZCL_EGA_MUN_CJ_ODATA_API, which is what GET_EXPANDED_ENTITY itself
+*& calls. The reasoning is at DETAILS( ) rather than repeated here.
 *&
-*&       PropertiesSet(Intreno='I800100108658',
-*&                     Partnerguid=guid'6aa93cf9-0402-1ed6-b5ca-421c803dd3ad')
-*&         ?$expand=ToProject,ToPartner,ToMeasurement,ToLandUse,
-*&                  ToDevelopment,ToAttachment
-*&
-*&     A KEY IN THE PATH MAKES IT AN ENTITY READ. Gateway routes
-*&     `EntitySet?$expand=` to GET_EXPANDED_ENTITYSET and
-*&     `EntitySet(key)?$expand=` to GET_EXPANDED_ENTITY - different
-*&     method, different parameters - so a wrapper written against the
-*&     plural one would have called something the dialog never calls.
-*&     That is why the six tabs are the ONE read this URL performs and
-*&     the reason it was thought to need a set read at all was a guess.
-*&
-*&     AND CJS ALREADY HOLDS BOTH KEY PARTS. Intreno is on the row the
-*&     card was drawn from - the parcel list reads it - and Partnerguid is
-*&     MS_CTX-PARTNERGUID, derived once by ZCL_RAK_CJ_CTX. So nothing new
-*&     has to be resolved; what is missing is only the method call and
-*&     whatever it wants for IO_EXPAND.
-*&
-*&     WHETHER IO_EXPAND IS STILL NEEDED IS NOT ESTABLISHED. The plural
-*&     method dereferences it unguarded; the singular one has not been
-*&     read. ZRAK_CJ_EXPAND_DIAG prints the DPC's own signature for both,
-*&     which settles it in one run - and guessing at a standard method's
-*&     parameters is what cost three activation rounds on
-*&     ZCL_RAK_CJ_REQ_CTX.
-*&   - FloorSet: it exists ONLY inside GET_EXPANDED_ENTITYSET
-*&     (iv_entity_name = gc_floor) - the PLURAL one - so it is behind the
-*&     expand-object question in a way the details dialog may not be.
-*&     RAK_FLOORUNIT therefore still has no flat read to wrap.
+*& WHAT IS STILL DELIBERATELY NOT HERE.
+*&   - FloorSet. It exists ONLY inside GET_EXPANDED_ENTITYSET - the
+*&     PLURAL method - under iv_entity_name = gc_floor, and nothing in
+*&     that branch resolves to a legacy class the way the Properties
+*&     branch does. So RAK_FLOORUNIT still has no read to wrap, and it is
+*&     the one place the expand-object question genuinely remains.
 *&---------------------------------------------------------------------*
 
   PUBLIC SECTION.
@@ -128,20 +108,34 @@ CLASS zcl_rak_property_api DEFINITION
              msg    TYPE bapiret2_t,
            END OF ty_map_res.
 
-*   One expanded property. ENTITY is the whole structure the DPC built -
-*   the flat TS_PROPERTIES fields plus the six child tables - and the six
-*   references below point INTO it, so they stay valid exactly as long as
-*   ENTITY does. A child the DPC did not fill comes back UNBOUND rather
-*   than as an empty table, which is what lets a tab tell "no rows" apart
-*   from "never asked for".
+*   The six child lists of one property, each an ANONYMOUS data object
+*   holding a copy of what the legacy read returned.
+*
+*   REFERENCES, NOT TYPED TABLES, and CREATE DATA rather than GET
+*   REFERENCE OF a local. Two reasons, and both are load-bearing.
+*
+*   The types are unknowable from here: the row structures live on
+*   ZCL_EGA_MUN_CJ_ODATA_API's own method signatures, and naming them
+*   would be six more generated shapes to get wrong - which this class's
+*   header already records the cost of. DETAILS( ) never declares one; it
+*   takes what the method returns with an inline DATA( ) and copies it
+*   into an anonymous object of the same type via CREATE DATA ... LIKE.
+*
+*   And a reference to a local variable would DANGLE. Only anonymous data
+*   objects are kept alive by the reference itself; a method's own locals
+*   go when the method does, so GET REFERENCE OF one and handing it back
+*   is a reference to reclaimed memory.
+*
+*   UNBOUND MEANS NOT READ, empty means read and genuinely nothing - a
+*   distinction a tab needs, because "this parcel has no buildings" and
+*   "we could not ask" are different sentences to show a citizen.
     TYPES: BEGIN OF ty_detail_res,
-             entity   TYPE REF TO data,
-             partners TYPE REF TO data,   " ToPartner
-             landuse  TYPE REF TO data,   " ToLandUse
-             measure  TYPE REF TO data,   " ToMeasurement
-             develop  TYPE REF TO data,   " ToDevelopment
-             project  TYPE REF TO data,   " ToProject
-             attach   TYPE REF TO data,   " ToAttachment
+             partners TYPE REF TO data,   " ToPartner      get_partners( )
+             landuse  TYPE REF TO data,   " ToLandUse      get_chars( )
+             measure  TYPE REF TO data,   " ToMeasurement  get_meas( )
+             develop  TYPE REF TO data,   " ToDevelopment  get_assobj( )
+             project  TYPE REF TO data,   " ToProject      get_projects( )
+             attach   TYPE REF TO data,   " ToAttachment   get_filenet_docs( )
              msg      TYPE bapiret2_t,
            END OF ty_detail_res.
 
@@ -206,50 +200,69 @@ CLASS zcl_rak_property_api DEFINITION
       IMPORTING iv_parcel TYPE string OPTIONAL
       RETURNING VALUE(rs) TYPE ty_map_res.
 
-*   ---- the full-details dialog: one read, six tabs --------------------
-*   READ OFF ZCL_ZEGA_CJ_DPC_EXT, not inferred. The method is
-*   /IWBEP/IF_MGW_APPL_SRV_RUNTIME~GET_EXPANDED_ENTITY - an INTERFACE
-*   method, which is why the 30-character generated-name problem this
-*   class's header worried about does not arise, and why it is PUBLIC
-*   rather than protected like the _GET_ENTITYSET pair.
+*   ---- the full-details dialog: six tabs, no expand object -----------
+*   THE EXPAND OBJECT TURNED OUT TO BE AVOIDABLE, which is worth more
+*   than solving it would have been.
 *
-*   Three hard facts from its body, each of which is a silent empty
-*   result if broken:
+*   The dialog's own URL is a GET_EXPANDED_ENTITY call - singular, a key
+*   in the path - and that method looked like the only way in. It has two
+*   hard requirements, both read off ZCL_ZEGA_CJ_DPC_EXT rather than
+*   guessed. IT_KEY_TAB must carry 'Intreno' and 'Partnerguid' in exactly
+*   that mixed-case spelling, because the DPC reads them with
+*   `it_key_tab[ name = 'Intreno' ]` inside TRY/CATCH
+*   CX_SY_ITAB_LINE_NOT_FOUND and RETURNS on a miss - no message, no
+*   exception, an empty entity. And IO_EXPAND, though declared OPTIONAL,
+*   is dereferenced unconditionally: `io_expand->get_children( )` runs
+*   before any child is fetched, and every child is then gated on
+*   `line_exists( lt_children[ tech_nav_prop_name = 'TOPARTNER' ] )`. So
+*   an expand object is required AND has to report the six nav names -
+*   an empty one returns an entity with every tab blank, which looks
+*   exactly like a backend holding no data.
 *
-*   1  IT_KEY_TAB must carry BOTH 'Intreno' and 'Partnerguid', spelled
-*      exactly like that. The DPC reads them with
-*      `it_key_tab[ name = 'Intreno' ]` inside TRY/CATCH
-*      CX_SY_ITAB_LINE_NOT_FOUND and RETURNS on a miss - no message, no
-*      exception, an empty entity. A blank Partnerguid returns too, and
-*      so does a Partnerguid with no BUT000 row.
+*   Building one needs the method list of /IWBEP/IF_MGW_ODATA_EXPAND, and
+*   that is not readable here: not in the class, not in doc/, and no
+*   implementer appears in any legacy source in this repository. Guessing
+*   at it is precisely what cost ZCL_RAK_CJ_REQ_CTX three activation
+*   rounds.
 *
-*   2  IO_EXPAND IS DEREFERENCED UNGUARDED despite being declared
-*      OPTIONAL: `DATA(lt_children) = io_expand->get_children( ).` runs
-*      before any of the six children are fetched. Passing nothing raises
-*      CX_SY_REF_IS_INITIAL. And an EMPTY expand object is not enough
-*      either - each child is gated on
-*      `line_exists( lt_children[ tech_nav_prop_name = 'TOPARTNER' ] )`,
-*      so the object has to REPORT the six nav names or every tab comes
-*      back empty while the call itself succeeds. That is the one piece
-*      still missing and it is why IO_EXPAND is an importing parameter
-*      here rather than something this method builds.
+*   SO READ THE SAME SOURCES THE DPC READS. Its body shows every one of
+*   the six children is a plain method call on a legacy class CJS can
+*   instantiate for itself:
 *
-*   3  The children come back INSIDE ER_ENTITY, not as separate exports:
-*      the DPC builds a local structure that INCLUDEs TS_PROPERTIES and
-*      adds TOPARTNER, TOLANDUSE, TOMEASUREMENT, TODEVELOPMENT,
-*      TOATTACHMENT and TOPROJECT as tables, then COPY_DATA_TO_REF's the
-*      whole thing into ER_ENTITY.
+*       ToPartner      lo_obj->get_partners( intreno = ... )
+*       ToMeasurement  lo_obj->get_meas( intreno = ... )
+*       ToLandUse      lo_obj->get_chars( intreno = ... )
+*       ToDevelopment  lo_obj->get_assobj( objnr = ... )
+*       ToProject      lo_obj->get_projects( IMPORTING projects = ... )
+*       ToAttachment   me->get_filenet_docs( ... )
 *
-*   RETURNED AS REFERENCES, DELIBERATELY. Typing the six child tables
-*   here would mean naming TS_PARTNER, TS_LANDUSE, TS_MEASUREMENT,
-*   TS_DEVELOPMENT, TS_ATTACHMENT and TS_PROJECT - six more generated
-*   names to get wrong, and this class's own header records what guessing
-*   a generated shape costs. The caller reads cells with ASSIGN COMPONENT
-*   exactly as ZCL_RAK_CJ_PARCEL->CELL( ) already does for the flat list,
-*   so nothing downstream needs the type either.
+*   where LO_OBJ is NEW ZCL_EGA_MUN_CJ_ODATA_API( partner = ... ) and
+*   GET_FILENET_DOCS is on the DPC itself - reachable because this class
+*   INHERITS it, the same reason the protected _GET_ENTITYSET methods are
+*   reachable.
+*
+*   All IO_EXPAND ever did inside GET_EXPANDED_ENTITY was let the method
+*   decide WHICH children to fetch. Asking for all six directly needs no
+*   such object, so the one piece that could not be built from here stops
+*   being on the path at all.
+*
+*   READING A LEGACY CLASS IS NOT MODIFYING ONE. Nothing here writes to
+*   the legacy namespace; it calls it, exactly as the whole QNV bridge
+*   does.
+*
+*   WHAT THIS GIVES UP is the flat half of the entity - PARCELID,
+*   AREATEXT, ADDRESS, TYPE and the rest - which GET_EXPANDED_ENTITY
+*   would have returned alongside the children. That costs nothing: the
+*   caller already holds those on the row its card was drawn from, and
+*   ZCL_RAK_CJ_PARCEL->GENERAL_TAB( ) fills the General tab from exactly
+*   that row.
+*
+*   IV_PARCEL and IV_AOID are for the attachments only - GET_FILENET_DOCS
+*   keys on the parcel number and the AOID, never on the intreno.
     METHODS details
       IMPORTING iv_intreno    TYPE string
-                io_expand     TYPE REF TO /iwbep/if_mgw_odata_expand OPTIONAL
+                iv_parcel     TYPE string OPTIONAL
+                iv_aoid       TYPE string OPTIONAL
                 iv_owner_guid TYPE string OPTIONAL
       RETURNING VALUE(rs)     TYPE ty_detail_res.
 
@@ -263,16 +276,6 @@ CLASS zcl_rak_property_api DEFINITION
       EXPORTING ev_guid       TYPE string
       CHANGING  ct_msg        TYPE bapiret2_t.
 
-*   A reference to one component of the expanded entity, by name, or
-*   UNBOUND when the structure has no such component. ASSIGN COMPONENT
-*   sets SY-SUBRC and raises nothing, so a name that turns out to be
-*   spelled differently on this MPC degrades to an empty tab rather than
-*   a dump - which is the right trade for six names read off a source
-*   listing rather than from the dictionary.
-    METHODS child
-      IMPORTING ir_entity TYPE REF TO data
-                iv_comp   TYPE string
-      RETURNING VALUE(rr) TYPE REF TO data.
 
   PRIVATE SECTION.
 ENDCLASS.
@@ -490,34 +493,13 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD child.
-    FIELD-SYMBOLS <ls_ent>  TYPE any.
-    FIELD-SYMBOLS <lt_comp> TYPE ANY TABLE.
-
-    IF ir_entity IS NOT BOUND OR iv_comp IS INITIAL.
-      RETURN.
-    ENDIF.
-
-    ASSIGN ir_entity->* TO <ls_ent>.
-    IF <ls_ent> IS NOT ASSIGNED.
-      RETURN.
-    ENDIF.
-
-*   TO A TABLE FIELD SYMBOL, so a component that exists but is a scalar
-*   cannot be handed back as if it were a child list. The six are all
-*   tables in the DPC's local TY_PROPERTY; anything else means the name
-*   collided with a flat TS_PROPERTIES field.
-    ASSIGN COMPONENT to_upper( iv_comp ) OF STRUCTURE <ls_ent> TO <lt_comp>.
-    IF sy-subrc <> 0 OR <lt_comp> IS NOT ASSIGNED.
-      RETURN.
-    ENDIF.
-
-    GET REFERENCE OF <lt_comp> INTO rr.
-  ENDMETHOD.
-
-
   METHOD details.
 
+*   IDENTITY STILL GOES THROUGH GUARD( ), even though nothing below
+*   filters on the guid. It is the one place that says "this journey was
+*   launched without a partner" in words rather than by returning nothing,
+*   and a details dialog with no partner behind it is the same defect as a
+*   parcel list with none.
     guard( EXPORTING iv_owner_guid = iv_owner_guid
            IMPORTING ev_guid       = DATA(lv_guid)
            CHANGING  ct_msg        = rs-msg ).
@@ -526,8 +508,6 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
     ENDIF.
 
     IF iv_intreno IS INITIAL.
-*     The DPC would RETURN silently on the missing key. Say it here, where
-*     the caller can still tell which parcel it asked about.
       APPEND VALUE #( type = 'E' message =
         `Property details need the Intreno of the parcel. The parcel list ` &&
         `returns it on every row - carry it through with the parcel id.` )
@@ -535,113 +515,160 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-*   ---- the one thing this cannot yet build itself ---------------------
-*   IO_EXPAND is OPTIONAL on the DPC and dereferenced unconditionally in
-*   its body, so calling without one is a dump, not an empty result.
-*   Refusing here turns that into a message that names what is missing.
+*   ---- the partner, as the legacy class wants it ----------------------
+*   MS_CTX-PARTNER, not a BUT000 lookup. The DPC re-derives the partner
+*   number from the guid because it is handed only a guid; CJS already
+*   holds the number - ZCL_RAK_CJ_CTX puts the engine's MV_LOGINBP there -
+*   so going back to BUT000 would mean converting the guid string to
+*   BU_PARTNER_GUID, which is a raw16 and not something a 32-character hex
+*   string assigns to cleanly.
 *
-*   Building it needs the method list of /IWBEP/IF_MGW_ODATA_EXPAND, or a
-*   standard class that already implements it. ZRAK_CJ_EXPAND_DIAG prints
-*   both - its own interface methods, and every implementer in the
-*   repository with that implementer's CONSTRUCTOR. One run answers it.
-*   Nothing is guessed here on purpose: hand-writing the shape of a
-*   standard object that cannot be opened from the editing environment is
-*   what cost ZCL_RAK_CJ_REQ_CTX three activation rounds.
-    IF io_expand IS NOT BOUND.
+*   TYPED BU_PARTNER, and ALPHA-padded into it. The DPC passes the value
+*   straight out of a BUT000 SELECT, so that is the type the constructor
+*   was written against - and it pads its own before passing one
+*   elsewhere in the same class, which says the class expects the padded
+*   form.
+    DATA lv_bp TYPE bu_partner.
+    lv_bp = |{ ms_ctx-partner ALPHA = IN }|.
+    IF lv_bp IS INITIAL.
       APPEND VALUE #( type = 'E' message =
-        `Property details need an expand object. GET_EXPANDED_ENTITY reads ` &&
-        `io_expand->get_children( ) before it fetches anything and gates each ` &&
-        `of the six tabs on the nav name appearing there. Run ` &&
-        `ZRAK_CJ_EXPAND_DIAG to get the implementer, then pass one in.` )
+        `Property details need the business partner number, and the ` &&
+        `journey context carries none. It comes from the launch ` &&
+        `parameters through ZCL_RAK_CJ_CTX.` )
         TO rs-msg.
       RETURN.
     ENDIF.
 
-*   ---- the key, both halves, spelled the DPC's way --------------------
-*   MIXED CASE, and it is not cosmetic: the DPC reads
-*   `it_key_tab[ name = 'Intreno' ]` and `[ name = 'Partnerguid' ]` on a
-*   CHAR field, so 'INTRENO' misses and the method returns an empty
-*   entity with no message at all.
-    DATA lt_key TYPE /iwbep/t_mgw_name_value_pair.
-    APPEND VALUE #( name = `Intreno`     value = iv_intreno ) TO lt_key.
-    APPEND VALUE #( name = `Partnerguid` value = lv_guid )    TO lt_key.
-
-*   ---- the request context, and why it is cast ------------------------
-*   AN ENTITY READ WANTS /IWBEP/IF_MGW_REQ_ENTITY, NOT _ENTITYSET. The two
-*   flat reads in this class pass MO_REQ straight through because
-*   PROPERTIESSET_GET_ENTITYSET declares the plural interface;
-*   GET_EXPANDED_ENTITY declares the singular one, and ABAP binds formal
-*   parameters here BY REFERENCE, so a near-miss is a syntax error rather
-*   than a conversion: "MO_REQ is not type-compatible with formal
-*   parameter IO_TECH_REQUEST_CONTEXT".
-*
-*   ONE OBJECT, TWO INTERFACES. The Gateway request object implements
-*   both, so this is a downcast between interface references and it
-*   succeeds at runtime - but only for an object that really does
-*   implement the second one, which is not something this environment can
-*   read off /IWBEP/CL_MGW_REQUEST. Hence the CATCH rather than a bare
-*   ?=: a wrong assumption degrades to an unbound reference here instead
-*   of an uncatchable cast error mid-dialog.
-*
-*   AND UNBOUND IS SURVIVABLE. The Properties branch of
-*   GET_EXPANDED_ENTITY never reads IO_TECH_REQUEST_CONTEXT at all - it
-*   works from IT_KEY_TAB and IO_EXPAND, resolves the partner from BUT000
-*   itself, and builds ZCL_EGA_MUN_CJ_ODATA_API from that. The parameter
-*   is OPTIONAL and, on this path, genuinely unused. So the cast failing
-*   costs nothing on this read, which is why it is not treated as an
-*   error the way a missing IO_EXPAND is.
-    DATA lo_req_ent TYPE REF TO /iwbep/if_mgw_req_entity.
+*   ONE TRY AROUND THE WHOLE THING, and every child inside it. These are
+*   six reads against RE-FX, FI and ECM through a legacy class this
+*   environment cannot compile against - so an exception is a message,
+*   never a dump in a dialog the citizen opened to look at a parcel.
+*   Partial results are kept deliberately: five tabs filled and one
+*   explained beats six blank ones.
     TRY.
-        lo_req_ent ?= mo_req.
-      CATCH cx_sy_move_cast_error.
-        CLEAR lo_req_ent.
-    ENDTRY.
+        DATA(lo_obj) = NEW zcl_ega_mun_cj_odata_api( partner = lv_bp ).
 
-    DATA lr_ent  TYPE REF TO data.
-    DATA ls_ctx  TYPE /iwbep/if_mgw_appl_srv_runtime=>ty_s_mgw_response_entity_cntxt.
-    DATA lt_cl   TYPE string_table.
-    DATA lt_tcl  TYPE string_table.
+*       NARROW TO THIS PARCEL FIRST, exactly as the DPC does. The
+*       constructor loads every property the partner holds, and
+*       GET_PROJECTS( ) has no intreno parameter - it works off whatever
+*       is left in PROPERTIES. Without this the Active Projects count is
+*       every project on every parcel the citizen owns.
+        DELETE lo_obj->properties WHERE intreno <> iv_intreno.
 
-    TRY.
-        /iwbep/if_mgw_appl_srv_runtime~get_expanded_entity(
-          EXPORTING
-            iv_entity_name           = `Properties`
-            iv_entity_set_name       = `PropertiesSet`
-            iv_source_name           = ``
-            it_key_tab               = lt_key
-            it_navigation_path       = VALUE #( )
-            io_expand                = io_expand
-            io_tech_request_context  = lo_req_ent
-          IMPORTING
-            er_entity                = lr_ent
-            es_response_context      = ls_ctx
-            et_expanded_clauses      = lt_cl
-            et_expanded_tech_clauses = lt_tcl ).
+*       ---- ToPartner ----------------------------------------------
+*       CONV #( ) because the formal parameter is a DDIC type and
+*       IV_INTRENO is a string: parameters here bind BY REFERENCE, so a
+*       string against a CHAR13 is a syntax error rather than a
+*       conversion. The DPC writes CONV #( ) at the same call for the
+*       same reason.
+        DATA(lt_bp) = lo_obj->get_partners( intreno = CONV #( iv_intreno ) ).
+        CREATE DATA rs-partners LIKE lt_bp.
+        ASSIGN rs-partners->* TO FIELD-SYMBOL(<lt_bp>).
+        IF <lt_bp> IS ASSIGNED.
+          <lt_bp> = lt_bp.
+        ENDIF.
+
+*       ---- ToMeasurement ------------------------------------------
+        DATA(lt_ms) = lo_obj->get_meas( intreno = CONV #( iv_intreno ) ).
+        CREATE DATA rs-measure LIKE lt_ms.
+        ASSIGN rs-measure->* TO FIELD-SYMBOL(<lt_ms>).
+        IF <lt_ms> IS ASSIGNED.
+          <lt_ms> = lt_ms.
+        ENDIF.
+
+*       ---- ToLandUse ----------------------------------------------
+        DATA(lt_ch) = lo_obj->get_chars( intreno = CONV #( iv_intreno ) ).
+        CREATE DATA rs-landuse LIKE lt_ch.
+        ASSIGN rs-landuse->* TO FIELD-SYMBOL(<lt_ch>).
+        IF <lt_ch> IS ASSIGNED.
+          <lt_ch> = lt_ch.
+        ENDIF.
+
+*       ---- ToDevelopment ------------------------------------------
+*       KEYED ON OBJNR, NOT INTRENO - the one child that is, and the DPC
+*       resolves it with this same SELECT. A parcel with no VILMPL row
+*       leaves the tab empty rather than reading somebody else's
+*       buildings, which is what passing an initial OBJNR would risk.
+        SELECT SINGLE objnr FROM vilmpl INTO @DATA(lv_objnr)
+          WHERE intreno = @iv_intreno.
+        IF sy-subrc = 0 AND lv_objnr IS NOT INITIAL.
+          DATA(lt_dv) = lo_obj->get_assobj( objnr = lv_objnr ).
+          CREATE DATA rs-develop LIKE lt_dv.
+          ASSIGN rs-develop->* TO FIELD-SYMBOL(<lt_dv>).
+          IF <lt_dv> IS ASSIGNED.
+            <lt_dv> = lt_dv.
+          ENDIF.
+        ENDIF.
+
+*       ---- ToProject ----------------------------------------------
+*       EXPORTING-only, so the variable is declared rather than inlined
+*       in the call - an inline DATA( ) in the IMPORTING part of a
+*       functional call that is itself an assignment source is refused,
+*       and this shape sidesteps that whole question.
+*
+*       TYPED FROM THE DPC'S OWN DECLARATION. Its GET_EXPANDED_ENTITY
+*       declares `aos TYPE ztt_ega_ao_list` beside the GET_PROJECTS( )
+*       call, which is the only evidence available for this shape from
+*       here - so if activation rejects it, the type is what to correct
+*       and the rest of this method stands.
+        DATA lt_pj TYPE ztt_ega_ao_list.
+        CLEAR lt_pj.
+        TRY.
+            lo_obj->get_projects( IMPORTING projects = lt_pj ).
+            CREATE DATA rs-project LIKE lt_pj.
+            ASSIGN rs-project->* TO FIELD-SYMBOL(<lt_pj>).
+            IF <lt_pj> IS ASSIGNED.
+              <lt_pj> = lt_pj.
+            ENDIF.
+          CATCH cx_root INTO DATA(lx_pj).
+*           ITS OWN CATCH. GET_PROJECTS( ) reaches furthest of the six -
+*           ZDT_EGA_CAAT_PRM, the case table and ZP00( ) - so it is the
+*           most likely to raise, and one failure there should not cost
+*           the five tabs already filled above.
+            to_msg( EXPORTING io_exc = lx_pj CHANGING ct_msg = rs-msg ).
+        ENDTRY.
+
+*       ---- ToAttachment -------------------------------------------
+*       ME->, and that is the point of inheriting the DPC:
+*       GET_FILENET_DOCS is PROTECTED there, so only a subclass can call
+*       it - the same reason the _GET_ENTITYSET methods are reachable
+*       from this class.
+*
+*       PARCEL AND AOID, never the intreno. And ALPHA-padded: the DPC
+*       pads PARCELID immediately before this call, so the unpadded form
+*       the card displays is not what ECM is keyed on.
+        IF iv_parcel IS NOT INITIAL OR iv_aoid IS NOT INITIAL.
+          DATA lv_pcl TYPE string.
+          lv_pcl = iv_parcel.
+          IF lv_pcl IS NOT INITIAL.
+            lv_pcl = |{ lv_pcl ALPHA = IN }|.
+          ENDIF.
+          TRY.
+              DATA lt_dc TYPE ztt_ega_building_prm_data.
+              CLEAR lt_dc.
+              me->get_filenet_docs(
+                EXPORTING partner   = lv_bp
+                          iv_parcel = CONV #( lv_pcl )
+                          iv_aoid   = CONV #( iv_aoid )
+                IMPORTING docs      = lt_dc ).
+              CREATE DATA rs-attach LIKE lt_dc.
+              ASSIGN rs-attach->* TO FIELD-SYMBOL(<lt_dc>).
+              IF <lt_dc> IS ASSIGNED.
+                <lt_dc> = lt_dc.
+              ENDIF.
+            CATCH cx_root INTO DATA(lx_dc).
+*             ITS OWN CATCH TOO, and for a sharper reason than projects:
+*             this one leaves the system. Every document is a separate
+*             ZCL_EGA_FILENET_API read that returns the file CONTENT as
+*             base64, so a slow or unreachable ECM must not take the five
+*             local tabs with it.
+              to_msg( EXPORTING io_exc = lx_dc CHANGING ct_msg = rs-msg ).
+          ENDTRY.
+        ENDIF.
+
       CATCH cx_root INTO DATA(lx).
         to_msg( EXPORTING io_exc = lx CHANGING ct_msg = rs-msg ).
-        RETURN.
     ENDTRY.
-
-    IF lr_ent IS NOT BOUND.
-*     Every RETURN in the DPC's key handling lands here: a missing key, a
-*     blank Partnerguid, a guid with no BUT000 row, or a parcel that is
-*     not this partner's. They are indistinguishable from outside, so the
-*     message says what was asked rather than asserting which one it was.
-      APPEND VALUE #( type = 'W' message =
-        |No details came back for Intreno { iv_intreno }. The read answers | &&
-        |nothing when the parcel is not held by this partner, so check the | &&
-        |Intreno against the parcel list this card was drawn from.| )
-        TO rs-msg.
-      RETURN.
-    ENDIF.
-
-    rs-entity   = lr_ent.
-    rs-partners = child( ir_entity = lr_ent iv_comp = `TOPARTNER` ).
-    rs-landuse  = child( ir_entity = lr_ent iv_comp = `TOLANDUSE` ).
-    rs-measure  = child( ir_entity = lr_ent iv_comp = `TOMEASUREMENT` ).
-    rs-develop  = child( ir_entity = lr_ent iv_comp = `TODEVELOPMENT` ).
-    rs-project  = child( ir_entity = lr_ent iv_comp = `TOPROJECT` ).
-    rs-attach   = child( ir_entity = lr_ent iv_comp = `TOATTACHMENT` ).
   ENDMETHOD.
 
 

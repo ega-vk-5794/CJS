@@ -132,6 +132,25 @@ CLASS zcl_rak_cj_parcel DEFINITION
     DATA mt_own   TYPE zcl_rak_property_api=>tt_partner_rows.
     DATA mv_ownrd TYPE abap_bool.
 
+*   ONE DETAILS READ PER POPUP RENDER, SIX TABS OFF IT. DETAILS( ) does
+*   six backend reads - RE-FX characteristics, measurements, partners,
+*   architectural objects, the project tables, and ECM for the documents -
+*   so calling it once per tab would be six times that on every round
+*   trip, and every tab is drawn on every round trip whether or not it is
+*   the visible one.
+*
+*   MV_DETRD IS NOT REDUNDANT WITH MS_DET. A parcel whose children are
+*   genuinely all empty leaves MS_DET looking exactly like a read that
+*   never happened, which is the same silent-repeat this class already
+*   guards MT_ROWS against with MV_READ.
+*
+*   KEYED ON THE INTRENO, because the dialog can be closed and reopened
+*   on a different parcel within one serialized instance - the control is
+*   rebuilt each round trip but the ENGINE carries MV_PCL_DET across them.
+    DATA ms_det   TYPE zcl_rak_property_api=>ty_detail_res.
+    DATA mv_detrd TYPE abap_bool.
+    DATA mv_detky TYPE string.
+
 *   TWO SELECTORS ON ONE STEP. M012 carries PARCELSELECTOR and ADDPRCLCTL
 *   side by side, and the browse state on the engine is one set of scalars.
 *   Left as it was, paging the first list paged the second, and switching
@@ -269,19 +288,45 @@ CLASS zcl_rak_cj_parcel DEFINITION
 *   loop and ToProject is in its header, and only Active Projects
 *   actually comes from ToProject.
 *
-*   The other five are genuinely blocked and stay as they are: ToPartner,
-*   ToLandUse, ToDevelopment, ToMeasurement and ToAttachment have no flat
-*   equivalent anywhere in the service.
+*   The other five come from DETAILS( ), through CHILD_TAB( ) below.
     METHODS general_tab
       IMPORTING io_bar TYPE REF TO z2ui5_cl_xml_view
                 iv_pid TYPE string.
 
-    METHODS blocked_tab
-      IMPORTING io_bar  TYPE REF TO z2ui5_cl_xml_view
-                iv_key  TYPE string
-                iv_text TYPE string
-                iv_cols TYPE string
-                iv_exp  TYPE string.
+*   The details read, once, cached for the tabs that follow it.
+    METHODS detail
+      RETURNING VALUE(rs) TYPE zcl_rak_property_api=>ty_detail_res.
+
+*   ---- one child list, drawn ------------------------------------------
+*   IR_DATA is one of DETAILS( )'s six references and its row type is
+*   unknown here by design - so every cell is read with CELL( ), which is
+*   ASSIGN COMPONENT and answers blank for a component that is not there.
+*
+*   IV_COLS AND IV_COMPS ARE POSITIONALLY PAIRED, both '^' separated:
+*   column N is headed by the Nth label and filled from the Nth
+*   component. That is the same positional coupling as a backend TABLE's
+*   KEY:Label:TYPE spec, with the same hazard - a label added without its
+*   component shifts every cell after it - so they are passed together at
+*   one call site rather than configured apart.
+*
+*   THE COMPONENT NAMES ARE THE LEGACY CLASS'S OWN, not the MPC's. The
+*   DPC maps ZCL_EGA_MUN_CJ_ODATA_API's raw rows into TS_PARTNER,
+*   TS_MEASUREMENT and so on for OData; CJS reads the raw rows directly,
+*   so what is named here is PARTNER / ZZFULL_NAME_ENG / XMMEAS - the
+*   fields the DPC reads on its right-hand side, which is the only
+*   evidence available for these shapes from this environment. A name
+*   that turns out wrong draws an empty column, never a dump.
+*
+*   AN UNBOUND IR_DATA IS "NOT READ", an empty one is "none" - and the
+*   two get different messages, because "this parcel has no buildings"
+*   and "we could not ask" are not the same sentence to show a citizen.
+    METHODS child_tab
+      IMPORTING io_bar   TYPE REF TO z2ui5_cl_xml_view
+                iv_key   TYPE string
+                iv_text  TYPE string
+                iv_cols  TYPE string
+                iv_comps TYPE string
+                ir_data  TYPE REF TO data.
 
 ENDCLASS.
 
@@ -1929,21 +1974,67 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   dialog's own column headers so that filling them later is a data call
 *   and not a redesign - see doc/controls/shapeit-reads.md.
     general_tab( io_bar = lo_bar iv_pid = lv_pid ).
-    blocked_tab( io_bar = lo_bar iv_key = 'BP'   iv_exp = 'ToPartner'
-                 iv_text = t( iv_en = `Business Partners` iv_ar = `الشركاء` )
-                 iv_cols = `Role^BP number^Name^Valid From` ).
-    blocked_tab( io_bar = lo_bar iv_key = 'LAND' iv_exp = 'ToLandUse'
-                 iv_text = t( iv_en = `Land` iv_ar = `الأرض` )
-                 iv_cols = `Characteristic^Value^Unit^Valid From` ).
-    blocked_tab( io_bar = lo_bar iv_key = 'DEV'  iv_exp = 'ToDevelopment'
-                 iv_text = t( iv_en = `Development` iv_ar = `التطوير` )
-                 iv_cols = `Building Type^Building Number^Building Name^Valid From` ).
-    blocked_tab( io_bar = lo_bar iv_key = 'MEAS' iv_exp = 'ToMeasurement'
-                 iv_text = t( iv_en = `Measurements` iv_ar = `القياسات` )
-                 iv_cols = `Measurements Type^Amount^Unit^Valid From` ).
-    blocked_tab( io_bar = lo_bar iv_key = 'DOC'  iv_exp = 'ToAttachment'
-                 iv_text = t( iv_en = `Documents` iv_ar = `المستندات` )
-                 iv_cols = `Number^Department^Issuing date^Expiry Date` ).
+*   ONE READ FOR ALL FIVE, taken here so the order of the tabs cannot
+*   decide which of them pays for it.
+    DATA(ls_det) = detail( ).
+
+*   NAME, not NAMEEN/NAMEAR. The raw partner row carries the English name
+*   in ZZFULL_NAME_ENG and the Arabic in ZZREFERENCEA - the DPC maps them
+*   to two MPC fields and lets the client choose. Choosing here instead
+*   keeps one column where the live dialog has one.
+    child_tab( io_bar = lo_bar iv_key = 'BP' ir_data = ls_det-partners
+               iv_text  = t( iv_en = `Business Partners` iv_ar = `الشركاء` )
+               iv_cols  = `Role^BP number^Name^Valid From`
+               iv_comps = COND string( WHEN sy-langu = 'A'
+                            THEN `ROLE^PARTNER^ZZREFERENCEA^VALIDFROM`
+                            ELSE `ROLE^PARTNER^ZZFULL_NAME_ENG^VALIDFROM` ) ).
+
+*   NO UNIT ON A CHARACTERISTIC. GET_CHARS( ) returns the group, its text
+*   and the value text - there is no unit of measure on a land-use
+*   characteristic, and the live dialog's third column is blank for the
+*   same reason. Left in place rather than dropped so the tab keeps the
+*   shape citizens already know.
+    child_tab( io_bar = lo_bar iv_key = 'LAND' ir_data = ls_det-landuse
+               iv_text  = t( iv_en = `Land` iv_ar = `الأرض` )
+               iv_cols  = `Characteristic^Value^Unit^Valid From`
+               iv_comps = `XRLRAGRPCHCT^XFIXFITCHARACT^^VALIDFROM` ).
+
+    child_tab( io_bar = lo_bar iv_key = 'DEV' ir_data = ls_det-develop
+               iv_text  = t( iv_en = `Development` iv_ar = `التطوير` )
+               iv_cols  = `Building Type^Building Number^Building Name^Valid From`
+               iv_comps = `XMAOTYPE^AOID^XAO^VALIDFROM` ).
+
+    child_tab( io_bar = lo_bar iv_key = 'MEAS' ir_data = ls_det-measure
+               iv_text  = t( iv_en = `Measurements` iv_ar = `القياسات` )
+               iv_cols  = `Measurements Type^Amount^Unit^Valid From`
+               iv_comps = `XMMEAS^MEASVALUE^MEASUNIT^VALIDFROM` ).
+
+*   THE DOCUMENT CONTENT IS NOT DRAWN, only its identity. GET_FILENET_DOCS
+*   returns a document id and a name; the DPC then makes a SEPARATE
+*   ZCL_EGA_FILENET_API read per row to fetch the file as base64, which
+*   DETAILS( ) deliberately does not do - a parcel with twenty documents
+*   would pull twenty files out of ECM to render a list of names. Opening
+*   one is a later, per-row action.
+    child_tab( io_bar = lo_bar iv_key = 'DOC' ir_data = ls_det-attach
+               iv_text  = t( iv_en = `Documents` iv_ar = `المستندات` )
+               iv_cols  = `Number^Department^Issuing date^Expiry Date`
+               iv_comps = `DOC^NAME^ISSUEDATE^` ).
+
+*   THE READ'S OWN MESSAGES, once, under the tabs. Each child in
+*   DETAILS( ) has its own CATCH so a failure is partial - five tabs
+*   filled and one explained - and this is where the explanation lands.
+*   Without it a tab that failed and a tab that is genuinely empty look
+*   identical.
+    LOOP AT ls_det-msg INTO DATA(ls_dmsg).
+      DATA(lv_dtxt) = CONV string( ls_dmsg-message ).
+      IF lv_dtxt IS NOT INITIAL.
+        lo_bar->message_strip(
+          text     = lv_dtxt
+          type     = COND string( WHEN ls_dmsg-type = 'E' THEN 'Error' ELSE 'Warning' )
+          showicon = abap_true
+          class    = 'sapUiTinyMarginTop' ).
+      ENDIF.
+    ENDLOOP.
 
 *   WHICH BUILD DREW THIS. Outside the tab bar, so it is there whichever
 *   tab is open and whichever map path was taken - including the branch
@@ -2065,37 +2156,151 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD blocked_tab.
+  METHOD detail.
+
+*   THE INTRENO IS THE KEY, and it is what the dialog was opened with -
+*   RENDER_CARD( ) raises DET_<intreno>~<parcel>, so MV_PCL_DET is the
+*   intreno and MV_PCL_PID the parcel number the citizen sees.
+    DATA(lv_int) = mo_e->mv_pcl_det.
+
+    IF lv_int IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   RE-READ WHEN THE PARCEL CHANGES, not on every round trip. The control
+*   is rebuilt each round trip so these attributes start clear, but the
+*   ENGINE carries MV_PCL_DET across them - so within one render the cache
+*   holds, and reopening on a different parcel invalidates it.
+    IF mv_detrd = abap_true AND mv_detky = lv_int.
+      rs = ms_det.
+      RETURN.
+    ENDIF.
+
+    DATA ls TYPE zcl_rak_property_api=>ty_detail_res.
+    DATA(lv_t0) = mo_e->tick( ).
+
+    TRY.
+*       THE PARCEL AND THE AOID BOTH GO, because the attachments are
+*       keyed on whichever the row has: a parcel row carries PARCELID and
+*       a unit row AOID, and GET_FILENET_DOCS takes both and uses what it
+*       is given. Sending only the parcel would leave every Unit's
+*       Documents tab empty.
+        DATA(lv_aoid) = ``.
+        LOOP AT rows( ) INTO DATA(ls_r).
+          IF cell( is_row = ls_r iv_comp = 'INTRENO' ) = lv_int.
+            lv_aoid = cell( is_row = ls_r iv_comp = 'AOID' ).
+            EXIT.
+          ENDIF.
+        ENDLOOP.
+
+        ls = api( )->details( iv_intreno = lv_int
+                              iv_parcel  = mo_e->mv_pcl_pid
+                              iv_aoid    = lv_aoid ).
+      CATCH cx_root INTO DATA(lx).
+*       DETAILS( ) catches its own, so reaching here means the API object
+*       could not be built at all - which is a different failure and
+*       worth saying so rather than showing five empty tabs.
+        ls-msg = VALUE #( ( type = 'E' message = lx->get_text( ) ) ).
+    ENDTRY.
+
+    ms_det   = ls.
+    mv_detrd = abap_true.
+    mv_detky = lv_int.
+    rs       = ms_det.
+
+    mo_e->trace( |PCL     details { lv_int } · { mo_e->tock( lv_t0 ) } ms| ).
+  ENDMETHOD.
+
+
+  METHOD child_tab.
     DATA(lo_v) = io_bar->icon_tab_filter( key = iv_key text = iv_text )->content( )->vbox( ).
+
+    SPLIT iv_cols  AT '^' INTO TABLE DATA(lt_c).
+    SPLIT iv_comps AT '^' INTO TABLE DATA(lt_p).
 
     DATA(lo_t) = lo_v->table( ).
     DATA(lo_h) = lo_t->columns( ).
-    SPLIT iv_cols AT '^' INTO TABLE DATA(lt_c).
     LOOP AT lt_c INTO DATA(lv_c).
       lo_h->column( )->text( lv_c ).
     ENDLOOP.
 
-*   Named, never blank. An empty table here would read as "this parcel has
-*   none of these", which is a different statement from "CJS cannot fetch
-*   them yet" - and the second one is true.
-    lo_v->message_strip(
-*     GET_EXPANDED_ENTITY, SINGULAR - and this line said ENTITYSET, which
-*     is how a wrong claim ends up on a citizen's screen. The live URL
-*     carries a KEY:
+    FIELD-SYMBOLS <lt_any> TYPE ANY TABLE.
+    IF ir_data IS BOUND.
+      ASSIGN ir_data->* TO <lt_any>.
+    ENDIF.
+
+    IF ir_data IS NOT BOUND OR <lt_any> IS NOT ASSIGNED.
+*     NOT READ. Distinct from empty, and it is the honest wording now
+*     that the read exists: something stopped it, and the strips under
+*     the tab bar carry the reason.
+      lo_v->message_strip(
+        text     = t( iv_en = `These details could not be read for this parcel. The reason is shown below the tabs.`
+                      iv_ar = `لم يتم قراءة هذه التفاصيل لهذه القطعة. السبب معروض أسفل التبويبات.` )
+        type     = 'Warning'
+        showicon = abap_true
+        class    = 'sapUiTinyMarginTop' ).
+      RETURN.
+    ENDIF.
+
+*   ONE ROW AT A TIME, DRAWN. The row type is unknown here, so there is
+*   nothing to bind a model to - and binding is not wanted anyway: these
+*   are read-only lists inside a dialog, and drawing them costs one pass
+*   over a table that a single parcel's children keep small.
+    DATA(lo_items) = lo_t->items( ).
+    DATA(lv_n) = 0.
+
+    LOOP AT <lt_any> ASSIGNING FIELD-SYMBOL(<ls_row>).
+      lv_n = lv_n + 1.
+      DATA(lo_cells) = lo_items->column_list_item( )->cells( ).
+
+*     POSITIONAL, and the pairing is the caller's. An empty component -
+*     the third column on Land, which has no unit - draws a blank cell
+*     rather than shifting the ones after it, which is the whole reason
+*     the two lists are passed together.
+      LOOP AT lt_c INTO DATA(lv_h2).
+        DATA(lv_ix) = sy-tabix.
+        DATA(lv_cp) = VALUE string( lt_p[ lv_ix ] OPTIONAL ).
+        DATA(lv_val) = ``.
+        IF lv_cp IS NOT INITIAL.
+          lv_val = cell( is_row = <ls_row> iv_comp = lv_cp ).
+*         A DATS COMPONENT READS AS 20260903 AND MUST NOT SHOW THAT WAY.
+*         Every one of these children carries VALIDFROM / VALIDTO, and
+*         the live dialog shows them as dates - so an eight-digit all
+*         numeric value is formatted, and anything else is left exactly
+*         as it came.
 *
-*       PropertiesSet(Intreno='…',Partnerguid=guid'…')?$expand=…
+*         WRITTEN OUT RATHER THAN DELEGATED: ZCL_RAK_JOURNEY_UTIL has
+*         TO_DATS( ) for the other direction and nothing for this one, and
+*         the offsets are safe here because STRLEN has just been checked -
+*         an offset on a short string raises CX_SY_RANGE_OUT_OF_BOUNDS,
+*         which is the trap CLAUDE.md records against IV_EVENT.
 *
-*     and a key in the path routes to GET_EXPANDED_ENTITY. The plural
-*     method is the one known to dereference IO_EXPAND->GET_CHILDREN( )
-*     unguarded; whether the singular one wants an expand object at all is
-*     unread, so this no longer asserts that it does.
-      text     = |{ t( iv_en = `Not available yet: ` iv_ar = `غير متاح بعد: ` ) }| &&
-                 |{ iv_exp } | &&
-                 |{ t( iv_en = `comes from the PropertiesSet(key) $expand read, which is not wired yet.`
-                       iv_ar = `يأتي من قراءة PropertiesSet(key) بـ $expand، وهي غير مُهيأة بعد.` ) }|
-      type     = 'Information'
-      showicon = abap_true
-      class    = 'sapUiTinyMarginTop' ).
+*         A DATS OF ALL ZEROES is 'no end date', not the year zero. The
+*         RE-FX tables use 00000000 that way and 00.00.0000 on screen
+*         would read as data corruption.
+          IF strlen( lv_val ) = 8 AND lv_val CO '0123456789'.
+            IF lv_val = '00000000'.
+              CLEAR lv_val.
+            ELSE.
+              lv_val = |{ lv_val+6(2) }.{ lv_val+4(2) }.{ lv_val(4) }|.
+            ENDIF.
+          ENDIF.
+        ENDIF.
+        lo_cells->text( zcl_rak_journey_util=>esc( lv_val ) ).
+      ENDLOOP.
+    ENDLOOP.
+
+    IF lv_n = 0.
+*     GENUINELY NONE, and this says so. The table's own "No data" says it
+*     too, but only this distinguishes it from the not-read case above -
+*     which is the distinction the whole tab was rewritten for.
+      lo_v->message_strip(
+        text     = t( iv_en = `This parcel has none of these on record.`
+                      iv_ar = `لا يوجد أي من هذه السجلات لهذه القطعة.` )
+        type     = 'Information'
+        showicon = abap_true
+        class    = 'sapUiTinyMarginTop' ).
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.
