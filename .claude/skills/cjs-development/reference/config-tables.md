@@ -39,6 +39,40 @@ written here as `NEXT_REQ` for a while and a feeder using that name simply does
 not compile. One `grep -oE "<FIELDNAME>[A-Z0-9_]+"` over `src/zrak_t_jny*.tabl.xml`
 settles all seven tables in a second.
 
+**And the runtime component is `default`, not `default_val`.** The DDIC column is
+`DEFAULT_VAL`; `ZIF_RAK_JOURNEY=>TY_FIELD`, which is what engine code reads at
+runtime, calls it `default`. Reading `ls_field-default_val` in a hook does not
+compile.
+
+## The three payment carriers
+
+`PAY_SCREEN`, `PAY_JOURNEY` and `PAY_CATEGORY` are ordinary hidden readonly
+fields on the payment step whose `DEFAULT_VAL` carries a value.
+`PREPARE_PAYMENT( )` overlays all three onto the config it hands the bridge, so
+between them they decide which service the gateway read goes to.
+
+**They are for a payment screen that sits under a DIFFERENT service, and most
+journeys should leave all three blank.** Blank means "use the journey's own", and
+that is right wherever payment is a step of the journey — DOK and EPDA.
+
+**Setting `PAY_JOURNEY` changes the BAdI filter, which is almost never what you
+want.** It becomes `CS_HEADER-PARAM2`, and `ZFM_EGA_CJ_FW_READ_N` does
+`journeytype = cs_header-param2` then `GET BADI cj_badi FILTERS journey_type =
+journeytype`. Set it to a journey with no implementation and the read comes back
+with the screen's definition keys and every value empty — the screen existed, the
+BAdI behind it did not. On Municipality the fee list and the gateway are two
+screens of the **same** journey, so only `PAY_SCREEN` moves and the other two
+stay unset. See `seed-reports.md` for which screen.
+
+**A carrier's `DEFAULT_VAL` must win over the value in the draft, and "fill when
+blank" is not enough.** `PAY_SCREEN` is a model value: it lives in the draft and
+survives every round trip, so a journey that has already run with one value never
+picks up a corrected `DEFAULT_VAL` — the old value is not blank, so nothing
+overwrites it. `ZCL_RAK_JOURNEY_LOGIC` re-seeds it from config on every pay
+event for exactly that reason. The general rule: **for a field that is static
+configuration rather than something a citizen types or a backend returns, config
+is authoritative and the model copy is only a carrier.**
+
 ## Field names have a hard ceiling of 23, not 30
 
 `BUILD_MODEL( )` calls `CL_ABAP_STRUCTDESCR=>CREATE( )` per field, and a model

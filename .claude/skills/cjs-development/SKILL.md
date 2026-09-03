@@ -115,6 +115,26 @@ Read the one that matches the task. They are short.
 11. **`DO ... TIMES` takes a data object, not an expression.** `DO lines( t )
    TIMES` does not activate, the runtime keeps the old version, and nothing on
    screen changes. Same family as `TYPE HANDLE` and `VALUE`.
+12. **A new event whose name carries a payload after `~` must be excluded from
+   the owner strip, or its payload is silently thrown away.**
+   `ZCL_RAK_CJ_PARCEL->ON_EVENT( )` reads `<name>~<field>` as "this control
+   claims the browse state", and the guard excludes the events whose tilde
+   separates a payload instead: `IF lv NP 'PICK_*' AND lv NP 'DET_*' AND lv NP
+   'TOG_*' AND lv CS '~'`. `TOG_` was added later and was not in that list for
+   four rounds. The tick's parcel id went into the owner variable, the browse
+   state was reset as though another selector had taken over, and by the time
+   the `TOG_` branch ran there was no tilde left — so the key came out blank and
+   `TOGGLE( )` returned on its own guard. **A checkbox that ticks and reverts is
+   this, not a rendering bug**: the binding is two-way and local, so the box
+   ticks in the browser and the round trip comes back with the field still
+   empty.
+13. **An ftype has to be named in THREE places, and the third only affects a
+   warning.** The renderer's `SELECT` branch (so the field draws at all), the
+   control's own condition (so the card list is drawn instead of a dropdown),
+   and `ZCL_RAK_JOURNEY_UTIL=>KNOWN_TYPE( )`, which drives `CHECK_TYPES( )`.
+   Miss the third and the control renders perfectly while the page also reports
+   "unsupported type 'X' — rendered as a plain input". The warning is wrong, the
+   render is right, and the two together read as the control having failed.
 
 ## Trusting a backend's metadata
 
@@ -143,6 +163,29 @@ unconditionally settles in one round trip what inference will not settle in five
 and then it has to come out — the temporary probes in
 `ZCL_RAK_NOT_APPROVAL_LOGIC` printed on every step for days after they had
 answered their question.
+
+**A trace added during field rendering appears at the BOTTOM of the page, after
+the footer — not in the block at the top.** The strips are drawn from `MT_MSG`
+before the fields are, so anything a control appends while rendering missed that
+loop; the engine draws the late ones separately at the end (`LV_MSG_PRE` in
+`RENDER_MAIN( )`). A screenshot of the top block therefore proves nothing about
+a control's own trace, and "the trace lines are absent, so the class is not
+active" is a conclusion that cost a round.
+
+**Instrument the write before the repaint.** Three rounds went on the parcel
+selector's flicker on the theory that the tick landed and the view lost it. One
+line printing the field's raw stored value after the event — `raw []` — ended it
+immediately: the tick had never been written. When a control appears to lose
+state, trace what reached the model first, and only then ask why the screen does
+not show it.
+
+**A symptom shared by two causes needs a message that separates them, not one
+that picks.** `CREATE returned no draft reference · 0 message(s) · 1 ms` is
+identical whether the BAdI filter matched nothing or the FM returned before
+`GET BADI` because `LOGINBP` was blank. The blocker text asserted the filter,
+and three people were sent to SE18 for a registration that was never wrong. If
+you cannot tell two causes apart from the outside, print what was sent and let
+the reader choose.
 
 ## Testing
 

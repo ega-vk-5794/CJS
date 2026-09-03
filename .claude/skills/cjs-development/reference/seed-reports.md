@@ -89,6 +89,27 @@ not the missing one. **Delete the block.** Git has it.
 Same hazard wearing a different hat: a commented-out `INSERT` above a live
 `DELETE`. That report removes rows on every run and puts none back.
 
+## Add rows with a standalone INSERT, not by editing inside a `VALUE #( )`
+
+A feeder is one long `VALUE #( ( … ) ( … ) )` per table, and splicing a row into
+the middle of one **by line number** is how two unrelated config rows in
+`ZRAK_M016_LOAD` got silently overwritten — a `msg_ar` and the opening
+`( mandt = … seqnr = 60` of a different field. The paren count caught it
+(`65/66`); nothing else would have.
+
+Two habits that avoid it:
+
+- **Match on text, never on a line number.** The same block sits at different
+  lines in each feeder, so a number that is right for M011 lands mid-row in M016.
+- **Prefer a separate `INSERT … FROM TABLE @( VALUE #( … ) )` statement** before
+  the final `COMMIT`. Order between statements does not matter, and a new
+  statement cannot damage an existing one. That is how the parcel grid was added
+  to M011 and M016.
+
+And check `grep -c '('` against `grep -c ')'` on the file afterwards. An
+unbalanced feeder is a syntax error whose message points at the `VALUE`
+operator, not at the row you broke.
+
 ## Feeder reports: migrating from a /QNV export
 
 The export is the source of truth. `FIELD_NAME`, `CONTROL_TYPE`, `MANDATORY`,
@@ -339,6 +360,95 @@ Two consequences a feeder must respect:
 - **`ZEGA_T_CJ_UI_MAP` needs a `FEES_1` row for that screen** — legacy config, not
   CJS. No row, no case, ever.
 
+### `ZEGA_T_CJ_UI_MAP` is the backend's switchboard — read it before guessing
+
+`ZCL_EGA_CJ_FW_RO_ABS_V1->MAPPER( )` fills `MT_UI_MAP` from it, keyed on
+**journey + rwmode + screen** (`1` read, `2` post), and every optional block in
+`READ( )` and `UPDATE( )` is gated on an `OBJECTKEY` row being present:
+
+| objectkey | gates |
+|---|---|
+| `ATTACHMENT` | `get_attachment( )` |
+| `PLDTL` / `BPDTL` | `get_parcels( )` |
+| `INITIAL` / `FINAL` | `get_fees( )` — the fee lines **and** `TOTALFEESVALUE` |
+| `CPG_1` / `CPG_2` | the gateway block — `MERCHANTID`, `REFERENCEID`, `REDIRECTURL` |
+| `FEES_1` | `payment_check( )` + `create_dummy_case( )` |
+| `FEES_2` | the final deposit amount |
+
+**No row means the block silently does not run.** No exception, no message.
+
+**And its screens do not line up with CJS's steps.** CJS collapses each service
+into three steps and reads `*_1_1..*_1_3`, while the map puts the fee list and
+the gateway on two different screens:
+
+```
+M011   INITIAL NSUBDIVISION_1_3    CPG_1 NSUBDIVISION_1_4
+M012   INITIAL NMERGE_1_3          CPG_1 NMERGE_1_4
+M016   INITIAL NCBR_1_3            CPG_1 NCBR_1_4
+```
+
+That is why the fee total displays and the case is created — both live on `_1_3`,
+a screen CJS reads — while the gateway never resolves. **So `PAY_SCREEN` is the
+`CPG_1` screen, and `PAY_JOURNEY` / `PAY_CATEGORY` stay blank** because it is the
+same journey and category.
+
+**Look it up per journey; never compute it.** The gap is not a fixed offset:
+M017 is `_1_2`/`_1_3`, M018 `_1_5`/`_1_6`, M028 `_1_4`/`_1_6`, and M030 puts
+`CPG_1` on `_1_11`. `MP00..MP04`, the standalone payment journeys, carry no CPG
+row at all — so a payment screen is not found by looking for one of those.
+`XCHECK` rule X16 cross-checks the map offline.
+
+### The payment read is asked with the DRAFT key, not the case number
+
+`VIBDRO` is keyed on the INTRENO, and the case is a characteristic **on** the
+rental object:
+
+```
+MAPPER    ms_rero-intreno = ms_header_param-param1
+          SELECT swenr, smenr FROM vibdro WHERE intreno = ms_rero-intreno
+READ( )   BAPI_RE_RO_GET_DETAIL -> mt_char
+CPG blk   caseid = mt_char[ fix_fit_charact = 'CJ12' ]-supplementinfo
+```
+
+Hand `param1` the case number and `VIBDRO` matches nothing, so `MS_RERO` stays
+blank, `MT_CHAR` is empty, `caseid` never resolves and `GET_RB_CPG_DETAILS`
+returns on its first line. The draft key finds the object; the object carries the
+case. `PREPARE_PAYMENT( )` therefore sends `GET_CASE( )` first and `CASE_NUMBER`
+only as a fallback — one rule for both families, since on DOK and EPDA the
+backend re-points the key at the case and the two are the same value anyway.
+
+### The post must send the partner, or the FM never reaches the BAdI
+
+`ZFM_EGA_CJ_FW_POST_N` has an exit **earlier** than `GET BADI`:
+
+```abap
+IF loginbp IS INITIAL AND anonymous <> 'X'.
+  RETURN.                       "Authentication not valid
+ENDIF.
+GET BADI cj_badi FILTERS journey_type = journeytype.
+```
+
+That returns with no draft, no messages and about a millisecond —
+**indistinguishable from a filter matching nothing.** Three Municipality journeys
+were diagnosed as unregistered BAdIs on that signature. It used to be covered by
+a dev hardcode inside the FM (`IF loginbp IS INITIAL AND sy-sysid <> 'E30'`),
+which is commented out; the partner now travels in the payload. If a create
+returns nothing in ~1 ms, **check the partner before SE18.**
+
+### Two hazards in the CPG block itself
+
+- **Its `DO` loop is unbounded.** There is no exit when `DFKKOP` has no open item
+  — it spins the work process, with a `WAIT UP TO 7 SECONDS` on the way through.
+  `PREPARE_PAYMENT( )`'s `SELECT … FROM dfkkop` gate before the read is therefore
+  a **safety requirement**, not an optimisation.
+- **`APPLICATIONURL` is blank on the standard CPG route and always will be.**
+  `ROUTE_GATEWAY( )` picks from `ZDT_PG_DEP_MAP`: an ATB department gets a
+  ready-made URL, and everything else — `PW_RB1` set, `ATB_FLAG DISABLED`, which
+  is what M011 returns — goes through the payments Web Dynpro, where no
+  pre-built URL exists. Waiting for that one field discards a full payload. And
+  a company code with **no** `ZDT_PG_DEP_MAP` row is routed nowhere at all: the
+  read answers with `PW_RB1`/`ATB_FLAG` set and nothing else.
+
 **The base handler already does the Pay press correctly** — `ON_POPUP_EVENT
 ( PAYNOW )` sets `PAY_STARTED`, sets `STATUS = 'PAYMENT'`, calls `COMMIT_STEP( )`
 (the post on which the case is created) and returns without reaching the gateway
@@ -352,6 +462,39 @@ means submitting, not paying. So a citizen can complete a real payment and only
 then be told they had to accept terms. Refuse the press in the handler instead.
 Reordering the checkbox above `PAYFEE` also puts it above the fee table, so terms
 get accepted before the amount is shown.
+
+### The parcel details table — all three journeys, and no `TECH_NAME`
+
+Give every MML journey the same `RAKPARCELS` grid, so they read the way the
+legacy screens do. Seven columns in this order:
+
+```
+PARCELID | OWNSTATE | LOCATION | ADDRESS | OWNMETHOD | GRANTTYPE | ACTIONREQ
+```
+
+It needs **no UI-map row**. `ZIF_EGA_FW_CJI~READ( )` ends with an unconditional
+fallback, unlike `GET_PARCELS( )` which is gated on `PLDTL`:
+
+```abap
+IF ct_table_data IS INITIAL.
+  get_pl_table( CHANGING ct_table_data = ct_table_data ).
+ENDIF.
+```
+
+`GET_PL_TABLE( )` reads the CJ02 note, splits on `-` and fills exactly those
+seven columns — which is why the spec matches: it was written against that
+method.
+
+**Leave `TECH_NAME` blank on a display-only grid.** `FLATTEN_KV( )` skips an
+`EDITABLE_TABLE` whose tech name is empty, so the grid draws and posts nothing.
+M012 needs its rows to post — they *are* the merge list, and `UPDATE( )` builds
+the CJ02 note from `CT_TABLE_DATA` — but on a single-select journey the parcel
+comes from the selector, and giving the display table a tech name lets it
+overwrite the note the selector wrote.
+
+`EDITABLE_TABLE` with per-**column** `READONLY`, never field-level `READONLY`:
+the field flag takes the rows away from the backend read as well as from the
+citizen.
 
 ### The payment card is one field
 

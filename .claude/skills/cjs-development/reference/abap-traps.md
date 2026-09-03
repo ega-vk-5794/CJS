@@ -149,6 +149,26 @@ subclass repeating its own ancestor's name is the error.
 **`METHODS zif_x~meth REDEFINITION` is not a redeclaration** and may appear at
 every level.
 
+**PROTECTED is reachable from a subclass; PRIVATE is not — and neither are its
+types.** Inheriting a class to reach one of its methods only works if that
+method is protected, and a class can be inconsistent about it. On
+`ZCL_ZEGA_CJ_DPC_EXT` the generated `*_GET_ENTITYSET` methods are protected,
+which is the whole reason `ZCL_RAK_CJ_API` inherits it — but `GET_FILENET_DOCS`
+is private, and so are the `TY_FNDOC` / `TT_FNDOC` types it answers in. Writing
+`me->get_filenet_docs( )` in a subclass fails with
+
+```
+Method "GET_FILENET_DOCS" is unknown or PROTECTED or PRIVATE.
+```
+
+and the follow-on error names the inline `DATA(...)` that never got declared, so
+the real cause is the message you did not read. **Check the visibility before
+inheriting for access**: the signature comment says `Instance Private Method`,
+and the declaration's position relative to `private section` says it too. When
+it is private, replicate what the method does rather than calling it — in that
+case a `ZCL_EGA_FILENET_HNDLR->SEARCH_TITLE_DEED( )` plus a filter, into a row
+type declared in our own class.
+
 ## RTTI: what the descriptor classes actually expose
 
 Guessed component names on `CL_ABAP_CLASSDESCR` are a recurring cost. What
@@ -185,6 +205,41 @@ there is no ADT connection to check it with.
 
 And **report those codes rather than filtering on them**: a filter answering "no
 rows" for a table full of them is the misleading direction.
+
+For a small table this goes further: **read it whole and filter in ABAP.**
+`ZEGA_T_CJ_UI_MAP` is a few hundred rows for the entire landscape, and a `WHERE`
+on it would mean asserting the length and type of `JOURNEYID`, `OBJECTKEY` and
+`RWMODE` from an environment that cannot open the table. Comparing as text after
+the SELECT cannot be wrong and costs nothing at that size.
+
+**Two locals with the same name are not the same structure.** `POST( )` and
+`READ( )` in `ZCL_RAK_QNV_BRIDGE` both build an `LS_HDR`; the read's carries
+`PARAM1..PARAM4` and the post's is `/QNV/SBUILD_SAVEHEADER_ST`, which has
+`CATEGORYNAME`, `SCREENNAME`, `FUNCTIONIN` and no `PARAM` at all. Copying the
+read's assignment into the post gives
+
+```
+The data object "LS_HDR" does not have a component called "PARAM3".
+```
+
+Read the `DATA` line, not the variable name.
+
+## Dynamic calls
+
+**Do not enumerate exception classes you have not verified — catch the family
+root.** `CX_SY_DYN_CALL_ILLEGAL_PARAM` does not exist; putting it in a `CATCH`
+alongside two siblings is three chances to fail activation for no benefit over
+`CX_SY_DYN_CALL_ERROR`, which the whole `CX_SY_DYN_CALL_*` family derives from.
+`CX_SY_DYN_CALL_ILLEGAL_CLASS` is used and activates in `Z2UI5_CL_UTIL_ABAP` in
+this repository, which is the kind of evidence to look for before naming one.
+
+**A dynamically-called FM's parameters are checked at RUNTIME, which makes a
+guarded attempt safe.** `CALL FUNCTION ms_config-backend-fm_post EXPORTING
+loginbp = …` raises `CX_SY_DYN_CALL_ERROR` while *binding* — before the function
+body runs — so a failed attempt has no side effects and can be retried without
+the parameter. Catch that separately from the surrounding `CX_ROOT`: a genuine
+backend failure must never be retried, because re-posting a create that half ran
+is how duplicate cases are made.
 
 ## Table access
 
