@@ -47,7 +47,13 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
 
 
   METHOD attachments_for_backend.
-    LOOP AT mo_e->mt_attach INTO DATA(ls_a).
+*   FILED rows are skipped. TY_ATT-FILED means the file has already been handed
+*   to the backend - COMMIT_STEP( ) sets it on the payment post, which is the
+*   one non-submit post that carries attachments - and sending it again would
+*   file a second copy against the same case. It used to be safe to ignore only
+*   because that post deleted the staging behind it, which is the bug that
+*   emptied the Documents step; see the note at COMMIT_STEP( ).
+    LOOP AT mo_e->mt_attach INTO DATA(ls_a) WHERE filed = abap_false.
       zcl_rak_cj_att_store=>get( EXPORTING iv_guid = ls_a-guid
                                  IMPORTING ev_b64  = DATA(lv_b64) ).
       IF lv_b64 IS INITIAL.

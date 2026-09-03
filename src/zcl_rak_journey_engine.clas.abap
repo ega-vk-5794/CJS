@@ -650,8 +650,18 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         DATA(lv_del_ix) = CONV i( lv_del ).
         READ TABLE mt_attach INTO DATA(ls_del) INDEX lv_del_ix.
         IF sy-subrc = 0.
-          zcl_rak_cj_att_store=>delete( ls_del-guid ).
-          DELETE mt_attach INDEX lv_del_ix.
+*         A hidden button is not an unreachable event. RENDER_CHIPS( ) stops
+*         drawing Remove once a file is FILED, and this refuses it too: the
+*         document is already on the case and deleting the staged copy would
+*         only lose CJS's record of it.
+          IF ls_del-filed = abap_true.
+            mt_msg = VALUE #( ( type = 'Warning'
+              text = |{ ls_del-name } has already been filed against the case and | &&
+                     |cannot be removed here.| ) ).
+          ELSE.
+            zcl_rak_cj_att_store=>delete( ls_del-guid ).
+            DELETE mt_attach INDEX lv_del_ix.
+          ENDIF.
         ENDIF.
       ENDIF.
     ELSEIF strlen( lv_event ) > 8 AND substring( val = lv_event len = 8 ) = 'GRIDADD_'.
@@ -2805,8 +2815,28 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDIF.
       APPEND LINES OF lt_m TO mt_msg.
 
+*     MARKED FILED, NOT DROPPED. This was DROP_ATTACHMENTS( ), which deletes
+*     the staged copy out of ZRAK_CJ_ATTX and clears MT_ATTACH - and LV_FINAL
+*     is true for STATUS = 'PAYMENT', which is what the base ON_POPUP_EVENT(
+*     PAYNOW ) sets immediately before calling COMMIT_STEP( ). So pressing Pay
+*     deleted every document the citizen had uploaded: the Documents step then
+*     drew ten empty "Choose file" boxes, the chips were gone, and the required
+*     markers were unsatisfied on a step that had been complete. Reported on
+*     D001 as "after pressing back button attachments gone - even after
+*     payment".
+*
+*     The journey is not over at the payment commit. Only SUBMIT ends it, and
+*     HANDLE_SUBMIT( ) still drops there.
+*
+*     TY_ATT-FILED exists for exactly this - "already handed to the backend,
+*     never send twice" - and ATTACHMENTS_FOR_BACKEND( ) now skips a filed row,
+*     so the submit post does not send the same file a second time. The store
+*     row stays, so RENDER_CHIPS( ) keeps showing the document, and retention
+*     is ZRAK_CJ_ATT_PURGE's job as it always was.
       IF lv_final = abap_true.
-        drop_attachments( ).
+        LOOP AT mt_attach ASSIGNING FIELD-SYMBOL(<ls_fa>) WHERE filed = abap_false.
+          <ls_fa>-filed = abap_true.
+        ENDLOOP.
       ENDIF.
     ENDIF.
 
