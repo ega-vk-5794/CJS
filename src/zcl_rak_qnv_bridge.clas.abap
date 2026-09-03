@@ -335,6 +335,37 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
+*   ---- THE PARTNER IN THE PAYLOAD TOO, AS A SECOND CHANNEL -----------
+*   THE PARAMETER IS THE LIKELY ROUTE AND THIS IS THE CHEAP HEDGE. The
+*   FM uses LOGINBP bare, which says parameter - but that reading comes
+*   from its source rather than its signature, and the CATCH that guards
+*   the parameter attempt rests on one class name this environment cannot
+*   verify either. An item costs a table row and needs nothing to be
+*   right.
+*
+*   NOT A DUPLICATE OF CJS_LOGINBP BELOW. That one carries the dev
+*   override only and is a different technical name; this carries the
+*   effective partner - resolved session first, dev override second -
+*   under the name the FM's own variable uses.
+*
+*   AND NOT A DUPLICATE OF THE CONTEXT LOOP EITHER: it already skips
+*   LOGINBP and ROLEBP so a `&loginbp=` launch parameter cannot arrive as
+*   a raw item, which is exactly why these two names are free to use here.
+*
+*   GUARDED, so a journey that configures its own wins - a second item
+*   with the same technical name would make
+*   `mt_item_data[ technicalname = 'LOGINBP' ]` read whichever was
+*   appended first.
+    IF lv_partner IS NOT INITIAL AND NOT line_exists( lt_item[ technicalname = 'LOGINBP' ] ).
+      APPEND VALUE #( fieldname = 'LOGINBP' technicalname = 'LOGINBP'
+                      value = lv_partner ) TO lt_item.
+    ENDIF.
+    IF ms_config-backend-rolebp IS NOT INITIAL
+       AND NOT line_exists( lt_item[ technicalname = 'ROLEBP' ] ).
+      APPEND VALUE #( fieldname = 'ROLEBP' technicalname = 'ROLEBP'
+                      value = ms_config-backend-rolebp ) TO lt_item.
+    ENDIF.
+
     APPEND VALUE #( fieldname = 'CJS_LOGINBP' technicalname = 'CJS_LOGINBP'
                     value = ms_config-backend-loginbp_dev ) TO lt_item.
     APPEND VALUE #( fieldname = 'CJS_ROLEBP'  technicalname = 'CJS_ROLEBP'
@@ -413,13 +444,25 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
                 ct_item_data    = lt_item
                 ct_attacments   = lt_att
                 ct_tabledata    = lt_tab.
-          CATCH cx_sy_dyn_call_illegal_param
-                cx_sy_dyn_call_param_missing
-                cx_sy_dyn_call_param_not_found INTO DATA(lx_dyn).
-*           The three the parameter binding raises, caught SEPARATELY from
-*           the CX_ROOT below so a genuine backend failure is never
-*           retried - re-posting a create that half ran is how duplicate
-*           cases are made.
+          CATCH cx_sy_dyn_call_error INTO DATA(lx_dyn).
+*           THE FAMILY ROOT, AND ONE NAME INSTEAD OF THREE. This caught
+*           CX_SY_DYN_CALL_ILLEGAL_PARAM, CX_SY_DYN_CALL_PARAM_MISSING and
+*           CX_SY_DYN_CALL_PARAM_NOT_FOUND, and the first of those does not
+*           exist - "Type CX_SY_DYN_CALL_ILLEGAL_PARAM is unknown". Three
+*           guessed class names in a CATCH is three chances to fail
+*           activation for no benefit, so this catches the superclass the
+*           whole CX_SY_DYN_CALL_* family derives from.
+*
+*           CX_SY_DYN_CALL_ILLEGAL_CLASS, a sibling, is used and activates
+*           in Z2UI5_CL_UTIL_ABAP in this same repository - which is the
+*           evidence that the family and its root are real rather than
+*           remembered.
+*
+*           CAUGHT SEPARATELY FROM THE CX_ROOT BELOW, deliberately: a
+*           dynamic-call binding failure happens BEFORE the function body
+*           runs, so retrying it is free. A genuine backend failure must
+*           never be retried - re-posting a create that half ran is how
+*           duplicate cases are made - and it does not land here.
             lv_dyn = abap_true.
             CALL FUNCTION ms_config-backend-fm_post
               CHANGING
