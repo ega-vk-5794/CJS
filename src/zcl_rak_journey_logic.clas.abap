@@ -1541,24 +1541,71 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *   press, the poll and the reopen all happen on the payment step, and
 *   PREPARE_PAYMENT( ) is only reached from those three.
     IF iv_event = c_pay_now OR iv_event = c_pay_poll OR iv_event = c_pay_open.
-      IF io_ctx->get_val( c_pay_screen ) IS INITIAL.
-*       Cast rather than a new interface method, and the CATCH matters -
-*       a test double passed as IO_CTX is not the engine and must not be
-*       broken by this. Same pattern as the trace below.
-        DATA lo_pe TYPE REF TO zcl_rak_journey_engine.
-        TRY.
-            lo_pe = CAST #( io_ctx ).
-          CATCH cx_sy_move_cast_error.
-            CLEAR lo_pe.
-        ENDTRY.
-        IF lo_pe IS BOUND.
+
+*     Cast rather than a new interface method, and the CATCH matters -
+*     a test double passed as IO_CTX is not the engine and must not be
+*     broken by this. Same pattern as the trace below.
+      DATA lo_pe TYPE REF TO zcl_rak_journey_engine.
+      TRY.
+          lo_pe = CAST #( io_ctx ).
+        CATCH cx_sy_move_cast_error.
+          CLEAR lo_pe.
+      ENDTRY.
+
+      IF lo_pe IS BOUND.
+
+*       ---- THE CONFIGURED DEFAULT WINS, EVERY TIME -------------------
+*       "BLANK ONLY" WAS NOT ENOUGH, AND A DEBUGGER SESSION PROVED IT.
+*       PAY_SCREEN is a MODEL value: it lives in the draft and survives
+*       every round trip. So once a journey has run with one value, a
+*       corrected DEFAULT_VAL in ZRAK_T_JNY_FLD never reaches it - the
+*       old value is not blank, so nothing overwrote it, and
+*       CS_HEADER-SCREENNAME went on arriving as NPAY_1_1 after the
+*       configuration had already been changed to NSUBDIVISION_1_4 and
+*       the load report re-run.
+*
+*       That is the wrong precedence for this field. PAY_SCREEN is not
+*       something a citizen types or a backend returns - it is static
+*       configuration, and the model copy is only a carrier so
+*       PREPARE_PAYMENT( ) can read it through GET_VAL( ). When config
+*       states a value, config is right and the carried copy is stale by
+*       definition.
+*
+*       So the configured DEFAULT is re-seeded on every pay event. There
+*       is nothing to lose: a value nobody configured is untouched, and a
+*       value somebody configured cannot be pinned to whatever a draft
+*       happened to capture first.
+        DATA(lv_cfgscr) = ``.
+        LOOP AT lo_pe->ms_config-steps INTO DATA(ls_cstp).
+          LOOP AT ls_cstp-fields INTO DATA(ls_cfld)
+               WHERE name = c_pay_screen.
+            IF ls_cfld-default IS NOT INITIAL.
+              lv_cfgscr = ls_cfld-default.
+            ENDIF.
+          ENDLOOP.
+        ENDLOOP.
+
+        IF lv_cfgscr IS NOT INITIAL.
+          IF io_ctx->get_val( c_pay_screen ) <> lv_cfgscr.
+            lo_pe->trace( |PAY     PAY_SCREEN { io_ctx->get_val( c_pay_screen ) } -> | &&
+                          |{ lv_cfgscr } · the configured DEFAULT_VAL wins over the | &&
+                          |value carried in the draft| ).
+          ENDIF.
+          io_ctx->set_val( iv_name = c_pay_screen iv_value = lv_cfgscr ).
+
+        ELSEIF io_ctx->get_val( c_pay_screen ) IS INITIAL.
+*         NOTHING CONFIGURED AND NOTHING CARRIED. Falls back to the
+*         payment step's own screen, which is right wherever payment IS a
+*         step of the journey - DOK and EPDA - and is what this did
+*         before. On Municipality it is the screen that answers INITIAL
+*         but has no CPG_1 row, so those journeys must configure the row.
           READ TABLE lo_pe->ms_config-steps INTO DATA(ls_pstp)
                INDEX lo_pe->mv_step + 1.
           IF sy-subrc = 0 AND ls_pstp-bknd_screen IS NOT INITIAL.
             io_ctx->set_val( iv_name  = c_pay_screen
                              iv_value = CONV string( ls_pstp-bknd_screen ) ).
-            lo_pe->trace( |PAY     PAY_SCREEN was blank · derived { ls_pstp-bknd_screen } | &&
-                          |from the payment step's own BKND_SCREEN| ).
+            lo_pe->trace( |PAY     PAY_SCREEN was blank and unconfigured · derived | &&
+                          |{ ls_pstp-bknd_screen } from the payment step's own BKND_SCREEN| ).
           ENDIF.
         ENDIF.
       ENDIF.
