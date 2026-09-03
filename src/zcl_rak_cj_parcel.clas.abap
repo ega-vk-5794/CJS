@@ -1376,9 +1376,36 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   THE PRESS CLAIMS THE STATE. Every browse event is written by EV( ) as
 *   <name>~<field>, so a press on the second selector of a step makes that
 *   selector the owner of MV_PCL_MODE, _OWNER, _FAV, _TERM and _PAGE before
-*   any of them is read again. PICK_ and DET_ carry their own payload after
-*   the tilde and are split separately below.
-    IF lv NP 'PICK_*' AND lv NP 'DET_*' AND lv CS '~'.
+*   any of them is read again. PICK_, DET_ and TOG_ carry their own payload
+*   after the tilde and are split separately below.
+*
+*   TOG_ WAS MISSING FROM THIS LIST AND IT IS THE WHOLE TICK-BOX BUG.
+*   The comment above already said PICK_ and DET_ are excluded because
+*   their tilde separates a PAYLOAD rather than an owner; TOG_ was added
+*   later, carries its payload the same way - TOG_<field>~<parcel> - and
+*   was never named here. So a tick took this branch and:
+*
+*     SPLIT lv AT '~'  ->  lv = TOG_PARCELSELECTOR, lv_own = 00000...024
+*
+*   which threw the parcel key away into LV_OWN, then compared it against
+*   MV_PCL_FIELD, found it different, and reset the browse state as though
+*   a second selector had taken ownership. By the time the TOG_ branch ran,
+*   SUBSTRING( off = 4 ) had no tilde left in it, so LV_TKEY came out empty
+*   and TOGGLE( ) returned on its own guard:
+*
+*       IF lv_f IS INITIAL OR iv_key IS INITIAL.
+*         RETURN.
+*
+*   No write, no trace, and the trace proved it: after a tick,
+*   "ticks field PARCELSELECTOR - multi X - 0 selected - raw []". The box
+*   ticked in the browser because the binding is two-way and local, then
+*   the round trip came back with the field still empty and TICKS( )
+*   cleared the slot again. That is exactly "selects and vanishes", and
+*   the page also jumped because the browse state had been reset.
+*
+*   THREE ROUNDS WENT ON THE REPAINT because the symptom looks like one.
+*   It was never the repaint: the tick never reached the field.
+    IF lv NP 'PICK_*' AND lv NP 'DET_*' AND lv NP 'TOG_*' AND lv CS '~'.
 *     NOT "SPLIT lv ... INTO lv ..." - the same variable as source and as
 *     first target is not something to rely on. Split into two of its own.
       SPLIT lv AT '~' INTO DATA(lv_ev) DATA(lv_own).
