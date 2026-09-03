@@ -80,25 +80,6 @@ public section.
                 iv_text   TYPE string
       RETURNING VALUE(rs) TYPE zif_rak_journey=>ty_msg.
 
-    " Digits only, on the four count fields on HIST. Length is NOT checked here:
-    " MAX_LEN on ZRAK_T_JNY_FLD reaches the control's MAXLENGTH as well as
-    " VALIDATE_STEP's server-side re-check, so the citizen is stopped at the
-    " keyboard and a crafted request is refused - one rule, one owner. What
-    " MAX_LEN cannot express is that the characters must be digits, and the
-    " FTYPE that could ('NUMBER') is the one MAXLENGTH does not work on - see
-    " the note in ZRAK_C022_LOAD. So the two halves are split on purpose.
-    " IV_NAN_TXT carries the WD's own OTR wording where one exists; blank falls
-    " back to a literal naming the field, because GET_OTR_TEXT_FOR_ALIAS returns
-    " BLANK on NO_ENTRY_FOUND and an empty error strip blocks the step with
-    " nothing on screen to explain it.
-    METHODS count_check
-      IMPORTING io_ctx     TYPE REF TO zif_rak_journey
-                iv_field   TYPE string
-                iv_lbl_en  TYPE string
-                iv_lbl_ar  TYPE string
-                iv_nan_txt TYPE string OPTIONAL
-      RETURNING VALUE(rt)  TYPE zif_rak_journey=>tt_msg.
-
     METHODS t100_text
       IMPORTING iv_id          TYPE symsgid
                 iv_no          TYPE symsgno
@@ -167,11 +148,22 @@ public section.
                 iv_role_en     TYPE string
                 iv_role_ar     TYPE string
       RETURNING VALUE(rv_text) TYPE string.
-    " convert an external date string to internal YYYYMMDD; returns empty when
-    " the input is empty OR invalid. Origin: CONVERT_DATE_TO_INTERNAL usage in
+    " An external date string as internal YYYYMMDD; empty when the input is
+    " empty OR invalid, so a caller tells the two apart by also testing the
+    " raw value. Delegates to the ENGINE's parser - see the implementation for
+    " why the dialog user's date format has no business deciding what a
+    " citizen typed into a picker.
     METHODS conv_date_internal
       IMPORTING iv_ext        TYPE string
       RETURNING VALUE(rv_int) TYPE d.
+    " The BP popup's date of birth as ZCL_RAK_BP_SEARCH wants it: BLANK, or
+    " exactly eight digits. Delegates to the ENGINE's date parser, not to this
+    " class's CONV_DATE_INTERNAL( ) - see the note on the implementation for
+    " why the dialog user's date format has no business deciding what a
+    " citizen typed.
+    METHODS bp_dob
+      IMPORTING iv_raw    TYPE string
+      RETURNING VALUE(rv) TYPE string.
 ENDCLASS.
 
 
@@ -368,10 +360,28 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     " A trade licence is a company: no date of birth, no nationality.
     IF lv_by <> c_bp_tlic.
       lo_form->label( zcl_rak_text=>pick( iv_base = `Date of Birth` iv_ar = |تاريخ الميلاد| ) ).
-      " DDMMYYYY on screen, YYYYMMDD in the value — the MOI cross-check compares
-      " the dates as strings, so a display format would fail every comparison.
+      " dd.MM.yyyy ON SCREEN, and the dots are not cosmetic. This was
+      " 'dd/MM/yyyy' — the only date in the whole service that asked for
+      " slashes, while every FTYPE 'DATE' field the engine draws shows
+      " dd.MM.yyyy (ZCL_RAK_JOURNEY_RENDER's DATE branch hard-codes it) and
+      " DATE_DISPLAY( ) writes dots into every message. A citizen who types
+      " what every other field on the journey taught them - 02.05.1990 - gave
+      " sap.m.DatePicker text its displayFormat could not parse, and an
+      " unparsed DatePicker still pushes the RAW TEXT into the bound value. So
+      " '02.05.1990' reached the model, went into the OData DateOfBirth filter
+      " as-is, and the gateway short-dumped on it: "Application Error - Please
+      " Restart The App", with the popup and the half-filled journey gone.
+      "
+      " YYYYMMDD stays in the VALUE, unlike the engine's DATE fields which use
+      " ISO. The MOI cross-check inside ZCL_RAK_BP_SEARCH compares
+      " LS_BP-DOB <> IS_REQ-DOB as plain strings, and the BP side of that is
+      " eight digits, so anything else fails every comparison.
+      "
+      " The format alone is not the whole fix: a citizen can still type
+      " 31.13.2020 or nonsense. BP_DOB( ) in BP_RUN_SEARCH is the guard that
+      " keeps an unparsed value out of the request entirely.
       lo_form->date_picker( value         = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'DOB' ) )
-      displayformat = 'dd/MM/yyyy'
+      displayformat = 'dd.MM.yyyy'
       valueformat   = 'yyyyMMdd' ).
       lo_form->label( zcl_rak_text=>pick( iv_base = `Nationality` iv_ar = |الجنسية| ) ).
       DATA(lo_nat) = lo_form->combobox(
@@ -408,8 +418,44 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     DATA(lv_num) = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'IDNUM' ) ).
 
     ls_req-idtype      = lv_by.
-    ls_req-dob         = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'DOB' ) ).
     ls_req-nationality = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'NAT' ) ).
+
+    " THE DATE OF BIRTH IS NORMALISED BEFORE IT LEAVES THIS METHOD, and that is
+    " the fix for the short dump described on the picker in BP_RENDER. Whatever
+    " sap.m.DatePicker could not parse arrives here as the citizen's raw
+    " keystrokes, and TY_REQ-DOB is a STRING, so nothing between here and the
+    " OData filter would have objected - the gateway was the first thing to
+    " look at the value, and it terminated the session rather than complaining.
+    "
+    " Blank is fine: the date of birth is only the MOI cross-check, never a
+    " search key, so an empty one simply skips that comparison. Filled but
+    " unparsable is NOT fine, and is reported rather than silently blanked -
+    " dropping it would run the search with the MOI date check quietly
+    " disabled and hand back a partner nobody had verified.
+    DATA(lv_dob_raw) = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'DOB' ) ).
+    DATA(lv_dob)     = bp_dob( lv_dob_raw ).
+    IF lv_dob_raw IS NOT INITIAL AND lv_dob IS INITIAL.
+      " C_NO-BAD_FORMAT is the framework's own "&1 has an invalid format", so
+      " this reads like every other format complaint in CJS in both languages.
+      " The pattern is appended rather than translated - dd.mm.yyyy is the same
+      " string either way, and a citizen who mistyped a date needs to be told
+      " the shape, which the catalogue text does not carry.
+      DATA(lv_dob_lbl) = zcl_rak_text=>pick( iv_base = `Date of Birth`
+                                             iv_ar   = |تاريخ الميلاد| ).
+      DATA(lv_dob_msg) = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-bad_format
+                                            iv_default = '&1 has an invalid format'
+                                            iv_v1      = lv_dob_lbl ).
+      io_ctx->add_msg( iv_type = 'Error'
+      iv_text = |{ lv_dob_msg } (dd.mm.yyyy)| ).
+      RETURN.
+    ENDIF.
+    ls_req-dob = lv_dob.
+    " Written back so the picker redraws the parsed date instead of the text
+    " that failed to parse, and a second Search sends the same value again.
+    IF lv_dob <> lv_dob_raw.
+      io_ctx->set_val( iv_name  = bp_fld( iv_subject = iv_subject iv_suffix = 'DOB' )
+      iv_value = lv_dob ).
+    ENDIF.
 
     CASE lv_by.
       WHEN c_bp_eid.
@@ -486,46 +532,92 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
   METHOD CONV_DATE_INTERNAL.
 *&---------------------------------------------------------------------*
 *& conv_date_internal — date string -> SAP internal YYYYMMDD; empty on
-*& blank or invalid input (so callers treat blank and invalid distinctly
-*& by also testing the raw value).
-*& io_ctx delivers DATE fields as ISO 'YYYY-MM-DD', which is what the UI5
-*& date control posts — CONVERT_DATE_TO_INTERNAL only understands the user's
-*& format, so ISO is handled explicitly first (and an already-internal
-*& YYYYMMDD is passed through). Anything else falls back to the FM.
+*& blank or invalid input (so callers treat blank and invalid distinctly by
+*& also testing the raw value). Contract unchanged; the body is now one
+*& delegation.
+*&
+*& WHY IT NO LONGER PARSES ANYTHING ITSELF. It used to handle ISO
+*& explicitly, pass an already-internal YYYYMMDD through, and fall back to
+*& CONVERT_DATE_TO_INTERNAL for everything else - and that FM answers in the
+*& DIALOG USER's date format. On a citizen-facing journey that user is
+*& whichever ICF service user happens to be running the request, which is
+*& not an input this service controls. All seven fields feeding this method
+*& are FTYPE 'DATE', so each renders a sap.m.DatePicker, and an unparsed
+*& DatePicker pushes the citizen's RAW TEXT into the bound value. So on a
+*& month-first service user, a citizen typing 08/19/1987 over the picker had
+*& 19 AUGUST accepted as valid.
+*&
+*& AND THIS ONE PERSISTS, which is what makes it worse than the same shape
+*& in BP_DOB( ). That one misdirected a search: wrong or empty result, the
+*& citizen sees it and retries. This one is posted. Seven of the fifteen
+*& call sites write straight into the backend structures - ZZAFLD00008K and
+*& 8N on the header, ZZAFLD0000UB..UF on the extension - so a date nobody
+*& entered is written to a divorce record, and the other eight sites hand it
+*& to the date-ordering checks, which then judge that same phantom date. It
+*& was found by the engine team searching their tree for the shape our
+*& BP_DOB( ) finding described; their copy of this class still has it.
+*&
+*& TO_DATS( ) reads a fixed set instead - eight digits, ISO yyyy-mm-dd, and
+*& the day-first forms dd.mm.yyyy / dd/mm/yyyy / dd-mm-yyyy, telling ISO and
+*& day-first apart by separator position - range-checks month 1-12 and day
+*& 1-31, and returns BLANK for anything it cannot read unambiguously,
+*& including month-first and partial dates. Blank is already the "invalid"
+*& signal every caller here tests for, so no call site changes. It never
+*& assigns to a TYPE D field either, so the CX_SY_CONVERSION_NO_DATE this
+*& method used to be able to raise on its own ISO branch is gone with it.
+*&
+*& The IS NOT INITIAL test is deliberate rather than decorative: TO_DATS( )
+*& returns a STRING and RV_INT is TYPE D, whose initial value is '00000000'.
+*& Guarding the assignment says "leave the type's own initial value" without
+*& depending on how a blank character source converts to a date.
 *&---------------------------------------------------------------------*
-    DATA lv_raw TYPE string.
-    lv_raw = condense( iv_ext ).
-    IF lv_raw IS INITIAL.
-      RETURN.
+    DATA(lv_dats) = zcl_rak_journey_util=>to_dats( iv_ext ).
+    IF lv_dats IS NOT INITIAL.
+      rv_int = lv_dats.
     ENDIF.
+  ENDMETHOD.
 
-    " ISO 'YYYY-MM-DD' -> 'YYYYMMDD'
-    IF strlen( lv_raw ) = 10 AND lv_raw+4(1) = '-' AND lv_raw+7(1) = '-'.
-      rv_int = lv_raw(4) && lv_raw+5(2) && lv_raw+8(2).
-      IF rv_int CO '0123456789'.
-        RETURN.
-      ENDIF.
-      CLEAR rv_int.
-      RETURN.
-    ENDIF.
 
-    IF strlen( lv_raw ) = 8 AND lv_raw CO '0123456789'.
-      rv_int = lv_raw.
-      RETURN.
-    ENDIF.
-
-    CALL FUNCTION 'CONVERT_DATE_TO_INTERNAL'
-      EXPORTING
-        date_external            = lv_raw
-        accept_initial_date      = 'X'
-      IMPORTING
-        date_internal            = rv_int
-      EXCEPTIONS
-        date_external_is_invalid = 1
-        OTHERS                   = 2.
-    IF sy-subrc <> 0.
-      CLEAR rv_int.
-    ENDIF.
+  METHOD BP_DOB.
+*&---------------------------------------------------------------------*
+*& bp_dob — the popup's date of birth, as ZCL_RAK_BP_SEARCH wants it:
+*& BLANK, or exactly eight digits.
+*&
+*& THE ENGINE'S PARSER, NOT OURS, AND THAT IS A CORRECTION. This used to go
+*& through CONV_DATE_INTERNAL( ), which falls back to
+*& CONVERT_DATE_TO_INTERNAL - and that resolves against the DIALOG USER's
+*& date-format setting. On a citizen-facing journey that setting belongs to
+*& whichever ICF service user happens to be running the request, which is
+*& not an input we control: with a month-first service user, '08/19/1987'
+*& would have been accepted as 19 August, turning a date the citizen did not
+*& mean into a valid-looking one. Silently wrong is worse than refused.
+*&
+*& TO_DATS( ) reads a fixed set instead - eight digits as the picker's
+*& VALUEFORMAT writes them, ISO yyyy-mm-dd, and the day-first forms
+*& dd.mm.yyyy / dd/mm/yyyy / dd-mm-yyyy, telling ISO and day-first apart by
+*& separator position - and returns EMPTY for anything else, including
+*& month-first and partial dates. It also range-checks month 1-12 and day
+*& 1-31, and it never assigns to a TYPE D field, so it cannot raise the
+*& CX_SY_CONVERSION_NO_DATE this guard exists to prevent.
+*&
+*& It is also the parser ZCL_RAK_JOURNEY_RULES normalises through for the
+*& DATE range check, and the one ZCL_RAK_BP_SEARCH=>NORM_DOB( ) delegates
+*& to, so the set of dates CJS will validate and the set it will send are
+*& the same by construction rather than two lists that drift.
+*&
+*& ONCE NORM_DOB( ) IS ACTIVE IN SAP this method is redundant - SEARCH( )
+*& normalises and refuses on its own, at the choke point every popup goes
+*& through. It is kept because it refuses EARLIER, with wording that names
+*& the expected pattern, which the framework message does not. Delete it, and
+*& the guard in BP_RUN_SEARCH, if that wording ever stops being worth 15
+*& lines.
+*&
+*& A blank answer means one of two different things and the CALLER has to
+*& tell them apart by looking at the raw value - empty in is legitimate
+*& (the date of birth is only the MOI cross-check), unparsable in is an
+*& error the citizen must see.
+*&---------------------------------------------------------------------*
+    rv = zcl_rak_journey_util=>to_dats( iv_raw ).
   ENDMETHOD.
 
 
@@ -642,23 +734,6 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
 
   METHOD field_error.
     rs = VALUE #( type = 'Error' text = iv_text field = iv_field ).
-  ENDMETHOD.
-
-
-  METHOD count_check.
-    DATA(lv_val) = condense( io_ctx->get_val( iv_field ) ).
-    IF lv_val IS INITIAL.
-      RETURN.
-    ENDIF.
-    DATA(lv_lbl) = COND string( WHEN sy-langu = 'A' THEN iv_lbl_ar ELSE iv_lbl_en ).
-
-    IF lv_val CN '0123456789'.
-      APPEND field_error( iv_field = iv_field
-      iv_text = COND string(
-      WHEN iv_nan_txt IS NOT INITIAL THEN iv_nan_txt
-      WHEN sy-langu = 'A' THEN |الرجاء ادخال ارقام فقط في حقل { lv_lbl }|
-      ELSE |Please enter numbers only for { lv_lbl }| ) ) TO rt.
-    ENDIF.
   ENDMETHOD.
 
 
@@ -978,29 +1053,20 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         ENDIF.
 
       WHEN c_step_hist.
-        "   All four counts on this step take the same rule - digits only -
-        " through COUNT_CHECK. Their LENGTH is configuration: MAX_LEN on
-        " ZRAK_T_JNY_FLD, two digits each and one for the wives count, which
-        " the engine caps at the keyboard and re-checks on submit. The labels
-        " passed here are the ZLABEL / ZLABEL_AR the loader gives each field, so
-        " a message always names the field by the same words that sit above it
-        " on screen.
-        "   Only the wives count has a WD message of its own to honour
-        " (VALIDATE_NUMERIC read ZZAFLD0000V3 and nothing else), so only it
-        " passes IV_NAN_TXT. The other three are ours by choice: the WD imposes
-        " nothing on them - ZZAFLD00008M is CHAR(60) and its control sets
-        " LENGTH = '0', so the legacy screen took 60 characters of anything.
-        APPEND LINES OF count_check( io_ctx = io_ctx iv_field = 'WIVES_COUNT_HUSBAND'
-        iv_lbl_en = 'Number of waives for husband' iv_lbl_ar = |عدد الزوجات في عصمة الزوج|
-        iv_nan_txt = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG' ) ) TO rt.
-        APPEND LINES OF count_check( io_ctx = io_ctx iv_field = 'CHILDREN_UNDER_21'
-        iv_lbl_en = 'Children under 21' iv_lbl_ar = |عدد الأولاد أقل من 21 سنة| ) TO rt.
-        APPEND LINES OF count_check( io_ctx = io_ctx iv_field = 'CHILDREN_COUNT'
-        iv_lbl_en = 'No. of children' iv_lbl_ar = |عدد الابناء| ) TO rt.
-        APPEND LINES OF count_check( io_ctx = io_ctx iv_field = 'PREV_DIVORCES_COUNT'
-        iv_lbl_en = 'The number of previous divorces'
-        iv_lbl_ar = |عدد حالات الطلاق السابقة بين الطرفين| ) TO rt.
-
+        "   DIGITS ONLY IS NO LONGER HERE. All four counts on this step took the
+        " same rule through a COUNT_CHECK( ) method; it is gone, replaced by
+        " REGEX '^[0-9]+$' on each of the four rows in ZRAK_C022_LOAD. The
+        " engine's own check is equivalent in every respect that matters - same
+        " moment (VALIDATE_STEP), skips a blank value, calls SET_FIELD_STATE so
+        " the field still turns red, and runs after MAX_LEN so an over-long
+        " value still reports its length rather than its format. The loader
+        " carries the full comparison, including which two fields can keep the
+        " old wording in MSG and which two fall back to the framework's
+        " "&1 has an invalid format".
+        "   One thing did not survive: the wives count passed the WD's own OTR
+        " text (Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG) as its digits message, and
+        " that text can only come back through MSG, which is the mandatory
+        " wording on that field. Flagged in the loader.
         DATA(lv_wives)    = condense( io_ctx->get_val( 'WIVES_COUNT_HUSBAND' ) ).
         DATA(lv_prev_div) = condense( io_ctx->get_val( 'PREV_DIVORCES_COUNT' ) ).
 
@@ -1670,8 +1736,9 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     ls_header_ext-zzafld0000ux = io_ctx->get_val( 'ISOLATION' ).
 *   Leading zeros stripped before the assignment. ZZAFLD0000V3 is CHAR(1), so
 *   it keeps the FIRST character of whatever it is given: '09' arrived in the
-*   backend as '0'. COUNT_CHECK already refuses a second digit on the step, so
-*   this is the backstop for a value that reached ON_SUBMIT another way.
+*   backend as '0'. MAX_LEN = 1 stops a second digit at the keyboard and
+*   VALIDATE_STEP re-checks it, and REGEX refuses a non-digit, so this is the
+*   backstop for a value that reached ON_SUBMIT another way.
     ls_header_ext-zzafld0000v3 = digits_only( io_ctx->get_val( 'WIVES_COUNT_HUSBAND' ) ).
     ls_header_ext-zzafld0000um = io_ctx->get_val( 'PREV_DIVORCES_COUNT' ). " NUMC
     ls_header_ext-zzafld0000uy = io_ctx->get_val( 'EARLIER_MARRIAGES' ).

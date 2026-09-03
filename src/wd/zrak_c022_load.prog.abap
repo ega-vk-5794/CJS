@@ -80,18 +80,64 @@ START-OF-SELECTION.
 * fingerprint of the whole key, so two names sharing a prefix cannot collapse
 * onto one component, and ZCL_RAK_CJS_XCHECK warns at save time as well.
 *
-* FTYPE 'INPUT' + MAX_LEN carries the four counts on HIST - two digits each, one
-* for the wives count, whose backend column ZZAFLD0000V3 is CHAR(1) and would
-* keep only the first character of a longer value.
+* FTYPE 'INPUT' + MAX_LEN + REGEX carries the four counts on HIST - two digits
+* each, one for the wives count, whose backend column ZZAFLD0000V3 is CHAR(1)
+* and would keep only the first character of a longer value.
 *
 * NOT FTYPE 'NUMBER', which is the obvious choice and does not work. That branch
 * renders sap.m.Input with TYPE = 'Number', and an HTML number input ignores
 * MAXLENGTH - it is a browser rule, not an engine one, so the cap silently did
 * nothing and eleven digits reached VALIDATE_STEP's server-side re-check. On a
 * plain INPUT the cap holds at the keyboard, which is what the citizen needs.
-* The cost is that letters can be typed, so ZCL_C022_KHULA_CERTI_LOGIC's
-* COUNT_CHECK still owns "digits only" - the half MAX_LEN cannot express either
-* way. One rule at the keyboard, one on the step, neither duplicating the other.
+*
+* REGEX '^[0-9]+$' NOW OWNS "digits only", and it replaces the COUNT_CHECK( )
+* method that used to do it in ZCL_C022_KHULA_CERTI_LOGIC. Checked against
+* ZCL_RAK_JOURNEY_RULES before the swap, because the two have to be equivalent
+* and one of them is being deleted:
+*   - VALIDATE_STEP evaluates it, so it fires on Next and on Submit. Same
+*     moment COUNT_CHECK fired, being an ON_CUSTOM_VALIDATE row.
+*   - it SKIPS A BLANK VALUE ("IF lv_val IS INITIAL. CONTINUE."), so it does
+*     not double up with REQUIRED. COUNT_CHECK returned early on blank too.
+*   - it calls SET_FIELD_STATE( 'Error' ), so the field turns red with the
+*     message as its tooltip - which is what FIELD_ERROR( ) was for.
+*   - it runs AFTER MIN_LEN / MAX_LEN / MIN_VAL / MAX_VAL and each of those
+*     CONTINUEs on failure, so an over-long value still reports its length
+*     rather than its format. No two messages for one field.
+*   - a pattern that will not compile is treated as NO CONSTRAINT and only
+*     traced. So a typo here fails open, silently. That is the one thing this
+*     route is worse at than code, and the reason to leave the pattern alone
+*     unless it is re-tested.
+*   - it is not enforced at the keyboard. Neither was COUNT_CHECK; nothing is
+*     lost, and MAX_LEN remains the only client-side half.
+*
+* THE MESSAGE, and why only two of the four fields carry one. A regex failure
+* uses the field's own MSG / MSG_AR when set, else the framework's
+* C_NO-BAD_FORMAT ("&1 has an invalid format" / "صيغة &1 غير صحيحة") with the
+* label substituted - bilingual either way. But MISSING_REQUIRED reads the SAME
+* MSG column for its "is required" text, and one column cannot say both things.
+* The two checks never fire together (required needs a blank value, regex needs
+* a filled one), so this is a wording collision, not a functional one:
+*   CHILDREN_COUNT, CHILDREN_UNDER_21   never required, by flag or by rule, so
+*                                       MSG is free and carries the digits
+*                                       wording COUNT_CHECK used to produce
+*   WIVES_COUNT_HUSBAND                 required, so MSG stays the mandatory
+*   PREV_DIVORCES_COUNT (rule R04)      text and the digits failure falls back
+*                                       to C_NO-BAD_FORMAT
+* Clearing MSG on those two would free it - MISSING_REQUIRED falls back to
+* C_NO-REQUIRED, which with the label produces the identical sentence they
+* carry today - but it would only move the problem, since the fallback wording
+* would then be the required one. Leave it.
+*
+* ONE THING WAS LOST in the swap, deliberately and with the user's decision
+* still open: the wives count passed the WD's own OTR text
+* (Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG) as its digits message, honouring the
+* rule that a WD OTR text is followed verbatim. That text can only come back
+* into MSG, and MSG is the mandatory wording on that field.
+*
+* NOT DONE, and worth knowing it is available: MAX_VAL = 9 on the wives count
+* would move the "cannot be more than 9" check out of the handler too -
+* VALIDATE_STEP's numeric gate covers FTYPE 'INPUT' - but its message would hit
+* the same MSG collision, so that check stays in ON_CUSTOM_VALIDATE.
 *
 * CLOSED_LIST is deliberately NOT set, though every field here is a closed list
 * and the flag would stop the pointless typing a ComboBox invites. It is held
@@ -208,16 +254,20 @@ START-OF-SELECTION.
   msg = 'Isolation is required' msg_ar = |تمت الخلوة مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'CHILDREN_COUNT' seqnr = 60
   ftype = 'INPUT' zlabel = 'No. of children' zlabel_ar = |عدد الابناء| fgroup = 'ROW:H3'
-  max_len = 2 tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008M' )
+  max_len = 2 regex = '^[0-9]+$' tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008M'
+  msg = 'Please enter numbers only for No. of children'
+  msg_ar = |الرجاء ادخال ارقام فقط في حقل عدد الابناء| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'MARR_PROVING_DATE' seqnr = 70
   ftype = 'DATE' zlabel = 'Marriage proving date' zlabel_ar = |تاريخ الدخول| fgroup = 'ROW:H4'
   tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008N' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'CHILDREN_UNDER_21' seqnr = 80
   ftype = 'INPUT' zlabel = 'Children under 21' zlabel_ar = |عدد الأولاد أقل من 21 سنة| fgroup = 'ROW:H4'
-  max_len = 2 tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UL' )
+  max_len = 2 regex = '^[0-9]+$' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UL'
+  msg = 'Please enter numbers only for Children under 21'
+  msg_ar = |الرجاء ادخال ارقام فقط في حقل عدد الأولاد أقل من 21 سنة| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'WIVES_COUNT_HUSBAND' seqnr = 90
   ftype = 'INPUT' required = 'X' zlabel = 'Number of waives for husband' zlabel_ar = |عدد الزوجات في عصمة الزوج|
-  fgroup = 'ROW:H5' max_len = 1 tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000V3'
+  fgroup = 'ROW:H5' max_len = 1 regex = '^[0-9]+$' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000V3'
   msg = 'Number of waives for husband is required' msg_ar = |عدد الزوجات في عصمة الزوج مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'EARLIER_MARRIAGES' seqnr = 100
   ftype = 'SELECT' required = 'X' zlabel = 'Earlier marriages' zlabel_ar = |هل تم الزواج من قبل بين الطرفين|
@@ -230,7 +280,7 @@ START-OF-SELECTION.
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'PREV_DIVORCES_COUNT' seqnr = 110
   ftype = 'INPUT' zlabel = 'The number of previous divorces'
   zlabel_ar = |عدد حالات الطلاق السابقة بين الطرفين| fgroup = 'ROW:H6'
-  max_len = 2 tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UM'
+  max_len = 2 regex = '^[0-9]+$' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UM'
   msg = 'The number of previous divorces is required' msg_ar = |عدد حالات الطلاق السابقة بين الطرفين مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'LAST_DIV_DATE' seqnr = 120
   ftype = 'DATE' zlabel = 'Last divorce date' zlabel_ar = |تاريخ الطلاق السابق| fgroup = 'ROW:H7'

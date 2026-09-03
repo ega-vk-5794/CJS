@@ -738,9 +738,9 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
       ELSE CONV string( ls_bp-bp_name ) ) ).
     io_ctx->set_val( iv_name = 'APP_ID' iv_value = CONV #( ls_bp-emirates_id ) ).
 
-
-
-  ENDMETHOD.
+    io_ctx->set_val( iv_name = 'OWNER_SEARCH_IDTYPE'    iv_value = CONV #( 'YFS002' ) ).
+    io_ctx->set_val( iv_name = 'PERMIT_NUMBER_IDTYPE'    iv_value = CONV #( 'HF' ) ).
+   ENDMETHOD.
 
 
   METHOD zif_rak_journey_logic~on_popup_event.
@@ -783,10 +783,10 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
         io_ctx->close_popup( ). "Close pop-up screen after adding data
 
 
-      WHEN c_evt_hist.
-*       Fill the dialog from the chosen declaration and leave it OPEN - this
-*       shipment's own figures are still to type.
-        history_apply( io_ctx ).
+*      WHEN c_evt_hist.
+**       Fill the dialog from the chosen declaration and leave it OPEN - this
+**       shipment's own figures are still to type.
+*        history_apply( io_ctx ).
 
       WHEN c_evt_owncx. "'CANCEL'. "
         io_ctx->close_popup( ).
@@ -852,9 +852,9 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 *                             to nothing falls through to a plain input in
 *                             DIALOG_FORM( ), so an applicant with no history
 *                             never sees an empty dropdown.
-                                ( name = c_hist_pop label = 'Use a previous declaration'
-                                  type = 'SELECT' options = history_opts( io_ctx )
-                                  change_evt = c_evt_hist )
+*                                ( name = c_hist_pop label = 'Use a previous declaration'
+*                                  type = 'SELECT' options = history_opts( io_ctx )
+*                                  change_evt = c_evt_hist )
                                 ( name = c_hs_code_pop          label = 'HS Code' required = abap_true )
                                 ( name = c_material_name_pop    label = 'Material Name' )
                                 ( name = c_chemical_name_pop    label = 'Chemical Name' )
