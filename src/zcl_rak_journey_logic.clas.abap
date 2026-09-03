@@ -1139,6 +1139,59 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_popup_event.
+
+*   ---- PAY_SCREEN, DERIVED WHEN NOTHING SUPPLIED IT ------------------
+*   PREPARE_PAYMENT( ) refuses without it, and its own message says what
+*   the value is: "the payment step's own BKND_SCREEN". The engine is
+*   holding that string the whole time - so refusing to start a payment
+*   over a value it could work out itself was the wrong trade.
+*
+*   IT IS NOT A MODEL COMPONENT. BUILD_MODEL( ) reserves exactly three
+*   PAY_ names - PAY_STARTED, PAY_REFERENCE, PAY_APPURL - so PAY_SCREEN
+*   lives in MT_SCRATCH, which is why SET_VAL( ) works for it at all and
+*   why nothing in ZRAK_T_JNY_FLD is needed. Two mechanisms already
+*   supply it: a configured PAY_SCREEN field carrying the screen in
+*   DEFAULT_VAL (what ZCL_RAK_CJS_XCHECK looks for, and calls the
+*   "carrier"), or a handler ON_INIT doing it by hand, as D001, E014,
+*   E015 and E146 do.
+*
+*   THE THREE MUNICIPALITY JOURNEYS HAD NEITHER, and that is what this
+*   is for: M011 created its ZGCX case, linked the parcel, both partners
+*   and all three attachments, raised the sales order - and then could
+*   not open the gateway, because one string naming a screen the engine
+*   already knew was blank.
+*
+*   ONLY WHEN BLANK, so a journey that configures it or sets it in
+*   ON_INIT is untouched. A fee-less journey never reaches here at all -
+*   the pay events are raised by the PAYFEE card, which it does not draw.
+*
+*   THE CURRENT STEP IS THE RIGHT STEP for every path that needs it: the
+*   press, the poll and the reopen all happen on the payment step, and
+*   PREPARE_PAYMENT( ) is only reached from those three.
+    IF iv_event = c_pay_now OR iv_event = c_pay_poll OR iv_event = c_pay_open.
+      IF io_ctx->get_val( c_pay_screen ) IS INITIAL.
+*       Cast rather than a new interface method, and the CATCH matters -
+*       a test double passed as IO_CTX is not the engine and must not be
+*       broken by this. Same pattern as the trace below.
+        DATA lo_pe TYPE REF TO zcl_rak_journey_engine.
+        TRY.
+            lo_pe = CAST #( io_ctx ).
+          CATCH cx_sy_move_cast_error.
+            CLEAR lo_pe.
+        ENDTRY.
+        IF lo_pe IS BOUND.
+          READ TABLE lo_pe->ms_config-steps INTO DATA(ls_pstp)
+               INDEX lo_pe->mv_step + 1.
+          IF sy-subrc = 0 AND ls_pstp-bknd_screen IS NOT INITIAL.
+            io_ctx->set_val( iv_name  = c_pay_screen
+                             iv_value = CONV string( ls_pstp-bknd_screen ) ).
+            lo_pe->trace( |PAY     PAY_SCREEN was blank · derived { ls_pstp-bknd_screen } | &&
+                          |from the payment step's own BKND_SCREEN| ).
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+
     CASE iv_event.
       WHEN c_pay_now.
 *       PAY_STARTED first, BEFORE the commit. It used to be written after

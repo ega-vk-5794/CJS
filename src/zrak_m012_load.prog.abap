@@ -283,6 +283,36 @@ START-OF-SELECTION.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 10
       field_name = 'PAYFEE' ftype = 'PAYFEE'
       zlabel = 'Payment' zlabel_ar = 'الدفع' )
+*   ---- PAY_SCREEN: THE CARRIER, NOT DECORATION ------------------------
+*   PREPARE_PAYMENT( ) refuses to open the gateway without it, and its
+*   own message names the value: the payment step's own BKND_SCREEN. The
+*   read BAdI behind that screen is what resolves the open item, picks
+*   the gateway, draws the reference and returns APPLICATIONURL.
+*
+*   WITHOUT THIS ROW M011 GOT ALL THE WAY THERE AND STOPPED. The ZGCX
+*   case was created, the parcel, both partners and all three attachments
+*   were linked, the sales order was raised - and then "Payment cannot
+*   start: PAY_SCREEN is not set", because one string naming a screen the
+*   engine already knew was blank.
+*
+*   ZCL_RAK_CJS_XCHECK LOOKS FOR EXACTLY THIS ROW on the payment step and
+*   calls it the carrier, and it checks the value against the step's own
+*   BKND_SCREEN - so the two must not drift.
+*
+*   HIDDEN AND READONLY: it is configuration the citizen has no business
+*   seeing. It still posts, which is harmless, and FLATTEN_KV( ) filters
+*   on TYPE rather than on either flag, so hiding it does not stop it
+*   reaching the model.
+*
+*   ZCL_RAK_JOURNEY_LOGIC NOW DERIVES THIS WHEN BLANK, from the current
+*   step's BKND_SCREEN, so a journey that forgets the row still pays. The
+*   row stays anyway: it is the documented mechanism, XCHECK expects it,
+*   and a derived value is a fallback rather than a design.
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 15
+      field_name = 'PAY_SCREEN' ftype = 'DISPLAY'
+      readonly = 'X' hidden = 'X'
+      default_val = 'NMERGE_1_3'
+      zlabel = 'Payment screen' zlabel_ar = 'شاشة الدفع' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 20
       field_name = 'TOTALVALUE' ftype = 'DISPLAY' readonly = 'X'
       hidden = 'X'
