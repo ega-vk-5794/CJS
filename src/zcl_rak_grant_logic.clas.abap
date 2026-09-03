@@ -86,6 +86,38 @@ CLASS zcl_rak_grant_logic DEFINITION
 
   PROTECTED SECTION.
 
+*   ---- RESOLVING A FIELD WHEN THE MIGRATOR CHOSE ITS NAME --------------
+*   A migrated journey's field names are ALLOCATED, not authored.
+*   ZCL_RAK_MIGRATOR->BUILD_NAME_MAP( ) keeps a journey-wide set of used
+*   names and suffixes a counter onto any repeat, so the loan toggle -
+*   legacy FIELD_NAME 'RB1' on NOG_1_3, colliding with the beneficiary
+*   toggle 'RB1' on NOG_1_1 - reaches CJS as 'RB11'. Which of the two
+*   gets the suffix depends on screen order, so no handler can hard-code
+*   either one.
+*
+*   What IS stable is the legacy TECHNICAL_NAME: 'WITH_LOAN', 'NO_LOAN',
+*   'I_BENEFICIARY', 'SHARED_NUM', 'CHILDREN_WIFE1'. The migrator writes
+*   it to ZRAK_T_JNY_FLD-TECH_NAME verbatim, and it is what the BAdI maps
+*   values by - so it is the name that actually means something.
+*
+*   FLD_BY_TECH( ) turns one into the other by reading the journey's own
+*   config. Cached per instance because MS_CONFIG is rebuilt every round
+*   trip and this is called from validation, which runs per field.
+*
+*   A BLANK ANSWER IS NORMAL AND MUST STAY HARMLESS: a step the citizen
+*   has not reached is still in the config, but a field whose TECH_NAME
+*   the export never set has none to match. Every caller here treats
+*   blank as "nothing to check", because GET_VAL( ) on a name that is not
+*   on the journey is legal and silently returns nothing - so a wrong
+*   answer here would fabricate a passing check, and a blank one only
+*   skips it.
+    METHODS fld_by_tech
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+                iv_tech   TYPE string
+      RETURNING VALUE(rv) TYPE string.
+
+    DATA mt_bytech TYPE HASHED TABLE OF zif_rak_journey=>ty_kv WITH UNIQUE KEY key.
+
 *   Is the loan section answered - the toggle set to With Loan and all
 *   three dependent fields filled. PROTECTED so M018 and M019 share one
 *   implementation of a rule they both draw.
@@ -108,6 +140,36 @@ ENDCLASS.
 
 CLASS zcl_rak_grant_logic IMPLEMENTATION.
 
+
+
+  METHOD fld_by_tech.
+*   Cache hit, including a cached BLANK - a tech name that is not on this
+*   journey must not be re-scanned on every field of every round trip.
+    DATA(lv_t) = to_upper( condense( iv_tech ) ).
+    IF lv_t IS INITIAL.
+      RETURN.
+    ENDIF.
+    READ TABLE mt_bytech INTO DATA(ls_c) WITH TABLE KEY key = lv_t.
+    IF sy-subrc = 0.
+      rv = ls_c-value.
+      RETURN.
+    ENDIF.
+
+    LOOP AT io_ctx->get_config( )-steps INTO DATA(ls_s).
+      LOOP AT ls_s-fields INTO DATA(ls_f) WHERE tech_name IS NOT INITIAL.
+        IF to_upper( condense( ls_f-tech_name ) ) = lv_t.
+          rv = ls_f-name.
+          EXIT.
+        ENDIF.
+      ENDLOOP.
+      IF rv IS NOT INITIAL.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+
+*   Insert even when blank, so the miss is paid for once.
+    INSERT VALUE #( key = lv_t value = rv ) INTO TABLE mt_bytech.
+  ENDMETHOD.
 
   METHOD loan_incomplete.
 
