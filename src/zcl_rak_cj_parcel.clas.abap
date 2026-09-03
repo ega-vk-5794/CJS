@@ -1421,6 +1421,60 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                                               iv_token  = ls_map-token ).
     DATA(lv_pid)  = mo_e->mv_pcl_pid.
 
+*   ---- WHAT WENT OUT, IN ABAP, WHERE A TRACE CAN SEE IT ---------------
+*   THREE VALUES DECIDE WHETHER THIS MAP DRAWS and until now none of them
+*   was readable server-side. The snippet puts the token in the note's
+*   hover title, which is only useful if the note renders and only tells
+*   you about the value that reached the BROWSER - so a token that never
+*   reached CJS in the first place looked identical to one the viewer
+*   rejected.
+*
+*   THE REASON THIS IS WORTH A LINE. The map was drawing for parcel
+*   313030024 at commit A4331BE and is not now, and `git diff` over the
+*   map's own path since then is two lines - `var A=0;` and a guard that
+*   REDUCES posting. The parcel id, the token, the target origin, the
+*   iframe url and the backoff are byte-identical to the version that
+*   worked. So whatever changed is not in this code, and the candidates
+*   are the token and the GIS side.
+*
+*   AND THE FAILURE PATTERN SAYS WHICH. 202040187 failed, then
+*   313030024 - the one that demonstrably worked - failed too. A missing
+*   plot fails for one parcel and not another; a rejected token fails for
+*   every parcel including yesterday's. DefconReciveMessage calls
+*   DefconAuth( ) before it looks anything up, so an auth failure inside
+*   a cross-origin frame surfaces as exactly this: "Error In Finding Plot
+*   Number".
+*
+*   LENGTH, NOT THE VALUE. It is a session credential and a trace is
+*   rendered on screen; the length and whether it is filled answer the
+*   question without putting it there.
+    mo_e->trace( |PARCEL  map parcel { COND string( WHEN lv_pid IS NOT INITIAL
+                                                    THEN lv_pid ELSE 'MISSING' ) }| &&
+                 | · viewer { COND string( WHEN lv_base IS NOT INITIAL
+                                           THEN lv_base ELSE 'MISSING' ) }| &&
+                 | · token { COND string( WHEN lv_tok IS NOT INITIAL
+                                          THEN |{ strlen( lv_tok ) } chars|
+                                          ELSE 'MISSING - the viewer refuses without one' ) }| &&
+*   BOTH RAW COLUMNS TOO. TOKEN_OF( ) and VIEWER_OF( ) work out which of
+*   URL and GISURL is which by shape, and a MapUrlSet that started
+*   answering differently would show up here as a swap rather than as an
+*   absence - which the two resolved values above cannot distinguish.
+                 | · MapUrlSet url={ COND string( WHEN ls_map-url IS NOT INITIAL THEN 'y' ELSE 'n' ) }| &&
+                 | gisurl={ COND string( WHEN ls_map-gisurl IS NOT INITIAL THEN 'y' ELSE 'n' ) }| &&
+                 | token={ COND string( WHEN ls_map-token IS NOT INITIAL
+                                        THEN |{ strlen( ls_map-token ) }| ELSE 'n' ) }| ).
+
+    LOOP AT ls_map-msg INTO DATA(ls_mmsg).
+*     THE READ'S OWN MESSAGES, which were being dropped. MAP_URL( ) puts
+*     a backend refusal on CT_MSG and nothing here ever looked - so a
+*     MapUrlSet that answered with an error produced a blank token and no
+*     explanation anywhere.
+      DATA(lv_mtxt) = CONV string( ls_mmsg-message ).
+      IF lv_mtxt IS NOT INITIAL.
+        mo_e->trace( |PARCEL  map read says: { lv_mtxt }| ).
+      ENDIF.
+    ENDLOOP.
+
 *   ---- THE FRAME FIRST. THIS ORDER WAS THE OTHER WAY ROUND, AND WRONG.
 *
 *   It was reversed on a reading of util/Map.js, which is an in-page
