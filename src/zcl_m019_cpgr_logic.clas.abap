@@ -47,18 +47,13 @@ CLASS zcl_m019_cpgr_logic DEFINITION
     CONSTANTS c_fld_letter_ref TYPE string VALUE 'REFNUM'.
     CONSTANTS c_fld_grant_ref  TYPE string VALUE 'GRANTREFNUM'.
     CONSTANTS c_fld_prog_type  TYPE string VALUE 'COMBOBOX'.
-    CONSTANTS c_tech_expiry    TYPE string VALUE 'EXP_DATE'.
+    CONSTANTS c_fld_expiry     TYPE string VALUE 'DATEPICKER'.
 
 *   ---- step 2: grant status -------------------------------------------
-*   TECHNICAL_NAMEs, resolved through FLD_BY_TECH( ) - see the note in
-*   ZCL_RAK_GRANT_LOGIC. This journey has no name collision today, but
-*   the field names are ALLOCATED by the migrator and RB1 is exactly the
-*   kind that acquires a suffix when a screen is added, so resolving by
-*   technical name costs nothing and cannot go stale.
-    CONSTANTS c_tech_loan_stat TYPE string VALUE 'WITH_LOAN'.
-    CONSTANTS c_tech_loan_val  TYPE string VALUE 'LOAN_VAL'.
-    CONSTANTS c_tech_loan_from TYPE string VALUE 'FROM_DATE'.
-    CONSTANTS c_tech_loan_to   TYPE string VALUE 'TO_DATE'.
+    CONSTANTS c_fld_loan_stat  TYPE string VALUE 'RB1'.
+    CONSTANTS c_fld_loan_val   TYPE string VALUE 'LOANVALUEINPUT'.
+    CONSTANTS c_fld_loan_from  TYPE string VALUE 'FROMDATE'.
+    CONSTANTS c_fld_loan_to    TYPE string VALUE 'TODATE'.
 
 *   ---- step 2: the one document ---------------------------------------
     CONSTANTS c_fld_sz_appr    TYPE string VALUE 'UPLOADER'.
@@ -85,10 +80,10 @@ CLASS zcl_m019_cpgr_logic IMPLEMENTATION.
 *   With Loan, which is what stops a Without Loan application being
 *   blocked by three fields the backend's FIELD_CONTROL( ) has hidden.
     IF loan_incomplete( io_ctx    = io_ctx
-                        iv_status = fld_by_tech( io_ctx = io_ctx iv_tech = c_tech_loan_stat )
-                        iv_value  = fld_by_tech( io_ctx = io_ctx iv_tech = c_tech_loan_val )
-                        iv_from   = fld_by_tech( io_ctx = io_ctx iv_tech = c_tech_loan_from )
-                        iv_to     = fld_by_tech( io_ctx = io_ctx iv_tech = c_tech_loan_to ) ) = abap_true.
+                        iv_status = c_fld_loan_stat
+                        iv_value  = c_fld_loan_val
+                        iv_from   = c_fld_loan_from
+                        iv_to     = c_fld_loan_to ) = abap_true.
       rt = VALUE #( BASE rt
         ( type = 'Error'
           text = COND string(
@@ -118,8 +113,7 @@ CLASS zcl_m019_cpgr_logic IMPLEMENTATION.
 *   unparseable date with the field's own message, so saying it twice
 *   would put two errors on one field. This rule only has an opinion
 *   about a date it can read.
-    DATA(lv_raw) = io_ctx->get_val(
-                     fld_by_tech( io_ctx = io_ctx iv_tech = c_tech_expiry ) ).
+    DATA(lv_raw) = io_ctx->get_val( c_fld_expiry ).
     IF lv_raw IS NOT INITIAL.
       DATA(lv_dats) = zcl_rak_journey_util=>to_dats( lv_raw ).
       IF lv_dats IS NOT INITIAL AND lv_dats < |{ sy-datum }|.
