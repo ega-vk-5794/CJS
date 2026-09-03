@@ -1026,23 +1026,10 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                       type    = 'Transparent'
                       tooltip = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-view iv_default = 'View' )
                       press   = mo_e->mo_client->_event( |ATTVIEW_{ lv_idx }| ) ).
-*     Remove only while the file is still ours. A FILED row has already been
-*     posted to the case, so removing it here would delete the staged copy,
-*     take the chip off the screen, and leave the document on the case with
-*     nothing in CJS to show it - the citizen would be told it was gone when
-*     it was not. Badged instead, the same way an already-filed document
-*     reported by the handler is badged below.
-      IF ls_a-filed = abap_true.
-        lo_row->object_status( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-filed iv_default = 'Filed' )
-                               state = 'Success'
-                               icon  = 'sap-icon://locked'
-                               class = 'sapUiTinyMarginBegin' ).
-      ELSE.
-        lo_row->button( icon    = 'sap-icon://decline'
-                        type    = 'Transparent'
-                        tooltip = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-remove_row iv_default = 'Remove' )
-                        press   = mo_e->mo_client->_event( |ATTDEL_{ lv_idx }| ) ).
-      ENDIF.
+      lo_row->button( icon    = 'sap-icon://decline'
+                      type    = 'Transparent'
+                      tooltip = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-remove_row iv_default = 'Remove' )
+                      press   = mo_e->mo_client->_event( |ATTDEL_{ lv_idx }| ) ).
     ENDLOOP.
 
     IF mo_e->mo_logic IS BOUND.
