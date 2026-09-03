@@ -215,6 +215,8 @@ CLASS zcl_rak_text DEFINITION
         col_complaint_id    TYPE symsgno VALUE '128',
         col_complaint_date  TYPE symsgno VALUE '129',
         col_description     TYPE symsgno VALUE '130',
+*       Navigation is locked once the fee is PAID - see ZCL_RAK_JOURNEY_ENGINE->NAV_LOCKED( ).
+        nav_locked          TYPE symsgno VALUE '131',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -521,7 +523,10 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
 *     DESCRIPTION_1), so a header and the field it reports on read identically.
       ( msgno = c_no-col_complaint_id   en = `Complaint ID`   ar = `رقم الشكوى` )
       ( msgno = c_no-col_complaint_date en = `Complaint Date` ar = `تاريخ الشكوى` )
-      ( msgno = c_no-col_description    en = `Description`    ar = `الوصف` ) ).
+      ( msgno = c_no-col_description    en = `Description`    ar = `الوصف` )
+      ( msgno = c_no-nav_locked
+        en = `The fee has been paid, so the earlier steps are closed. Press Done to finish.`
+        ar = `تم دفع الرسوم، لذلك أُغلقت الخطوات السابقة. اضغط "تم" لإكمال الطلب.` ) ).
   ENDMETHOD.
 
 

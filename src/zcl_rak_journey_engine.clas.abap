@@ -251,6 +251,39 @@ CLASS zcl_rak_journey_engine DEFINITION
     METHODS handle_delete.
     METHODS bp_search.
     METHODS drop_attachments.
+
+*   Is the journey past the point of going back? True once the fee is PAID, or
+*   once the journey has been submitted or closed.
+*
+*   THE ONE DEFINITION, and it is deliberately at engine level rather than in
+*   the renderer. Nothing after payment is meant to be edited: the payment post
+*   is FINAL - COMMIT_STEP( ) sends the attachments with it and DROP_ATTACHMENTS( )
+*   clears the staging behind it, which is correct, because the documents are on
+*   the case from that moment and CJS is no longer holding them. A citizen who
+*   can still navigate back after paying lands on a step the framework has
+*   legitimately emptied and reads it as lost data. That is the D001 report
+*   "after pressing back button attachments gone - even after payment": the
+*   attachments were fine, the way back was the defect.
+*
+*   Every route back consults this, because a hidden button is not an
+*   unreachable event and there are FOUR routes, not one:
+*
+*     BACK      the footer button        - RENDER_FOOTER( ) stops drawing it
+*     GOTO_n    the wizard stepper dots  - RENDER_GOTO( ) stops drawing them and
+*                                          BUILD_STEPPER( ) stops marking a dot
+*                                          clickable
+*     TAB n     the TABS layout strip    - RENDER_TABS( ) disables them
+*     the event handler itself, which refuses all three regardless of what was
+*     drawn.
+*
+*   PAID is read from the PAYFEE-typed field on ANY step, not the current one -
+*   the same walk RENDER_FOOTER( ) already does to relabel Next as Done - so
+*   the lock and that relabelling agree by construction. Journeys with no fee
+*   are untouched: no PAYFEE field means no lock until submit.
+    METHODS nav_locked RETURNING VALUE(rv) TYPE abap_bool.
+*   Says why the press did nothing. A refusal with no message is the same
+*   screen twice and reads as the page being stuck.
+    METHODS nav_locked_msg.
     METHODS safe_field
       IMPORTING iv_name         TYPE string
       RETURNING VALUE(rs_field) TYPE zif_rak_journey=>ty_field.
@@ -516,7 +549,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       DATA(lv_goto) = substring( val = lv_event off = 5 ).
       IF lv_goto IS NOT INITIAL AND lv_goto CO '0123456789'.
         DATA(lv_gt) = CONV i( lv_goto ).
-        IF lv_gt >= 0 AND lv_gt < lines( ms_config-steps ).
+        IF nav_locked( ) = abap_true.
+          nav_locked_msg( ).
+        ELSEIF lv_gt >= 0 AND lv_gt < lines( ms_config-steps ).
           mv_step = lv_gt.
         ENDIF.
       ENDIF.
@@ -682,7 +717,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       DATA(lv_rest) = substring( val = lv_event off = 3 ).
       IF lv_rest IS NOT INITIAL AND lv_rest CO '0123456789'.
         DATA(lv_tb) = CONV i( lv_rest ).
-        IF lv_tb >= 0 AND lv_tb < lines( ms_config-steps ).
+        IF nav_locked( ) = abap_true AND lv_tb <> mv_step.
+          nav_locked_msg( ).
+        ELSEIF lv_tb >= 0 AND lv_tb < lines( ms_config-steps ).
           mv_step = lv_tb.
         ENDIF.
       ENDIF.
@@ -698,7 +735,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                                iv_result  = COND string( WHEN mv_step > lv_from THEN 'OK' ELSE 'BLOCK' )
                                iv_detail  = |{ lv_from }>{ mv_step }| ).
         WHEN 'BACK'.
-          IF mv_step > 0.
+          IF nav_locked( ) = abap_true.
+            nav_locked_msg( ).
+          ELSEIF mv_step > 0.
             mv_step = mv_step - 1.
             zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-back
                                  iv_step_no = mv_step
@@ -1864,6 +1903,34 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         ASSIGN COMPONENT |{ gc-name }_VS| OF STRUCTURE <row> TO FIELD-SYMBOL(<vs>).
         IF sy-subrc = 0 AND <vs> IS INITIAL.
           <vs> = 'None'.
+        ENDIF.
+      ENDLOOP.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD nav_locked_msg.
+    mt_msg = VALUE #( BASE mt_msg ( type = 'Information'
+      text = zcl_rak_text=>get(
+        iv_no      = zcl_rak_text=>c_no-nav_locked
+        iv_default = 'The fee has been paid, so the earlier steps are closed. Press Done to finish.' ) ) ).
+  ENDMETHOD.
+
+
+  METHOD nav_locked.
+    IF mv_submitted = abap_true OR mv_closed = abap_true.
+      rv = abap_true.
+      RETURN.
+    ENDIF.
+
+    LOOP AT ms_config-steps INTO DATA(ls_ns).
+      LOOP AT ls_ns-fields INTO DATA(ls_nf).
+*       TO_UPPER, the way PAY_FIELD( ) tests it. FTYPE is free text on
+*       ZRAK_T_JNY_FLD and a WHERE clause cannot fold the case.
+        CHECK to_upper( ls_nf-type ) = 'PAYFEE'.
+        IF val_get( ls_nf-name ) = 'PAID'.
+          rv = abap_true.
+          RETURN.
         ENDIF.
       ENDLOOP.
     ENDLOOP.

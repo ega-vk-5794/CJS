@@ -1232,7 +1232,16 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
     DATA(lo_box) = io_parent->hbox( justifycontent = 'End' alignitems = 'Center' class = mo_e->mo_css->cls( 'FOOTER' ) ).
 
-    IF iv_linear = abap_true AND mo_e->mv_step > 0.
+*   NO BACK ONCE THE FEE IS PAID. The payment post is final - it carries the
+*   attachments and DROP_ATTACHMENTS( ) clears the staging behind it - so an
+*   earlier step is no longer a page the citizen can meaningfully return to,
+*   and the Documents step in particular renders empty because its documents
+*   are on the case now. Done is the only move left, which is what the button
+*   beside this one already says: LV_PAID relabels Next as Done, and it is the
+*   same fact, resolved a few lines above. Read through NAV_LOCKED( ) so the
+*   footer, the stepper dots, the tab strip and the event handler cannot
+*   disagree about it.
+    IF iv_linear = abap_true AND mo_e->mv_step > 0 AND mo_e->nav_locked( ) = abap_false.
       lo_box->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-back iv_default = 'Back' )
                       icon  = 'sap-icon://nav-back'
                       class = mo_e->mo_css->cls( 'BTN_ALT' )
@@ -2765,6 +2774,8 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
 
   METHOD render_tabs.
+*   Resolved once, not once per tab: NAV_LOCKED( ) walks every step's fields.
+    DATA(lv_lock) = mo_e->nav_locked( ).
     DATA(lo_strip) = io_parent->hbox( class = 'sapUiSmallMarginBegin sapUiSmallMarginTop' ).
     DATA lv_i TYPE i.
     LOOP AT mo_e->ms_config-steps INTO DATA(ls_step).
@@ -2772,11 +2783,17 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *     still meant to be worked through front to back. The current tab is the only
 *     one carrying the accent colour, so the number is what tells the citizen how
 *     far along the strip they are.
+*     Every tab but the current one goes dead once NAV_LOCKED( ) - the same
+*     rule the wizard's Back button and stepper dots follow. A TABS journey has
+*     no Back button at all (RENDER_FOOTER( ) draws it only on the linear
+*     path), so this strip IS the way back and would otherwise be the one route
+*     left open after payment.
       lo_strip->button(
         text    = zcl_rak_journey_util=>esc( |{ lv_i + 1 }. { ls_step-title }| )
         icon    = ls_step-icon
         type    = COND string( WHEN lv_i = mo_e->mv_step THEN mo_e->ms_config-theme-accent_type ELSE 'Transparent' )
         tooltip = zcl_rak_journey_util=>esc( ls_step-title )
+        enabled = xsdbool( lv_i = mo_e->mv_step OR lv_lock = abap_false )
         press   = mo_e->mo_client->_event( |TAB{ lv_i }| ) ).
       lv_i = lv_i + 1.
     ENDLOOP.
@@ -2855,6 +2872,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   Only steps BEFORE the current one, matching what BUILD_STEPPER makes
 *   clickable. A button with no markup pointing at it is harmless, but one for a
 *   step ahead would be a way round the validation on NEXT.
+*   And none at all once NAV_LOCKED( ) - after payment there is no step behind
+*   the citizen that they may edit. BUILD_STEPPER( ) stops marking the dots
+*   clickable at the same time, so nothing is left pointing at a button that
+*   is not there.
+    IF mo_e->nav_locked( ) = abap_true.
+      RETURN.
+    ENDIF.
+
     DATA lv_i TYPE i.
     WHILE lv_i < mo_e->mv_step.
       io_parent->button( text  = 'go'

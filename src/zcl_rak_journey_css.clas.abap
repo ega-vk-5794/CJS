@@ -53,6 +53,8 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 
 
   METHOD build_stepper.
+*   Resolved once, not once per dot: NAV_LOCKED( ) walks every step's fields.
+    DATA(lv_lock) = mo_e->nav_locked( ).
     DATA(lv) = COND string( WHEN iv_vertical = abap_true
                             THEN `<div class="rakStepper rakStepperV">`
                             ELSE `<div class="rakStepper">` ).
@@ -77,8 +79,13 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     button carrying a known class, fired from injected JS. RENDER_WIZARD and
 *     RENDER_WIZARD_LEFT place those buttons - raw HTML cannot raise an event on
 *     its own.
+*     NAV_LOCKED( ) closes it again. After payment there is no step behind the
+*     citizen they may edit, RENDER_GOTO( ) stops placing the hidden buttons,
+*     and a dot that still LOOKED clickable would fire a script at a control
+*     that is no longer in the DOM - the stuck-page symptom this clickability
+*     was added to remove, back again with no way to explain it.
       DATA lv_open TYPE string.
-      IF lv_i < mo_e->mv_step.
+      IF lv_i < mo_e->mv_step AND lv_lock = abap_false.
 *       Braces are escaped for the injected script only, not over the whole of
 *       RV_HTML at the end. The step titles have already been through ESC( ), so a
 *       second pass would escape their escapes and put a stray backslash on the
