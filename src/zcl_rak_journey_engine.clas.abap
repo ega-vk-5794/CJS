@@ -103,6 +103,43 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mv_pcl_fav   TYPE abap_bool.
     DATA mv_pcl_term  TYPE string.
     DATA mv_pcl_page  TYPE i.
+
+*   ---- ONE TICK STATE PER VISIBLE CARD, AND WHY SIX ------------------
+*   THE FLICKER IS A REPAINT, and the repaint is caused by the checkbox
+*   writing its state into the MARKUP. ZCL_RAK_CJ_PARCEL drew
+*   `selected = xsdbool( lv_sel )`, so ticking a box changed the XML;
+*   SEND_VIEW( ) takes the quiet path only when the stringified view is
+*   byte-identical, so every tick fell through to VIEW_DISPLAY( ), which
+*   tears the control tree down and rebuilds it - taking the scroll
+*   position and the focus with it. That is the "selection vanishes"
+*   half of the report as well as the flicker: the page jumps to the top.
+*
+*   BOUND INSTEAD, so the markup holds still. A binding expression is the
+*   same string whatever the value is, so the view hashes identically
+*   across a tick and VIEW_MODEL_UPDATE( ) can push the new state without
+*   touching a control.
+*
+*   SIX BECAUSE C_PAGE_SIZE IS SIX. A binding needs a real attribute to
+*   point at - Z2UI5_CL_XML_VIEW->_BIND_EDIT( ) resolves the reference,
+*   it cannot be given a computed name - and only the cards on the
+*   current page are ever drawn. Paging or searching changes the markup
+*   anyway (different parcel numbers), so those round trips repaint, and
+*   the slots simply get reloaded for the new page. If C_PAGE_SIZE ever
+*   grows, this list has to grow with it: a card past the sixth would
+*   silently get no binding and stop reflecting its own state.
+*
+*   THESE ARE AN OUTPUT CHANNEL, NOT THE TRUTH. The selection itself
+*   lives where it always did - the journey field, hyphen-joined, read
+*   through SEL_LIST( ) - and TICKS( ) reloads these from IS_SEL( ) on
+*   every render. UI5's two-way write on a tick is therefore harmless:
+*   the event carries the parcel key, TOGGLE( ) recomputes from the
+*   field, and the next render overwrites whatever the browser put here.
+    DATA mv_pcl_t1 TYPE abap_bool.
+    DATA mv_pcl_t2 TYPE abap_bool.
+    DATA mv_pcl_t3 TYPE abap_bool.
+    DATA mv_pcl_t4 TYPE abap_bool.
+    DATA mv_pcl_t5 TYPE abap_bool.
+    DATA mv_pcl_t6 TYPE abap_bool.
     DATA mv_pcl_det   TYPE string.
     DATA mv_pcl_pid   TYPE string.
     DATA mv_pcl_tab   TYPE string.

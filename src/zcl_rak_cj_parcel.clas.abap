@@ -249,8 +249,20 @@ CLASS zcl_rak_cj_parcel DEFINITION
                RETURNING VALUE(rv) TYPE string.
 
     METHODS toolbar IMPORTING io_box TYPE REF TO z2ui5_cl_xml_view.
-    METHODS card    IMPORTING io_box TYPE REF TO z2ui5_cl_xml_view
-                              is_row TYPE any.
+*   IV_SLOT is the card's position on the CURRENT PAGE, 1..C_PAGE_SIZE,
+*   and it is what the tick box binds to. Not the row index in the whole
+*   result set - only a page's worth of cards is ever drawn, so only a
+*   page's worth of binding slots exists. Zero or out of range means no
+*   binding and the box falls back to a literal, which is the old
+*   behaviour rather than a broken one.
+    METHODS card    IMPORTING io_box  TYPE REF TO z2ui5_cl_xml_view
+                              is_row  TYPE any
+                              iv_slot TYPE i DEFAULT 0.
+
+*   Reload the six binding slots from the real selection before a render.
+*   The selection lives in the journey field; these only carry it to the
+*   screen, so they are rebuilt rather than trusted.
+    METHODS ticks   IMPORTING it_page TYPE zcl_rak_property_api=>tt_prop_rows.
     METHODS pager   IMPORTING io_box   TYPE REF TO z2ui5_cl_xml_view
                               iv_pages TYPE i.
     METHODS pick    IMPORTING iv_field TYPE string
@@ -674,6 +686,12 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       lv_to = lv_n.
     ENDIF.
 
+*   ---- the page, collected before it is drawn ------------------------
+*   TICKS( ) HAS TO RUN BEFORE THE FIRST CARD, so the slot each checkbox
+*   binds to already holds the right value when the markup is built. It
+*   needs the page as a table, which is why this loop now collects
+*   instead of drawing as it goes.
+    DATA lt_pg TYPE zcl_rak_property_api=>tt_prop_rows.
     DATA(lv_ix) = 0.
     LOOP AT lt_hit INTO DATA(ls_row).
       lv_ix = lv_ix + 1.
@@ -683,7 +701,15 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       IF lv_ix > lv_to.
         EXIT.
       ENDIF.
-      card( io_box = lo_box is_row = ls_row ).
+      APPEND ls_row TO lt_pg.
+    ENDLOOP.
+
+    ticks( lt_pg ).
+
+    DATA(lv_slot) = 0.
+    LOOP AT lt_pg INTO DATA(ls_pgrow).
+      lv_slot = lv_slot + 1.
+      card( io_box = lo_box is_row = ls_pgrow iv_slot = lv_slot ).
     ENDLOOP.
 
     IF lv_pages > 1.
@@ -782,6 +808,53 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD ticks.
+
+*   CLEARED FIRST, ALL SIX. A page with four cards leaves slots five and
+*   six holding whatever the previous page put there - and a stale TRUE
+*   on a slot no card binds to is harmless, while a stale one on a slot
+*   the NEXT page does bind to would draw a tick on the wrong parcel.
+    CLEAR: mo_e->mv_pcl_t1, mo_e->mv_pcl_t2, mo_e->mv_pcl_t3,
+           mo_e->mv_pcl_t4, mo_e->mv_pcl_t5, mo_e->mv_pcl_t6.
+
+    IF mv_multi = abap_false.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_slot) = 0.
+    LOOP AT it_page INTO DATA(ls_r).
+      lv_slot = lv_slot + 1.
+
+*     THE SAME KEY CARD( ) WILL USE - PARCELID, falling back to BUILDING
+*     for a unit row that carries no parcel id. Reading a different
+*     component here than the card reads would tick the box for a parcel
+*     the card is not about.
+      DATA(lv_k) = cell( is_row = ls_r iv_comp = 'PARCELID' ).
+      IF lv_k IS INITIAL.
+        lv_k = cell( is_row = ls_r iv_comp = 'BUILDING' ).
+      ENDIF.
+      IF lv_k IS INITIAL.
+        CONTINUE.
+      ENDIF.
+
+      DATA(lv_on) = is_sel( lv_k ).
+
+      CASE lv_slot.
+        WHEN 1. mo_e->mv_pcl_t1 = lv_on.
+        WHEN 2. mo_e->mv_pcl_t2 = lv_on.
+        WHEN 3. mo_e->mv_pcl_t3 = lv_on.
+        WHEN 4. mo_e->mv_pcl_t4 = lv_on.
+        WHEN 5. mo_e->mv_pcl_t5 = lv_on.
+        WHEN 6. mo_e->mv_pcl_t6 = lv_on.
+        WHEN OTHERS.
+*         Past the six slots. CARD( ) draws a literal checkbox for these,
+*         so the state still shows - only the quiet path is lost, and
+*         only if C_PAGE_SIZE was raised without adding attributes.
+      ENDCASE.
+    ENDLOOP.
+  ENDMETHOD.
+
+
   METHOD card.
 *   PARCELID for a parcel, BUILDING for a row that has none - a unit on a
 *   building the citizen owns carries the building number and an empty
@@ -866,11 +939,56 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   thing read, and the number is what identifies the row - so the box is
 *   bare and the whole card is the label. The single-select path keeps its
 *   captioned button, untouched.
+*   ---- BOUND, NOT WRITTEN, AND THAT IS THE FLICKER FIX ---------------
+*   `selected = xsdbool( lv_sel )` put the tick state into the MARKUP, so
+*   every tick changed the XML - and SEND_VIEW( ) takes the quiet path
+*   only when the stringified view is byte-identical. So each tick fell
+*   through to VIEW_DISPLAY( ), which tears down the control tree and
+*   rebuilds it, taking the scroll position and the focus with it. That
+*   is both halves of the report: the flicker, and the "selection
+*   vanishes" - the page jumping back to the top.
+*
+*   A BINDING EXPRESSION IS THE SAME STRING WHATEVER THE VALUE IS, so the
+*   view now hashes identically across a tick and VIEW_MODEL_UPDATE( )
+*   pushes the state with no repaint. The slot was loaded by TICKS( )
+*   before this method ran.
+*
+*   IF THE MARKUP STILL DIFFERS FOR SOME OTHER REASON, this degrades to
+*   what it did before - a full repaint - rather than breaking. The
+*   footer's Next button is the candidate: ENABLED moves with rule state,
+*   and M012 requires two parcels, so the tick that satisfies that rule
+*   legitimately changes the page and legitimately repaints. Ticks that
+*   do not cross the threshold are the common case and go quiet.
+*
+*   SLOT 0 OR OUT OF RANGE FALLS BACK TO THE LITERAL. A card drawn
+*   outside the paged loop, or a C_PAGE_SIZE raised without adding
+*   attributes, then behaves exactly as it used to instead of losing its
+*   tick state altogether.
     IF mv_multi = abap_true.
-      lo_top->checkbox(
-        selected = xsdbool( lv_sel = abap_true )
-        select   = mo_e->mo_client->_event(
-                     |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
+      DATA(lo_cbx) = lo_top.
+      CASE iv_slot.
+        WHEN 1.
+          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t1 )
+                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
+        WHEN 2.
+          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t2 )
+                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
+        WHEN 3.
+          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t3 )
+                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
+        WHEN 4.
+          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t4 )
+                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
+        WHEN 5.
+          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t5 )
+                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
+        WHEN 6.
+          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t6 )
+                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
+        WHEN OTHERS.
+          lo_cbx->checkbox( selected = xsdbool( lv_sel = abap_true )
+                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
+      ENDCASE.
     ENDIF.
 
     lo_top->title( text = lv_show level = 'H5' class = 'rakPclNo' ).
@@ -1304,6 +1422,21 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         mo_e->mv_pcl_field = lv_tfld.
       ENDIF.
       toggle( iv_field = lv_tfld iv_key = lv_tkey ).
+
+*     ---- ELIGIBLE FOR THE QUIET PATH ---------------------------------
+*     WITHOUT THIS THE BINDING BUYS NOTHING. SEND_VIEW( ) needs BOTH the
+*     markup to be byte-identical AND MV_QUIET_EVT set - the engine sets
+*     it only on a CHANGE_ round trip, so a TOG_ one would repaint even
+*     with the markup unchanged. Now that the tick state is bound rather
+*     than written into the XML, a toggle is exactly the kind of round
+*     trip that guard was written for: side effects run, nothing on the
+*     page moved.
+*
+*     SETTING IT IS SAFE ON ITS OWN. It only ENABLES the hash comparison;
+*     it cannot force a stale view. A tick that really does change the
+*     page - crossing M012's two-parcel rule and enabling Next - changes
+*     the markup, fails the hash, and repaints as before.
+      mo_e->mv_quiet_evt = abap_true.
 
     ELSEIF lv CP 'PICK_*'.
 *     <field>~<key>. A trailing empty key is the Clear button.
