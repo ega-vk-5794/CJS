@@ -1166,17 +1166,62 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
       ls_cfg-backend-category = lv_category.
     ENDIF.
 
+*   ---- PARAM1 IS THE DRAFT KEY, NOT THE CASE NUMBER ------------------
+*   THE READ RESOLVES A RENTAL OBJECT, AND ONLY THE DRAFT KEY FINDS ONE.
+*   This sent the case number and the whole chain died two calls later:
+*
+*     MAPPER      ms_rero-intreno = ms_header_param-param1
+*                 SELECT swenr, smenr FROM vibdro WHERE intreno = ms_rero-intreno
+*     READ( )     BAPI_RE_RO_GET_DETAIL with that RO -> mt_char
+*     the CPG blk caseid = mt_char[ fix_fit_charact = 'CJ12' ]-supplementinfo
+*     GET_RB_CPG_DETAILS
+*                 IF case_key IS INITIAL AND invoice_number IS INITIAL.
+*                   RETURN.
+*
+*   VIBDRO is keyed on the INTRENO. Hand it 000001959749 and it finds no
+*   row, so MS_RERO stays blank, the BAPI returns nothing, MT_CHAR is
+*   empty, CASEID is blank, and GET_RB_CPG_DETAILS returns on its first
+*   line - confirmed in the debugger with CASE_KEY holding spaces.
+*
+*   THE CASE IS INSIDE THE RENTAL OBJECT, WHICH IS THE POINT. The draft IS
+*   the RE object; CREATE_DUMMY_CASE( ) writes the case id onto it as
+*   characteristic CJ12 and leaves the key alone. So the draft key is what
+*   finds the object and the object is what carries the case - passing the
+*   case number instead skips the only thing that can resolve it.
+*
+*   GET_CASE( ) FIRST, CASE_NUMBER SECOND, and that one rule serves both
+*   families. On DOK and EPDA the backend re-points the journey key at the
+*   case the moment CREATE_CASE runs, so GET_CASE( ) already IS the case
+*   number and this sends exactly what it sent before. On Municipality the
+*   key stays the INTRENO (IM00100123352) while the case is a separate
+*   number (000001959749), and only then do the two differ. Same
+*   identity-fallback shape as CASE_KEY_OF( ), and for the same reason:
+*   a family branch has to be kept right as families are added, whereas a
+*   fallback is right by construction.
+*
+*   LV_CASE IS UNCHANGED and still the case number. It is what the DFKKOP
+*   gate searched, what the messages name and what the event log records -
+*   only the guid the read is asked with moves.
+    DATA(lv_rguid) = io_ctx->get_case( ).
+    IF lv_rguid IS INITIAL.
+      lv_rguid = lv_case.
+    ENDIF.
+
 *   WHAT WENT OUT. Which screen, under which category and backend journey,
-*   and with which case - four values that between them decide whether the
-*   read BAdI is even the right one, and none of which were visible.
+*   with which case AND with which guid - five values that between them
+*   decide whether the read BAdI is even the right one, and none of which
+*   were visible. The guid is listed separately from the case precisely
+*   because the two being the same value on DOK and different on
+*   Municipality is what hid this.
     pay_trace( io_ctx  = io_ctx
                iv_text = |PAY     prepare read screen={ lv_screen } case={ lv_case } | &&
-                         |cat={ ls_cfg-backend-category } jny={ ls_cfg-backend-journey }| ).
+                         |guid={ lv_rguid } cat={ ls_cfg-backend-category } | &&
+                         |jny={ ls_cfg-backend-journey }| ).
 
     NEW zcl_rak_qnv_bridge( ls_cfg )->read(
       EXPORTING
         iv_screen  = lv_screen
-        iv_guid    = lv_case
+        iv_guid    = lv_rguid
         it_items   = pay_read_items( )
 *       PARAM3. ZIF_EGA_FW_CJI~READ takes no LOGINBP, so this is the only channel
 *       the payment read has for the partner - and GET_CPG_DETAILS / the RAK Pay
