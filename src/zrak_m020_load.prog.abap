@@ -160,7 +160,6 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M020'.
 *   wording.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 50
       field_name = 'ENTERTEXT' ftype = 'TEXTAREA' required = 'X'
-      tech_name = 'PLOTLONGTEXT'
       max_len = '1000'
       zlabel = 'Renewal Grant Request Details'
       zlabel_ar = 'تفاصيل طلب تجديد المنحة'

@@ -164,7 +164,6 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M017'.
 *   it is a TEXTAREA and not an INPUT.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 40
       field_name = 'ENTERTEXT' ftype = 'TEXTAREA'
-      tech_name = 'CI_NOTE'
       max_len = '1000'
       zlabel = 'Add a Comment (optional)' zlabel_ar = 'أضف تعليقاً (اختياري)'
       tech_name = 'CI_NOTE' ) ) ).
