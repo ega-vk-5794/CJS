@@ -190,8 +190,9 @@ CLASS lcl_fix IMPLEMENTATION.
 
   METHOD step_of.
     CLEAR rv.
-    SELECT SINGLE step_id FROM zrak_t_jny_fld INTO @rv
-      WHERE journey_id = @iv_jrny AND field_name = @iv_anchor.
+    SELECT SINGLE step_id FROM zrak_t_jny_fld
+      WHERE journey_id = @iv_jrny AND field_name = @iv_anchor
+      INTO @rv.
   ENDMETHOD.
 
 
@@ -203,9 +204,10 @@ CLASS lcl_fix IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    SELECT SINGLE * FROM zrak_t_jny_fld INTO @DATA(ls_f)
+    SELECT SINGLE * FROM zrak_t_jny_fld
       WHERE journey_id = @is_c-jrny AND step_id = @lv_step
-        AND field_name = @is_c-fld.
+        AND field_name = @is_c-fld
+      INTO @DATA(ls_f).
     IF sy-subrc <> 0.
       say( iv_state = 'NOTFOUND' is_c = is_c iv_detail = 'row vanished' ).
       RETURN.
@@ -239,9 +241,10 @@ CLASS lcl_fix IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    SELECT SINGLE * FROM zrak_t_jny_fld INTO @DATA(ls_f)
+    SELECT SINGLE * FROM zrak_t_jny_fld
       WHERE journey_id = @is_c-jrny AND step_id = @lv_step
-        AND field_name = @is_c-fld.
+        AND field_name = @is_c-fld
+      INTO @DATA(ls_f).
     IF sy-subrc <> 0.
       say( iv_state = 'NOTFOUND' is_c = is_c
            iv_detail = |{ is_c-fld } is not on step { lv_step }| ).
@@ -267,8 +270,9 @@ CLASS lcl_fix IMPLEMENTATION.
 *   Every upload field on the journey, because the ticket asked for the
 *   accept list as a whole rather than naming one field - and the accept
 *   list is what drives both the file picker's filter and the hint text.
-    SELECT * FROM zrak_t_jny_fld INTO TABLE @DATA(lt_f)
-      WHERE journey_id = @is_c-jrny AND has_attach = 'X'.
+    SELECT * FROM zrak_t_jny_fld
+      WHERE journey_id = @is_c-jrny AND has_attach = 'X'
+      INTO TABLE @DATA(lt_f).
     IF sy-subrc <> 0.
       say( iv_state = 'NOTFOUND' is_c = is_c
            iv_detail = 'no upload fields on this journey' ).
@@ -291,8 +295,9 @@ CLASS lcl_fix IMPLEMENTATION.
 
 
   METHOD do_step_title.
-    SELECT * FROM zrak_t_jny_step INTO TABLE @DATA(lt_s)
-      WHERE journey_id = @is_c-jrny.
+    SELECT * FROM zrak_t_jny_step
+      WHERE journey_id = @is_c-jrny
+      INTO TABLE @DATA(lt_s).
 
     LOOP AT lt_s INTO DATA(ls_s).
       IF to_upper( condense( CONV string( ls_s-title ) ) ) <>
@@ -330,8 +335,9 @@ CLASS lcl_fix IMPLEMENTATION.
 *   steps by what they do ("request confirmation") and not by their exact
 *   configured title. Run in test mode first and read which step matched -
 *   that print is the whole reason this is safe.
-    SELECT * FROM zrak_t_jny_step INTO TABLE @DATA(lt_s)
-      WHERE journey_id = @is_c-jrny.
+    SELECT * FROM zrak_t_jny_step
+      WHERE journey_id = @is_c-jrny
+      INTO TABLE @DATA(lt_s).
 
     DATA lv_hit TYPE abap_bool.
     LOOP AT lt_s INTO DATA(ls_s).
@@ -384,9 +390,10 @@ CLASS lcl_fix IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    SELECT SINGLE * FROM zrak_t_jny_fld INTO @DATA(ls_f)
+    SELECT SINGLE * FROM zrak_t_jny_fld
       WHERE journey_id = @is_c-jrny AND step_id = @lv_step
-        AND field_name = @is_c-fld.
+        AND field_name = @is_c-fld
+      INTO @DATA(ls_f).
     IF sy-subrc <> 0.
       say( iv_state = 'NOTFOUND' is_c = is_c iv_detail = 'grid row vanished' ).
       RETURN.

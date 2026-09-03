@@ -197,12 +197,25 @@ CLASS lcl_bkp IMPLEMENTATION.
       CREATE DATA lr_tab TYPE STANDARD TABLE OF (ls_t-tabname).
       ASSIGN lr_tab->* TO FIELD-SYMBOL(<tab>).
 
+*     ONE STATEMENT, WITH THE CONDITION IN AN INTERNAL TABLE.
+*
+*     This was an IF/ELSE around two SELECTs that differed only by the
+*     WHERE, and it kept coming back from the syntax check as "the
+*     INTO/APPENDING clause must be at the end of the SELECT" - the two
+*     forms are easy to correct in one branch and miss in the other, and
+*     that is exactly what happened twice.
+*
+*     A dynamic WHERE given as an INTERNAL TABLE is ignored when the table
+*     is empty, so the unfiltered case and the per-journey case are the
+*     same statement and there is only one INTO left to get right.
+      DATA lt_where TYPE TABLE OF string.
+      CLEAR lt_where.
       DATA(lv_where) = where_for( is_tab = ls_t iv_jrny = p_jrny ).
-      IF lv_where IS INITIAL.
-        SELECT * FROM (ls_t-tabname) INTO TABLE @<tab>.
-      ELSE.
-        SELECT * FROM (ls_t-tabname) WHERE (lv_where) INTO TABLE @<tab>.
+      IF lv_where IS NOT INITIAL.
+        APPEND lv_where TO lt_where.
       ENDIF.
+
+      SELECT * FROM (ls_t-tabname) WHERE (lt_where) INTO TABLE @<tab>.
 
       DATA(lv_cnt) = lines( <tab> ).
       lv_total = lv_total + lv_cnt.
@@ -314,13 +327,18 @@ CLASS lcl_bkp IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
+*     Same one-statement form as DO_SAVE( ) - an empty condition table
+*     means no WHERE, so the full-table count and the per-journey count are
+*     the same statement.
+      DATA lt_where TYPE TABLE OF string.
+      CLEAR lt_where.
       DATA(lv_where) = where_for( is_tab = ls_t iv_jrny = ls_b-journey_id ).
-      DATA lv_live TYPE i.
-      IF lv_where IS INITIAL.
-        SELECT COUNT(*) FROM (ls_t-tabname) INTO @lv_live.
-      ELSE.
-        SELECT COUNT(*) FROM (ls_t-tabname) WHERE (lv_where) INTO @lv_live.
+      IF lv_where IS NOT INITIAL.
+        APPEND lv_where TO lt_where.
       ENDIF.
+
+      DATA lv_live TYPE i.
+      SELECT COUNT(*) FROM (ls_t-tabname) WHERE (lt_where) INTO @lv_live.
 
       WRITE: / ls_b-tabname, 34 ls_b-rowcnt, 50 lv_live.
       IF lv_live <> ls_b-rowcnt.
