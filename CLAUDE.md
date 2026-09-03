@@ -7,6 +7,49 @@ posts it. ABAP is for what configuration cannot express.
 Full detail is in [README.md](README.md). This file is the short version plus the rules that
 have already cost time when broken.
 
+## Settled — do not reopen these two
+
+Both cost many rounds, both are **verified working on E10/200**, and both fail in ways that
+look like something else. Change either only for a defect you can demonstrate, and read the
+reasoning first — every plausible-looking "improvement" listed below has already been tried
+and was wrong.
+
+**1. The parcel map draws.** `ZCL_RAK_CJ_PARCEL` `mun-6`. The dialog frames the GIS viewer
+and hands it `parcelId`/`token`/`lang` by `postMessage`; it does **not** build an ArcGIS view
+in the page (that path exists as a fallback and is not the one that runs). Six faults are
+behind it — see [`doc/controls/gis-map.md`](doc/controls/gis-map.md), SETTLED section. The
+two rules that keep being violated:
+
+- **A `<script>` in `html( )` never runs**, so the snippet travels by `follow_up_action( )`
+  *and* an `onload` attribute, and must contain no single quote. See the trap below.
+- **A quiet tail matters, not a long window — and the tail is measured from the FRAME'S
+  LOAD**, not from when CJS drew markup. Every post restarts the viewer's map, so the last
+  one must have an uninterrupted run behind it. The schedule is `load + 0, +400, +1200`,
+  then silence, with a 10 s floor for a preserved frame that fires no `load`. Widening it,
+  or re-anchoring it to markup insertion, has made the map intermittent twice.
+
+**2. A case is created from CJS itself, with no portal launch.** On **E10 client 200 only**,
+a journey opened without `&userdata=` resolves `HISHAM.M` and their partner and instantiates
+normally. The mechanism, and the thing that broke it twice:
+
+- **The partner and the session key are independent, and must stay that way.** Who the
+  citizen is comes from `ZFM_EGA_GET_BP_FROM_INTERNET_U` — stable configuration. The session
+  key comes from `ZEGA_T_CJ_US_LOG` — a live portal login that often does not exist.
+  `SIM_USERDATA( )` resolves the partner **unconditionally** and treats the key as a bonus:
+  with a row it mimics the envelope, without one it still answers the partner and
+  `RESOLVE_IDENTITY( )`'s fallback takes it. Coupling them again means no case can be
+  created unless somebody happens to be logged into the portal.
+- **Nothing is ever written to `ZEGA_T_CJ_US_LOG`.** It is the portal's table and every real
+  login owns a row in it. Read it when a row is there; mimic it when it is not.
+- **A blank partner is silent.** `ZFM_EGA_CJ_FW_POST_N` returns before `GET BADI` when the
+  partner is blank and the journey is not anonymous — no draft reference, no message, ~1 ms.
+  That reads as a missing BAdI registration, a wrong category or a filter miss, and has sent
+  an investigation to each. `RESOLVE_IDENTITY( )` now says so on the trace instead.
+- **`MV_TRACE` is resolved BEFORE `RESOLVE_IDENTITY( )`.** It used to be set twenty lines
+  after, and `TRACE( )` drops everything while it is blank — so a `&trace=x` launch printed
+  the journey, the path and the CREATE, and not one word about the partner, on the one
+  screen where the partner is the question. Do not move it back down.
+
 ## Reference notes
 
 Facts about the systems CJS wraps live in [`doc/`](doc/README.md) so they are not

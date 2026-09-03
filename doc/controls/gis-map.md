@@ -4,6 +4,11 @@ Written from `RAK-eEGA/egardcjeng` `util/Map.js` and `js/gismappingIM.js`. Both 
 guessed at for several rounds before either source was read; the guesses are recorded
 here so they are not made again.
 
+> **Settled. Do not reopen without a demonstrable defect.** Verified on E10/200,
+> `ZCL_RAK_CJ_PARCEL` `mun-6`: all three parcels draw, zoomed and outlined. Every
+> plausible-looking change to the posting schedule below has already been tried and made
+> it worse. CLAUDE.md carries the two-line version.
+
 ## SETTLED — the framed map works, and what it took
 
 The parcel dialog's Map tab draws the citizen's parcel, zoomed and outlined, on
