@@ -693,8 +693,46 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
 
 *     Only a grid has a model member to write into. The other three are drawn
 *     from get_table( ), which is why they get the store and nothing else.
+*
+*     And a read SEEDS an editable grid; it does not RE-seed one that already
+*     holds rows. BACKEND_READ( ) runs on load and again on every ADVANCE_STEP( ),
+*     so a step reached twice is read twice - and this call used to REPLACE the
+*     grid wholesale on the second pass. Two ways that lost the citizen's work
+*     on D001's owner list, both reported:
+*
+*       - an owner added on the Partners step, then Back, then Next: BACK posts
+*         nothing, so the row had never left CJS, the read could not return it,
+*         and the replace wiped it. "Data get wiped out."
+*       - a row the backend answers for AND holds its own copy of: the read put
+*         its copy back beside the local one and the list showed the owner
+*         twice. "Data get distorted and split in two data."
+*
+*     The local copy wins because CJS posts the whole grid on every Next, so
+*     after the first read the backend cannot hold a row CJS does not - while
+*     CJS can easily hold one the backend has not been told about yet. The
+*     STORE above is still refreshed unconditionally, so a handler asking
+*     get_backend_table( ) always sees the backend's current answer; it is only
+*     the model the citizen is editing that is left alone. That is why the
+*     LICENSES grids on D003/D004/D011 are unaffected either way - they are
+*     served from GET_TABLE( ) out of the store, not from the model.
+*
+*     The cost, stated so it is not rediscovered as a bug: a grid the backend
+*     re-derives from an EARLIER step's answer no longer refreshes when that
+*     answer changes. On D004, picking a different licence and coming forward
+*     again leaves the previous licence's owners in the list. A handler that
+*     needs the new answer should clear the grid itself - SET_GRID_DATA( ) with
+*     no rows - from ON_CHANGE( ) on the field that changed, which is the only
+*     place that knows the old rows are stale.
       IF ls_f-type = 'EDITABLE_TABLE'.
-        mo_e->zif_rak_journey~set_grid_data( iv_field = ls_f-name is_data = ls_grid ).
+        DATA(ls_local) = mo_e->zif_rak_journey~get_grid_data( ls_f-name ).
+        IF ls_local-rows IS INITIAL.
+          mo_e->zif_rak_journey~set_grid_data( iv_field = ls_f-name is_data = ls_grid ).
+        ELSE.
+          mo_e->trace( |READ    grid { to_upper( ls_f-name ) } NOT overwritten · | &&
+                 |{ lines( ls_local-rows ) } row(s) already in the model, backend | &&
+                 |offered { lines( ls_grid-rows ) } · the citizen's copy wins · | &&
+                 |the backend's answer is still in get_backend_table( )| ).
+        ENDIF.
       ENDIF.
     ENDLOOP.
 

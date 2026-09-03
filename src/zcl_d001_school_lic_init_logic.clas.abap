@@ -130,6 +130,21 @@ private section.
               !IT_ROW  type ZIF_RAK_JOURNEY=>TT_STRING
     returning value(RV) type STRING .
   constants C_OWN_ID type STRING value 'OWN_ID' ##NO_TEXT.
+* The BP number the Emirates ID search resolved for the owner in the dialog.
+* It is what the PARTNER column - and so GS_DATA-OWNERS-PARTNER - is for.
+*
+* C_OWN_ID is NOT that. It is a per-press local row id (a timestamp) minted so
+* the dialog's uploaders have something to key files on before the row exists,
+* and OWN_FORM_SAVE used to write it straight into the PARTNER column: the
+* backend was being handed a timestamp, or - once OWN_EDIT( ) had re-seeded it
+* from ROW_KEY_OF( ) - the owner's NAME, in a partner field. Neither is a
+* partner. ZFE_CJ_SEARCH_BP_BY_ID has always returned EV_PARTNER and it was
+* being discarded.
+*
+* Neither key needs a ZRAK_T_JNY_FLD row: VAL_SET( ) parks a name the model
+* does not carry in the engine's scratch store, which survives the round trip.
+* D004 keeps the same value in a hidden READONLY field called OWNER_PARTNER.
+  constants C_OWN_BP type STRING value 'OWNER_PARTNER' ##NO_TEXT.
   constants C_EVT_OWNEW type STRING value 'OWN_NEW' ##NO_TEXT.
   constants C_POP_OWN type STRING value 'TRIGGER_POPUP' ##NO_TEXT.
   constants C_TRIGGER_POPUP type STRING value 'TRIGGER_POPUP' ##NO_TEXT.
@@ -465,6 +480,9 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
 
           io_ctx->set_val( iv_name = 'EMIRATES_ID'    iv_value = |{ lv_eid }| ).
+*         The BP the search resolved. Kept, not discarded: it is the value the
+*         PARTNER column carries out to GS_DATA-OWNERS-PARTNER - see C_OWN_BP.
+          io_ctx->set_val( iv_name = c_own_bp         iv_value = |{ ev_partner }| ).
           io_ctx->set_val( iv_name = 'NAME_POP'       iv_value = |{ ev_name }| ).
           io_ctx->set_val( iv_name = 'TELEPHONE_POP'  iv_value = |{ ev_phone }| ).
           io_ctx->set_val( iv_name = 'EMAIL_POP'      iv_value = |{ ev_email }| ).
@@ -551,52 +569,37 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
 
 *----------------------------------------------------------------------------*
-* The owner rows leave in the order the backend READS them, which is not the
-* order it WROTE them in. Same defect, same fix, as D004.
+* NOTHING is re-laid here, and that is deliberate. ND001_1_2 is NOT ND004_1_2.
 *
-* OWNERS_SEARCH's ZRAK_T_JNY_COL rows follow the READ - partner, name, mobile,
-* e-mail, share, -, Emirates ID, -, nationality - which is what keeps the owner
-* list on screen correct. TABLES_FOR_BACKEND( ) then fills UI_TABLE_COLUMN1..N
-* in that same order, so the share would arrive in slot 5 while
-* /QNV/SB_UI_DEFIN gives GS_DATA-OWNERS[]-SHARE_PER a LIST_SEQUENCE of 3.
+* This method used to carry D004's re-lay - name, nationality, share, mobile,
+* e-mail, partner, Emirates ID - copied over on the assumption that the two
+* school-licence screens share their /QNV/SB_UI_DEFIN sequence. They do not,
+* and the copy is what distorted the owner table.
 *
-* Read order and write order differ, so no single column list satisfies both.
-* The row is re-laid here on the way out into the order the backend reads:
-* name, nationality, share, mobile, e-mail, partner, Emirates ID.
+* Evidence, from a breakpoint in ZCL_EGA_CJ_ENH_IMPL_D001->ZIF_EGA_FW_CJI~READ
+* with one owner posted (name Moaaz Hassan Al Hassan, mobile 05644X8763,
+* e-mail vneugopal.a@ega.rak.ae, share 100, nationality AE):
+*
+*   GS_DATA-OWNERS  PARTNER = Moaaz Hassan Al Hassan   <- slot 1 (name)
+*                   NAME    = AE                       <- slot 2 (nationality)
+*                   MOBILE_NUMBER  = 100               <- slot 3 (share)
+*                   EMAIL_ADDRESS  = 05644X8763        <- slot 4 (mobile)
+*                   SHARE_PER      = vneugopal.a@...   <- slot 5 (e-mail)
+*                   ID_TYPE        = Moaaz Hassan ...  <- slot 6 (row key)
+*                   EMIRATES_ID    = 784-1956-...      <- slot 7 (Emirates ID)
+*
+* Every one of the seven re-laid slots landed in the component sitting at that
+* slot's POSITION IN THE CJS SPEC. So for ND001_1_2 the write order and the
+* read order are the SAME order, and it is the one OWNERS_SEARCH's
+* ZRAK_T_JNY_COL rows already carry - partner, name, mobile, e-mail, share, -,
+* Emirates ID, -, nationality. TABLES_FOR_BACKEND( ) fills UI_TABLE_COLUMN1..N
+* in exactly that order, so the row is already correct when it gets here.
+*
+* D004 keeps its re-lay: there the share genuinely has LIST_SEQUENCE 3, proven
+* by the backend refusing the step with "The Total of the Share (0.00%) is not
+* equal to 100%" until it was moved. Two screens, two sequences. Do not copy a
+* re-lay between them again without a breakpoint in that screen's own READ.
 *----------------------------------------------------------------------------*
-    DATA lt_src TYPE zif_rak_journey=>tt_string.
-    DATA lv_c   TYPE i.
-
-    LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<ow>) WHERE ui_table_name = 'OWNERS_SEARCH'.
-      CLEAR lt_src.
-      DO 30 TIMES.
-        ASSIGN COMPONENT |UI_TABLE_COLUMN{ sy-index }| OF STRUCTURE <ow>
-               TO FIELD-SYMBOL(<sc>).
-        IF sy-subrc <> 0.
-          EXIT.
-        ENDIF.
-        APPEND |{ <sc> }| TO lt_src.
-        CLEAR <sc>.
-      ENDDO.
-
-      DATA(lt_out) = VALUE zif_rak_journey=>tt_string(
-        ( VALUE #( lt_src[ 2 ] OPTIONAL ) )    " 1 name
-        ( VALUE #( lt_src[ 9 ] OPTIONAL ) )    " 2 nationality
-        ( VALUE #( lt_src[ 5 ] OPTIONAL ) )    " 3 share      <- LIST_SEQUENCE 3
-        ( VALUE #( lt_src[ 3 ] OPTIONAL ) )    " 4 mobile
-        ( VALUE #( lt_src[ 4 ] OPTIONAL ) )    " 5 e-mail
-        ( VALUE #( lt_src[ 1 ] OPTIONAL ) )    " 6 partner
-        ( VALUE #( lt_src[ 7 ] OPTIONAL ) ) ). " 7 Emirates ID
-
-      CLEAR lv_c.
-      LOOP AT lt_out INTO DATA(lv_v).
-        lv_c = lv_c + 1.
-        ASSIGN COMPONENT |UI_TABLE_COLUMN{ lv_c }| OF STRUCTURE <ow>
-               TO FIELD-SYMBOL(<tc>).
-        CHECK sy-subrc = 0.
-        <tc> = lv_v.
-      ENDLOOP.
-    ENDLOOP.
   ENDMETHOD.
 
 
@@ -812,6 +815,9 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     io_ctx->set_val( iv_name = c_nat iv_value = '' ).
     io_ctx->set_val( iv_name = C_DOB iv_value = '' ).
     io_ctx->set_val( iv_name = c_share iv_value = '' ).
+*   And the resolved BP with them, or the next owner is saved under the previous
+*   owner's partner number.
+    io_ctx->set_val( iv_name = c_own_bp iv_value = '' ).
 
     IF iv_id IS INITIAL.
 *     New owner. The id is minted NOW and not on save, because the uploaders in
@@ -908,11 +914,16 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_nat    iv_val = lv_nation
               CHANGING  ct_row  = lt_row ).
 
-*   These three have no column in OWNERS_SEARCH today, so PUT_CELL( ) skips them.
-*   Written anyway so that adding the ZRAK_T_JNY_COL rows is all it takes to make
-*   them persist - no second code change, and Edit can then restore the date.
-    put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_partner iv_val = lv_id
+*   PARTNER takes the BP NUMBER, never LV_ID. LV_ID is the local row id, and
+*   writing it here posted a timestamp - or, after an Edit, the owner's name -
+*   into GS_DATA-OWNERS-PARTNER. See C_OWN_BP.
+    put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_partner
+                        iv_val  = condense( io_ctx->get_val( c_own_bp ) )
               CHANGING  ct_row  = lt_row ).
+
+*   EMIRATES_ID has a column and persists. BIRTH_DATE has none, so PUT_CELL( )
+*   skips it; written anyway so that adding the ZRAK_T_JNY_COL row is all it
+*   takes to make it persist and let Edit restore the date - no code change.
     put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_eid     iv_val = lv_eid
               CHANGING  ct_row  = lt_row ).
     put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_dob     iv_val = lv_dob
@@ -1223,6 +1234,12 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *     Keep the row's own key so OWN_FORM_SAVE updates this row on Add rather
 *     than appending a duplicate.
       io_ctx->set_val( iv_name = c_own_id iv_value = iv_id ).
+
+*     And the row's own BP, so saving the edit writes the partner number back
+*     rather than blanking it. Without this the PARTNER column - and the row
+*     key with it - changed on every Edit.
+      io_ctx->set_val( iv_name  = c_own_bp
+        iv_value = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_partner ) ).
 
 *     By column name. Columns 6 to 9 were being read on a grid that has five, so
 *     the Emirates ID and nationality came back empty; the popup then kept
