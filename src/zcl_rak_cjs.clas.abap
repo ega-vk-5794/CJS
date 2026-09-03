@@ -4263,10 +4263,10 @@ TO rt.
 
     lv_jid = to_upper( mv_journey_id ).
 
-*   Wrapped because this reaches OUTSIDE the CJS tables: /QNV/SB_UI_DEFIN and
-*   ZEGA_T_CJ_2_OBJ belong to the legacy stack, and on a system where they are
-*   absent or restricted the SELECT raises. A cross-check is a convenience; it
-*   must never be the reason the Studio will not open.
+*   Wrapped because this reaches OUTSIDE the CJS tables: /QNV/SB_UI_DEFIN,
+*   ZEGA_T_CJ_2_OBJ and the ShapeIt UI map belong to the legacy stack, and on a
+*   system where they are absent or restricted the SELECT raises. A cross-check
+*   is a convenience; it must never be the reason the Studio will not open.
     TRY.
         lt_x = zcl_rak_cjs_xcheck=>check( iv_journey = lv_jid ).
       CATCH cx_root INTO DATA(lx).
@@ -4281,7 +4281,7 @@ TO rt.
                               WHEN 'E' THEN 'Error'
                               WHEN 'W' THEN 'Warning'
                               ELSE 'Information' )
-*       The rule id travels with the text. XCHECK names its rules X01..X12 and
+*       The rule id travels with the text. XCHECK names its rules X01..X16 and
 *       those ids are what its own documentation is written against, so a
 *       finding pasted into a ticket stays traceable to the rule that raised it.
         text = |[{ ls_x-rule }]| &&
