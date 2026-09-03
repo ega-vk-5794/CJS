@@ -287,19 +287,6 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
 *     stops firing on every migrated Municipality journey; a genuinely
 *     unserved one still reports itself, on the field, through the note
 *     ZCL_RAK_CJ_OPTS returns.
-*     PARCELS IS THE MULTI-SELECT ONE AND IT WAS MISSING HERE. There are
-*     THREE places an ftype has to be named and this is the third: the
-*     renderer's SELECT branch (ZCL_RAK_JOURNEY_RENDER, so the field draws
-*     at all), the parcel control's own condition (so the card list is
-*     drawn instead of a dropdown) - both of which had it - and this list,
-*     which only drives CHECK_TYPES( )'s warning.
-*
-*     So the symptom was cosmetic and misleading in equal measure: M012
-*     drew its checkbox cards correctly AND reported "Field PARCELSELECTOR:
-*     unsupported type 'PARCELS' - rendered as a plain input" above them.
-*     The warning was wrong, the render was right, and the two together
-*     read as the control having failed.
-      OR iv_type = 'PARCELS'
       OR iv_type = 'PARCEL' OR iv_type = 'PROPERTY' OR iv_type = 'TITLEDEED'
       OR iv_type = 'FLOORUNIT' OR iv_type = 'CONTRACT' OR iv_type = 'BUILDINGS'
       OR iv_type = 'SIGN' OR iv_type = 'CHEMICALS'
