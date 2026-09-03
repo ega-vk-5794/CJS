@@ -125,6 +125,15 @@ CLASS zcl_rak_bp_search DEFINITION
 *            and lets the partner through - for a popup that wants to show an
 *            expired licence rather than refuse to find it. Anything that lets a
 *            partner through on a warning owns that decision.
+*
+*            FINDINGS ONLY, and the word is load-bearing. This governs how
+*            strictly to judge a partner that WAS FOUND. It does not reach the
+*            two things that are not verdicts about a partner: "No data found",
+*            which is the absence of a row, and the malformed date of birth
+*            SEARCH( ) refuses on, which is a precondition failure where nothing
+*            was searched for at all. Both are always 'E'. A caller saying "show
+*            me the partner anyway" has said nothing about what to do when there
+*            is no partner to show.
              msg_type          TYPE string,
 *            Cap the hit list. Zero means "as BP_QUERY returns it", which is the
 *            behaviour every caller has today. Independent of ZP28, which sets
@@ -512,18 +521,36 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
 
       IF ls_req-dob IS INITIAL.
 *       FILLED, AND NOT A DATE. Do not search: a filter built from it is the
-*       dump. Reported the way every other finding in this class is reported -
-*       one row on CT_MSG at the caller's own severity - so the citizen sees it
-*       in the popup they are already looking at and can correct the field.
+*       dump.
 *
-*       Returning here deliberately skips the "No data found" below as well.
+*       ALWAYS 'E', NEVER IS_REQ-MSG_TYPE, and that is not this method
+*       inventing a policy - it is the boundary VALIDATE( ) already draws
+*       twelve lines into itself: MSG_TYPE "applies to the findings below and
+*       NOT to the 'No data found' in SEARCH( ) - that one is not a validation
+*       verdict, it is the absence of a row."
+*
+*       A malformed date of birth is further from a validation finding than
+*       even that. MSG_TYPE is a policy about how strictly to judge a partner
+*       that WAS found - an MOI mismatch, an expired licence - and a caller
+*       setting 'W' is saying "show me the partner anyway". There is no partner
+*       here to be lenient about. This is a precondition failure, and nothing
+*       was searched for at all.
+*
+*       The severity is the smaller half. The real hazard on a 'W' path is the
+*       EMPTY RESULT SET that would accompany the warning: it asserts "no such
+*       partner" when no question was asked. 'E' stops that - ZCL_RAK_BP_POPUP
+*       returns on the first error before it ever reads a row - so the citizen
+*       is told to fix the field rather than told the partner does not exist.
+*
+*       Passing no IV_TYPE is how "No data found" below already says the same
+*       thing; ADD( ) defaults to 'E'. The two are deliberately alike.
+*
+*       Returning here deliberately skips that "No data found" as well.
 *       Nothing was searched for, so "not found" would be a second message
 *       contradicting the first and pointing at the wrong thing.
         add( EXPORTING iv_text = COND string( WHEN sy-langu = 'E'
                                               THEN 'Date of birth has an invalid format'
                                               ELSE 'صيغة تاريخ الميلاد غير صحيحة' )
-                       iv_type = COND string( WHEN is_req-msg_type IS INITIAL THEN 'E'
-                                              ELSE to_upper( is_req-msg_type ) )
              CHANGING  ct_msg  = rs_res-msg ).
 
 *       The caller's own messages still arrive, in the order they always did.

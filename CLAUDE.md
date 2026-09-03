@@ -340,10 +340,20 @@ These raise nothing and render nothing. They account for most of the bugs found 
   normalise, reports it on `CT_MSG` and does not search. `SEARCH( )` is the choke point
   both popups go through, which is why the guard is there and not in `ZCL_RAK_BP_POPUP` —
   a journey drawing its own dialog has no hook between the model and the filter.
-  Two things follow: the normalisation must happen **before** `VALIDATE( )`'s MOI
+  Three things follow. The normalisation must happen **before** `VALIDATE( )`'s MOI
   cross-check (`LS_BP-DOB <> IS_REQ-DOB`), or that comparison starts failing against a
-  value it used to match; and **any other `TY_REQ` field `BP_QUERY` converts on the far
-  side has the same exposure** — date of birth is only the one that has been hit.
+  value it used to match. **The refusal is always `'E'`, never `IS_REQ-MSG_TYPE`** —
+  `MSG_TYPE` governs how strictly to judge a partner that *was found*, and this is a
+  precondition failure where nothing was searched for, so it sits on the same side of
+  that line as "No data found" (which `VALIDATE( )`'s own comment already excludes).
+  Severity is the smaller half: on a `'W'` path the **empty result set** would assert
+  "no such partner" when no question was asked, and `'E'` is what stops
+  `ZCL_RAK_BP_POPUP` reaching that at all. And **any other `TY_REQ` field `BP_QUERY`
+  converts on the far side has the same exposure** — date of birth is only the one that
+  has been hit, and a sweep was deliberately not done: the fix for each would be a guess
+  about a target type nothing on the CJS side can see. The cheap version, if it ever
+  matters, is to ask whoever owns `ZCL_EGA_BP_BO_API` which filter properties it
+  converts to something other than a string, and look only at those.
 - **Drafts and attachments have an owner, and it is not always CJS.** `DRAFT_MODE` and
   `ATTACH_MODE` on `ZRAK_T_JNY` answer `DELEGATE` / `NATIVE` / `OFF`; blank lets the engine
   derive one. The derivation is the rule: **a backend that creates and re-opens the case IS
