@@ -174,6 +174,12 @@ CLASS zcl_rak_qnv_bridge DEFINITION
       CHANGING  cs_def    TYPE LINE OF /qnv/sbuild_definition_tt.
 
     CONSTANTS c_fm_read_table TYPE string VALUE 'ZFM_EGA_CJ_FW_READ_TABLE_DATAN'.
+
+*   The Municipality category, and the only family whose BAdI derives its
+*   partners from a bare 'BP' item. Named rather than written inline
+*   because the reason it is a literal at all is a boundary, not a
+*   preference - see the BP block in POST( ).
+    CONSTANTS c_cat_muni TYPE string VALUE 'MML'.
 *   The name the fee list answers to. Part of the read FM's contract with every
 *   department, not a per-journey configuration value - which is precisely why it
 *   belongs here as a constant and not in ZRAK_T_JNY_FLD.
@@ -325,46 +331,63 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
 *   `mt_item_data[ technicalname = 'BP' ]` ambiguous - it reads the FIRST -
 *   and which one that is would depend on insertion order.
 *
-*   SAFE FOR THE OTHER FAMILIES. The DOK and EPDA abstracts map items to
-*   characteristics through their own config table by TECHNICALNAME, so an
-*   item no row names is ignored rather than written anywhere.
-    IF NOT line_exists( lt_item[ technicalname = 'BP' ] ).
-      IF lv_partner IS NOT INITIAL.
-        APPEND VALUE #( fieldname = 'BP' technicalname = 'BP'
-                        value = lv_partner ) TO lt_item.
-      ENDIF.
-    ENDIF.
-
-*   ---- THE PARTNER IN THE PAYLOAD TOO, AS A SECOND CHANNEL -----------
-*   THE PARAMETER IS THE LIKELY ROUTE AND THIS IS THE CHEAP HEDGE. The
-*   FM uses LOGINBP bare, which says parameter - but that reading comes
-*   from its source rather than its signature, and the CATCH that guards
-*   the parameter attempt rests on one class name this environment cannot
-*   verify either. An item costs a table row and needs nothing to be
-*   right.
+*   NOT SAFE FOR THE OTHER FAMILIES, and this comment used to say it was:
+*   "the DOK and EPDA abstracts map items to characteristics through their
+*   own config table by TECHNICALNAME, so an item no row names is ignored
+*   rather than written anywhere." The D002 dump disproved it. They do map
+*   by config table - SECOND. First ZIF_EGA_FW_CJI~MAPPER does
+*   ASSIGN (<ms_item_data>-technicalname) TO <value> and writes to
+*   whatever that name resolves to in its own program. See the block below
+*   for the whole mechanism.
 *
-*   NOT A DUPLICATE OF CJS_LOGINBP BELOW. That one carries the dev
-*   override only and is a different technical name; this carries the
-*   effective partner - resolved session first, dev override second -
-*   under the name the FM's own variable uses.
-*
-*   AND NOT A DUPLICATE OF THE CONTEXT LOOP EITHER: it already skips
-*   LOGINBP and ROLEBP so a `&loginbp=` launch parameter cannot arrive as
-*   a raw item, which is exactly why these two names are free to use here.
-*
-*   GUARDED, so a journey that configures its own wins - a second item
-*   with the same technical name would make
-*   `mt_item_data[ technicalname = 'LOGINBP' ]` read whichever was
-*   appended first.
-    IF lv_partner IS NOT INITIAL AND NOT line_exists( lt_item[ technicalname = 'LOGINBP' ] ).
-      APPEND VALUE #( fieldname = 'LOGINBP' technicalname = 'LOGINBP'
+*   So a two-letter identifier goes ONLY to the family that asks for it.
+*   BP is what ZCL_EGA_CJ_FW_RO_ABS_V1 derives both Municipality partners
+*   from and nothing else will do there; on DOK and EPDA it is a name
+*   their programs may well have, for no benefit at all.
+    IF ms_config-backend-category = c_cat_muni
+       AND lv_partner IS NOT INITIAL
+       AND NOT line_exists( lt_item[ technicalname = 'BP' ] ).
+      APPEND VALUE #( fieldname = 'BP' technicalname = 'BP'
                       value = lv_partner ) TO lt_item.
     ENDIF.
-    IF ms_config-backend-rolebp IS NOT INITIAL
-       AND NOT line_exists( lt_item[ technicalname = 'ROLEBP' ] ).
-      APPEND VALUE #( fieldname = 'ROLEBP' technicalname = 'ROLEBP'
-                      value = ms_config-backend-rolebp ) TO lt_item.
-    ENDIF.
+
+*   ---- NO LOGINBP OR ROLEBP ITEM. THE HEDGE WAS NOT FREE ------------
+*
+*   An item named LOGINBP was added here as a "cheap hedge" beside the FM
+*   parameter, on the reasoning that an item costs a table row and needs
+*   nothing to be right. It killed every DOK journey, and the dump names
+*   the mechanism exactly - MOVE_TO_LIT_NOTALLOWED_NODATA in
+*   ZCL_EGA_CJ_DOK_ABS, ZIF_EGA_FW_CJI~MAPPER, on D002:
+*
+*       ASSIGN (<ms_item_data>-technicalname) TO <value>.
+*       IF sy-subrc EQ 0.
+*         ...
+*         <value> = <ms_item_data>-value.      "<-- here
+*
+*   THAT IS ASSIGN BY NAME, NOT ASSIGN COMPONENT. It resolves the item's
+*   TECHNICALNAME as the name of a data object VISIBLE IN THE BADI'S OWN
+*   PROGRAM - and LOGINBP is visible there, because it is the FM's own
+*   IMPORTING parameter. So the ASSIGN SUCCEEDS, sy-subrc is 0, the
+*   sy-subrc guard passes, and the write lands on a read-only formal
+*   parameter: "Overwriting of a protected field... Declare the parameter
+*   as a VALUE."
+*
+*   THE ASSUMPTION THAT MADE IT LOOK SAFE was written one screen above:
+*   "the DOK and EPDA abstracts map items to characteristics through their
+*   own config table by TECHNICALNAME, so an item no row names is
+*   ignored". They do that SECOND. First they assign by name and write to
+*   whatever they find.
+*
+*   SO THE RULE, and it is not about these two names: NEVER SEND AN ITEM
+*   WHOSE TECHNICALNAME COULD BE THE NAME OF A DATA OBJECT IN THE BADI'S
+*   PROGRAM. A bare identifier - LOGINBP, ROLEBP, ROLE, GUID, STATUS - is
+*   a name that program plausibly has. The CJS_ prefix below exists for
+*   exactly this reason: nothing is called CJS_LOGINBP, so the ASSIGN
+*   fails, sy-subrc is not 0, and the row is skipped as intended.
+*
+*   The partner still reaches the backend. It travels as the FM PARAMETER,
+*   which is the route the FM's own source settled - it uses LOGINBP bare
+*   at line 61 with no extraction from the payload anywhere above it.
 
     APPEND VALUE #( fieldname = 'CJS_LOGINBP' technicalname = 'CJS_LOGINBP'
                     value = ms_config-backend-loginbp_dev ) TO lt_item.

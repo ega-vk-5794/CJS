@@ -307,6 +307,21 @@ These raise nothing and render nothing. They account for most of the bugs found 
 - **An inline `DATA( )` in the IMPORTING part of a functional call that is itself the
   source of an assignment** is refused: *the inline declaration is not possible in this
   position*. Declare the variables first.
+- **An item's `TECHNICALNAME` is ASSIGNED BY NAME in the BAdI, and then written to.**
+  `ZIF_EGA_FW_CJI~MAPPER` does `ASSIGN (<ms_item_data>-technicalname) TO <value>.` — assign
+  by **name**, not `ASSIGN COMPONENT` — so it resolves the string as a data object visible
+  in *its own program* and assigns the item's value into whatever it finds. It does check
+  `sy-subrc`, which is why this looks safe; the check does not help when the name resolves
+  to something read-only. Sending an item called `LOGINBP` bound the FM's own IMPORTING
+  parameter, `sy-subrc` was 0, and the write dumped every DOK journey with
+  `MOVE_TO_LIT_NOTALLOWED_NODATA` — *"Overwriting of a protected field. Declare the
+  parameter as a VALUE."* The comment that made it look safe said the DOK and EPDA
+  abstracts map items through their own config table by `TECHNICALNAME`; they do, **second**.
+  So: **never send an item whose `TECHNICALNAME` could name a data object in the BAdI's
+  program.** A bare identifier — `LOGINBP`, `ROLEBP`, `ROLE`, `GUID`, `STATUS` — is exactly
+  such a name. The `CJS_` prefix exists for this: nothing is called `CJS_LOGINBP`, so the
+  assign fails and the row is skipped as intended. A name only the one family reads, like
+  Municipality's bare `BP`, goes only to that family.
 - **An uploader's DOCUMENT TYPE rides `DEFAULT_VAL` behind `DTYPE:`.** Every legacy
   uploader carries `DATA2` = 1/2/3 in `/QNV/SB_UI_DEFIN` and the BAdI files it as
   `ZDT_EGA_CJ_ATTR-DIFFCRT`. `ATTACHMENTS_FOR_BACKEND( )` sent only `identifier1/2`,
