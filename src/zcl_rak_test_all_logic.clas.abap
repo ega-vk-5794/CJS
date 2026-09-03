@@ -24,7 +24,15 @@
 *&   on_render_popup( )   a handler-owned dialog, via dialog_form( )
 *&   on_popup_event( )    the dialog's buttons, and payment
 *&   render_field( )      claiming PAYFEE and drawing the fee card
-*&   wants_feedback( ) / on_feedback( )   the post-submit happiness step
+*&   wants_feedback( ) / on_feedback( )   the post-submit happiness step,
+*&                        including "Not now" - feedback is offered on the
+*&                        closing page and never required to leave it
+*&
+*& MESSAGES RAISED WHILE A DIALOG IS OPEN. OWN_SEARCH( ) below adds a
+*& Warning or a Success and returns with the dialog still open, which is the
+*& case DIALOG_FORM( ) now draws inside the dialog. It used to land on the
+*& step BEHIND a modal dialog, so a popup that refused an action appeared to
+*& do nothing at all - no new test path is needed for it, this one is it.
 *&
 *& POPUP VALUE HELP. The help dialog covers every source dialog_form( ) can
 *& resolve, because until recently it could resolve none of them and popups

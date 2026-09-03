@@ -1079,6 +1079,12 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   Declined. The card goes away entirely rather than showing a thank-you
+*   for a rating nobody gave.
+    IF mo_e->mv_fb_skip = abap_true.
+      RETURN.
+    ENDIF.
+
     DATA(lo_card) = io_parent->vbox( class = mo_e->mo_css->cls( 'CARD' ) ).
     IF mo_e->mv_fb_done = abap_true.
       lo_card->object_status( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-fb_thanks iv_default = 'Thanks for your feedback' )
@@ -1144,12 +1150,21 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                         placeholder = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-fb_hint
                                         iv_default = 'Anything you would like us to know? (optional)' ) ).
 
-    lo_card->button( text    = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-fb_send iv_default = 'Send feedback' )
-                     type    = 'Emphasized'
-                     icon    = 'sap-icon://feedback'
-                     class   = 'sapUiSmallMarginTop'
-                     enabled = xsdbool( mo_e->mv_fb_rating IS NOT INITIAL )
-                     press   = mo_e->btn_evt( 'FBSEND' ) ).
+*   Send and skip sit together, because they are the two ways out of this
+*   page and one of them must always be available. Send stays disabled until
+*   a face is picked - that part was right; what was missing is that the
+*   page had no other exit, so declining to rate meant not being able to
+*   leave the service at all.
+    DATA(lo_fbb) = lo_card->hbox( class = 'sapUiSmallMarginTop' alignitems = 'Center' ).
+    lo_fbb->button( text    = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-fb_send iv_default = 'Send feedback' )
+                    type    = 'Emphasized'
+                    icon    = 'sap-icon://feedback'
+                    enabled = xsdbool( mo_e->mv_fb_rating IS NOT INITIAL )
+                    press   = mo_e->btn_evt( 'FBSEND' ) ).
+    lo_fbb->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-fb_skip iv_default = 'Not now' )
+                    type  = 'Transparent'
+                    class = 'sapUiTinyMarginBegin'
+                    press = mo_e->btn_evt( 'FBSKIP' ) ).
   ENDMETHOD.
 
 
