@@ -566,6 +566,37 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
     APPEND VALUE #( name = `Intreno`     value = iv_intreno ) TO lt_key.
     APPEND VALUE #( name = `Partnerguid` value = lv_guid )    TO lt_key.
 
+*   ---- the request context, and why it is cast ------------------------
+*   AN ENTITY READ WANTS /IWBEP/IF_MGW_REQ_ENTITY, NOT _ENTITYSET. The two
+*   flat reads in this class pass MO_REQ straight through because
+*   PROPERTIESSET_GET_ENTITYSET declares the plural interface;
+*   GET_EXPANDED_ENTITY declares the singular one, and ABAP binds formal
+*   parameters here BY REFERENCE, so a near-miss is a syntax error rather
+*   than a conversion: "MO_REQ is not type-compatible with formal
+*   parameter IO_TECH_REQUEST_CONTEXT".
+*
+*   ONE OBJECT, TWO INTERFACES. The Gateway request object implements
+*   both, so this is a downcast between interface references and it
+*   succeeds at runtime - but only for an object that really does
+*   implement the second one, which is not something this environment can
+*   read off /IWBEP/CL_MGW_REQUEST. Hence the CATCH rather than a bare
+*   ?=: a wrong assumption degrades to an unbound reference here instead
+*   of an uncatchable cast error mid-dialog.
+*
+*   AND UNBOUND IS SURVIVABLE. The Properties branch of
+*   GET_EXPANDED_ENTITY never reads IO_TECH_REQUEST_CONTEXT at all - it
+*   works from IT_KEY_TAB and IO_EXPAND, resolves the partner from BUT000
+*   itself, and builds ZCL_EGA_MUN_CJ_ODATA_API from that. The parameter
+*   is OPTIONAL and, on this path, genuinely unused. So the cast failing
+*   costs nothing on this read, which is why it is not treated as an
+*   error the way a missing IO_EXPAND is.
+    DATA lo_req_ent TYPE REF TO /iwbep/if_mgw_req_entity.
+    TRY.
+        lo_req_ent ?= mo_req.
+      CATCH cx_sy_move_cast_error.
+        CLEAR lo_req_ent.
+    ENDTRY.
+
     DATA lr_ent  TYPE REF TO data.
     DATA ls_ctx  TYPE /iwbep/if_mgw_appl_srv_runtime=>ty_s_mgw_response_entity_cntxt.
     DATA lt_cl   TYPE string_table.
@@ -580,7 +611,7 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
             it_key_tab               = lt_key
             it_navigation_path       = VALUE #( )
             io_expand                = io_expand
-            io_tech_request_context  = mo_req
+            io_tech_request_context  = lo_req_ent
           IMPORTING
             er_entity                = lr_ent
             es_response_context      = ls_ctx
