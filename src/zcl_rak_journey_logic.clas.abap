@@ -288,6 +288,16 @@ CLASS zcl_rak_journey_logic DEFINITION
       IMPORTING io_ctx  TYPE REF TO zif_rak_journey
                 iv_text TYPE string.
 
+*   THE STANDARD CPG IS LAUNCHED THROUGH THE PAYMENTS WEB DYNPRO, not by
+*   a URL the BAdI hands over ready-made. ZCL_CJ_DEMO_P001 builds exactly
+*   this string as its EV_URL after filling the same MERCHANTID /
+*   SERVICEID / SECRETKEY / REFERENCEID details, and the BAdI returns the
+*   same string as REDIRECTURL. That app holds the CPG form and posts it,
+*   which is also why the SECRET KEY never has to reach our page.
+    METHODS wd_pay_url
+      IMPORTING iv_ref    TYPE string
+      RETURNING VALUE(rv) TYPE string.
+
     METHODS pay_field_step
       IMPORTING io_ctx         TYPE REF TO zif_rak_journey
       RETURNING VALUE(rv_step) TYPE i.
@@ -322,9 +332,13 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   /sap/bc/zrak_cj_pay WAS NEVER BUILT. Nothing in this repository
+*   implements that handler and nothing else references it, so this
+*   branch produced a 404 on the rare occasion it was reached. The
+*   payments Web Dynpro is the address that actually exists.
     DATA(lv_ref) = io_ctx->get_val( 'PAY_REFERENCE' ).
     IF lv_ref IS NOT INITIAL.
-      rv_url = |/sap/bc/zrak_cj_pay?ref={ lv_ref }|.
+      rv_url = wd_pay_url( lv_ref ).
     ENDIF.
   ENDMETHOD.
 
@@ -575,6 +589,30 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *   'IM00100123344' with case 1959738 sitting in SCASE, and nothing said
 *   the two were related or that one of them was the wrong one.
     pay_trace( io_ctx = io_ctx iv_text = |PAY     case key { iv_in } -> { iv_what }| ).
+  ENDMETHOD.
+
+
+  METHOD wd_pay_url.
+*   Hosts and the doubled '?' are copied from ZCL_CJ_DEMO_P001 as they
+*   stand. The second '?' where a '&' belongs is the legacy's own
+*   construction and is what the Web Dynpro app is known to accept -
+*   correcting it here would be a guess against a working caller.
+*
+*   LAST RESORT ONLY. REDIRECTURL is preferred over this because the
+*   BAdI already resolved the right host for the system it ran on,
+*   whereas this has to pick one.
+    IF iv_ref IS INITIAL.
+      RETURN.
+    ENDIF.
+    rv = COND string(
+           WHEN sy-sysid = 'E30'
+           THEN `https://grpportal.rak.ae/sap/bc/webdynpro/sap/zwda_ega_euser_payments`
+             && `?sap-language=EN?referenceId=`
+           WHEN sy-sysid = 'E10'
+           THEN `https://devgrpportal.rak.ae/sap/bc/webdynpro/sap/ZWDA_EGA_EUSER_PAYMENTS`
+             && `?sap-language=EN?referenceId=`
+           ELSE `https://devgrpportal.rak.ae:444/sap/bc/webdynpro/sap/ZWDA_EGA_EUSER_PAYMENTS`
+             && `?sap-language=EN?referenceId=` ) && iv_ref.
   ENDMETHOD.
 
 
@@ -1183,11 +1221,59 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
                iv_text = |PAY     prepare read returned { lines( lt_vals ) } value(s), | &&
                          |{ lines( lt_msg ) } message(s) - keys: { lv_keys }| ).
 
+*   REFERENCE AND AMOUNT ARE STORED BEFORE ANY EXIT. They used to be
+*   written at the very bottom, after the URL check had already returned -
+*   so on the one path that needed them, everything the read did answer
+*   was thrown away, and PAY_REFERENCE stayed blank for ever.
+    DATA(lv_ref) = VALUE string( lt_vals[ key = 'REFERENCEID' ]-value OPTIONAL ).
+    IF lv_ref IS NOT INITIAL.
+      io_ctx->set_val( iv_name = 'PAY_REFERENCE' iv_value = lv_ref ).
+    ENDIF.
+
+    DATA(lv_amt) = VALUE string( lt_vals[ key = 'AMOUNT' ]-value OPTIONAL ).
+    IF lv_amt IS NOT INITIAL.
+      io_ctx->set_val( iv_name = c_pay_total iv_value = lv_amt ).
+    ENDIF.
+
+*   APPLICATIONURL IS THE ATB PATH'S FIELD, AND ONLY ATB FILLS IT. This
+*   is why M011 polled 48 times and gave up: the read answered richly -
+*   AMOUNT, MERCHANTID, SERVICEID, SECRETKEY, REFERENCEID, PAYCHANNEL -
+*   and every one of those was discarded because a single field it never
+*   sets was blank.
+*
+*   ROUTE_GATEWAY( ) decides which it is from ZDT_PG_DEP_MAP: an ATB
+*   department gets a ready-made APPLICATIONURL, and everything else -
+*   PW_RB1 set, ATB_FLAG DISABLED, which is what M011 comes back as -
+*   goes to the standard CPG through the payments Web Dynpro. There is no
+*   pre-built URL on that route and there never was one to wait for.
+*
+*   REDIRECTURL IS THAT LAUNCH ADDRESS, not a return address as its name
+*   suggests. ZCL_CJ_DEMO_P001 settles it: after filling the same details
+*   it returns EV_URL built as ZWDA_EGA_EUSER_PAYMENTS with the
+*   referenceId, character for character what the BAdI puts in
+*   REDIRECTURL. That app holds the CPG form and posts it, which is also
+*   why the SECRET KEY the read returns never has to reach our page.
+*
+*   ORDER MATTERS AND ATB STAYS FIRST. Where APPLICATIONURL is filled it
+*   still wins, so nothing changes for a department already routed to
+*   ATB - this only supplies an address on the route that never had one.
     DATA(lv_url) = VALUE string( lt_vals[ key = 'APPLICATIONURL' ]-value OPTIONAL ).
+    DATA(lv_src) = `APPLICATIONURL`.
+
+    IF lv_url IS INITIAL.
+      lv_url = VALUE string( lt_vals[ key = 'REDIRECTURL' ]-value OPTIONAL ).
+      lv_src = `REDIRECTURL (standard CPG via payments Web Dynpro)`.
+    ENDIF.
+
+    IF lv_url IS INITIAL.
+      lv_url = wd_pay_url( lv_ref ).
+      lv_src = `built from REFERENCEID`.
+    ENDIF.
+
     IF lv_url IS INITIAL.
       pay_trace( io_ctx  = io_ctx
-                 iv_text = `PAY     prepare STOP NOURL - the read answered but carried no ` &&
-                           `APPLICATIONURL` ).
+                 iv_text = `PAY     prepare STOP NOURL - the read carried no APPLICATIONURL, ` &&
+                           `no REDIRECTURL and no REFERENCEID` ).
       IF iv_quiet = abap_false.
         io_ctx->add_msg( iv_type = 'Error'
                          iv_text = |The payment journey returned no gateway address for case { lv_case }. | &&
@@ -1198,22 +1284,12 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
     ENDIF.
 
     pay_trace( io_ctx  = io_ctx
-               iv_text = |PAY     prepare OK - gateway address resolved ({ strlen( lv_url ) } chars)| ).
+               iv_text = |PAY     prepare OK - gateway address from { lv_src }| ).
 
 *   BUILD_PAY_URL prefers PAY_APPURL over everything else, so writing it here is
 *   the whole handover. The reference is carried too, for the poll and for anyone
 *   reconciling against the transaction table.
     io_ctx->set_val( iv_name = 'PAY_APPURL' iv_value = lv_url ).
-
-    DATA(lv_ref) = VALUE string( lt_vals[ key = 'REFERENCEID' ]-value OPTIONAL ).
-    IF lv_ref IS NOT INITIAL.
-      io_ctx->set_val( iv_name = 'PAY_REFERENCE' iv_value = lv_ref ).
-    ENDIF.
-
-    DATA(lv_amt) = VALUE string( lt_vals[ key = 'AMOUNT' ]-value OPTIONAL ).
-    IF lv_amt IS NOT INITIAL.
-      io_ctx->set_val( iv_name = c_pay_total iv_value = lv_amt ).
-    ENDIF.
   ENDMETHOD.
 
 
