@@ -217,7 +217,7 @@ CLASS zcl_rak_text DEFINITION
         col_complaint_date  TYPE symsgno VALUE '129',
         col_description     TYPE symsgno VALUE '130',
 *       Navigation is locked once the fee is PAID - see ZCL_RAK_JOURNEY_ENGINE->NAV_LOCKED( ).
-        nav_locked          TYPE symsgno VALUE '131',
+        nav_locked          TYPE symsgno VALUE '132',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
