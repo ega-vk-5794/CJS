@@ -2009,16 +2009,21 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                iv_cols  = `Measurements Type^Amount^Unit^Valid From`
                iv_comps = `XMMEAS^MEASVALUE^MEASUNIT^VALIDFROM` ).
 
-*   THE DOCUMENT CONTENT IS NOT DRAWN, only its identity. GET_FILENET_DOCS
-*   returns a document id and a name; the DPC then makes a SEPARATE
-*   ZCL_EGA_FILENET_API read per row to fetch the file as base64, which
-*   DETAILS( ) deliberately does not do - a parcel with twenty documents
-*   would pull twenty files out of ECM to render a list of names. Opening
-*   one is a later, per-row action.
+*   THE ONLY TAB WHOSE ROW TYPE CJS OWNS. The DPC's GET_FILENET_DOCS( )
+*   and its TY_FNDOC are both PRIVATE, so DETAILS( ) does what that
+*   method does - ZCL_EGA_FILENET_HNDLR->SEARCH_TITLE_DEED( ) plus a
+*   filter on the parcel or the AOID - and answers
+*   ZCL_RAK_PROPERTY_API=>TY_DOC_ROW. These four names are therefore not
+*   guesses at a generated shape; they are that structure.
+*
+*   THE CONTENT IS NOT DRAWN, only the identity. Each row carries its
+*   SAPDocId in DOCID, which is what a later per-row Open would hand to
+*   ZCL_EGA_FILENET_API - fetching it here would pull every document out
+*   of ECM as base64 to render a list of numbers.
     child_tab( io_bar = lo_bar iv_key = 'DOC' ir_data = ls_det-attach
                iv_text  = t( iv_en = `Documents` iv_ar = `المستندات` )
                iv_cols  = `Number^Department^Issuing date^Expiry Date`
-               iv_comps = `DOC^NAME^ISSUEDATE^` ).
+               iv_comps = `NUMBER^DEPARTMENT^ISSUEDATE^VALIDTO` ).
 
 *   THE READ'S OWN MESSAGES, once, under the tabs. Each child in
 *   DETAILS( ) has its own CATCH so a failure is partial - five tabs

@@ -135,9 +135,36 @@ CLASS zcl_rak_property_api DEFINITION
              measure  TYPE REF TO data,   " ToMeasurement  get_meas( )
              develop  TYPE REF TO data,   " ToDevelopment  get_assobj( )
              project  TYPE REF TO data,   " ToProject      get_projects( )
-             attach   TYPE REF TO data,   " ToAttachment   get_filenet_docs( )
+             attach   TYPE REF TO data,   " ToAttachment   search_title_deed( )
              msg      TYPE bapiret2_t,
            END OF ty_detail_res.
+
+*   ---- the documents row, and it is OURS ------------------------------
+*   The DPC's GET_FILENET_DOCS( ) is PRIVATE, and so are the TY_FNDOC /
+*   TT_FNDOC types it answers in - inheriting the class reaches none of
+*   the three. So DETAILS( ) does what that method does rather than
+*   calling it, and this is the shape it returns.
+*
+*   DECLARED HERE, WHICH IS THE POINT: every other type in this class is
+*   either taken from the MPC with LINE OF or left to an inline DATA( ),
+*   because a generated shape guessed at is what this file's header is
+*   about. This one is not guessed - it is chosen, and the fields are the
+*   Filenet property names the search returns.
+*
+*   DOCID IS THE HANDLE, NOT THE FILE. SAPDocId is what a later per-row
+*   action hands to ZCL_EGA_FILENET_API to fetch content; the list itself
+*   must never pull it, or opening a parcel's Documents tab drags every
+*   document out of ECM as base64 to render a few numbers.
+    TYPES: BEGIN OF ty_doc_row,
+             number     TYPE string,   " TitleDeedNumberCO
+             doctype    TYPE string,   " Title Deed of Parcel / of Unit
+             department TYPE string,   " constant on the DPC, not a property
+             issuedate  TYPE string,   " IssueDate
+             validfrom  TYPE string,   " DateValidFrom
+             validto    TYPE string,   " DateValidTo
+             docid      TYPE string,   " SAPDocId
+           END OF ty_doc_row.
+    TYPES tt_doc_rows TYPE STANDARD TABLE OF ty_doc_row WITH DEFAULT KEY.
 
 *   Partnerrole, in the spelling PROPERTIESSET_GET_ENTITYSET reads.
     CONSTANTS c_role_owner TYPE string VALUE 'TR0800'.
@@ -234,12 +261,21 @@ CLASS zcl_rak_property_api DEFINITION
 *       ToLandUse      lo_obj->get_chars( intreno = ... )
 *       ToDevelopment  lo_obj->get_assobj( objnr = ... )
 *       ToProject      lo_obj->get_projects( IMPORTING projects = ... )
-*       ToAttachment   me->get_filenet_docs( ... )
 *
-*   where LO_OBJ is NEW ZCL_EGA_MUN_CJ_ODATA_API( partner = ... ) and
-*   GET_FILENET_DOCS is on the DPC itself - reachable because this class
-*   INHERITS it, the same reason the protected _GET_ENTITYSET methods are
-*   reachable.
+*   where LO_OBJ is NEW ZCL_EGA_MUN_CJ_ODATA_API( partner = ... ).
+*
+*   THE SIXTH IS DIFFERENT, and this comment claimed otherwise until
+*   activation refused it. ToAttachment comes from the DPC's own
+*   GET_FILENET_DOCS( ), which is **PRIVATE** - `Instance Private
+*   Method`, declared after `private section` - so inheriting the class
+*   reaches it no better than not inheriting it, and neither does it
+*   reach TY_FNDOC or TT_FNDOC. Only the _GET_ENTITYSET methods are
+*   protected, which is what made the assumption plausible and wrong.
+*
+*   So that one is REPLICATED rather than called:
+*   ZCL_EGA_FILENET_HNDLR->SEARCH_TITLE_DEED( ) for the documents, then
+*   the same filter on the parcel number or the AOID, into TY_DOC_ROW -
+*   a type declared in this class, so nothing about it is inferred.
 *
 *   All IO_EXPAND ever did inside GET_EXPANDED_ENTITY was let the method
 *   decide WHICH children to fetch. Asking for all six directly needs no
@@ -275,6 +311,29 @@ CLASS zcl_rak_property_api DEFINITION
       IMPORTING iv_owner_guid TYPE string OPTIONAL
       EXPORTING ev_guid       TYPE string
       CHANGING  ct_msg        TYPE bapiret2_t.
+
+*   ---- one Filenet property, by name, or blank -----------------------
+*   A document from SEARCH_TITLE_DEED( ) carries its metadata as a table
+*   of name/values pairs, so every field is a lookup rather than a
+*   component.
+*
+*   THIS EXISTS TO AVOID THE DPC'S OWN SHAPE. It reads them as
+*
+*       VALUE #( <fs_d>-property_to[ property_name = 'SAPDocId' ]-values[ 1 ] OPTIONAL )
+*
+*   and OPTIONAL there guards only the LAST subscript - so a document
+*   that simply lacks that property raises CX_SY_ITAB_LINE_NOT_FOUND on
+*   the OUTER one. It holds for the documents that service returns today
+*   and is not a pattern to copy.
+*
+*   ANY TABLE and ASSIGN COMPONENT, because PROPERTY_TO's row type is
+*   whatever ZCL_EGA_FILENET_HNDLR declares and naming it would be
+*   another guess. A structure without PROPERTY_NAME or VALUES answers
+*   blank rather than raising.
+    METHODS fn_prop
+      IMPORTING it_prop   TYPE ANY TABLE
+                iv_name   TYPE string
+      RETURNING VALUE(rv) TYPE string.
 
 
   PRIVATE SECTION.
@@ -493,6 +552,47 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD fn_prop.
+    FIELD-SYMBOLS <lv_nm>  TYPE any.
+    FIELD-SYMBOLS <lt_val> TYPE ANY TABLE.
+    FIELD-SYMBOLS <lv_v>   TYPE any.
+
+    LOOP AT it_prop ASSIGNING FIELD-SYMBOL(<ls_p>).
+
+      UNASSIGN <lv_nm>.
+      ASSIGN COMPONENT 'PROPERTY_NAME' OF STRUCTURE <ls_p> TO <lv_nm>.
+      IF <lv_nm> IS NOT ASSIGNED.
+        RETURN.
+      ENDIF.
+
+*     CASE-INSENSITIVE on the name. The property names are mixed case in
+*     the DPC - 'TitleDeedNumberCO', 'DateValidFrom' - so comparing
+*     against a to_upper( ) form would match nothing, and comparing
+*     exactly makes every caller carry the exact casing. Both sides are
+*     folded instead.
+      IF to_upper( CONV string( <lv_nm> ) ) <> to_upper( iv_name ).
+        CONTINUE.
+      ENDIF.
+
+      UNASSIGN <lt_val>.
+      ASSIGN COMPONENT 'VALUES' OF STRUCTURE <ls_p> TO <lt_val>.
+      IF <lt_val> IS NOT ASSIGNED.
+        RETURN.
+      ENDIF.
+
+*     THE FIRST VALUE ONLY, which is what the DPC takes ( values[ 1 ] ).
+*     A property with several is not something these six read, and
+*     silently joining them would invent a value.
+      LOOP AT <lt_val> ASSIGNING <lv_v>.
+        rv = condense( CONV string( <lv_v> ) ).
+        RETURN.
+      ENDLOOP.
+
+      RETURN.
+    ENDLOOP.
+  ENDMETHOD.
+
+
   METHOD details.
 
 *   IDENTITY STILL GOES THROUGH GUARD( ), even though nothing below
@@ -633,41 +733,112 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
 *           the five tabs already filled above.
             to_msg( EXPORTING io_exc = lx_pj CHANGING ct_msg = rs-msg ).
         ENDTRY.
-
 *       ---- ToAttachment -------------------------------------------
-*       ME->, and that is the point of inheriting the DPC:
-*       GET_FILENET_DOCS is PROTECTED there, so only a subclass can call
-*       it - the same reason the _GET_ENTITYSET methods are reachable
-*       from this class.
+*       GET_FILENET_DOCS IS **PRIVATE**, NOT PROTECTED, and this block
+*       said otherwise and would not activate: "Method GET_FILENET_DOCS
+*       is unknown or PROTECTED or PRIVATE". The DPC's own signature
+*       comment says `Instance Private Method`, and its declaration sits
+*       after `private section` - so inheriting the class buys nothing
+*       here, unlike the _GET_ENTITYSET methods, which really are
+*       protected.
 *
-*       PARCEL AND AOID, never the intreno. And ALPHA-padded: the DPC
-*       pads PARCELID immediately before this call, so the unpadded form
-*       the card displays is not what ECM is keyed on.
+*       SO DO WHAT IT DOES. The method is a thin one and every piece of
+*       it is reachable: ZCL_EGA_FILENET_HNDLR->SEARCH_TITLE_DEED( ) for
+*       the documents, then a filter on the parcel number or the AOID.
+*       The two GET_PL_HEADER( ) / GET_AO_HEADER( ) cross-checks it also
+*       does are dropped deliberately - they verify the document belongs
+*       to a parcel the partner holds, and IV_PARCEL here came from the
+*       partner's own list, so it is a check against a fact already
+*       established.
+*
+*       AND THE ROW TYPE IS OURS. TT_FNDOC and TY_FNDOC are private on
+*       the DPC too, so there is nothing to reuse - TY_DOC_ROW is
+*       declared in this class, which means nothing about it is a guess.
         IF iv_parcel IS NOT INITIAL OR iv_aoid IS NOT INITIAL.
+
+*         ALPHA-PADDED, because the document carries the padded form.
+*         The DPC pads the value it reads off the document
+*         ( parcel = |{ parcel ALPHA = IN }| ) before comparing, so the
+*         value compared against has to be padded the same way or a
+*         nine-digit card id never matches a twenty-character key.
           DATA lv_pcl TYPE string.
-          lv_pcl = iv_parcel.
-          IF lv_pcl IS NOT INITIAL.
-            lv_pcl = |{ lv_pcl ALPHA = IN }|.
+          IF iv_parcel IS NOT INITIAL.
+            lv_pcl = |{ iv_parcel ALPHA = IN }|.
           ENDIF.
+
           TRY.
-*             INLINE HERE TOO, same reason as GET_PROJECTS( ) above: the
-*             DPC writes `IMPORTING docs = DATA(fn_docs)` and never names
-*             the type, so neither does this.
-              me->get_filenet_docs(
-                EXPORTING partner   = lv_bp
-                          iv_parcel = CONV #( lv_pcl )
-                          iv_aoid   = CONV #( iv_aoid )
-                IMPORTING docs      = DATA(lt_dc) ).
+              DATA lt_dc TYPE tt_doc_rows.
+
+              NEW zcl_ega_filenet_hndlr( )->search_title_deed(
+                EXPORTING businesspartner = VALUE #( ( CONV #( lv_bp ) ) )
+                IMPORTING out             = DATA(ls_fn) ).
+
+              LOOP AT ls_fn-document ASSIGNING FIELD-SYMBOL(<ls_d>).
+
+*               EVERY PROPERTY READ THROUGH ONE GUARDED HELPER. The DPC
+*               reaches into these with chained table expressions -
+*               `<fs_d>-property_to[ property_name = 'SAPDocId' ]-values[ 1 ]`
+*               - and OPTIONAL there covers only the LAST subscript, so a
+*               document missing that property raises
+*               CX_SY_ITAB_LINE_NOT_FOUND on the outer one. It happens to
+*               hold for the documents that service returns today; it is
+*               not something to copy.
+                DATA(lv_aoi) = fn_prop( it_prop = <ls_d>-property_to iv_name = `AOID` ).
+
+                DATA(lv_kind) = ``.
+                IF lv_aoi IS NOT INITIAL.
+*                 A UNIT'S DEED. Compared unpadded - the DPC does not pad
+*                 the AOID, only the parcel number.
+                  IF lv_aoi <> iv_aoid OR iv_aoid IS INITIAL.
+                    CONTINUE.
+                  ENDIF.
+                  lv_kind = COND string( WHEN ms_ctx-langu = 'A'
+                                         THEN `وثيقة تملك وحدة`
+                                         ELSE `Title Deed of Unit` ).
+                ELSE.
+                  DATA(lv_pn) = fn_prop( it_prop = <ls_d>-property_to iv_name = `ParcelNumber` ).
+                  IF lv_pn IS NOT INITIAL.
+                    lv_pn = |{ lv_pn ALPHA = IN }|.
+                  ENDIF.
+                  IF lv_pn IS INITIAL OR lv_pn <> lv_pcl.
+                    CONTINUE.
+                  ENDIF.
+                  lv_kind = COND string( WHEN ms_ctx-langu = 'A'
+                                         THEN `وثيقة تملك قسيمة`
+                                         ELSE `Title Deed of Parcel` ).
+                ENDIF.
+
+                APPEND VALUE #(
+                  number     = fn_prop( it_prop = <ls_d>-property_to iv_name = `TitleDeedNumberCO` )
+                  doctype    = lv_kind
+*                 THE DEPARTMENT IS A CONSTANT, not a read. The DPC sets
+*                 departmentcode 'MUN' and the name by language on every
+*                 row it builds - it is not a property on the document.
+                  department = COND string( WHEN ms_ctx-langu = 'A'
+                                            THEN `بلدية رأس الخيمة`
+                                            ELSE `Municipality` )
+                  issuedate  = fn_prop( it_prop = <ls_d>-property_to iv_name = `IssueDate` )
+                  validfrom  = fn_prop( it_prop = <ls_d>-property_to iv_name = `DateValidFrom` )
+                  validto    = fn_prop( it_prop = <ls_d>-property_to iv_name = `DateValidTo` )
+*                 THE ID ONLY, NEVER THE FILE. SAPDocId is what a later
+*                 per-row action would hand to ZCL_EGA_FILENET_API to
+*                 fetch the content; fetching it here would pull every
+*                 document out of ECM as base64 just to draw a list of
+*                 numbers.
+                  docid      = fn_prop( it_prop = <ls_d>-property_to iv_name = `SAPDocId` ) )
+                  TO lt_dc.
+              ENDLOOP.
+
               CREATE DATA rs-attach LIKE lt_dc.
               ASSIGN rs-attach->* TO FIELD-SYMBOL(<lt_dc>).
               IF <lt_dc> IS ASSIGNED.
                 <lt_dc> = lt_dc.
               ENDIF.
+
             CATCH cx_root INTO DATA(lx_dc).
-*             ITS OWN CATCH TOO, and for a sharper reason than projects:
-*             this one leaves the system. Every document is a separate
-*             ZCL_EGA_FILENET_API read that returns the file CONTENT as
-*             base64, so a slow or unreachable ECM must not take the five
+*             ITS OWN CATCH, and for a sharper reason than projects: this
+*             one leaves the system. SEARCH_TITLE_DEED( ) is an ECM call,
+*             so a slow or unreachable Filenet must not take the five
 *             local tabs with it.
               to_msg( EXPORTING io_exc = lx_dc CHANGING ct_msg = rs-msg ).
           ENDTRY.
