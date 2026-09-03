@@ -785,6 +785,21 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     mv_userdata = zif_rak_journey~get_param( 'userdata' ).
 
+*   TRACE ON BEFORE IDENTITY, and this was a real blind spot rather than
+*   a tidy-up. MV_TRACE was resolved twenty lines below, AFTER
+*   RESOLVE_IDENTITY( ) had already run - and TRACE( ) drops everything
+*   while it is blank. So every IDENT line the identity resolution emits
+*   was discarded, on the one screen where the question is "who does CJS
+*   think this citizen is".
+*
+*   The symptom: a &trace=x launch that ends in "The backend did not
+*   return a draft reference" prints the journey, the path, the handler
+*   and the CREATE - and not one word about the partner, which is the
+*   thing that was wrong. The blocker had to reconstruct it from what was
+*   sent rather than reading what was resolved.
+    DATA(lv_tp0) = to_upper( zif_rak_journey~get_param( 'trace' ) ).
+    mv_trace = xsdbool( lv_tp0 = 'X' OR lv_tp0 = '1' OR lv_tp0 = 'TRUE' ).
+
     resolve_identity( ).
 
     ensure_config( ).
@@ -805,8 +820,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         mv_case_guid = zif_rak_journey~get_param( 'draftid' ).
       ENDIF.
     ENDIF.
-    DATA(lv_tp) = to_upper( zif_rak_journey~get_param( 'trace' ) ).
-    mv_trace = xsdbool( lv_tp = 'X' OR lv_tp = '1' OR lv_tp = 'TRUE' ).
+*   Already resolved above, before RESOLVE_IDENTITY( ) - see there.
 
     mo_backend = zcl_rak_be_factory=>get( ms_config ).
     IF mo_backend IS INITIAL AND ms_config-backend-active = abap_true.
@@ -1925,28 +1939,30 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       lv_user = c_sim_user.
     ENDIF.
 
-*   The ACTIVE row. An inactive one is a previous session and matches
-*   nothing on the way back.
-    SELECT SINGLE user_key FROM zega_t_cj_us_log
-      WHERE id = @lv_user AND active = @abap_true
-      INTO @DATA(lv_key).
-    IF sy-subrc <> 0.
-      RETURN.
-    ENDIF.
-
-*   ROLEBP IS NOT OPTIONAL, and a blank one is worse than no envelope.
-*   GET_BP( ) does NOT look the role partner up - it hands back whatever
-*   the envelope carried. The legacy BAdI then reads property, fees and
-*   case ownership against that number, so a blank one asks the backend
-*   "what does partner <nothing> own" and gets the honest answer:
+*   THE PARTNER FIRST, BECAUSE IT DOES NOT NEED A SESSION. This method
+*   used to SELECT the session row first and RETURN when there was none -
+*   before resolving the partner, so a system with no live portal session
+*   for this user handed CJS no identity at all.
 *
-*       You currently have no registered properties in our system
+*   That is the failure, exactly: a &journey=M011 launch on E10/200 with
+*   no &userdata= posted PARAM3 blank, ZFM_EGA_CJ_FW_POST_N returns
+*   before GET BADI when LOGINBP is blank and the journey is not
+*   anonymous, and the citizen got "The backend did not return a draft
+*   reference. The application cannot be started." No case, ever, from
+*   CJS on its own.
 *
-*   - on a screen already listing three parcels, because the DPC path
-*   resolves identity from the x-custom1 header instead and never sees
-*   this envelope. Two identity paths, one of them blank, no contradiction
-*   reported anywhere. So the partner behind the internet user is resolved
-*   here and put in.
+*   The two facts are independent and were coupled for no reason: WHO the
+*   citizen is comes from the internet user through
+*   ZFM_EGA_GET_BP_FROM_INTERNET_U, and the SESSION KEY comes from
+*   ZEGA_T_CJ_US_LOG. The first is stable configuration; the second is a
+*   live portal login that may simply not exist right now. Resolve the
+*   partner unconditionally, and treat the session key as the bonus it
+*   is.
+*
+*   NOTHING IS WRITTEN TO ZEGA_T_CJ_US_LOG. A row is read when one is
+*   there and mimicked when it is not - which is the instruction, and
+*   also the only safe reading: that table is the portal's, and every
+*   real login owns a row in it.
     DATA lv_fm_user TYPE string.
     DATA lv_bp      TYPE bu_partner.
     lv_fm_user = lv_user.
@@ -1965,6 +1981,38 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     CONDENSE lv_role_bp.
     ev_partner = lv_role_bp.
 
+*   The ACTIVE row. An inactive one is a previous session and matches
+*   nothing on the way back.
+    SELECT SINGLE user_key FROM zega_t_cj_us_log
+      WHERE id = @lv_user AND active = @abap_true
+      INTO @DATA(lv_key).
+    IF sy-subrc <> 0.
+*     NO LIVE SESSION, AND THAT IS NOT FATAL ANY MORE. Without a key
+*     there is no envelope to mimic - GET_BP( ) matches ZEGA_T_CJ_US_LOG
+*     on the EBP member, so an invented one would resolve nobody and a
+*     blank one is worse than none. But EV_PARTNER is already set, and
+*     RESOLVE_IDENTITY( )'s fallback takes it from there: the journey
+*     knows who the citizen is, the BP item goes out, and PARAM3 is
+*     filled. Which is all the create needs.
+      trace( |IDENT   no active { lv_user } session row - partner | &&
+             |{ COND string( WHEN ev_partner IS NOT INITIAL THEN ev_partner ELSE '(none)' ) }| &&
+             | resolved from the internet user instead, no session key| ).
+      RETURN.
+    ENDIF.
+
+*   ROLEBP IS NOT OPTIONAL, and a blank one is worse than no envelope.
+*   GET_BP( ) does NOT look the role partner up - it hands back whatever
+*   the envelope carried. The legacy BAdI then reads property, fees and
+*   case ownership against that number, so a blank one asks the backend
+*   "what does partner <nothing> own" and gets the honest answer:
+*
+*       You currently have no registered properties in our system
+*
+*   - on a screen already listing three parcels, because the DPC path
+*   resolves identity from the x-custom1 header instead and never sees
+*   this envelope. Two identity paths, one of them blank, no contradiction
+*   reported anywhere. So the partner resolved above goes into it.
+*
 *   THE ENVELOPE, NOT THE BARE KEY. Two classes are called GET_BP( ) and
 *   they take different things: ZCL_EGA_CJ_UTILITY - the one the engine
 *   calls just below, and the one the legacy BAdI calls - deserializes
@@ -2578,6 +2626,21 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     IF mv_loginbp IS INITIAL AND lv_sim_bp IS NOT INITIAL.
       mv_loginbp = lv_sim_bp.
       trace( |IDENT   partner { mv_loginbp } from the simulated user, not from GET_BP| ).
+    ENDIF.
+
+*   AND SAY SO WHEN THERE IS STILL NOBODY, because everything downstream
+*   then fails in a way that names something else. A blank partner makes
+*   ZFM_EGA_CJ_FW_POST_N return before GET BADI on a journey that is not
+*   anonymous, so the create comes back with no draft reference and no
+*   message at all - which reads as a missing BAdI registration, a wrong
+*   category or a filter miss, and sent one investigation to each of
+*   those. The one line that would have ended it belongs here.
+    IF mv_loginbp IS INITIAL.
+      trace( |IDENT   NO PARTNER RESOLVED. On { c_sim_sysid }/{ c_sim_mandt } a launch | &&
+             |without &userdata= falls back to { c_sim_user }; anywhere else the launch | &&
+             |must carry &userdata= or &loginbp=. The backend create will return no | &&
+             |draft reference and no message, because the FM returns before GET BADI | &&
+             |when the partner is blank.| ).
     ENDIF.
 
     IF mv_rolebp IS INITIAL.
