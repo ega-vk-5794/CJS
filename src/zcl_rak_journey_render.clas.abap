@@ -3036,6 +3036,69 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   ---- KEEP THE SCROLL POSITION ACROSS THE REPAINT -------------------
+*   THE HASH TEST CANNOT FIX THE PARCEL SELECTOR, and three attempts at
+*   it establish why. Binding the tick box was necessary - the state is
+*   no longer written into the XML - but it is not sufficient, because
+*   selecting a parcel genuinely changes the page: M012's ON_CHANGE calls
+*   SYNC_GRID( ), which SET_GRID_DATA( )s a new row into RAKPARCELS. The
+*   markup differs, the hash cannot match, and the full repaint is
+*   CORRECT. There is no version of the quiet path that helps.
+*
+*   SO THE REPAINT STAYS AND THE SYMPTOM GOES. What the citizen calls
+*   flicker is VIEW_DISPLAY( ) tearing the control tree down and
+*   rebuilding it, which drops the scroll position - the page jumps to the
+*   top and the card they just ticked is off screen. That reads as "the
+*   selection vanished" even when it landed perfectly, which is exactly
+*   how it has been reported each time.
+*
+*   ON THE FULL PATH ONLY. The quiet path above does not rebuild anything,
+*   so it has no scroll to restore and returns before this.
+*
+*   FOLLOW_UP_ACTION IS ADDITIVE - Z2UI5_CL_CORE_CLIENT does
+*   `INSERT val INTO TABLE ... custom_js`, a table - so this cannot
+*   displace the parcel map's own snippet. That was worth checking rather
+*   than assuming: if it had been single-valued, adding one here would
+*   have silently broken the map.
+*
+*   PLAIN '...' LITERALS, NOT A STRING TEMPLATE. Every { and } would
+*   otherwise have to be escaped \{ \} because ABAP reads them as an
+*   embedded expression, and a snippet of JavaScript is mostly braces.
+*   And NOT ONE SINGLE QUOTE in the JavaScript: _runCustomJs splits on
+*   it and calls a frontend action with the pieces instead of running the
+*   code, so every string here is double-quoted.
+*
+*   AN EXPRESSION, because the frontend evaluates it as
+*   Function( "return " + snippet )( ) - hence the IIFE - and wrapped in
+*   TRY/CATCH throughout so a browser that refuses sessionStorage (a
+*   private window, blocked site data) degrades to today's behaviour
+*   rather than throwing on every render.
+    DATA(lv_scroll) =
+      '(function()' && '{' && 'try' && '{' &&
+      'var K="rakScrollTop";' &&
+      'var g=function()' && '{' && 'return document.scrollingElement||document.documentElement||document.body;' && '}' && ';' &&
+      'if(!window.rakScrollHook)' && '{' &&
+      'window.rakScrollHook=1;' &&
+      'window.addEventListener("scroll",function()' && '{' &&
+      'try' && '{' && 'sessionStorage.setItem(K,String(g().scrollTop));' && '}' && 'catch(e)' && '{' && '}' &&
+      '}' && ',true);' &&
+      '}' &&
+      'setTimeout(function()' && '{' &&
+      'try' && '{' && 'var v=sessionStorage.getItem(K);' &&
+      'if(v)' && '{' && 'g().scrollTop=parseInt(v,10);' && '}' &&
+      '}' && 'catch(e)' && '{' && '}' &&
+      '}' && ',0);' &&
+      'return 1;' &&
+      '}' && 'catch(e)' && '{' && 'return 0;' && '}' && '}' && ')()'.
+
+    TRY.
+        mo_e->mo_client->follow_up_action( lv_scroll ).
+      CATCH cx_root ##NO_HANDLER.
+*       A diagnostic convenience must never be the reason a page fails to
+*       render. If the client cannot take another follow-up action, the
+*       view still goes out below.
+    ENDTRY.
+
     mo_e->mv_view_sig = lv_sig.
     mo_e->mo_client->view_display( iv_xml ).
   ENDMETHOD.
