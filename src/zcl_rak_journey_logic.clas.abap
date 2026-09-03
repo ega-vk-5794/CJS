@@ -1207,19 +1207,27 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *   called or answered nothing, versus it answered fine and the address
 *   is under a key of another name. Listing the keys separates them in
 *   one run, instead of a round per guess.
+*   HOW MANY ARE ACTUALLY FILLED, counted separately from how many came
+*   back. A screen whose definition lists every payment field and whose
+*   map has no CPG row returns all the names and none of the values, and
+*   a key list alone reads as a healthy payment read - which is exactly
+*   how 23 keys with 23 blanks looked.
     DATA lv_keys TYPE string.
+    DATA lv_filled TYPE i.
     LOOP AT lt_vals INTO DATA(ls_kv).
+      IF ls_kv-value IS NOT INITIAL.
+        lv_filled = lv_filled + 1.
+      ENDIF.
       IF strlen( lv_keys ) > 300.
-        lv_keys = |{ lv_keys },...|.
-        EXIT.
+        CONTINUE.
       ENDIF.
       lv_keys = COND string( WHEN lv_keys IS INITIAL
                              THEN CONV string( ls_kv-key )
                              ELSE |{ lv_keys },{ ls_kv-key }| ).
     ENDLOOP.
     pay_trace( io_ctx  = io_ctx
-               iv_text = |PAY     prepare read returned { lines( lt_vals ) } value(s), | &&
-                         |{ lines( lt_msg ) } message(s) - keys: { lv_keys }| ).
+               iv_text = |PAY     prepare read returned { lines( lt_vals ) } value(s) of which | &&
+                         |{ lv_filled } filled, { lines( lt_msg ) } message(s) - keys: { lv_keys }| ).
 
 *   REFERENCE AND AMOUNT ARE STORED BEFORE ANY EXIT. They used to be
 *   written at the very bottom, after the URL check had already returned -
@@ -1294,9 +1302,20 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *   journey - DOK and EPDA - and silently wrong otherwise, so the message
 *   below names the three fields instead of sending the reader to the
 *   backend.
-    DATA(lv_has_cpg) = xsdbool( line_exists( lt_vals[ key = 'MERCHANTID' ] )
-                             OR line_exists( lt_vals[ key = 'PAYCHANNEL' ] )
-                             OR line_exists( lt_vals[ key = 'REFERENCEID' ] ) ).
+*   THE TEST IS ON VALUES, NEVER ON KEYS - the trace settled this and the
+*   first version of it was wrong. NSUBDIVISION_1_3 returns all 23
+*   payment field NAMES, APPLICATIONURL and MERCHANTID and SECRETKEY
+*   among them, because the screen's definition in /QNV/SB_UI_DEFIN
+*   carries those fields. What it does not return is a single VALUE for
+*   any of them, because the block that fills them is the one MT_UI_MAP
+*   skipped. Testing LINE_EXISTS( ) therefore says "payment screen" about
+*   the exact screen that is not one.
+    DATA(lv_mid)  = VALUE string( lt_vals[ key = 'MERCHANTID' ]-value OPTIONAL ).
+    DATA(lv_chan) = VALUE string( lt_vals[ key = 'PAYCHANNEL' ]-value OPTIONAL ).
+
+    DATA(lv_has_cpg) = xsdbool( lv_mid  IS NOT INITIAL
+                             OR lv_chan IS NOT INITIAL
+                             OR lv_ref  IS NOT INITIAL ).
 
     IF lv_url IS INITIAL.
       pay_trace( io_ctx  = io_ctx
