@@ -378,11 +378,12 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *     LABELSPAN* above. The symptom is a two-column dialog that lays out as if
 *     none of this had been set, which reads as the columns not working at all.
 *
-*     SINGLECONTAINERFULLSIZE = false. A SimpleForm with ONE container - which is
-*     every dialog built here, since none of them passes a title per group -
-*     defaults to giving that container the full width and ignoring COLUMNSL /
-*     COLUMNSXL entirely. This is the attribute that lets a single container be
-*     divided into columns at all.
+*     SINGLECONTAINERFULLSIZE = false. CORRECTED - this does NOT divide a single
+*     container into columns; nothing does. It only stops a lone container
+*     taking the full width, which on its own produced a half-width single
+*     column and no second column at all. It is harmless now because the loop
+*     below always emits at least two containers when LV_COLS > 1, and this
+*     property applies only when there is exactly one.
 *
 *   All three are passed ONLY when there is more than one column, so the
 *   one-column dialog keeps the exact markup it had before this parameter existed.
@@ -445,7 +446,48 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *   cost one DDIC read - and a dialog with no value help at all costs none.
     DATA lo_f4 TYPE REF TO zcl_rak_f4_resolver.
 
+*   COLUMNS COME FROM CONTAINERS, NOT FROM COLUMNSL ALONE.
+*
+*   COLUMNSXL / COLUMNSL / COLUMNSM count FORM CONTAINERS placed side by
+*   side - they do not split the fields inside one container. A SimpleForm
+*   with no group heading has exactly ONE container, so setting the three
+*   properties laid the whole form out in a single column no matter what
+*   they said.
+*
+*   And SINGLECONTAINERFULLSIZE = false made that visibly worse rather than
+*   better: with one container it stops the container using the full width
+*   and sizes it to 1/COLUMNSL instead. The dialog was 54rem wide with every
+*   input squeezed into the left half and nothing in the right - which is
+*   exactly what "still coming in one column" looked like on screen.
+*
+*   A new container starts at each sap.ui.core.Title in the content, so the
+*   fields are split into LV_COLS groups with an empty Title before each.
+*   Fields therefore run DOWN the first column and then down the second,
+*   which is how a form of label/value pairs is normally read.
+    DATA(lv_n)    = lines( it_fields ).
+    DATA lv_per   TYPE i.
+    DATA lv_ix    TYPE i.
+    IF lv_cols > 1 AND lv_n > 0.
+*     Round up, so 14 fields over 2 columns is 7 and 7 rather than 7 and a
+*     stray. DIV then a remainder test - CEIL( ) on integers needs a float
+*     operand and is not worth one here.
+      lv_per = lv_n DIV lv_cols.
+      IF lv_n MOD lv_cols <> 0.
+        lv_per = lv_per + 1.
+      ENDIF.
+    ENDIF.
+
     LOOP AT it_fields INTO DATA(ls).
+
+*     Start a container at the first field and at every LV_PER after it.
+*     The Title carries no text: it is the container break that is wanted,
+*     not a heading over each half.
+      IF lv_per > 0.
+        IF lv_ix MOD lv_per = 0.
+          lo_form->title( ns = 'core' ).
+        ENDIF.
+        lv_ix = lv_ix + 1.
+      ENDIF.
 
 *     REQUIRED is the sap.m.Label property, not a CSS class - see
 *     ZCL_RAK_JOURNEY_RENDER->REQ_LABEL( ). Every hand-drawn popup that still
