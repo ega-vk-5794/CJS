@@ -52,6 +52,23 @@ CLASS zcl_rak_bp_search DEFINITION
 *   What a caller actually knows. All optional; supply what you have.
     TYPES: BEGIN OF ty_req,
              eid           TYPE string,   " EId, dashes or not
+*            ONE FIELD PER IDENTIFIER, because the backend has one property per
+*            identifier. ZCRM_MOI_CR_UPD builds a different selection parameter
+*            per LV_SELECTION - 'EID', 'DOCUMENT_NUMBER', 'UID', 'PARTNER' - and
+*            ZWDC_EGA_EBP_SRCH_CREATE->SET_MOI_QUERY_PARAM independently uses the
+*            same four spellings, so these are the interface and not one
+*            developer's guess. Both reach the same /BOBF/IF_FRW_QUERY~QUERY on
+*            ZCL_EGA_BP_BO_QUERY that BP_QUERY goes through.
+*
+*            Sending a passport number under 'EId' asks which partner has an
+*            EMIRATES ID equal to a passport number. That matches nothing, and
+*            the citizen is told "No data found" - indistinguishable from a
+*            mistyped number.
+*
+*            Additive: ADD_FLT( ) skips a blank value, so a caller that fills
+*            only EID sends exactly the filters it sends today.
+             document_number TYPE string, " passport number, 'DOCUMENT_NUMBER'
+             uid             TYPE string, " unified number,  'UID'
              trade_licence TYPE string,   " TradeLicense
              partner       TYPE string,
              idtype        TYPE string,
@@ -434,6 +451,28 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
                        iv_val    = lv_eid_flt
              CHANGING  ct_filter = lt_filter ).
 
+*   SPELLING IS THE ONE THING NOT SETTLED HERE, and it fails silently if wrong.
+*   The evidence for these two properties is ZCRM_MOI_CR_UPD and
+*   SET_MOI_QUERY_PARAM, and both build a BOPF selection parameter DIRECTLY -
+*   'DOCUMENT_NUMBER', 'UID', upper case with an underscore. This class does not
+*   call BOPF directly; it goes through BP_QUERY, whose other properties are
+*   OData-cased ('EId', 'TradeLicense', 'Documentnationality') and which is
+*   documented four lines up as looking its own EId back up under that spelling -
+*   so BP_QUERY translates at least one name rather than passing it through.
+*
+*   OData casing is therefore used here, to match the layer actually being
+*   called. If BP_QUERY turns out to pass PROPERTY through unchanged, these two
+*   want 'DOCUMENT_NUMBER' and 'UID' instead. A wrong name is not an error: the
+*   filter is built, ignored, and the search answers as though no number was
+*   given. Confirm on the first real passport search rather than assuming.
+    add_flt( EXPORTING iv_prop   = 'DocumentNumber'
+                       iv_val    = is_req-document_number
+             CHANGING  ct_filter = lt_filter ).
+
+    add_flt( EXPORTING iv_prop   = 'Uid'
+                       iv_val    = is_req-uid
+             CHANGING  ct_filter = lt_filter ).
+
     add_flt( EXPORTING iv_prop   = 'TradeLicense'
                        iv_val    = is_req-trade_licence
              CHANGING  ct_filter = lt_filter ).
@@ -616,12 +655,26 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
 *   both date of birth and nationality says so twice, as it always did.
     IF is_req-call_moi = abap_true AND is_req-no_moi_call = abap_false
        AND lv_skip_moi = abap_false.
+*     NAME THE FIELD. The two appends shared one OTR alias, so a row wrong on
+*     both date of birth and nationality produced the same sentence twice and
+*     nothing said which to correct. The two IFs were already separate; only
+*     the text was shared.
+*
+*     The alias is KEPT rather than replaced by two literals. It is the
+*     legacy's own wording, still single-sourced in SOTR, so a change there
+*     still reaches both messages - the field name is prefixed to it, not
+*     substituted for it. Bilingual inline, the same way every other message
+*     this class raises is written.
       DATA(lv_moi) = CONV string( cl_hrtmc_dr_utilities=>get_otr_text_by_alias( iv_alias = c_moi_msg ) ).
       IF ls_bp-dob <> is_req-dob.
-        add( EXPORTING iv_text = lv_moi iv_type = lv_sev CHANGING ct_msg = ct_msg ).
+        add( EXPORTING iv_text = COND string( WHEN sy-langu = 'E' THEN |Date of birth: { lv_moi }|
+                                              ELSE |تاريخ الميلاد: { lv_moi }| )
+                       iv_type = lv_sev CHANGING ct_msg = ct_msg ).
       ENDIF.
       IF ls_bp-nationality <> is_req-nationality.
-        add( EXPORTING iv_text = lv_moi iv_type = lv_sev CHANGING ct_msg = ct_msg ).
+        add( EXPORTING iv_text = COND string( WHEN sy-langu = 'E' THEN |Nationality: { lv_moi }|
+                                              ELSE |الجنسية: { lv_moi }| )
+                       iv_type = lv_sev CHANGING ct_msg = ct_msg ).
       ENDIF.
     ENDIF.
 

@@ -54,8 +54,25 @@ CLASS zcl_rak_bp_popup DEFINITION
 *   they stand rather than being translated on the way.
     CONSTANTS c_eid    TYPE string VALUE 'YFS002'.   " Emirates ID
     CONSTANTS c_tlic   TYPE string VALUE 'YP0001'.   " Trade licence
-    CONSTANTS c_pass   TYPE string VALUE 'YFS004'.   " Passport      - CONFIRM, see below
-    CONSTANTS c_unif   TYPE string VALUE 'YFS005'.   " Unified ID    - CONFIRM, see below
+*   CONFIRMED, AND BOTH WERE WRONG. ZCRM_MOI_CR_UPD writes the identification
+*   rows itself, so its own codes are authoritative:
+*
+*     ls_data-eid      -> ls_id-idtype = 'YFS002'   Emirates ID
+*     ls_data-uid      -> ls_id-idtype = 'YFS001'   Unified ID
+*     ls_data-passport -> ls_id-idtype = 'YFS005'   Passport
+*     ls_data-visa     -> ls_id-idtype = 'YFS006'   Visa
+*
+*   ZWDC_EGA_EBP_SRCH_CREATE->SORT_IDTYPE reads them back with the same four in
+*   the same meanings - two independent sources, one of them the writer.
+*
+*   So passport was YFS004, which appears in no source at all, and unified was
+*   YFS005, which is the PASSPORT code. IDTYPE goes out as a filter, so a
+*   passport search filtered on a type no partner holds and could never match,
+*   while a unified search filtered on the passport type. Neither was visible in
+*   testing because live traffic is almost entirely Emirates ID, where YFS002 is
+*   correct.
+    CONSTANTS c_pass   TYPE string VALUE 'YFS005'.   " Passport
+    CONSTANTS c_unif   TYPE string VALUE 'YFS001'.   " Unified ID
 
     CONSTANTS c_ev_go  TYPE string VALUE 'BPP_SEARCH'.
     CONSTANTS c_ev_new TYPE string VALUE 'BPP_RESUME'.
@@ -523,9 +540,18 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
         ENDIF.
       WHEN c_tlic.
         ls_req-trade_licence = lv_num.
+      WHEN c_pass.
+*       ITS OWN FIELD NOW, not EID. The backend has a named property per
+*       identifier - 'DOCUMENT_NUMBER' for a passport, 'UID' for a unified
+*       number - so sending either under 'EId' asked which partner holds an
+*       Emirates ID equal to a passport number, matched nothing, and reported
+*       "No data found". See the note on ZCL_RAK_BP_SEARCH=>TY_REQ.
+        ls_req-document_number = lv_num.
+      WHEN c_unif.
+        ls_req-uid = lv_num.
       WHEN OTHERS.
-*       Passport and Unified ID. See the note at the end of this file: the request
-*       field these belong in is the one thing here I could not verify.
+*       An id type this popup does not know. EID stays the fallback rather than
+*       dropping the number silently.
         ls_req-eid = lv_num.
     ENDCASE.
 
