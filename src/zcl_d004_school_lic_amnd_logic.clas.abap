@@ -52,6 +52,15 @@ private section.
   constants:
     c_colsep TYPE c LENGTH 1 value '~' ##NO_TEXT.
   constants C_GRID type STRING value 'OWNERS_SEARCH' ##NO_TEXT.
+* UI_TABLE_COLUMN10 on the OWNERS_SEARCH rows - the BAdI's ACTIVITY.
+*
+* PLACEHOLDER. ZIF_EGA_FW_CJI~UPDATE only adds a row's share to its total
+* when ACTIVITY is not initial, so this has to be non-blank or the shares
+* never total anything. Any non-blank value satisfies that test - but the
+* value is stored on the case, and on an ownership-change journey it most
+* likely means added / changed / removed. CONFIRM IT: create one owner
+* through the old service and use whatever that writes.
+  constants C_OWN_ACTIVITY type STRING value 'X' ##NO_TEXT.
   constants C_EVT_OWNEW type STRING value 'OWN_NEW' ##NO_TEXT.
   constants C_EVT_OWNSR type STRING value 'OWN_SEARCH' ##NO_TEXT.
   constants C_EVT_OWNOK type STRING value 'OWN_OK' ##NO_TEXT.
@@ -85,6 +94,14 @@ private section.
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY
       !IO_VIEW type ref to Z2UI5_CL_XML_VIEW .
+* One cell of an outgoing backend table row, by column NUMBER.
+* The target side is positional because the BAdI's reads are.
+  methods PUT_COL
+    importing
+      !IV_COL type I
+      !IV_VAL type STRING
+    changing
+      !CS_ROW type /QNV/SB_TABL_DEF_ST .
   methods OWN_FORM_LOAD
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY
@@ -465,6 +482,14 @@ CLASS ZCL_D004_SCHOOL_LIC_AMND_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD put_col.
+    ASSIGN COMPONENT |UI_TABLE_COLUMN{ iv_col }| OF STRUCTURE cs_row
+           TO FIELD-SYMBOL(<c>).
+    CHECK sy-subrc = 0.
+    <c> = iv_val.
+  ENDMETHOD.
+
+
   method ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES.
 CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
   EXPORTING
@@ -528,40 +553,86 @@ CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
 * whichever way this is settled, slots 8 and 10..13 need a source before
 * they can carry anything.
 *----------------------------------------------------------------------------*
-    DATA lt_src TYPE zif_rak_journey=>tt_string.
-    DATA lv_c   TYPE i.
+*   READ BY COLUMN NAME, WRITE BY THE BAdI'S POSITION.
+*
+*   The previous version read the incoming cells by POSITION and assumed
+*   they arrived in the READ layout. They do not - a debugger session on
+*   CT_TABLE_DATA showed the row arriving in the GRID SPEC's own order:
+*   1 name, 2 nationality, 3 share, 4 mobile, 5 e-mail. Deriving from an
+*   assumed source order is what made this wrong twice, so the source is
+*   now read by NAME out of the grid itself and only the TARGET is
+*   positional.
+*
+*   The target positions are ZIF_EGA_FW_CJI~UPDATE's, which are hard-coded
+*   in the BAdI and cannot be changed from here:
+*     1 partner  2 name  3 mobile  4 e-mail  5 share
+*     6 id_type  7 emirates_id  8 passport  9 nationality
+*     10 activity  11 new_item  12 nationality_key  13 birth_date
+*
+*   ONLY THE OWNERS_SEARCH ROWS ARE TOUCHED. The same owner also goes out
+*   as OWNERS_DISP and OWNERS_1, and those are read by the mapper using
+*   LIST_SEQUENCE - which is why the share sits at 3 there and must stay
+*   there. The BAdI filters on OWNERS_SEARCH, so the two consumers can each
+*   have the order they expect as long as this loop leaves the other rows
+*   alone.
+*
+*   ROW N HERE IS ROW N OF THE GRID. TABLES_FOR_BACKEND( ) numbers the rows
+*   it emits in grid order, so the counter below lines them up without
+*   needing a key.
+    DATA(ls_grid) = io_ctx->get_grid_data( c_grid ).
+    DATA lv_row TYPE i.
 
     LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<ow>) WHERE ui_table_name = 'OWNERS_SEARCH'.
-      CLEAR lt_src.
+      lv_row = lv_row + 1.
+      READ TABLE ls_grid-rows INTO DATA(lt_gr) INDEX lv_row.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+
+      DATA(lv_name) = zcl_rak_journey_util=>cell_of(
+                        it_cols = ls_grid-columns it_row = lt_gr iv_name = 'PARTNER' ).
+      DATA(lv_natio) = zcl_rak_journey_util=>cell_of(
+                        it_cols = ls_grid-columns it_row = lt_gr iv_name = 'NATIONALITY' ).
+      DATA(lv_share) = zcl_rak_journey_util=>cell_of(
+                        it_cols = ls_grid-columns it_row = lt_gr iv_name = 'SHARE_PER' ).
+      DATA(lv_mob)   = zcl_rak_journey_util=>cell_of(
+                        it_cols = ls_grid-columns it_row = lt_gr iv_name = 'MOBILE_NUMBER' ).
+      DATA(lv_mail)  = zcl_rak_journey_util=>cell_of(
+                        it_cols = ls_grid-columns it_row = lt_gr iv_name = 'EMAIL_ADDRESS' ).
+
+*     Clear every slot first, so a cell the grid does not carry leaves
+*     blank rather than keeping whatever TABLES_FOR_BACKEND( ) put there.
       DO 30 TIMES.
         ASSIGN COMPONENT |UI_TABLE_COLUMN{ sy-index }| OF STRUCTURE <ow>
                TO FIELD-SYMBOL(<sc>).
         IF sy-subrc <> 0.
           EXIT.
         ENDIF.
-        APPEND |{ <sc> }| TO lt_src.
         CLEAR <sc>.
       ENDDO.
 
-*     Source positions are the READ layout: 1 partner, 2 name, 3 mobile,
-*     4 e-mail, 5 share, 7 Emirates ID, 9 nationality.
-      DATA(lt_out) = VALUE zif_rak_journey=>tt_string(
-        ( VALUE #( lt_src[ 2 ] OPTIONAL ) )    " 1 name
-        ( VALUE #( lt_src[ 9 ] OPTIONAL ) )    " 2 nationality
-        ( VALUE #( lt_src[ 5 ] OPTIONAL ) )    " 3 share      <- LIST_SEQUENCE 3
-        ( VALUE #( lt_src[ 3 ] OPTIONAL ) )    " 4 mobile
-        ( VALUE #( lt_src[ 4 ] OPTIONAL ) )    " 5 e-mail
-        ( VALUE #( lt_src[ 1 ] OPTIONAL ) )    " 6 partner
-        ( VALUE #( lt_src[ 7 ] OPTIONAL ) ) ). " 7 Emirates ID
+*     1 PARTNER IS LEFT BLANK ON PURPOSE. The grid has no BP number column -
+*     its PARTNER column holds the owner's NAME, which is what its label and
+*     the OWNERS_DISP grid beside it both say. Sending a name into a partner
+*     number is worse than sending nothing, so if the case needs the BP it
+*     has to be added to the grid first.
+      put_col( EXPORTING iv_col = 2  iv_val = lv_name  CHANGING cs_row = <ow> ).
+      put_col( EXPORTING iv_col = 3  iv_val = lv_mob   CHANGING cs_row = <ow> ).
+      put_col( EXPORTING iv_col = 4  iv_val = lv_mail  CHANGING cs_row = <ow> ).
+      put_col( EXPORTING iv_col = 5  iv_val = lv_share CHANGING cs_row = <ow> ).
+      put_col( EXPORTING iv_col = 9  iv_val = lv_natio CHANGING cs_row = <ow> ).
 
-      CLEAR lv_c.
-      LOOP AT lt_out INTO DATA(lv_v).
-        lv_c = lv_c + 1.
-        ASSIGN COMPONENT |UI_TABLE_COLUMN{ lv_c }| OF STRUCTURE <ow>
-               TO FIELD-SYMBOL(<tc>).
-        CHECK sy-subrc = 0.
-        <tc> = lv_v.
-      ENDLOOP.
+*     10 ACTIVITY - WITHOUT THIS THE SHARES ARE NEVER ADDED UP AT ALL.
+*     ZIF_EGA_FW_CJI~UPDATE only adds a row's SHARE_PER to its total when
+*     ACTIVITY is not initial, and CJS has never sent a tenth column, so the
+*     total came out 0.00% however correct the shares were.
+*
+*     THE VALUE IS A PLACEHOLDER AND HAS TO BE CONFIRMED. Any non-blank
+*     value satisfies the BAdI's test, but this one is stored on the case,
+*     and on an ownership-change journey "activity" most likely means added
+*     / changed / removed. Create one owner through the OLD service and put
+*     whatever it writes in here.
+      put_col( EXPORTING iv_col = 10 iv_val = c_own_activity CHANGING cs_row = <ow> ).
     ENDLOOP.
 
  DATA(lv_sel) = io_ctx->get_val( 'LICENSE_SEL' ).
