@@ -1095,8 +1095,10 @@ super->zif_rak_journey_logic~on_render_popup(
     lo_cl->column( )->text( 'Nationality' ).
     lo_cl->column( )->text( 'Owner Shares' ).
     lo_cl->column( )->text( 'Documents' ).
-    lo_cl->column( )->text( 'Status' ).
-    lo_cl->column( halign = 'End' )->text( '' ).
+*   One column, one control. There is no action column any more - the switch
+*   IS the action, so a second cell holding a button repeated the same state
+*   twice and left both halves too narrow to read.
+    lo_cl->column( halign = 'Center' )->text( 'Status' ).
 
 *   Read once, not once per row - a ~240-row T005T select.
     DATA(lt_nat) = zcl_rak_journey_util=>nationalities( ).
@@ -1142,7 +1144,7 @@ super->zif_rak_journey_logic~on_render_popup(
         icon  = COND #( WHEN lv_docs > 0 THEN 'sap-icon://attachment' ELSE 'sap-icon://alert' ) ).
 *     Two buttons rather than the legacy overflow menu: one press instead of
 *     two, and nothing hidden behind an icon a citizen has to discover.
-*     ACTIVE / WITHDRAWN, NOT EDIT / DELETE.
+*     ACTIVE / WITHDRAWN AS A SWITCH, NOT EDIT / DELETE.
 *
 *     An owner on a licence is a matter of record: the amendment has to show
 *     that a share was withdrawn on this application, not quietly lose the
@@ -1153,26 +1155,31 @@ super->zif_rak_journey_logic~on_render_popup(
 *
 *     A withdrawn row is still sent. It carries a blank ACTIVITY, so the
 *     backend leaves it out of the 100% total while still seeing it.
+*
+*     ONE sap.m.Switch, not a status text beside a button. The first attempt
+*     drew both, and in a table column neither had room - the citizen got
+*     "Withdr" next to "Reactiva" and no idea which was the state and which
+*     was the action. A switch shows the state and IS the control.
+*
+*     AcceptReject is the tick/cross pill rather than the I/O one, which is
+*     what reads as on-or-off here.
+*
+*     STATE IS A LITERAL, NOT A BINDING. The row has no model field of its
+*     own - it is a grid cell - so the switch is drawn in the position the
+*     cell says, and the CHANGE event carries the owner in its name. The
+*     handler flips the stored cell and the next render draws the new
+*     position, which is the same round trip every other row action here
+*     already makes.
       DATA(lv_act) = xsdbool( zcl_rak_journey_util=>cell_of(
                                 it_cols = ls_g-columns it_row = lt_r
                                 iv_name = c_col_status ) = c_own_active ).
 
-      lo_cells->object_status(
-        text  = COND #( WHEN lv_act = abap_true THEN 'Active' ELSE 'Withdrawn' )
-        state = COND #( WHEN lv_act = abap_true THEN 'Success' ELSE 'Warning' )
-        icon  = COND #( WHEN lv_act = abap_true
-                        THEN 'sap-icon://accept' ELSE 'sap-icon://decline' ) ).
-
-      DATA(lo_act) = lo_cells->hbox( ).
-      lo_act->button(
-        text    = COND #( WHEN lv_act = abap_true THEN 'Withdraw' ELSE 'Reactivate' )
-        icon    = COND #( WHEN lv_act = abap_true
-                          THEN 'sap-icon://decline' ELSE 'sap-icon://accept' )
-        type    = 'Transparent'
-        tooltip = COND #( WHEN lv_act = abap_true
-                          THEN 'Withdraw this owner from the licence'
-                          ELSE 'Put this owner back on the licence' )
-        press   = io_ctx->event( |OWN_TOGG_{ lv_id }| ) ).
+*     COND string( ), not COND #( ). STATE is typed CLIKE, which is generic,
+*     so # has nothing to infer from and the class will not activate.
+      lo_cells->switch(
+        state  = COND string( WHEN lv_act = abap_true THEN 'true' ELSE 'false' )
+        type   = 'AcceptReject'
+        change = io_ctx->event( |OWN_TOGG_{ lv_id }| ) ).
     ENDLOOP.
 
     IF ls_g-rows IS INITIAL.
