@@ -534,6 +534,15 @@ These raise nothing and render nothing. They account for most of the bugs found 
   for this check" and falls back to the catalogue. `MIN_LEN`/`MAX_LEN` are the exception:
   they never read MSG, so a plain MSG is still ignored there and only an explicit `LEN:`
   clause reaches them.
+  **`NUMBER:` runs before `FORMAT:` and stops it.** `VALIDATE_STEP( )`'s numeric gate
+  sits ahead of the REGEX check and `CONTINUE`s, so on a field carrying `MIN_VAL` or
+  `MAX_VAL` a non-numeric value raises `CX_SY_CONVERSION_NO_NUMBER`, takes
+  `MSG_FOR( 'NUMBER' )`, and `MSG_FOR( 'FORMAT' )` is never reached. The ordering is
+  right — a value that is not a number cannot be range-checked, and one message per
+  field is the point of the `CONTINUE`s — but it is not visible from the column
+  names: a field with **both** `REGEX` and `MIN_VAL`/`MAX_VAL` that configures only
+  `FORMAT:` silently shows the catalogue's "&1 must be a valid number" instead. Write
+  `NUMBER:` as well as `FORMAT:` on any field that has both.
 - **Config before code.** Show/hide belongs in `ZRAK_T_JNY_RULE`, options in `ZRAK_T_JNY_OPT`.
   Write ABAP for payment routing, live BP search, cross-container side effects.
 - **Migrating a legacy screen?** Drive `ZCL_RAK_MIGRATOR`. Do not hand-author `ZRAK_T_JNY*`

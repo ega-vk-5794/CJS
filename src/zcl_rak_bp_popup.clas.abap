@@ -547,8 +547,40 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *       Emirates ID equal to a passport number, matched nothing, and reported
 *       "No data found". See the note on ZCL_RAK_BP_SEARCH=>TY_REQ.
         ls_req-document_number = lv_num.
+*       CALL_MOI HERE TOO, for the same reason it is set on the EId branch.
+*       SEARCH_FORM( ) collects a date of birth and a nationality on every
+*       branch except the trade licence - the guard there is only
+*       IF lv_by <> c_tlic - and VALIDATE( )'s cross-check is gated on
+*       CALL_MOI. Setting it only for an Emirates ID meant a passport or
+*       unified search ASKED the citizen for both fields, SENT both, and
+*       compared neither: a partner nobody had verified came back and nothing
+*       on screen said so.
+*
+*       Three sources agree that verification is not Emirates-ID-only:
+*       ZCRM_MOI_CR_UPD appends CallMoi = 'X' ahead of its branch and guards
+*       the cross-check with only IF lv_selection NE '4', SET_MOI_QUERY_PARAM
+*       appends it ahead of its branch too, and VALIDATE_MOI_TO_INPUT runs for
+*       sel_index ne 4 and ne 5.
+*
+*       Every opt-out is intact: NO_MOI_CALL still suppresses the call,
+*       SKIP_MOI_MISMATCH still keeps the call and drops the verdict, and
+*       FLAG = 'X' still does the same for an older caller. A journey that
+*       wants the previous behaviour on these branches sets one field.
+*
+*       Note this does NOT make a wrong nationality reportable on the passport
+*       branch: a passport number is only unique within its issuing country, so
+*       nationality is part of that key and a wrong one finds nobody at all -
+*       VALIDATE( ) returns on the empty READ and "No data found" is the only
+*       message. It is the DATE OF BIRTH this recovers there, and both fields
+*       on the unified branch.
+        IF ls_req-no_moi_call = abap_false.
+          ls_req-call_moi = abap_true.
+        ENDIF.
       WHEN c_unif.
         ls_req-uid = lv_num.
+        IF ls_req-no_moi_call = abap_false.
+          ls_req-call_moi = abap_true.
+        ENDIF.
       WHEN OTHERS.
 *       An id type this popup does not know. EID stays the fallback rather than
 *       dropping the number silently.
