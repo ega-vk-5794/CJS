@@ -117,6 +117,23 @@ CLASS lcl_fix DEFINITION FINAL.
     CLASS-METHODS say      IMPORTING iv_state TYPE string
                                      is_c     TYPE ty_chg
                                      iv_detail TYPE string.
+
+*   The real JOURNEY_ID for a short code like E016.
+*
+*   The pack is written against the codes the tickets use, and those are
+*   NOT what ZRAK_T_JNY is keyed on: the seed reports show ids such as
+*   EPDA_E014_CONSULT_REG and EPDA_E027_VICE_CAPTAIN beside plain ones like
+*   D009 and E028. A pack row saying 'E016' therefore matched no row at all
+*   and the whole run reported NOT FOUND five times over - which read as
+*   "the config is missing" when the config was fine and the key was wrong.
+*
+*   So the code is resolved against the journey table instead of assumed.
+*   Exactly one match is used; none or several is reported WITH THE
+*   CANDIDATES, because the answer to "which journey did you mean" is a
+*   list the reader can choose from, not a guess made here.
+    CLASS-METHODS resolve_jrny IMPORTING iv_code   TYPE zrak_journey_id
+                               EXPORTING ev_jrny   TYPE zrak_journey_id
+                                         ev_note   TYPE string.
 ENDCLASS.
 
 CLASS lcl_fix IMPLEMENTATION.
@@ -140,6 +157,18 @@ CLASS lcl_fix IMPLEMENTATION.
       IF s_jrny[] IS NOT INITIAL AND ls_c-jrny NOT IN s_jrny.
         CONTINUE.
       ENDIF.
+
+*     The pack carries the ticket's code; ZRAK_T_JNY is keyed on something
+*     longer. Resolve before dispatching, and stop this row cleanly when the
+*     code is ambiguous rather than reporting five NOT FOUNDs downstream.
+      resolve_jrny( EXPORTING iv_code = ls_c-jrny
+                    IMPORTING ev_jrny = DATA(lv_real)
+                              ev_note = DATA(lv_note) ).
+      IF lv_real IS INITIAL.
+        say( iv_state = 'NOJRNY' is_c = ls_c iv_detail = lv_note ).
+        CONTINUE.
+      ENDIF.
+      ls_c-jrny = lv_real.
 
       CASE ls_c-kind.
         WHEN 'LABEL'.       do_label( ls_c ).
@@ -185,6 +214,44 @@ CLASS lcl_fix IMPLEMENTATION.
     FORMAT COLOR = lv_col.
     WRITE: / iv_state, 12 is_c-ticket, 25 is_c-jrny, 33 is_c-kind, 47 iv_detail.
     FORMAT COLOR OFF.
+  ENDMETHOD.
+
+
+  METHOD resolve_jrny.
+    CLEAR: ev_jrny, ev_note.
+
+*   Exact first - a journey genuinely called E016 or D009 needs no search.
+    SELECT SINGLE journey_id FROM zrak_t_jny
+      WHERE journey_id = @iv_code
+      INTO @ev_jrny.
+    IF sy-subrc = 0.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_pat) = |%{ to_upper( iv_code ) }%|.
+*   No UPPER( ) in the WHERE: the SQL string functions are release
+*   dependent, and journey ids are stored upper case anyway.
+    SELECT journey_id FROM zrak_t_jny
+      WHERE journey_id LIKE @lv_pat
+      ORDER BY journey_id
+      INTO TABLE @DATA(lt_j).
+
+    IF lines( lt_j ) = 1.
+      ev_jrny = VALUE #( lt_j[ 1 ]-journey_id OPTIONAL ).
+      RETURN.
+    ENDIF.
+
+    IF lines( lt_j ) = 0.
+      ev_note = |no journey id contains "{ iv_code }" - check ZRAK_T_JNY|.
+      RETURN.
+    ENDIF.
+
+    DATA lv_list TYPE string.
+    LOOP AT lt_j INTO DATA(ls_j).
+      lv_list = COND string( WHEN lv_list IS INITIAL THEN CONV string( ls_j-journey_id )
+                             ELSE lv_list && ', ' && ls_j-journey_id ).
+    ENDLOOP.
+    ev_note = |"{ iv_code }" matches { lines( lt_j ) } journeys: { lv_list }|.
   ENDMETHOD.
 
 
@@ -361,8 +428,15 @@ CLASS lcl_fix IMPLEMENTATION.
     ENDLOOP.
 
     IF lv_hit = abap_false.
+*     Name what IS there. "No step contains CONFIRM" leaves the reader with
+*     nowhere to go; the list of titles is the answer to the next question.
+      DATA lv_have TYPE string.
+      LOOP AT lt_s INTO DATA(ls_h).
+        lv_have = COND string( WHEN lv_have IS INITIAL THEN CONV string( ls_h-title )
+                               ELSE lv_have && ' | ' && ls_h-title ).
+      ENDLOOP.
       say( iv_state = 'NOTFOUND' is_c = is_c
-           iv_detail = |no step whose title contains "{ is_c-oldv }"| ).
+           iv_detail = |no step title contains "{ is_c-oldv }". Steps are: { lv_have }| ).
     ENDIF.
   ENDMETHOD.
 
