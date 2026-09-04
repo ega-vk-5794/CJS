@@ -67,11 +67,58 @@ non-teaching staff. Put the field names in a `string_table` and loop.
 ## Bilingual is not uniform
 
 `ZLABEL_AR`, `MSG_AR`, `PLACEHOLDER_AR`, `TITLE_AR`, `SUBTITLE_AR`,
-`OPT_TEXT_AR` all exist. **`ZSECTION_AR` does not**, and neither does a
-`DEFAULT_VAL_AR`. Section headings are English only, on every journey in the
-framework — a DDIC gap, not something a seed can work around. Assume nothing
-about which columns have a twin.
+`OPT_TEXT_AR` all exist, and **`ZSECTION_AR` now does too** - it was added to
+`ZRAK_T_JNY_FLD` and is wired through the repo, the renderer and the Studio field
+editor, but it is in git only: it needs activation and a table adjust before a
+seeded value is true in SAP, and a plain SM30 screen will not show it until that
+screen is regenerated. **`DEFAULT_VAL_AR` does not exist** - a literal paragraph in
+`DEFAULT_VAL` shows its English to an Arabic reader, which is what `TEXT:@nnn` and
+`OTR:` are for. Assume nothing about which columns have a twin.
 
+
+## Migrated wording is read, never typed — and never hand-translated
+
+A migrated screen's words already exist, in both languages, in the legacy text
+tables. The export carries the keys:
+
+| Table | Key | Text | Keyed from |
+| --- | --- | --- | --- |
+| `/QNV/SB_LABELT` | `label_code` | `labeltext`, one row per `spras` | `LABEL_CON` |
+| `/QNV/SB_VALUET` | `value_code` | `value_desc`, per `spras` | option / value codes |
+
+`ZCL_RAK_MIGRATOR->LOAD_TEXT_CACHES( )` reads both into `MT_LBL` / `MT_VAL` and
+`PROJECT_ROWS( )` resolves `LABEL_CON` through them, so a migration driven
+through the migrator gets the department's own wording automatically.
+
+**A hand-written feeder gets none of that and has to do the lookup itself.**
+Mirror the shape the feeders already use for the Arabic title:
+
+```abap
+* Bilingual label from the legacy text table, by the export's LABEL_CON code.
+* Blank falls back to the literal - a missing row must not blank a label.
+  SELECT spras, labeltext FROM /qnv/sb_labelt
+    WHERE label_code = @lv_code AND ( spras = @sy-langu OR spras = 'A' )
+    INTO TABLE @DATA(lt_lbl).
+```
+
+then take `sy-langu` into `ZLABEL` and `'A'` into `ZLABEL_AR`, and the same for
+`ZSECTION`, `MSG`, `PLACEHOLDER` and `OPT_TEXT`.
+
+**Why this is not cosmetic.** Typing an English label off a spec `.docx` and
+translating the Arabic yourself replaces wording the department owns with a
+guess. It will differ from the live screen the citizen already uses; the
+difference is in a language most reviewers of this repo cannot check; and
+nothing — not `ZCL_RAK_CJS_XCHECK`, not activation, not a preview — reports it.
+A wrong field name eventually shows up as a defect. Wrong wording just quietly
+ships.
+
+It also gives up the maintainable forms. `OTR:<alias>` and `@nnn`
+(`ZRAK_T_CJ_TXT`) are both re-resolved by
+`ZCL_RAK_JOURNEY_REPO->PICK( )` on **every** round trip, so wording can change
+with no reseed and no redeploy. Prefer one of those over a literal wherever the
+text is likely to be revised.
+
+Applies to every migration, whether or not anyone asks about translations.
 ## Never half-comment a block
 
 Switching off a block by prefixing some of its lines leaves the rest as a
@@ -89,6 +136,24 @@ not the missing one. **Delete the block.** Git has it.
 Same hazard wearing a different hat: a commented-out `INSERT` above a live
 `DELETE`. That report removes rows on every run and puts none back.
 
+### Check it mechanically, and not with a paren count
+
+`reference/check_value_rows.awk` finds an assignment that landed OUTSIDE
+its row - the shape that reports **`Field "DEFAULT_VAL" is unknown`**:
+
+```bash
+awk -f .claude/skills/cjs-development/reference/check_value_rows.awk src/zrak_*_load.prog.abap
+```
+
+**A paren count will not catch this.** Nothing is added or removed when a
+line lands in the wrong place, so the balance stays even - seven misplaced
+`DTYPE:` defaults passed a 122/122 paren check and still would not compile.
+The script tracks depth instead: `FROM TABLE @( VALUE #(` puts the table at
+depth 2 and each row at 3, so an assignment seen at depth 2 on a line that
+does not itself open a row is outside every row. Depth also matters because
+"ends with `)`" is not the test - a nested call like
+`lcl_txt=>en( iv_code = ... )` closes a paren of its own, and a naive check
+reports every following assignment as orphaned.
 ## Add rows with a standalone INSERT, not by editing inside a `VALUE #( )`
 
 A feeder is one long `VALUE #( ( … ) ( … ) )` per table, and splicing a row into

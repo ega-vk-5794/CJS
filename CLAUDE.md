@@ -547,6 +547,23 @@ These raise nothing and render nothing. They account for most of the bugs found 
   Write ABAP for payment routing, live BP search, cross-container side effects.
 - **Migrating a legacy screen?** Drive `ZCL_RAK_MIGRATOR`. Do not hand-author `ZRAK_T_JNY*`
   `INSERT`s — they drift from its mapping.
+- **Migrated wording is READ, never written — and never hand-translated.** Every label,
+  section heading, message, placeholder and option text on a migrated screen already
+  exists in both languages in the legacy text tables, keyed by the columns the export
+  already carries: **`/QNV/SB_LABELT`** (`label_code` → `labeltext`, one row per `spras`)
+  for `LABEL_CON`, and **`/QNV/SB_VALUET`** (`value_code` → `value_desc`) for option and
+  value texts. `ZCL_RAK_MIGRATOR->LOAD_TEXT_CACHES( )` loads both into `MT_LBL`/`MT_VAL`,
+  so a migration driven through the migrator gets the department's own words for free.
+  **A hand-written feeder has to do the same lookup itself** — the same shape it already
+  uses for the Arabic title out of `ZEGA_T_CJ_IDT` — and fall back to a literal only when
+  no row answers. Typing an English label off a spec document and translating the Arabic
+  by hand substitutes a guess for wording the department owns: it differs from the live
+  screen the citizen already knows, in a language most reviewers of this repo cannot
+  check, and nothing anywhere reports the difference. It also gives up the only
+  maintainable form — a text row, an `OTR:<alias>` or an `@nnn` `ZRAK_T_CJ_TXT` key all
+  change wording with no reseed, because `ZCL_RAK_JOURNEY_REPO->PICK( )` re-resolves
+  every round trip. This applies to **every** migration, not only the ones where somebody
+  remembers to ask.
 - **`VALUE` takes a TYPE NAME, never a type declaration.** `VALUE STANDARD TABLE OF
   ty_map WITH EMPTY KEY ( ... )` is not a constructor expression, and the Class
   Builder reports it as **`Field "VALUE" is unknown`** — naming the operator rather

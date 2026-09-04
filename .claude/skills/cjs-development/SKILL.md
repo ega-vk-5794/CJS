@@ -97,8 +97,17 @@ Read the one that matches the task. They are short.
    and they truncate to `GS0`/`GS1`, and the INSERT dumps on a duplicate key
    pointing at the statement rather than the naming.
 7. **Bilingual is not uniform.** `ZLABEL_AR`, `MSG_AR`, `PLACEHOLDER_AR` and
-   `OPT_TEXT_AR` exist. `ZSECTION_AR` and `DEFAULT_VAL_AR` do not. Check before
-   assuming a twin.
+   `OPT_TEXT_AR` exist, and so does `ZSECTION_AR` (added to ZRAK_T_JNY_FLD -
+   in git, pending activation and a table adjust). `DEFAULT_VAL_AR` does not.
+   Check before assuming a twin.
+   **And on a MIGRATION, neither side is yours to write.** The legacy wording
+   already exists in both languages: `/QNV/SB_LABELT` (`label_code` ->
+   `labeltext`, per `spras`) keyed by `LABEL_CON`, and `/QNV/SB_VALUET` for
+   option texts. The migrator resolves them through `MT_LBL`/`MT_VAL`; a
+   hand-written feeder must `SELECT` them itself and fall back to a literal
+   only when no row answers. Never type the English off a spec document and
+   translate the Arabic yourself - nothing reports the difference from the
+   screen the citizen already uses. See `seed-reports.md`.
 8. **A DDIC-typed field will not bind to a `TYPE string` parameter**, though a
    character literal will — so the working call sits right above the failing one.
    Wrap it, and remember a syntax error in one method takes the whole class down.

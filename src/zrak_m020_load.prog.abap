@@ -41,6 +41,70 @@ REPORT zrak_m020_load.
 
 CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M020'.
 
+* ------------------------------------------------------- legacy wording
+* LABELS AND OPTION TEXTS ARE READ, NEVER TYPED - the same rule the
+* Arabic title above already follows, for the same reason.
+*
+* /QNV/SB_LABELT holds the department's own wording for every LABEL_CON
+* code in the export, one row per SPRAS. The export gives the codes:
+* OG_INDIVIDUAL, OG_SHARED, OG_NORMAL_GRANT, OG_HOUSING, OG_PROGRAM,
+* WITHLOAN, WITHOUTLOAN, 0..4, and EPDA_NE014_1_4_CHECKBOX_2/_3 for the
+* terms and donation lines. Typing the English off a spec document and
+* translating the Arabic by hand puts a guess on the screen in place of
+* text the department owns - and the difference is in a language most
+* reviewers of this repository cannot check, so nothing reports it.
+*
+* THE FALLBACK IS THE LITERAL, NEVER BLANK. A missing row must leave a
+* readable label rather than an empty one, so every call carries the
+* wording it would have used. That also keeps this runnable on a client
+* whose label table is not filled.
+*
+* IV_CODE IS DDIC-TYPED ON PURPOSE. A TYPE string formal parameter
+* cannot take a DDIC-typed actual by reference, and the code goes
+* straight into an Open SQL comparison against the real column.
+CLASS lcl_txt DEFINITION FINAL.
+  PUBLIC SECTION.
+    CLASS-METHODS en
+      IMPORTING iv_code   TYPE /qnv/sb_labelt-label_code
+                iv_fb     TYPE string
+      RETURNING VALUE(rv) TYPE string.
+    CLASS-METHODS ar
+      IMPORTING iv_code   TYPE /qnv/sb_labelt-label_code
+                iv_fb     TYPE string
+      RETURNING VALUE(rv) TYPE string.
+  PRIVATE SECTION.
+    CLASS-METHODS pick
+      IMPORTING iv_code   TYPE /qnv/sb_labelt-label_code
+                iv_spras  TYPE sy-langu
+                iv_fb     TYPE string
+      RETURNING VALUE(rv) TYPE string.
+ENDCLASS.
+
+CLASS lcl_txt IMPLEMENTATION.
+  METHOD en.
+    rv = pick( iv_code = iv_code iv_spras = sy-langu iv_fb = iv_fb ).
+  ENDMETHOD.
+
+  METHOD ar.
+    rv = pick( iv_code = iv_code iv_spras = 'A' iv_fb = iv_fb ).
+  ENDMETHOD.
+
+  METHOD pick.
+*   Fallback first, so every exit - including the miss - leaves the
+*   caller holding readable text.
+    rv = iv_fb.
+    IF iv_code IS INITIAL.
+      RETURN.
+    ENDIF.
+    SELECT SINGLE labeltext FROM /qnv/sb_labelt
+      INTO @DATA(lv_txt)
+      WHERE label_code = @iv_code AND spras = @iv_spras.
+    IF sy-subrc = 0 AND lv_txt IS NOT INITIAL.
+      rv = lv_txt.
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.
+
 * ------------------------------------------------------------- teardown
   DELETE FROM zrak_t_jny_opt  WHERE journey_id = @c_jny.
   DELETE FROM zrak_t_jny_fld  WHERE journey_id = @c_jny.
@@ -203,15 +267,19 @@ CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'M020'.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
       field_name = 'CHECKBOX_3' ftype = 'CHECKBOX' required = 'X'
       tech_name = 'ACCEPT_TERMS'
-      zlabel = 'I / We acknowledge and accept the Terms & Conditions applicable and available on the site'
-      zlabel_ar = 'أنا / نحن نعترف ونقبل الشروط والأحكام المعمول بها والمتاحة على الموقع'
+      zlabel    = lcl_txt=>en( iv_code = 'EPDA_NE014_1_4_CHECKBOX_2'
+                               iv_fb   = 'I / We acknowledge and accept the Terms & Conditions applicable and available on the site' )
+      zlabel_ar = lcl_txt=>ar( iv_code = 'EPDA_NE014_1_4_CHECKBOX_2'
+                               iv_fb   = 'أنا / نحن نعترف ونقبل الشروط والأحكام المعمول بها والمتاحة على الموقع' )
       msg = 'The Terms & Conditions must be accepted before payment'
       msg_ar = 'يجب قبول الشروط والأحكام قبل الدفع' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 40
       field_name = 'CHECKBOX_4' ftype = 'CHECKBOX'
       tech_name = 'DONATE'
-      zlabel = 'I would like to donate five dirhams to Ajer Charity Foundation.'
-      zlabel_ar = 'أود التبرع لمؤسسة آجر الخيرية بمبلغ خمسة دراهم.' ) ) ).
+      zlabel    = lcl_txt=>en( iv_code = 'EPDA_NE014_1_4_CHECKBOX_3'
+                               iv_fb   = 'I would like to donate five dirhams to Ajer Charity Foundation.' )
+      zlabel_ar = lcl_txt=>ar( iv_code = 'EPDA_NE014_1_4_CHECKBOX_3'
+                               iv_fb   = 'أود التبرع لمؤسسة آجر الخيرية بمبلغ خمسة دراهم.' ) ) ) ).
 
   COMMIT WORK AND WAIT.
   zcl_rak_cj_cfg_cache=>invalidate( iv_journey = CONV #( c_jny ) ).
