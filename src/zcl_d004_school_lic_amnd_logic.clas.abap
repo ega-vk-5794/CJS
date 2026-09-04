@@ -1089,6 +1089,34 @@ super->zif_rak_journey_logic~on_render_popup(
                    icon  = 'sap-icon://add'
                    press = io_ctx->event( c_evt_ownew ) ).
 
+*   IS THERE A STATUS COLUMN AT ALL?
+*
+*   PUT_CELL( ) SKIPS a column the spec does not define - CHECK lv_ix > 0,
+*   no message. So without a STATUS column the switch writes nowhere,
+*   CELL_OF( ) keeps returning blank, and the control flips off and never
+*   comes back. That is a dead switch that looks like a working one, which
+*   is the exact failure this repository keeps writing rules about.
+*
+*   Matched the way COL_IX( ) matches - upper case, condensed - so this
+*   answers the same question the reads will ask.
+    DATA lv_has_status TYPE abap_bool.
+    LOOP AT ls_g-columns INTO DATA(lv_col).
+      IF to_upper( condense( lv_col ) ) = to_upper( c_col_status ).
+        lv_has_status = abap_true.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+
+    IF lv_has_status = abap_false.
+      io_view->message_strip(
+        text     = |The owner list has no { c_col_status } column yet, so owners cannot be | &&
+                   |withdrawn. Add { c_col_status } to the { c_grid } grid spec | &&
+                   |(ZRAK_T_JNY_FLD-DEFAULT_VAL) and the switches below start working.|
+        type     = 'Warning'
+        showicon = abap_true
+        class    = 'sapUiSmallMarginBottom' ).
+    ENDIF.
+
     DATA(lo_t)  = io_view->table( alternaterowcolors = abap_true ).
     DATA(lo_cl) = lo_t->columns( ).
     lo_cl->column( )->text( 'Owner Name' ).
@@ -1176,10 +1204,21 @@ super->zif_rak_journey_logic~on_render_popup(
 
 *     COND string( ), not COND #( ). STATE is typed CLIKE, which is generic,
 *     so # has nothing to infer from and the class will not activate.
-      lo_cells->switch(
-        state  = COND string( WHEN lv_act = abap_true THEN 'true' ELSE 'false' )
-        type   = 'AcceptReject'
-        change = io_ctx->event( |OWN_TOGG_{ lv_id }| ) ).
+*     WRAPPED, because sap.m.Switch has no CLASS of its own in this binding -
+*     the wrapper is the only place to put the margin that stops it sitting
+*     hard against the cell edge.
+*
+*     DISABLED when there is no STATUS column: a control that cannot record
+*     what it is asked should not invite the press. The strip above the
+*     table says why.
+      lo_cells->hbox( justifycontent = 'Center'
+                      alignitems     = 'Center'
+                      class          = 'sapUiSmallMarginTopBottom'
+        )->switch(
+             state   = COND string( WHEN lv_act = abap_true THEN 'true' ELSE 'false' )
+             type    = 'AcceptReject'
+             enabled = COND string( WHEN lv_has_status = abap_true THEN 'true' ELSE 'false' )
+             change  = io_ctx->event( |OWN_TOGG_{ lv_id }| ) ).
     ENDLOOP.
 
     IF ls_g-rows IS INITIAL.
