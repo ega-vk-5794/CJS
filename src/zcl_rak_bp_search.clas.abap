@@ -461,15 +461,19 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
 *   so BP_QUERY translates at least one name rather than passing it through.
 *
 *   OData casing is therefore used here, to match the layer actually being
-*   called. If BP_QUERY turns out to pass PROPERTY through unchanged, these two
-*   want 'DOCUMENT_NUMBER' and 'UID' instead. A wrong name is not an error: the
-*   filter is built, ignored, and the search answers as though no number was
-*   given. Confirm on the first real passport search rather than assuming.
+*   called - and 'UId' specifically, with a capital I, because that is the exact
+*   shape 'EId' already takes two calls below. The lower-case 'Uid' was wrong on
+*   both readings at once: it is neither the BOPF name nor the house spelling.
+*
+*   If BP_QUERY turns out to pass PROPERTY through unchanged, these two want
+*   'DOCUMENT_NUMBER' and 'UID' instead. A wrong name is not an error: the filter
+*   is built, ignored, and the search answers as though no number was given.
+*   Confirm on the first real passport search rather than assuming.
     add_flt( EXPORTING iv_prop   = 'DocumentNumber'
                        iv_val    = is_req-document_number
              CHANGING  ct_filter = lt_filter ).
 
-    add_flt( EXPORTING iv_prop   = 'Uid'
+    add_flt( EXPORTING iv_prop   = 'UId'
                        iv_val    = is_req-uid
              CHANGING  ct_filter = lt_filter ).
 
