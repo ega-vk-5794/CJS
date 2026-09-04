@@ -323,16 +323,6 @@ CLASS zcl_rak_migrator DEFINITION
     " ABAP component / z2ui5 attribute hard limit is 30. The engine appends
     " per-field STATE companions (<field>_VST etc.), so the BASE name must
     " leave headroom. 26 = 30 - 4.
-
-*   The partner role the GRANTS category's parcel selector reads with.
-*   Carried here as a literal, NOT as ZCL_RAK_PROPERTY_API=>C_ROLE_GRANT:
-*   a static reference from the migrator into the API chain would stop the
-*   migrator - and the Studio that drives it - from loading whenever
-*   anything in that chain is inactive, which is the same reason
-*   RENDER_ONE( ) calls ZCL_RAK_CJ_OPTS dynamically. The two must agree;
-*   the wrapper is the authority and this is a copy.
-    CONSTANTS c_role_grants TYPE string VALUE 'YTR080'.
-
     CONSTANTS c_name_max TYPE i VALUE 26.
 
     CONSTANTS:
@@ -452,12 +442,9 @@ CLASS zcl_rak_migrator DEFINITION
 *   The API: directive for one field, or blank when the ftype is not a
 *   composite. Blank is the overwhelmingly common answer.
     METHODS api_bind
-      IMPORTING iv_ftype    TYPE string
-                iv_field    TYPE string OPTIONAL
-*               The legacy CATEGORY. One control reads a different row
-*               set depending on it - see the PARCEL branch below.
-                iv_category TYPE string OPTIONAL
-      RETURNING VALUE(rv)   TYPE string.
+      IMPORTING iv_ftype  TYPE string
+                iv_field  TYPE string OPTIONAL
+      RETURNING VALUE(rv) TYPE string.
 
     METHODS combobox_options
       IMPORTING is_row    TYPE ty_row
@@ -930,29 +917,6 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     READ TABLE bind_table( ) INTO DATA(ls_b) WITH KEY ftype = lv_ft.
     IF sy-subrc <> 0.
       RETURN.
-    ENDIF.
-
-
-*   THE GRANTS PARCEL SELECTOR READS A DIFFERENT ROLE, and this is the
-*   one thing the control's own JS knows that the definition row does not.
-*   From shapeit1120/js/controls, recorded in doc/controls/shapeit-reads.md:
-*
-*       Partnerrole = TR0800, or YTR080 when the category is GRANTS
-*
-*   So the SAME RAKPARCELSELECTOR, with an identical /QNV row, lists the
-*   citizen's owned parcels on an MML journey and their GRANTS on M019 /
-*   M020. Migrating both to the bare 'Type=Parcel' directive gives a
-*   grants journey a selector full of owned parcels - which renders
-*   perfectly, lists real property, and is the wrong list. There is no
-*   symptom to notice.
-*
-*   Appended rather than replacing DFILTER so the MML default is
-*   untouched, and keyed on the CATEGORY the caller migrated with, never
-*   on the journey id - GRANTS gains journeys and the rule stays right.
-    IF lv_ft = 'PARCEL' AND to_upper( condense( iv_category ) ) = 'GRANTS'.
-      ls_b-dfilter = COND string(
-        WHEN ls_b-dfilter IS INITIAL THEN |Partnerrole={ c_role_grants }|
-        ELSE |{ ls_b-dfilter }&Partnerrole={ c_role_grants }| ).
     ENDIF.
 
     rv = |API:{ ls_b-api }:{ ls_b-eset }|.
@@ -2378,9 +2342,7 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 
       DATA(is_hidden) = xsdbool( line_exists( mt_hidden[ table_line = fname ] ) ).
 
-      DATA(lv_dir) = api_bind( iv_ftype    = lv_ftype
-                               iv_field    = CONV #( r-field_name )
-                               iv_category = iv_category ).
+      DATA(lv_dir) = api_bind( iv_ftype = lv_ftype iv_field = CONV #( r-field_name ) ).
       IF lv_dir IS NOT INITIAL.
         lv_bind_cnt = lv_bind_cnt + 1.
       ENDIF.

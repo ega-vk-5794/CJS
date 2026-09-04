@@ -107,15 +107,7 @@ TYPES: BEGIN OF ty_svc,
          cat     TYPE string,      " /QNV/SB_UI_DEFIN-CATEGORY
          pfx1    TYPE string,      " stage-1 screen family
          pfx2    TYPE string,      " later stage, blank where there is none
-         pay     TYPE abap_bool,   " RAKPAY on stage 1
-*        The journey's OWN handler class, where one exists. It is passed
-*        as IV_HANDLER, which is what keeps the PAYFEE field (the field
-*        loop drops PAYFEE only when IV_HANDLER is blank), and it is
-*        written to HANDLER_CLASS. Blank falls back to
-*        ZCL_RAK_JOURNEY_LOGIC for a paying journey - concrete and
-*        CREATE PUBLIC, so it supplies the fee card and the PAID gate
-*        with no subclass - and to nothing at all for a free one.
-         handler TYPE string,
+         pay     TYPE abap_bool,   " RAKPAY on stage 1 -> PAYFEE will drop
        END OF ty_svc.
 TYPES tt_svc TYPE STANDARD TABLE OF ty_svc WITH EMPTY KEY.
 
@@ -171,16 +163,12 @@ INITIALIZATION.
     ( code = `M016` cat = `MML`    pfx1 = `NCBR_1`         pfx2 = `NCBR_2`
       title = `Request for Building Regulations/Change of Land Use - Ownership` )
     ( code = `M017` cat = `CI`     pfx1 = `NCI_1`
-      handler = `ZCL_M017_CI_LOGIC`
       title = `Request for a Property Investigation` )
     ( code = `M018` cat = `GRANTS` pfx1 = `NOG_1`          pfx2 = `NOG_2`
-      handler = `ZCL_M018_OG_LOGIC`
       title = `Request for a Residential Grant` )
     ( code = `M019` cat = `GRANTS` pfx1 = `NCPGR_1`        pfx2 = `NCPGR_2`
-      handler = `ZCL_M019_CPGR_LOGIC`
       title = `Convert a Valid Grant to a Program Grant Request` )
     ( code = `M020` cat = `GRANTS` pfx1 = `NRGR_1`         pfx2 = `NRGR_2`
-      handler = `ZCL_M020_RGR_LOGIC`
       title = `Request to extend grant's validity period` )
     ( code = `M028` cat = `DML`    pfx1 = `NCOD_1`         pfx2 = `NCOD_3`
       title = `Preliminary Design Approval` )
@@ -249,7 +237,6 @@ START-OF-SELECTION.
            cat     TYPE string,
            pfx     TYPE string,
            pay     TYPE abap_bool,
-           handler TYPE string,
            rows    TYPE i,
            screens TYPE i,
          END OF ty_plan.
@@ -258,13 +245,11 @@ START-OF-SELECTION.
 
   LOOP AT gt_svc INTO DATA(ls_s).
     APPEND VALUE #( id = |{ ls_s-code }| code = ls_s-code title = ls_s-title
-                    cat = ls_s-cat pfx = ls_s-pfx1 pay = ls_s-pay
-                    handler = ls_s-handler ) TO lt_plan.
+                    cat = ls_s-cat pfx = ls_s-pfx1 pay = ls_s-pay ) TO lt_plan.
     IF p_st2 = abap_true AND ls_s-pfx2 IS NOT INITIAL.
       APPEND VALUE #( id = |{ ls_s-code }B| code = ls_s-code
                       title = |{ ls_s-title } - later stage|
-                      cat = ls_s-cat pfx = ls_s-pfx2 pay = abap_true
-                      handler = ls_s-handler ) TO lt_plan.
+                      cat = ls_s-cat pfx = ls_s-pfx2 pay = abap_true ) TO lt_plan.
     ENDIF.
   ENDLOOP.
 
@@ -300,8 +285,7 @@ START-OF-SELECTION.
   DATA lv_bad TYPE i.
   LOOP AT lt_plan INTO DATA(ls_p).
     DATA(lv_note) = COND string( WHEN ls_p-screens = 0 THEN `NOT IN THIS CLIENT - will be skipped`
-                                 WHEN ls_p-handler IS NOT INITIAL THEN |RAKPAY -> PAYFEE kept, { ls_p-handler }|
-                                 WHEN ls_p-pay = abap_true THEN `RAKPAY -> PAYFEE kept, generic handler`
+                                 WHEN ls_p-pay = abap_true THEN `RAKPAY -> PAYFEE drops, needs handler_class`
                                  ELSE `` ).
     IF ls_p-screens = 0.
       lv_bad = lv_bad + 1.
@@ -333,6 +317,7 @@ START-OF-SELECTION.
   ULINE.
 
   DATA lv_done TYPE i.
+  DATA lt_needs_pay TYPE string_table.
 
   LOOP AT lt_plan INTO DATA(ls_m).
     IF ls_m-screens = 0.
@@ -364,9 +349,7 @@ START-OF-SELECTION.
 *       Named HERE, not by the UPDATE further down, because the migrator
 *       now decides whether to keep the PAYFEE field on the strength of
 *       it - and a handler set after the fact arrives too late for that.
-        iv_handler       = COND string( WHEN ls_m-handler IS NOT INITIAL
-                                        THEN ls_m-handler
-                                        WHEN ls_m-pay = abap_true
+        iv_handler       = COND string( WHEN ls_m-pay = abap_true
                                         THEN 'ZCL_RAK_JOURNEY_LOGIC' )
         iv_screen_prefix = ls_m-pfx           " never the default N<code>_*
       IMPORTING
@@ -387,24 +370,18 @@ START-OF-SELECTION.
       WRITE: / '[OK]  ', lv_msg.
       WRITE: / '      ', |layout: { lv_pairs } field pairs on shared rows|.
       IF ls_m-pay = abap_true.
-*       HANDLER_CLASS IS ALREADY WRITTEN BY THE MIGRATE ABOVE, from
-*       IV_HANDLER - so this only fills the generic fallback where the
-*       service named no handler of its own. It used to overwrite
-*       unconditionally, which would have replaced a per-journey
-*       handler with the generic one the moment the first four got
-*       theirs, silently removing the journey-specific validation.
-*
-*       AND PAYFEE IS NO LONGER DROPPED. The field loop drops it only
-*       when IV_HANDLER is blank, and this branch always passes one -
-*       so the pay control is on the step and does not have to be
-*       re-added in the Studio. The note that said otherwise was true
-*       before IV_HANDLER was wired to this table.
-        IF ls_m-handler IS INITIAL.
-          UPDATE zrak_t_jny SET handler_class = 'ZCL_RAK_JOURNEY_LOGIC'
-            WHERE journey_id = @lv_jid.
-          COMMIT WORK AND WAIT.
-          zcl_rak_cj_cfg_cache=>invalidate( iv_journey = lv_jid ).
-        ENDIF.
+*       ZCL_RAK_JOURNEY_LOGIC is CREATE PUBLIC and concrete, so it is a
+*       usable HANDLER_CLASS in its own right - it carries the payment
+*       card (RENDER_FIELD) and the PAID gate (ON_CUSTOM_VALIDATE) with
+*       no subclass at all. Setting it here means the only thing still
+*       missing on these journeys is the PAYFEE FIELD, which the migrator
+*       dropped and which has to be re-added per journey in the Studio.
+*       A journey that later needs its own routing gets a subclass then.
+        UPDATE zrak_t_jny SET handler_class = 'ZCL_RAK_JOURNEY_LOGIC'
+          WHERE journey_id = @lv_jid.
+        COMMIT WORK AND WAIT.
+        zcl_rak_cj_cfg_cache=>invalidate( iv_journey = lv_jid ).
+        APPEND lv_jid TO lt_needs_pay.
       ENDIF.
     ELSE.
       WRITE: / '[SKIP]', lv_msg.
@@ -414,6 +391,17 @@ START-OF-SELECTION.
   ULINE.
   WRITE: / |{ lv_done } of { lines( lt_plan ) } journeys created|.
 
+  IF lt_needs_pay IS NOT INITIAL.
+    ULINE.
+    WRITE: / 'NOT YET FIT TO SHOW A CITIZEN - PAYFEE was dropped on these.'.
+    WRITE: / 'HANDLER_CLASS has been set to ZCL_RAK_JOURNEY_LOGIC, which'.
+    WRITE: / 'supplies the payment card and the PAID gate. The PAYFEE FIELD'.
+    WRITE: / 'itself still has to be re-added per journey in the Studio -'.
+    WRITE: / 'until then the step has no pay control at all:'.
+    LOOP AT lt_needs_pay INTO DATA(lv_np).
+      WRITE: / '  ', lv_np.
+    ENDLOOP.
+  ENDIF.
 
   ULINE.
   WRITE: / 'Then, per journey:'.
