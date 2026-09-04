@@ -60,6 +60,20 @@ private section.
 * value is stored on the case, and on an ownership-change journey it most
 * likely means added / changed / removed. CONFIRM IT: create one owner
 * through the old service and use whatever that writes.
+* The grid column that holds whether an owner is still active. NEW COLUMN -
+* it has to exist in OWNERS_SEARCH's DEFAULT_VAL spec or every read here
+* returns blank and every owner reads as withdrawn.
+  constants C_COL_STATUS type STRING value 'STATUS' ##NO_TEXT.
+  constants C_OWN_ACTIVE type STRING value 'A' ##NO_TEXT.
+
+* UI_TABLE_COLUMN10 on the OWNERS_SEARCH rows - the BAdI's ACTIVITY.
+*
+* This is the withdrawal flag, not a technical marker. The journey is
+* "Adding/withdrawing an Owner", and ZIF_EGA_FW_CJI~UPDATE adds a row's
+* SHARE_PER to its total ONLY where ACTIVITY is not initial. So an active
+* owner carries this value and a withdrawn one carries blank, and the
+* backend's 100% check then counts exactly the owners still on the licence.
+* That is why the guard on its line 104 exists and why it should stay.
   constants C_OWN_ACTIVITY type STRING value 'X' ##NO_TEXT.
   constants C_EVT_OWNEW type STRING value 'OWN_NEW' ##NO_TEXT.
   constants C_EVT_OWNSR type STRING value 'OWN_SEARCH' ##NO_TEXT.
@@ -116,7 +130,7 @@ private section.
   methods OWN_SEARCH
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY .
-  methods OWN_DELETE
+  methods OWN_TOGGLE
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY
       !IV_ID type STRING .
@@ -557,8 +571,10 @@ CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
         CONTINUE.
       ENDIF.
 
-      DATA(lv_name) = zcl_rak_journey_util=>cell_of(
+      DATA(lv_part)  = zcl_rak_journey_util=>cell_of(
                         it_cols = ls_grid-columns it_row = lt_gr iv_name = 'PARTNER' ).
+      DATA(lv_name)  = zcl_rak_journey_util=>cell_of(
+                        it_cols = ls_grid-columns it_row = lt_gr iv_name = 'NAME' ).
       DATA(lv_natio) = zcl_rak_journey_util=>cell_of(
                         it_cols = ls_grid-columns it_row = lt_gr iv_name = 'NATIONALITY' ).
       DATA(lv_share) = zcl_rak_journey_util=>cell_of(
@@ -567,6 +583,10 @@ CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
                         it_cols = ls_grid-columns it_row = lt_gr iv_name = 'MOBILE_NUMBER' ).
       DATA(lv_mail)  = zcl_rak_journey_util=>cell_of(
                         it_cols = ls_grid-columns it_row = lt_gr iv_name = 'EMAIL_ADDRESS' ).
+      DATA(lv_eid)   = zcl_rak_journey_util=>cell_of(
+                        it_cols = ls_grid-columns it_row = lt_gr iv_name = 'EMIRATES_ID' ).
+      DATA(lv_stat)  = zcl_rak_journey_util=>cell_of(
+                        it_cols = ls_grid-columns it_row = lt_gr iv_name = c_col_status ).
 
 *     Clear every slot first, so a cell the grid does not carry leaves
 *     blank rather than keeping whatever TABLES_FOR_BACKEND( ) put there.
@@ -579,28 +599,29 @@ CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
         CLEAR <sc>.
       ENDDO.
 
-*     1 PARTNER IS LEFT BLANK ON PURPOSE. The grid has no BP number column -
-*     its PARTNER column holds the owner's NAME, which is what its label and
-*     the OWNERS_DISP grid beside it both say. Sending a name into a partner
-*     number is worse than sending nothing, so if the case needs the BP it
-*     has to be added to the grid first.
+*     CORRECTED. An earlier version read the name out of the PARTNER column
+*     because a comment further down this class says PARTNER carries it. The
+*     grid has SEVEN columns and NAME and PARTNER are two of them - PARTNER
+*     is the BP number - so the name was being read from the wrong one and
+*     the BP was not being sent at all.
+      put_col( EXPORTING iv_col = 1  iv_val = lv_part  CHANGING cs_row = <ow> ).
       put_col( EXPORTING iv_col = 2  iv_val = lv_name  CHANGING cs_row = <ow> ).
       put_col( EXPORTING iv_col = 3  iv_val = lv_mob   CHANGING cs_row = <ow> ).
       put_col( EXPORTING iv_col = 4  iv_val = lv_mail  CHANGING cs_row = <ow> ).
       put_col( EXPORTING iv_col = 5  iv_val = lv_share CHANGING cs_row = <ow> ).
+      put_col( EXPORTING iv_col = 7  iv_val = lv_eid   CHANGING cs_row = <ow> ).
       put_col( EXPORTING iv_col = 9  iv_val = lv_natio CHANGING cs_row = <ow> ).
 
-*     10 ACTIVITY - WITHOUT THIS THE SHARES ARE NEVER ADDED UP AT ALL.
-*     ZIF_EGA_FW_CJI~UPDATE only adds a row's SHARE_PER to its total when
-*     ACTIVITY is not initial, and CJS has never sent a tenth column, so the
-*     total came out 0.00% however correct the shares were.
+*     10 ACTIVITY - AND IT IS THE WITHDRAWAL FLAG, which is why the BAdI
+*     guards its total on it. An owner still on the licence carries a value
+*     here; a withdrawn one carries BLANK and is therefore left out of the
+*     100% total while still reaching the case as a withdrawn row.
 *
-*     THE VALUE IS A PLACEHOLDER AND HAS TO BE CONFIRMED. Any non-blank
-*     value satisfies the BAdI's test, but this one is stored on the case,
-*     and on an ownership-change journey "activity" most likely means added
-*     / changed / removed. Create one owner through the OLD service and put
-*     whatever it writes in here.
-      put_col( EXPORTING iv_col = 10 iv_val = c_own_activity CHANGING cs_row = <ow> ).
+*     Without this column the total came out 0.00% however correct the
+*     shares were, because CJS had never sent a tenth column at all.
+      put_col( EXPORTING iv_col = 10
+               iv_val = COND string( WHEN lv_stat = c_own_active THEN c_own_activity )
+               CHANGING cs_row = <ow> ).
     ENDLOOP.
 
  DATA(lv_sel) = io_ctx->get_val( 'LICENSE_SEL' ).
@@ -729,13 +750,16 @@ CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
 *       Row actions carry their subject in the event id, same as D001's owner
 *       list. These were rendered on every row (RENDER_OWN_LIST) with no
 *       handler at all - Edit and Delete pressed and did nothing.
-        IF iv_event CP 'OWN_EDIT_*'.
-          own_form_load( io_ctx = io_ctx iv_id = substring( val = iv_event off = 9 ) ).
-          io_ctx->open_popup( c_pop_own ).
-          RETURN.
-        ENDIF.
-        IF iv_event CP 'OWN_DEL_*'.
-          own_delete( io_ctx = io_ctx iv_id = substring( val = iv_event off = 8 ) ).
+*       OWN_TOGG_ replaces OWN_EDIT_ and OWN_DEL_. An owner is never edited
+*       in place and never removed - see RENDER_OWN_LIST( ) for why. The two
+*       old branches are gone rather than left unreachable, so nothing draws
+*       a button that no longer has a handler.
+*
+*       Matched with CP, and the trailing underscore in the pattern is
+*       load-bearing: it guarantees the string is long enough for the offset
+*       that follows it.
+        IF iv_event CP 'OWN_TOGG_*'.
+          own_toggle( io_ctx = io_ctx iv_id = substring( val = iv_event off = 9 ) ).
           RETURN.
         ENDIF.
     ENDCASE.
@@ -927,6 +951,14 @@ super->zif_rak_journey_logic~on_render_popup(
                 iv_val  = io_ctx->get_val( 'EMAIL_POP' )
       CHANGING  ct_row  = lt_new_row ).
 
+*   A NEW OWNER STARTS ACTIVE. Without this the row goes out with a blank
+*   ACTIVITY, the backend leaves it out of the 100% total, and the citizen
+*   sees an owner they just added counted as withdrawn.
+    zcl_rak_journey_util=>put_cell(
+      EXPORTING it_cols = ls_g-columns iv_name = c_col_status
+                iv_val  = c_own_active
+      CHANGING  ct_row  = lt_new_row ).
+
 *   No EMIRATES_ID column on this grid, so the Emirates ID is not stored. Add a
 *   ZRAK_T_JNY_COL row named EMIRATES_ID and the line below starts persisting it
 *   with no further code change.
@@ -1063,6 +1095,7 @@ super->zif_rak_journey_logic~on_render_popup(
     lo_cl->column( )->text( 'Nationality' ).
     lo_cl->column( )->text( 'Owner Shares' ).
     lo_cl->column( )->text( 'Documents' ).
+    lo_cl->column( )->text( 'Status' ).
     lo_cl->column( halign = 'End' )->text( '' ).
 
 *   Read once, not once per row - a ~240-row T005T select.
@@ -1109,15 +1142,37 @@ super->zif_rak_journey_logic~on_render_popup(
         icon  = COND #( WHEN lv_docs > 0 THEN 'sap-icon://attachment' ELSE 'sap-icon://alert' ) ).
 *     Two buttons rather than the legacy overflow menu: one press instead of
 *     two, and nothing hidden behind an icon a citizen has to discover.
+*     ACTIVE / WITHDRAWN, NOT EDIT / DELETE.
+*
+*     An owner on a licence is a matter of record: the amendment has to show
+*     that a share was withdrawn on this application, not quietly lose the
+*     row. Editing in place had the same problem - it rewrote history and
+*     left nothing to say what changed. So a row is only ever switched
+*     between active and withdrawn, and a correction is a withdrawal plus a
+*     new owner, which is what the licence itself records.
+*
+*     A withdrawn row is still sent. It carries a blank ACTIVITY, so the
+*     backend leaves it out of the 100% total while still seeing it.
+      DATA(lv_act) = xsdbool( zcl_rak_journey_util=>cell_of(
+                                it_cols = ls_g-columns it_row = lt_r
+                                iv_name = c_col_status ) = c_own_active ).
+
+      lo_cells->object_status(
+        text  = COND #( WHEN lv_act = abap_true THEN 'Active' ELSE 'Withdrawn' )
+        state = COND #( WHEN lv_act = abap_true THEN 'Success' ELSE 'Warning' )
+        icon  = COND #( WHEN lv_act = abap_true
+                        THEN 'sap-icon://accept' ELSE 'sap-icon://decline' ) ).
+
       DATA(lo_act) = lo_cells->hbox( ).
-      lo_act->button( icon    = 'sap-icon://edit'
-                      type    = 'Transparent'
-                      tooltip = 'Edit owner details'
-                      press   = io_ctx->event( |OWN_EDIT_{ lv_id }| ) ).
-      lo_act->button( icon    = 'sap-icon://delete'
-                      type    = 'Transparent'
-                      tooltip = 'Delete'
-                      press   = io_ctx->event( |OWN_DEL_{ lv_id }| ) ).
+      lo_act->button(
+        text    = COND #( WHEN lv_act = abap_true THEN 'Withdraw' ELSE 'Reactivate' )
+        icon    = COND #( WHEN lv_act = abap_true
+                          THEN 'sap-icon://decline' ELSE 'sap-icon://accept' )
+        type    = 'Transparent'
+        tooltip = COND #( WHEN lv_act = abap_true
+                          THEN 'Withdraw this owner from the licence'
+                          ELSE 'Put this owner back on the licence' )
+        press   = io_ctx->event( |OWN_TOGG_{ lv_id }| ) ).
     ENDLOOP.
 
     IF ls_g-rows IS INITIAL.
@@ -1319,16 +1374,32 @@ super->zif_rak_journey_logic~on_render_popup(
   ENDMETHOD.
 
 
-  METHOD own_delete.
+  METHOD own_toggle.
+*   Flip one owner between active and withdrawn. Every row is kept - the
+*   withdrawn ones are what tell the backend a share came off the licence,
+*   and deleting them would leave the amendment with nothing to record.
+*
+*   Matched on NAME, the same value RENDER_OWN_LIST( ) puts on the button.
     DATA(ls_g)   = io_ctx->get_grid_data( c_grid ).
     DATA(ls_new) = VALUE zif_rak_journey=>ty_table( columns = ls_g-columns ).
+
     LOOP AT ls_g-rows INTO DATA(lt_r).
-*     Matched on PARTNER, the same value RENDER_OWN_LIST( ) puts on the button.
-      CHECK zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns
-                                           it_row  = lt_r
-                                           iv_name = 'NAME' ) <> iv_id.
+      IF zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns
+                                        it_row  = lt_r
+                                        iv_name = 'NAME' ) = iv_id.
+        DATA(lv_now) = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns
+                                                      it_row  = lt_r
+                                                      iv_name = c_col_status ).
+        zcl_rak_journey_util=>put_cell(
+          EXPORTING it_cols = ls_g-columns
+                    iv_name = c_col_status
+                    iv_val  = COND string( WHEN lv_now = c_own_active THEN ``
+                                           ELSE c_own_active )
+          CHANGING  ct_row  = lt_r ).
+      ENDIF.
       APPEND lt_r TO ls_new-rows.
     ENDLOOP.
+
     io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
   ENDMETHOD.
 
