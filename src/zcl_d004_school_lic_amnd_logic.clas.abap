@@ -498,60 +498,28 @@ CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
     CT_TABLES = CT_TABLES
     .
 *----------------------------------------------------------------------------*
-* The owner rows leave in the order the backend READS them, which is not the
-* order it WROTE them in.
+* The owner rows go out THREE TIMES under three names - OWNERS_DISP,
+* OWNERS_1 and OWNERS_SEARCH - and they are not all read the same way.
 *
-* /QNV/SB_UI_DEFIN for ND004_1_2 gives GS_DATA-OWNERS[]-SHARE_PER a
-* LIST_SEQUENCE of 3. TABLES_FOR_BACKEND( ) fills UI_TABLE_COLUMN1..N in the
-* CJS spec's order, and OWNERS_SEARCH's spec follows the READ - which hands
-* back partner, name, mobile, e-mail, share - so the share was arriving in
-* slot 5. The backend read slot 3, found a mobile number, and refused the
-* step with "The Total of the Share (0.00%) is not equal to 100%".
+* The mapper reads the display rows by LIST_SEQUENCE, which /QNV/SB_UI_DEFIN
+* for ND004_1_2 gives SHARE_PER as 3. ZIF_EGA_FW_CJI~UPDATE reads only the
+* OWNERS_SEARCH rows, ignores LIST_SEQUENCE, and hard-codes its own thirteen
+* columns with the share at 5 and a mandatory ACTIVITY at 10.
 *
-* Read order and write order genuinely differ for this table, so no single
-* DEFAULT_VAL can satisfy both: the spec stays matched to the READ, which is
-* what keeps the list on screen correct, and the row is re-laid here on the
-* way out.
+* Those two cannot both be satisfied by one row - but they read DIFFERENT
+* rows, which is what makes this solvable. The display rows keep the share
+* at 3 and are left alone; only OWNERS_SEARCH is re-laid below.
 *
-* Write order is OWNERS_DISP's - name, nationality, share, mobile, e-mail.
-* That grid carries the same five columns, round-trips correctly against this
-* backend, and puts the share at 3, which is what LIST_SEQUENCE says.
+* HISTORY, so this is not "corrected" back: an earlier version re-laid every
+* OWNERS_SEARCH row into a seven-column WRITE order derived from an assumed
+* source layout. A debugger session on CT_TABLE_DATA showed the rows in fact
+* arriving in the grid spec's own order, so that derivation was wrong and the
+* BAdI was reading the e-mail address as the share while ACTIVITY was never
+* sent at all - the "Total of the Share (0.00%) is not equal to 100%" refusal
+* on CJSMIG-695 Issue 2.
 *
 * Sits ABOVE the CHECK below: a blank LICENSE_SEL exits this method, and the
 * owners still have to be re-laid on a step where no licence is selected.
-*
-* UNRESOLVED - "Add Owner: shares equal 100 but I can't pass" (CJSMIG-695
-* Issue 2). READ BEFORE CHANGING EITHER END. A developer debugged this in
-* SAP and reported that ZIF_EGA_FW_CJI~UPDATE never totals the shares
-* because line 104, IF <owner>-activity IS NOT INITIAL, is always false.
-* That is true, and fixing that line ALONE WILL NOT FIX THE JOURNEY.
-*
-* What that method actually reads, hard-coded, is the READ layout across
-* THIRTEEN columns: 1 partner, 2 name, 3 mobile, 4 e-mail, 5 share,
-* 6 id_type, 7 emirates_id, 8 passport, 9 nationality, 10 activity,
-* 11 new_item, 12 nationality_key, 13 birth_date.
-*
-* The re-lay above sends SEVEN columns in the WRITE layout - 1 name,
-* 2 nationality, 3 share, 4 mobile, 5 e-mail, 6 partner, 7 Emirates ID.
-* Line them up and that method is currently reading, for every owner:
-* partner <- the name, share_per <- the E-MAIL ADDRESS, and activity <-
-* nothing at all, because CJS never fills a tenth slot. So the share total
-* would still be wrong with line 104 removed; it would just fail further on.
-*
-* The two layouts cannot both be satisfied by one row, which is the same
-* conflict this comment already describes for the mapper. What has to be
-* settled first, in SAP, is WHICH CONSUMER IS AUTHORITATIVE for D004's
-* owners - the mapper reading LIST_SEQUENCE (share at 3, which is what the
-* re-lay serves and what fixed the earlier 0.00% refusal), or
-* ZIF_EGA_FW_CJI~UPDATE reading its own fixed 1..13. Only then is it worth
-* deciding what ACTIVITY should carry: it is a row marker CJS does not hold,
-* and stamping a guessed value here could read as "deleted" to code that
-* nobody in this repository can see - ZIF_EGA_FW_CJI is not in this git.
-*
-* Deliberately NOT changed on that basis. The grid spec is five columns
-* (PARTNER, NATIONALITY, SHARE_PER, MOBILE_NUMBER, EMAIL_ADDRESS), so
-* whichever way this is settled, slots 8 and 10..13 need a source before
-* they can carry anything.
 *----------------------------------------------------------------------------*
 *   READ BY COLUMN NAME, WRITE BY THE BAdI'S POSITION.
 *
