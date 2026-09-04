@@ -23,6 +23,7 @@ public section.
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
     redefinition .
+protected section.
   PRIVATE SECTION.
     CONSTANTS c_step_marr TYPE i VALUE 0.   " MARR  Marriage Contract        (seq 10)
     CONSTANTS c_step_divo TYPE i VALUE 1.   " DIVO  Divorce Details          (seq 20)
@@ -32,11 +33,28 @@ public section.
     " Partner-search popup. ZCL_RAK_BP_POPUP is a reference implementation, so the
     " popup lives here and calls the central ZCL_RAK_BP_SEARCH. Field names follow
     " <SUBJECT>_<SUFFIX>, so the result lands on the party being searched.
+*   BP IDENTIFICATION TYPE CODES, and they are not guesses any more.
+*   ZCRM_MOI_CR_UPD WRITES the identification rows, so its own codes settle them,
+*   and ZWDC_EGA_EBP_SRCH_CREATE's SORT_IDTYPE reads them back with the same four
+*   meanings. YFS004 - which is what PASSPORT said here until engine round 9 -
+*   appears in no source at all, and the value that said UNIFIED ID was the
+*   PASSPORT code. IDTYPE goes out as a filter, so a passport search filtered on
+*   a type no partner holds and could never match; invisible because live traffic
+*   is almost entirely Emirates ID, where YFS002 was already right.
+*   ZCL_RAK_BP_POPUP was corrected in the same round - keep the two in step.
     CONSTANTS c_bp_eid    TYPE string VALUE 'YFS002'.   " Emirates ID
-    CONSTANTS c_bp_tlic   TYPE string VALUE 'YP0001'.   " Trade licence
-    CONSTANTS c_bp_pass   TYPE string VALUE 'YFS004'.   " Passport
-    CONSTANTS c_bp_unif   TYPE string VALUE 'YFS005'.   " Unified ID
-    CONSTANTS c_ev_bp_go  TYPE string VALUE 'BPP_SEARCH'.
+    CONSTANTS c_bp_pass   TYPE string VALUE 'YFS005'.   " Passport
+    CONSTANTS c_bp_unif   TYPE string VALUE 'YFS001'.   " Unified ID
+*   NO PASSPORT TYPE. The field is gone, and it is not coming back: the WD
+*   collected one, packed it into ZMOI_PASS_DOCUMENT-DOCUMENT_TYPE and passed it
+*   to ZCRM_MOI_CR_UPD, where the DOCUMENT_TYPE selection parameter is COMMENTED
+*   OUT and the value is referenced nowhere else. The standalone BP-search WD is
+*   worse - FILL_DROPDOWN_PASSTYPE binds SY-TABIX and DDTEXT, so it never held
+*   the domain key at all. Three sources, no destination. Asking a citizen for it
+*   was cosmetic, and asking for it as MANDATORY blocked them for nothing.
+*   See referenceWD/ZCRM_MOI_CR_UPD.abap, the passport branch.
+    CONSTANTS c_ev_bp_go  TYPE string VALUE 'BPP_SEARCH'.   " type switch: re-render
+    CONSTANTS c_ev_bp_run TYPE string VALUE 'BPP_RUN'.      " the Search button
     CONSTANTS c_ev_bp_new TYPE string VALUE 'BPP_RESUME'.
     CONSTANTS c_ev_bp_cxl TYPE string VALUE 'BPP_CLOSE'.
     CONSTANTS c_evt_bp_divorcee TYPE string VALUE 'BP_OPEN_DIVORCEE'.
@@ -137,8 +155,27 @@ public section.
       RETURNING VALUE(rs) TYPE zcl_rak_bp_search=>ty_req.
     METHODS bp_nationalities
       RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
-    METHODS bp_doc_types
-      RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
+    " Date of birth and nationality, each drawn as its own method because the
+    " three search branches want them in different ORDERS and a form is emitted
+    " in creation order - so the choice has to be a call sequence, not a flag.
+    " One mandatory field. Reports through the framework's own "&1 is required"
+    " so the popup reads like every other required message in CJS, and returns
+    " whether it complained so the caller can collect them all before refusing.
+    METHODS bp_need
+      IMPORTING io_ctx     TYPE REF TO zif_rak_journey
+                iv_subject TYPE string
+                iv_suffix  TYPE string
+                iv_en      TYPE string
+                iv_ar      TYPE string
+      RETURNING VALUE(rv)  TYPE abap_bool.
+    METHODS bp_dob_field
+      IMPORTING io_ctx     TYPE REF TO zif_rak_journey
+                iv_subject TYPE string
+                io_form    TYPE REF TO z2ui5_cl_xml_view.
+    METHODS bp_nat_field
+      IMPORTING io_ctx     TYPE REF TO zif_rak_journey
+                iv_subject TYPE string
+                io_form    TYPE REF TO z2ui5_cl_xml_view.
     METHODS bp_pick
       IMPORTING is_bp     TYPE zcl_zega_bp_mpc_ext=>ts_businesspartner
                 iv_names  TYPE string
@@ -189,21 +226,63 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD BP_DOC_TYPES.
-    " AS4LOCAL = 'A' is the active version; without it a domain being reworked in
-    " a transport returns the inactive value set too and the list doubles.
-    SELECT domvalue_l AS key, ddtext AS text
-    FROM dd07t
-    WHERE domname = 'Z_MOI_DOC_TYPE' AND ddlanguage = @sy-langu AND as4local = 'A'
-    ORDER BY domvalue_l ASCENDING
-    INTO CORRESPONDING FIELDS OF TABLE @rt.
-    IF rt IS INITIAL AND sy-langu <> 'E'.
-      SELECT domvalue_l AS key, ddtext AS text
-      FROM dd07t
-      WHERE domname = 'Z_MOI_DOC_TYPE' AND ddlanguage = 'E' AND as4local = 'A'
-      ORDER BY domvalue_l ASCENDING
-      INTO CORRESPONDING FIELDS OF TABLE @rt.
+  METHOD BP_NEED.
+    IF io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = iv_suffix ) ) IS NOT INITIAL.
+      RETURN.
     ENDIF.
+    io_ctx->add_msg(
+      iv_type = 'Error'
+      iv_text = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-required
+                                   iv_default = '&1 is required'
+                                   iv_v1      = zcl_rak_text=>pick( iv_base = iv_en
+                                                                    iv_ar   = iv_ar ) ) ).
+    rv = abap_true.
+  ENDMETHOD.
+
+
+  METHOD BP_DOB_FIELD.
+*&---------------------------------------------------------------------*
+*& The date of birth field. Its own method because the three search
+*& branches want it in different positions and a form renders in creation
+*& order, so the order has to be a call sequence.
+*&
+*& dd.MM.yyyy ON SCREEN, and the dots are not cosmetic. This was
+*& 'dd/MM/yyyy' - the only date in the whole service that asked for slashes,
+*& while every FTYPE 'DATE' field the engine draws shows dd.MM.yyyy
+*& (ZCL_RAK_JOURNEY_RENDER's DATE branch hard-codes it) and DATE_DISPLAY( )
+*& writes dots into every message. A citizen who typed what every other
+*& field on the journey taught them - 02.05.1990 - gave sap.m.DatePicker
+*& text its displayFormat could not parse, and an unparsed DatePicker still
+*& pushes the RAW TEXT into the bound value. So '02.05.1990' reached the
+*& model, went into the OData DateOfBirth filter as-is, and the backend
+*& terminated with "'19.08.1987' is not a valid value for D(8,0)".
+*&
+*& YYYYMMDD stays in the VALUE, unlike the engine's DATE fields which use
+*& ISO: the MOI cross-check compares LS_BP-DOB against IS_REQ-DOB as plain
+*& strings and the BP side of that is eight digits.
+*&
+*& The format alone is not the whole guard - 31.13.2020 is still typable -
+*& so BP_DOB( ) in BP_RUN_SEARCH keeps an unparsed value out of the request.
+*&---------------------------------------------------------------------*
+    io_form->label( text     = zcl_rak_text=>pick( iv_base = `Date of Birth`
+                                                   iv_ar   = |تاريخ الميلاد| )
+    required = abap_true ).
+    io_form->date_picker(
+    value         = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'DOB' ) )
+    displayformat = 'dd.MM.yyyy'
+    valueformat   = 'yyyyMMdd' ).
+  ENDMETHOD.
+
+
+  METHOD BP_NAT_FIELD.
+    io_form->label( text     = zcl_rak_text=>pick( iv_base = `Nationality`
+                                                   iv_ar   = |الجنسية| )
+    required = abap_true ).
+    DATA(lo_nat) = io_form->combobox(
+          selectedkey = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'NAT' ) ) ).
+    LOOP AT bp_nationalities( ) INTO DATA(ls_n).
+      lo_nat->item( key = ls_n-key text = ls_n-text ).
+    ENDLOOP.
   ENDMETHOD.
 
 
@@ -215,11 +294,14 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
   METHOD BP_HANDLE.
     CASE iv_event.
       WHEN c_ev_bp_go.
-        " The same event backs the Search button AND the type dropdown's change,
-        " so switching type just re-renders.
-        IF io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'IDNUM' ) ) IS NOT INITIAL.
-          bp_run_search( io_ctx = io_ctx iv_subject = iv_subject ).
-        ENDIF.
+        " The Search By dropdown changed. Nothing to do but let the popup
+        " redraw: the answer decides which fields the form even has. This used
+        " to share an event with the Search button, which is why it had to test
+        " for a non-blank ID number before searching - and why pressing Search
+        " on an empty form did nothing at all.
+        rv_ok = abap_true.
+      WHEN c_ev_bp_run.
+        bp_run_search( io_ctx = io_ctx iv_subject = iv_subject ).
         rv_ok = abap_true.
       WHEN c_ev_bp_new.
         " Resume Search clears the RESULT only; the search terms stay, because the
@@ -334,8 +416,12 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     lo_by->item( key = c_bp_unif
     text = zcl_rak_text=>pick( iv_base = `Unified ID (Non EID Holder only)`
                                iv_ar   = |الرقم الموحد (لغير حاملي الهوية الإماراتية فقط)| ) ).
-    lo_by->item( key = c_bp_tlic
-    text = zcl_rak_text=>pick( iv_base = `Trade License Number` iv_ar = |رقم الرخصة التجارية| ) ).
+*   NO TRADE LICENCE. The WD offered it and it is dropped by request: every
+*   party this journey collects is a natural person - a divorcee, a witness -
+*   and a trade licence identifies a company. It was also the one branch that
+*   suppressed date of birth and nationality, so removing it makes those two
+*   unconditional, which is what let the mandatory rules below be stated once
+*   instead of per branch.
 
     " Nothing else until a type is chosen: the answer decides what the rest of the
     " form even is.
@@ -346,66 +432,51 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    lo_form->label( SWITCH string( lv_by
+*   EVERY FIELD ON THIS FORM IS MANDATORY, on all three branches. REQUIRED on
+*   sap.m.Label draws the asterisk; BP_RUN_SEARCH refuses before the call, and
+*   that half is the one that matters - the asterisk is a promise, not a check.
+*
+*   Date of birth and nationality being mandatory is not only a UI tidy-up: they
+*   are the two values ZCL_RAK_BP_SEARCH's MOI cross-check compares
+*   (LS_BP-DOB <> IS_REQ-DOB, LS_BP-NATIONALITY <> IS_REQ-NATIONALITY). Left
+*   blank they did not skip the comparison, they FAILED it - a blank never equals
+*   what MOI holds - so the citizen got "Input data does not match with ID" for a
+*   field they had not filled in. Demanding them turns that into a message that
+*   names what is missing.
+    lo_form->label( text     = SWITCH string( lv_by
     WHEN c_bp_eid  THEN zcl_rak_text=>pick( iv_base = `Emirates ID`
                                             iv_ar   = |رقم الهوية الإماراتية| )
     WHEN c_bp_pass THEN zcl_rak_text=>pick( iv_base = `Passport Number`
                                             iv_ar   = |رقم جواز السفر| )
-    WHEN c_bp_unif THEN zcl_rak_text=>pick( iv_base = `Unified ID`
-                                            iv_ar   = |الرقم الموحد| )
-    ELSE                zcl_rak_text=>pick( iv_base = `Trade License Number`
-                                            iv_ar   = |رقم الرخصة التجارية| ) ) ).
+    ELSE                zcl_rak_text=>pick( iv_base = `Unified ID`
+                                            iv_ar   = |الرقم الموحد| ) )
+    required = abap_true ).
     lo_form->input( value = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'IDNUM' ) ) ).
 
-    " A trade licence is a company: no date of birth, no nationality.
-    IF lv_by <> c_bp_tlic.
-      lo_form->label( zcl_rak_text=>pick( iv_base = `Date of Birth` iv_ar = |تاريخ الميلاد| ) ).
-      " dd.MM.yyyy ON SCREEN, and the dots are not cosmetic. This was
-      " 'dd/MM/yyyy' — the only date in the whole service that asked for
-      " slashes, while every FTYPE 'DATE' field the engine draws shows
-      " dd.MM.yyyy (ZCL_RAK_JOURNEY_RENDER's DATE branch hard-codes it) and
-      " DATE_DISPLAY( ) writes dots into every message. A citizen who types
-      " what every other field on the journey taught them - 02.05.1990 - gave
-      " sap.m.DatePicker text its displayFormat could not parse, and an
-      " unparsed DatePicker still pushes the RAW TEXT into the bound value. So
-      " '02.05.1990' reached the model, went into the OData DateOfBirth filter
-      " as-is, and the gateway short-dumped on it: "Application Error - Please
-      " Restart The App", with the popup and the half-filled journey gone.
-      "
-      " YYYYMMDD stays in the VALUE, unlike the engine's DATE fields which use
-      " ISO. The MOI cross-check inside ZCL_RAK_BP_SEARCH compares
-      " LS_BP-DOB <> IS_REQ-DOB as plain strings, and the BP side of that is
-      " eight digits, so anything else fails every comparison.
-      "
-      " The format alone is not the whole fix: a citizen can still type
-      " 31.13.2020 or nonsense. BP_DOB( ) in BP_RUN_SEARCH is the guard that
-      " keeps an unparsed value out of the request entirely.
-      lo_form->date_picker( value         = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'DOB' ) )
-      displayformat = 'dd.MM.yyyy'
-      valueformat   = 'yyyyMMdd' ).
-      lo_form->label( zcl_rak_text=>pick( iv_base = `Nationality` iv_ar = |الجنسية| ) ).
-      DATA(lo_nat) = lo_form->combobox(
-            selectedkey = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'NAT' ) ) ).
-      LOOP AT bp_nationalities( ) INTO DATA(ls_n).
-        lo_nat->item( key = ls_n-key text = ls_n-text ).
-      ENDLOOP.
-    ENDIF.
-
-    IF lv_by = c_bp_pass.
-      lo_form->label( zcl_rak_text=>pick( iv_base = `Passport Type` iv_ar = |نوع جواز السفر| ) ).
-      DATA(lo_pt) = lo_form->combobox(
-            selectedkey = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'PPTYPE' ) ) ).
-      LOOP AT bp_doc_types( ) INTO DATA(ls_p).
-        lo_pt->item( key = ls_p-key text = ls_p-text ).
-      ENDLOOP.
+*   FIELD ORDER FOLLOWS THE LEGACY SCREEN, PER BRANCH, and the Emirates ID
+*   branch differs from the other two:
+*     Emirates ID              ID number, date of birth, nationality
+*     Passport / Unified ID    number, nationality, date of birth
+    IF lv_by = c_bp_eid.
+      bp_dob_field( io_ctx = io_ctx iv_subject = iv_subject io_form = lo_form ).
+      bp_nat_field( io_ctx = io_ctx iv_subject = iv_subject io_form = lo_form ).
+    ELSE.
+      bp_nat_field( io_ctx = io_ctx iv_subject = iv_subject io_form = lo_form ).
+      bp_dob_field( io_ctx = io_ctx iv_subject = iv_subject io_form = lo_form ).
     ENDIF.
 
     DATA(lo_btns) = lo_dlg->buttons( ).
+*   ITS OWN EVENT, NOT C_EV_BP_GO. That event also backs the Search By
+*   dropdown's CHANGE, and while both did the same thing the only way to stop a
+*   type switch running a search was for the handler to require a non-blank ID
+*   number first - which meant pressing Search with the form empty did nothing
+*   at all, silently. Separated, the dropdown only re-renders and the button
+*   always validates, so an empty form now gets told what is missing.
     lo_btns->button( text  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-search
                                                 iv_default = `Search` )
     type  = 'Emphasized'
     icon  = 'sap-icon://search'
-    press = io_ctx->event( c_ev_bp_go ) ).
+    press = io_ctx->event( c_ev_bp_run ) ).
     lo_btns->button(
     text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-close iv_default = `Close` )
     press = io_ctx->event( c_ev_bp_cxl ) ).
@@ -417,6 +488,38 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     DATA(lv_by)  = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'SEARCHBY' ) ).
     DATA(lv_num) = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'IDNUM' ) ).
 
+*   MANDATORY FIELDS, and every one of them on all three branches. The
+*   asterisks BP_RENDER draws are a promise; this is the check. Nothing here is
+*   the engine's job - MISSING_REQUIRED works on ZRAK_T_JNY_FLD rows and these
+*   are popup fields, which no configuration table describes.
+*
+*   Every missing field is reported, not just the first, so a citizen who
+*   opened the passport branch and filled in nothing is told all four at once
+*   rather than four times in a row.
+    DATA(lv_gap) = abap_false.
+    IF bp_need( io_ctx = io_ctx iv_subject = iv_subject iv_suffix = 'IDNUM'
+                iv_en = SWITCH string( lv_by
+                          WHEN c_bp_eid  THEN `Emirates ID`
+                          WHEN c_bp_pass THEN `Passport Number`
+                          ELSE                `Unified ID` )
+                iv_ar = SWITCH string( lv_by
+                          WHEN c_bp_eid  THEN |رقم الهوية الإماراتية|
+                          WHEN c_bp_pass THEN |رقم جواز السفر|
+                          ELSE                |الرقم الموحد| ) ) = abap_true.
+      lv_gap = abap_true.
+    ENDIF.
+    IF bp_need( io_ctx = io_ctx iv_subject = iv_subject iv_suffix = 'NAT'
+                iv_en = `Nationality` iv_ar = |الجنسية| ) = abap_true.
+      lv_gap = abap_true.
+    ENDIF.
+    IF bp_need( io_ctx = io_ctx iv_subject = iv_subject iv_suffix = 'DOB'
+                iv_en = `Date of Birth` iv_ar = |تاريخ الميلاد| ) = abap_true.
+      lv_gap = abap_true.
+    ENDIF.
+    IF lv_gap = abap_true.
+      RETURN.
+    ENDIF.
+
     ls_req-idtype      = lv_by.
     ls_req-nationality = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'NAT' ) ).
 
@@ -427,11 +530,10 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     " OData filter would have objected - the gateway was the first thing to
     " look at the value, and it terminated the session rather than complaining.
     "
-    " Blank is fine: the date of birth is only the MOI cross-check, never a
-    " search key, so an empty one simply skips that comparison. Filled but
-    " unparsable is NOT fine, and is reported rather than silently blanked -
-    " dropping it would run the search with the MOI date check quietly
-    " disabled and hand back a partner nobody had verified.
+    " It can no longer be blank - the mandatory guard above refuses that - so
+    " what is left is FILLED BUT UNPARSABLE, which is reported rather than
+    " silently blanked. Blanking it would run the search with the MOI date
+    " cross-check quietly disabled and hand back a partner nobody had verified.
     DATA(lv_dob_raw) = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'DOB' ) ).
     DATA(lv_dob)     = bp_dob( lv_dob_raw ).
     IF lv_dob_raw IS NOT INITIAL AND lv_dob IS INITIAL.
@@ -449,6 +551,33 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
       iv_text = |{ lv_dob_msg } (dd.mm.yyyy)| ).
       RETURN.
     ENDIF.
+*   NOT A FUTURE DATE. ZWDC_EGA_EBP_SRCH_CREATE's VALIDATE_SCREEN has this and
+*   AS3's own WD does not, so the check is imported rather than migrated - which
+*   is why the OTR alias is that WD's: ZEGA_BP_V_MAIN_DOB_MSG, "Date of Birth can
+*   not be a future date". Following the OTR keeps the wording single-sourced
+*   with the screen the citizen may already know it from.
+*
+*   AFTER the parse, not before: a future date is only knowable once the text is
+*   a date, and BP_DOB( ) has already refused everything that is not one.
+*   Compared as STRINGS on purpose. LV_DOB is YYYYMMDD in a string and
+*   CONV STRING( sy-datum ) is the same eight characters, so the comparison is
+*   character-by-character with no type conversion to reason about. Note that
+*   |{ sy-datum }| would NOT do - a string template formats a date in the
+*   USER's format by default, giving 04.09.2026 and a nonsense comparison.
+    DATA(lv_today) = CONV string( sy-datum ).
+    IF lv_dob > lv_today.
+*     BLANK WHEN THE ALIAS IS MISSING - SOTR_GET_TEXT_KEY swallows
+*     NO_ENTRY_FOUND, exactly as noted on GET_OTR_TEXT_FOR_ALIAS - so the
+*     fallback is not defensive padding, it is the documented contract.
+      DATA(lv_fut) = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZEGA_BP_V_MAIN_DOB_MSG' ).
+      IF lv_fut IS INITIAL.
+        lv_fut = zcl_rak_text=>pick( iv_base = `Date of Birth can not be a future date`
+                                     iv_ar   = |لا يمكن أن يكون تاريخ الميلاد تاريخاً مستقبلياً| ).
+      ENDIF.
+      io_ctx->add_msg( iv_type = 'Error' iv_text = lv_fut ).
+      RETURN.
+    ENDIF.
+
     ls_req-dob = lv_dob.
     " Written back so the picker redraws the parsed date instead of the text
     " that failed to parse, and a second Search sends the same value again.
@@ -457,15 +586,38 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
       iv_value = lv_dob ).
     ENDIF.
 
+*   ONE FIELD PER IDENTIFIER. Until engine round 9 all three numbers went out in
+*   TY_REQ-EID and IS_EID_TYPE( ) decided from IDTYPE what they were, which meant
+*   a passport search asked "which partner has EId = <passport number>" - not the
+*   question either predecessor asked. DOCUMENT_NUMBER and UID now exist, so each
+*   number goes in its own field and WHEN OTHERS keeps EID as the fallback for a
+*   type this popup does not know.
+*
+*   CALL_MOI ON ALL THREE, which is a change and a return to the source rather
+*   than a new idea. The comment here used to say MOI was the Emirates ID
+*   authority with nothing to say about the other two; every source disagrees.
+*   ZCRM_MOI_CR_UPD appends CallMoi = 'X' for selections 1, 2 AND 3 and only
+*   omits it for a partner-id lookup, and SET_MOI_QUERY_PARAM does the same. The
+*   consequence is the one that matters: VALIDATE( )'s date-of-birth and
+*   nationality cross-check only runs for CALL_MOI, and both fields are now
+*   mandatory on the passport and unified screens - collecting them and then not
+*   verifying them was the worst of the three options.
+*
+*   IT COULD NOT BE DONE BEFORE THIS ROUND. With the passport number still in
+*   TY_REQ-EID, CALL_MOI = X is exactly what sent it to MOI dressed as an
+*   Emirates ID - NORM_EID( ) strips hyphens on that path, and a hyphen can
+*   belong to a passport number. Its own field is what makes this safe.
     CASE lv_by.
       WHEN c_bp_eid.
-        ls_req-eid      = lv_num.
-        ls_req-call_moi = abap_true.
-      WHEN c_bp_tlic.
-        ls_req-trade_licence = lv_num.
+        ls_req-eid             = lv_num.
+      WHEN c_bp_pass.
+        ls_req-document_number = lv_num.
+      WHEN c_bp_unif.
+        ls_req-uid             = lv_num.
       WHEN OTHERS.
-        ls_req-eid = lv_num.
+        ls_req-eid             = lv_num.
     ENDCASE.
+    ls_req-call_moi = abap_true.
 
     DATA(ls_res) = NEW zcl_rak_bp_search( )->search( is_req = ls_req ).
 
@@ -521,11 +673,13 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     " Skip only those three VERDICTS: MOI is still called and the BP still
     " updated from it (that is SKIP_MOI_MISMATCH, not NO_MOI_CALL). Production
     " keeps the full checks, because this must never soften a live decision.
-    IF sy-sysid = 'E10' OR sy-sysid = 'E20'.
-      rs-skip_moi_mismatch = abap_true.
-      rs-skip_tl_expiry    = abap_true.
+*   SKIP_TL_EXPIRY is not set any more: the trade-licence branch is gone from
+*   this popup, so there is no licence whose expiry could be judged. Leaving it
+*   would have read as though this journey still searched for companies.
+*    IF sy-sysid = 'E10' OR sy-sysid = 'E20'.
+*      rs-skip_moi_mismatch = abap_true.
       rs-skip_eid_expiry   = abap_true.
-    ENDIF.
+*    ENDIF.
   ENDMETHOD.
 
 
@@ -1067,32 +1221,21 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
         " text (Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG) as its digits message, and
         " that text can only come back through MSG, which is the mandatory
         " wording on that field. Flagged in the loader.
-        DATA(lv_wives)    = condense( io_ctx->get_val( 'WIVES_COUNT_HUSBAND' ) ).
         DATA(lv_prev_div) = condense( io_ctx->get_val( 'PREV_DIVORCES_COUNT' ) ).
 
-        "   Unreachable while MAX_LEN on this field is 1 - a single digit cannot
-        " exceed 9 - and kept anyway, because it is the invariant the backend
-        " column needs rather than a restatement of the configured length:
-        " ZZAFLD0000V3 is CHAR(1) and would keep only the first character, so
-        " 12 wives would post as 1. Raise MAX_LEN and this is what still stops
-        " that. Nested rather than ANDed with a digit test - CONV i( ) on a
-        " non-numeric string raises CX_SY_CONVERSION_NO_NUMBER, and the guard
-        " has to be certain.
-        "   MAX_VAL = 9 would express this in configuration - VALIDATE_STEP's
-        " numeric gate covers FTYPE 'INPUT' - but not its message. The range
-        " message falls back to the field's own MSG column when one is set, and
-        " that column already carries the mandatory wording ("...is required"),
-        " so a value of 12 would be refused with the wrong sentence. One column
-        " cannot say both, so the range stays here.
-        IF lv_wives IS NOT INITIAL AND lv_wives CO '0123456789'.
-          IF CONV i( lv_wives ) > 9.
-            APPEND field_error( iv_field = 'WIVES_COUNT_HUSBAND'
-            iv_text = COND string(
-            WHEN sy-langu = 'A'
-            THEN |لا يمكن أن يكون عدد الزوجات في عصمة الزوج أكثر من 9|
-            ELSE |Number of waives for husband cannot be more than 9| ) ) TO rt.
-          ENDIF.
-        ENDIF.
+        "   THE "NOT MORE THAN 9" CHECK IS NO LONGER HERE. It is MAX_VAL = 9 on
+        " the WIVES_COUNT_HUSBAND row in ZRAK_C022_LOAD; VALIDATE_STEP's numeric
+        " gate covers FTYPE 'INPUT', and its message needs no clause of its own
+        " because C_NO-NUM_MAX ("&1 must be at most &2") reads better with the
+        " label and the bound than the literal built here did. What kept it in
+        " ABAP was that the range message fell back to the field's single MSG
+        " column, which carries the mandatory wording - engine point R8-2 closed
+        " that by letting MSG be written per check.
+        "   The invariant behind the 9 is unchanged and worth keeping in view:
+        " ZZAFLD0000V3 is CHAR(1) and keeps only the FIRST character of anything
+        " longer, so 12 wives would post as 1. MAX_LEN = 1 stops a second digit
+        " at the keyboard, MAX_VAL = 9 stops it on the step, and DIGITS_ONLY( )
+        " in ON_SUBMIT is the backstop.
         "   Moved here with the two dates themselves. HIST is now the last step
         " that owns FIRST_MARR_CTR_DT and LAST_DIV_DATE, so this is where the
         " ordering can be judged with every value present. The two dates read

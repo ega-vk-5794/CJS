@@ -101,26 +101,19 @@ START-OF-SELECTION.
 * handler checks both fields itself before it calls the RFC, exactly as the
 * WD's CHECK_MANDATORY_ATTR_ON_VIEW did.
 *
-* CLOSED_LIST is deliberately NOT set on the four dropdowns, for the same
-* reason it is held back on AS3 and re-verified against feature/dev at
-* 20a59be: the CLOSED_LIST branch renders sap.m.Select without passing
-* FORCESELECTION, Z2UI5_CL_XML_VIEW omits a property whose value is blank,
-* and UI5's own default for FORCESELECTION is true - so a field still holding
-* nothing would render showing the FIRST option while the model stayed empty.
-* On this journey that is worse than on AS3: Court Type is mandatory, so a
-* screen that looks answered when it is not would let the citizen press
-* Search and be told to fill in a field they can see filled in. This is
-* engine point R7-1; reinstate when it passes FORCESELECTION = ABAP_FALSE.
+* CLOSED_LIST IS SET on all four dropdowns. Every one is a genuinely closed
+* list, and sap.m.Select is not typable - which on this journey is a
+* correctness matter and not only a courtesy. A ComboBox accepts anything, so
+* CASE_YEAR - which DO_SEARCH moves into a local typed ZADTEL00008R for
+* ZFM_JUDGEMENT_PUBLICATION - could receive 'abcd' and, if that data element is
+* numeric, raise CX_SY_CONVERSION_NO_NUMBER on the assignment: the same
+* uncatchable shape as the date dump AS3 hit. The WD's own DropDownByKey never
+* allowed it either.
 *
-* THE PRICE OF HOLDING IT BACK, and it is not only cosmetic. A ComboBox is
-* TYPABLE, so all four of these accept anything - which the WD's own
-* DropDownByKey did not. CASE_YEAR is then moved into a local typed
-* ZADTEL00008R to be handed to ZFM_JUDGEMENT_PUBLICATION, and if that data
-* element is numeric a typed 'abcd' is CX_SY_CONVERSION_NO_NUMBER on the
-* assignment - the same uncatchable shape as the date dump AS3 hit. So
-* ZCL_C061_JUDGEMENT_PUBL_LOGIC's OPT_REJECT( ) refuses any value that is not
-* one of the options the handler itself offered, before the search runs.
-* Delete that guard when CLOSED_LIST goes back on.
+* This was held back by engine point R7-1 (sap.m.Select's FORCESELECTION
+* defaults to true and the engine did not pass it, so an empty field rendered
+* showing its first option). Closed and activated 3 Sep. The handler's
+* OPT_REJECT( ) guard, which stood in for this, went with it.
 *
 * DOMNAME is carried on the two domain-backed dropdowns even though the
 * handler answers them in ON_VALUE_HELP, which the renderer consults FIRST
@@ -137,20 +130,20 @@ START-OF-SELECTION.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
 *   STEP SRCH - the search form -------------------------------------
   ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'COURT_TYPE' seqnr = 10
-  ftype = 'SELECT' required = 'X' zlabel = 'Court Type' zlabel_ar = |درجة القضاء|
+  ftype = 'SELECT' closed_list = 'X' required = 'X' zlabel = 'Court Type' zlabel_ar = |درجة القضاء|
   fgroup = 'ROW:S1' domname = 'ZDO_COURT_TYPE'
   tech_name = 'SEARCH_OPTION-COURT_TYPE'
   msg = 'Court Type is required' msg_ar = |درجة القضاء مطلوبة| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'CLASSIFY_TYPE' seqnr = 20
-  ftype = 'SELECT' zlabel = 'Classification' zlabel_ar = |تصنيف|
+  ftype = 'SELECT' closed_list = 'X' zlabel = 'Classification' zlabel_ar = |تصنيف|
   fgroup = 'ROW:S1' domname = 'ZDO_COURT_CLASSIFY_TYPE'
   tech_name = 'SEARCH_OPTION-CLASSIFY_TYPE' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'CASE_TYPE' seqnr = 30
-  ftype = 'SELECT' zlabel = 'Case/File Type' zlabel_ar = |نوع القضية/الملف|
+  ftype = 'SELECT' closed_list = 'X' zlabel = 'Case/File Type' zlabel_ar = |نوع القضية/الملف|
   fgroup = 'ROW:S1'
   tech_name = 'SEARCH_OPTION-CASE_TYPE' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'CASE_YEAR' seqnr = 40
-  ftype = 'SELECT' required = 'X' zlabel = 'Case Year' zlabel_ar = |السنة|
+  ftype = 'SELECT' closed_list = 'X' required = 'X' zlabel = 'Case Year' zlabel_ar = |السنة|
   fgroup = 'ROW:S2'
   tech_name = 'SEARCH_OPTION-CASE_YEAR'
   msg = 'Case Year is required' msg_ar = |السنة مطلوبة| )

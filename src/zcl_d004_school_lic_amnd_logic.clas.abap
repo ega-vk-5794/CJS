@@ -139,6 +139,8 @@ ENDCLASS.
 
 
 CLASS ZCL_D004_SCHOOL_LIC_AMND_LOGIC IMPLEMENTATION.
+
+
   METHOD zif_rak_journey_logic~get_table.
 
     DATA: lv_recnnr TYPE vicncn-recnnr,
@@ -1008,7 +1010,7 @@ super->zif_rak_journey_logic~on_render_popup(
 *   YFS002 is the Emirates ID type here - the same one the engine defaults to.
 *   A journey looking up trade licences instead would read the id type from a
 *   field rather than hard-coding it.
-    SELECT SINGLE a~partner, a~zzfull_name_eng AS name
+    SELECT SINGLE a~partner, a~birthdt, a~zzfull_name_eng AS name
       FROM but000 AS a
       INNER JOIN but0id AS b
         ON  b~partner = a~partner
@@ -1044,8 +1046,11 @@ super->zif_rak_journey_logic~on_render_popup(
     io_ctx->set_val( iv_name = 'EMAIL_POP' iv_value = lv_val  ).
     CLEAR lv_val.
     lv_val = ls_bp_details-nationality_en.
-
     io_ctx->set_val( iv_name = 'NATIONALITY_POP' iv_value = lv_val  ).
+    CLEAR lv_val.
+    lv_val = ls_bp-birthdt.
+    io_ctx->set_val( iv_name = c_dob iv_value = lv_val  ).
+    CLEAR lv_val.
 **    LOOP AT ls_school-partner INTO DATA(ls_partner).
 **      lv_val = ls_partner-bp_name_en.
 **      io_ctx->set_val( iv_name = 'NAME_POP' iv_value = lv_val  ).
@@ -1269,7 +1274,7 @@ super->zif_rak_journey_logic~on_render_popup(
 **    DATA(lo_nat1) =
     lo_form->combobox( selectedkey = io_ctx->bind( c_own_name )
 **                        editable    = abap_false
-                        placeholder = 'select'
+                        placeholder = 'select' value = 'Emirates ID'
       )->item( key = '1'     text = 'Emirates ID' ).
 *      )->item( key = '2'    text = 'Passport' ).
 
@@ -1281,25 +1286,26 @@ super->zif_rak_journey_logic~on_render_popup(
                     showvaluehelp    = abap_true
                     valuehelprequest = io_ctx->event( c_evt_ownsr )
                     submit           = io_ctx->event( c_evt_ownsr ) ).
-            lo_form->button( text = 'Check' press = io_ctx->event( c_evt_ownsr ) ).
+            lo_form->button( text = 'Search' press = io_ctx->event( c_evt_ownsr ) ).
 
-    lo_form->label( text = 'Owner name' required = abap_true ).
-    lo_form->input( value = io_ctx->bind( 'NAME_POP' ) type = 'Text' ).
+    lo_form->label( text = 'Owner name'  ).  "required = abap_true
+    lo_form->input( value = io_ctx->bind( 'NAME_POP' ) type = 'Text' editable = abap_false ).
 
-    lo_form->label( text = 'Telephone' required = abap_true ).
-    lo_form->input( value = io_ctx->bind( 'TELEPHONE_POP' ) type = 'Number' ).
+**    lo_form->label( text = 'Telephone' required = abap_true ).
+**    lo_form->input( value = io_ctx->bind( 'TELEPHONE_POP' ) type = 'Number' ).
+**
+**    lo_form->label( text = 'Email' required = abap_true ).
+**    lo_form->input( value = io_ctx->bind( 'EMAIL_POP' ) type = 'Text' ).
 
-    lo_form->label( text = 'Email' required = abap_true ).
-    lo_form->input( value = io_ctx->bind( 'EMAIL_POP' ) type = 'Text' ).
-
-    lo_form->label( text = 'Birth Date' required = abap_true ).
+    lo_form->label( text = 'Birth Date' ).
     lo_form->date_picker( value         = io_ctx->bind( c_dob )
-                          valueformat   = 'yyyy-MM-dd'
+                          valueformat   = 'yyyy-MM-dd' editable = abap_false
                           displayformat = 'dd.MM.yyyy' ).
 
-    lo_form->label( text = 'Nationality' required = abap_true ).
-    DATA(lo_nat) = lo_form->combobox( selectedkey = io_ctx->bind( c_own_nat )
-                                      placeholder = 'select' ).
+    lo_form->label( text = 'Nationality'  ).
+    lo_form->input( value = io_ctx->bind( c_own_nat ) type = 'Text' editable = abap_false ).
+**    DATA(lo_nat) = lo_form->combobox( selectedkey = io_ctx->bind( c_own_nat ) editable = abap_false
+**                                      placeholder = 'select' ).
 *   T005T, not a hand-typed list. The 106-item literal this replaced stopped
 *   at "Kenya" and never had United Arab Emirates in it at all - or anything
 *   else L through Z. Same source ZCL_RAK_BP_POPUP already reads for its own
@@ -1317,9 +1323,9 @@ super->zif_rak_journey_logic~on_render_popup(
         ORDER BY land1 ASCENDING
         INTO TABLE @lt_nat.
     ENDIF.
-    LOOP AT lt_nat INTO DATA(ls_nat).
-      lo_nat->item( key = ls_nat-key text = ls_nat-text ).
-    ENDLOOP.
+***    LOOP AT lt_nat INTO DATA(ls_nat).
+***      lo_nat->item( key = ls_nat-key text = ls_nat-text ).
+***    ENDLOOP.
 
     lo_form->label( text = 'Shares %' required = abap_true ).
     lo_form->input( value = io_ctx->bind( c_own_share ) type = 'Number' ).
@@ -1387,18 +1393,18 @@ super->zif_rak_journey_logic~on_render_popup(
 *   somebody else's document.
      DATA(lo_dr1) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d1)  = lo_dr1->vbox( class = 'rakCell' ).
-    lo_d1->label( text = 'Emirates ID Copy' ).
+    lo_d1->label( text = 'Emirates ID Copy' required = abap_true ).
     io_ctx->render_upload( io_view = lo_d1 iv_field = 'EMI_COPY_POP' iv_key = lv_id ).
     DATA(lo_d2)  = lo_dr1->vbox( class = 'rakCell' ).
-    lo_d2->label( text = 'Passport Copy' ).
+    lo_d2->label( text = 'Passport Copy' required = abap_true ).
     io_ctx->render_upload( io_view = lo_d2 iv_field = 'PASSPORT_COPY_POP' iv_key = lv_id ).
 
     DATA(lo_dr2) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d3)  = lo_dr2->vbox( class = 'rakCell' ).
-    lo_d3->label( text = 'Introductory Statement' ).
+    lo_d3->label( text = 'Introductory Statement' required = abap_true ).
     io_ctx->render_upload( io_view = lo_d3 iv_field = 'INTRODUCTORY_POP' iv_key = lv_id ).
     DATA(lo_d4)  = lo_dr2->vbox( class = 'rakCell' ).
-    lo_d4->label( text = 'Criminal Clearance certificate' ).
+    lo_d4->label( text = 'Criminal Clearance certificate' required = abap_true ).
     io_ctx->render_upload( io_view = lo_d4 iv_field = 'CRIMINAL_CLEAR_POP' iv_key = lv_id ).
 
 **    lo_c->title( text = 'Documents' class = 'rakBlkTitle sapUiSmallMarginTop' ).

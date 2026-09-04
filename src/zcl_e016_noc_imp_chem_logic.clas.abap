@@ -32,7 +32,7 @@ private section.
   constants C_GRID type STRING value 'CHEMICALS_DETAILS' ##NO_TEXT.
   constants C_EVT_DETAILS type STRING value 'ADD Details' ##NO_TEXT.
   constants C_HS_CODE_POP type STRING value 'HS_CODE_POP' ##NO_TEXT.
-  constants C_MATERIAL_NAME_POP type STRING value 'MAT_NAME_POP' ##NO_TEXT.
+  constants C_MATERIAL_NAME_POP type STRING value 'MATERIAL_NAME_POP' ##NO_TEXT.
   constants C_CHEMICAL_NAME_POP type STRING value 'CHEMICAL_NAME_POP' ##NO_TEXT.
   constants C_CAS_POP type STRING value 'CAS_POP' ##NO_TEXT.
   constants C_CHEMICAL_FORMULA_POP type STRING value 'CHEMICAL_FORMULA_POP' ##NO_TEXT.
@@ -47,7 +47,7 @@ private section.
 * "Transporter Details field is missing" - CJSMIG-686 Issue 4. E017 and
 * E018 both carry this field; E016 was the only one of the three without
 * it. The name matches E018's so the three dialogs stay comparable.
-  constants C_TRANS_COMP type STRING value 'TRANS_COMP' ##NO_TEXT.
+  constants C_TRANS_COMP type STRING value 'TPORT_POP' ##NO_TEXT.
   constants C_CHEM type STRING value 'CHEM' ##NO_TEXT.
 * The previous-declarations picker at the top of the Add Chemical dialog,
 * and the event its selection raises. See HISTORY_OPTS( ).
@@ -548,7 +548,7 @@ CLASS ZCL_E016_NOC_IMP_CHEM_LOGIC IMPLEMENTATION.
            OR io_ctx->get_val( c_uom_pop )           IS INITIAL
            OR io_ctx->get_val( c_invoice_pop )       IS INITIAL
            OR io_ctx->get_val( c_origin_pop )        IS INITIAL
-           OR io_ctx->get_val( c_end_user_pop )      IS INITIAL
+**           OR io_ctx->get_val( c_end_user_pop )      IS INITIAL
            OR io_ctx->get_val( c_bol_pop )           IS INITIAL
            OR io_ctx->get_val( c_trans_comp )        IS INITIAL.
           io_ctx->add_msg( iv_type = 'Warning'

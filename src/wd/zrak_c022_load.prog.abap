@@ -110,48 +110,74 @@ START-OF-SELECTION.
 *   - it is not enforced at the keyboard. Neither was COUNT_CHECK; nothing is
 *     lost, and MAX_LEN remains the only client-side half.
 *
-* THE MESSAGE, and why only two of the four fields carry one. A regex failure
-* uses the field's own MSG / MSG_AR when set, else the framework's
-* C_NO-BAD_FORMAT ("&1 has an invalid format" / "صيغة &1 غير صحيحة") with the
-* label substituted - bilingual either way. But MISSING_REQUIRED reads the SAME
-* MSG column for its "is required" text, and one column cannot say both things.
-* The two checks never fire together (required needs a blank value, regex needs
-* a filled one), so this is a wording collision, not a functional one:
+* THE MESSAGE. A regex failure uses the field's own MSG / MSG_AR when set, else
+* the framework's C_NO-BAD_FORMAT ("&1 has an invalid format" / "صيغة &1 غير
+* صحيحة") with the label substituted - bilingual either way. MISSING_REQUIRED
+* reads the SAME column for its "is required" text, and until engine point R8-2
+* landed one column could not say both things: the two checks never fire
+* together (required needs a blank value, a format check needs a filled one),
+* but a field still had one sentence to write for both.
+*
+* R8-2 IS CLOSED AND MSG NOW TAKES KEYED CLAUSES, separated by ';':
+*
+*   REQUIRED:<text>;LEN:<text>;RANGE:<text>;NUMBER:<text>;FORMAT:<text>
+*   *:<text>                              catch-all for any check with no
+*                                         clause of its own
+*
+* Each clause splits on its FIRST colon, which is what lets a clause's own text
+* be an OTR:<alias> or an @nnn (a ZRAK_T_CJ_TXT row). A clause missing for the
+* check that fired means BLANK, and the caller then falls back to the
+* catalogue - so a check needs a clause only where the catalogue is not already
+* right. The keyed form is recognised only when the text BEGINS with a
+* recognised key immediately followed by ':', so an ordinary sentence that
+* happens to contain a colon is still plain wording.
+*
+* So the four count fields land like this:
 *   CHILDREN_COUNT, CHILDREN_UNDER_21   never required, by flag or by rule, so
-*                                       MSG is free and carries the digits
-*                                       wording COUNT_CHECK used to produce
-*   WIVES_COUNT_HUSBAND                 required, so MSG stays the mandatory
-*   PREV_DIVORCES_COUNT (rule R04)      text and the digits failure falls back
-*                                       to C_NO-BAD_FORMAT
-* Clearing MSG on those two would free it - MISSING_REQUIRED falls back to
-* C_NO-REQUIRED, which with the label produces the identical sentence they
-* carry today - but it would only move the problem, since the fallback wording
-* would then be the required one. Leave it.
+*                                       plain MSG is unambiguous and carries the
+*                                       digits wording COUNT_CHECK produced
+*   PREV_DIVORCES_COUNT (required by     plain MSG, the mandatory text. Its
+*   rule R04)                            digits failure falls back to
+*                                        C_NO-BAD_FORMAT, which names the field
+*                                        and is right as it stands
+*   WIVES_COUNT_HUSBAND                 KEYED, because it is the one field with
+*                                       a WD message of its own to honour
 *
-* ONE THING WAS LOST in the swap, deliberately and with the user's decision
-* still open: the wives count passed the WD's own OTR text
-* (Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG) as its digits message, honouring the
-* rule that a WD OTR text is followed verbatim. That text can only come back
-* into MSG, and MSG is the mandatory wording on that field.
+* THE WIVES COUNT GETS ITS WD WORDING BACK. VALIDATE_NUMERIC in the WD read
+* ZZAFLD0000V3 and nothing else, and reported it through OTR concept
+* Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG. The FORMAT: clause carries that ALIAS
+* rather than a transcription of its text, so MSG_TOKEN( ) resolves it at
+* runtime in the engine's language - which is the rule about following a WD OTR
+* text satisfied exactly, rather than approximated by copying words out of it.
 *
-* NOT DONE, and worth knowing it is available: MAX_VAL = 9 on the wives count
-* would move the "cannot be more than 9" check out of the handler too -
-* VALIDATE_STEP's numeric gate covers FTYPE 'INPUT' - but its message would hit
-* the same MSG collision, so that check stays in ON_CUSTOM_VALIDATE.
+* MAX_VAL = 9 ON THAT FIELD, and the "cannot be more than 9" check is gone from
+* ON_CUSTOM_VALIDATE with it. VALIDATE_STEP's numeric gate covers FTYPE 'INPUT',
+* and its message needs no RANGE: clause: C_NO-NUM_MAX is "&1 must be at most
+* &2" / "يجب ألا يتجاوز &1 &2", which with the label and the bound reads better
+* than the literal the handler used to build. The invariant behind the 9 is the
+* backend column: ZZAFLD0000V3 is CHAR(1) and keeps only the first character of
+* anything longer.
 *
-* CLOSED_LIST is deliberately NOT set, though every field here is a closed list
-* and the flag would stop the pointless typing a ComboBox invites. It is held
-* back because sap.m.Select carries FORCESELECTION, which defaults to true and
-* which the engine does not currently pass: a field whose value is still blank
-* therefore renders showing the FIRST option while the model holds nothing.
-* The screen then disagrees with the data - rules keyed on the field do not
-* fire, and a mandatory check refuses a field the citizen can see filled in.
-* A typable dropdown is a much smaller problem than a screen that lies.
-* Reinstate this once the engine passes FORCESELECTION = ABAP_FALSE; the change
-* here is one column on the fourteen FTYPE 'SELECT' rows below. When it goes
-* back, note that sap.m.Select has no EDITABLE property, so the READONLY /
-* EDITABLE rules map to ENABLED - MARR_CONSUMMATED and ISOLATION, toggled by
-* rules R16 / R17, are the two to watch.
+* CLOSED_LIST IS SET on all fourteen FTYPE 'SELECT' rows, and it was held back
+* for months before it could be. Every field here is a genuinely closed list -
+* nothing a citizen types into one can be accepted - so the type-ahead ComboBox
+* the engine draws by default only invited pointless typing and popped a
+* keyboard on a touch device for nothing.
+*
+* What blocked it was engine point R7-1: the CLOSED_LIST branch renders
+* sap.m.Select, whose FORCESELECTION defaults to TRUE, and the engine did not
+* pass it - so a field still holding nothing rendered showing its FIRST option
+* while the model stayed empty. The screen disagreed with the data: rules keyed
+* on the field did not fire, and a mandatory check refused a field the citizen
+* could see filled in. A typable dropdown was the much smaller problem.
+*
+* Closed and activated 3 Sep - ZCL_RAK_JOURNEY_RENDER now passes
+* FORCESELECTION = ABAP_FALSE on that branch.
+*
+* WATCH MARR_CONSUMMATED AND ISOLATION FIRST when testing this. sap.m.Select
+* has no EDITABLE property - it is a picker, not a text field - so the engine
+* maps READONLY / EDITABLE onto ENABLED instead, and those two are the only
+* fields here toggled by rules (R16 / R17 on CASE_UPON_DIVORCE).
 *
 * FTYPE 'READONLY' carries CONTRACT_PLACE, DIVORCEE_PARTNER and
 * DIVORCER_PARTNER, which are starred but written by a popup or by ON_INIT,
@@ -180,11 +206,11 @@ START-OF-SELECTION.
   max_len = 60 tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008L'
   msg = 'Marriage contract place is required' msg_ar = |مكان عقد الزواج مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'MARR' field_name = 'FAM_GUIDANCE_APPR' seqnr = 60
-  ftype = 'SELECT' required = 'X' zlabel = 'Family guidance approval' zlabel_ar = |عرض على التوجيه الأسري|
+  ftype = 'SELECT' closed_list = 'X' required = 'X' zlabel = 'Family guidance approval' zlabel_ar = |عرض على التوجيه الأسري|
   fgroup = 'ROW:M3' domname = 'ZADTEL0001TL' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UN'
   msg = 'Family guidance approval is required' msg_ar = |عرض على التوجيه الأسري مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'MARR' field_name = 'MARR_GRANT_RECEIVED' seqnr = 70
-  ftype = 'SELECT' zlabel = 'Was a marriage grant received?' zlabel_ar = |هل تم إستلام منحة زواج|
+  ftype = 'SELECT' closed_list = 'X' zlabel = 'Was a marriage grant received?' zlabel_ar = |هل تم إستلام منحة زواج|
   fgroup = 'ROW:M4' domname = 'ZADTEL0001TM' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UO' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'MARR' field_name = 'GRANT_SIDE' seqnr = 80
   ftype = 'INPUT' zlabel = 'Grant side' zlabel_ar = |جهة المنحة| fgroup = 'ROW:M4'
@@ -201,18 +227,18 @@ START-OF-SELECTION.
   msg = 'Marriage contract date is required' msg_ar = |تاريخ عقد الزواج مطلوب| )
 *   STEP DIVO ------------------------------------------------------
   ( mandt = sy-mandt journey_id = c_jid step_id = 'DIVO' field_name = 'DIV_DECL_TYPE' seqnr = 10
-  ftype = 'SELECT' zlabel = 'Type of divorce declaration' zlabel_ar = |نوع إقرار الطلاق|
+  ftype = 'SELECT' closed_list = 'X' zlabel = 'Type of divorce declaration' zlabel_ar = |نوع إقرار الطلاق|
   fgroup = 'ROW:D1' domname = 'ZADTEL0001TN' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UP' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'DIVO' field_name = 'DIV_TYPE' seqnr = 20
-  ftype = 'SELECT' required = 'X' zlabel = 'Type of divorce' zlabel_ar = |نوع الطلاق| fgroup = 'ROW:D1'
+  ftype = 'SELECT' closed_list = 'X' required = 'X' zlabel = 'Type of divorce' zlabel_ar = |نوع الطلاق| fgroup = 'ROW:D1'
   domname = 'ZADTEL0001TO' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UQ'
   msg = 'Type of divorce is required' msg_ar = |نوع الطلاق مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'DIVO' field_name = 'DIV_APPLICANT' seqnr = 30
-  ftype = 'SELECT' required = 'X' zlabel = 'Divorce applicant' zlabel_ar = |طالب الطلاق| fgroup = 'ROW:D2'
+  ftype = 'SELECT' closed_list = 'X' required = 'X' zlabel = 'Divorce applicant' zlabel_ar = |طالب الطلاق| fgroup = 'ROW:D2'
   domname = 'ZADTEL0001TP' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UR'
   msg = 'Divorce applicant is required' msg_ar = |طالب الطلاق مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'DIVO' field_name = 'DIV_METHOD' seqnr = 40
-  ftype = 'SELECT' zlabel = 'The method of divorce' zlabel_ar = |طريقة الطلاق| fgroup = 'ROW:D2'
+  ftype = 'SELECT' closed_list = 'X' zlabel = 'The method of divorce' zlabel_ar = |طريقة الطلاق| fgroup = 'ROW:D2'
   domname = 'ZADTEL0001TQ' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000US' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'DIVO' field_name = 'DIV_WORDS' seqnr = 50
   ftype = 'INPUT' zlabel = 'Divorce words' zlabel_ar = |صيغة الطلاق| fgroup = 'ROW:D3' max_len = 60
@@ -221,7 +247,7 @@ START-OF-SELECTION.
   ftype = 'INPUT' zlabel = 'Divorce Place' zlabel_ar = |مكان الطلاق| fgroup = 'ROW:D3'
   max_len = 20 tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UJ' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'DIVO' field_name = 'DIV_REASON' seqnr = 70
-  ftype = 'SELECT' required = 'X' zlabel = 'Divorce reason' zlabel_ar = |سبب الطلاق| fgroup = 'ROW:D4'
+  ftype = 'SELECT' closed_list = 'X' required = 'X' zlabel = 'Divorce reason' zlabel_ar = |سبب الطلاق| fgroup = 'ROW:D4'
   domname = 'ZADTEL0001TR' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UT'
   msg = 'Divorce reason is required' msg_ar = |سبب الطلاق مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'DIVO' field_name = 'DIV_REASON_DETAILS' seqnr = 80
@@ -233,23 +259,23 @@ START-OF-SELECTION.
   msg = 'Date of divorce or khula is required' msg_ar = |تاريخ الطلاق أو الخلع أو التطليق مطلوب| )
 *   STEP HIST ------------------------------------------------------
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'RELATIVE_RELATION' seqnr = 10
-  ftype = 'SELECT' required = 'X' zlabel = 'Relative relation' zlabel_ar = |صلة القرابة بين المطلقين| fgroup = 'ROW:H1'
+  ftype = 'SELECT' closed_list = 'X' required = 'X' zlabel = 'Relative relation' zlabel_ar = |صلة القرابة بين المطلقين| fgroup = 'ROW:H1'
   domname = 'ZADTEL0001T4' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000U6'
   msg = 'Relative relation is required' msg_ar = |صلة القرابة بين المطلقين مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'STATUS_UPON_MARR' seqnr = 20
-  ftype = 'SELECT' zlabel = 'Status of the divorced upon marriage'
+  ftype = 'SELECT' closed_list = 'X' zlabel = 'Status of the divorced upon marriage'
   zlabel_ar = |حالة المطلقة عند عقد الزواج| fgroup = 'ROW:H1' domname = 'ZADTEL0001TS'
   tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UU' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'CASE_UPON_DIVORCE' seqnr = 30
-  ftype = 'SELECT' required = 'X' zlabel = 'Divorced case upon divorce' zlabel_ar = |حالة المطلقة عند الطلاق|
+  ftype = 'SELECT' closed_list = 'X' required = 'X' zlabel = 'Divorced case upon divorce' zlabel_ar = |حالة المطلقة عند الطلاق|
   fgroup = 'ROW:H2' domname = 'ZADTEL0001TT' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UV'
   msg = 'Divorced case upon divorce is required' msg_ar = |حالة المطلقة عند الطلاق مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'MARR_CONSUMMATED' seqnr = 40
-  ftype = 'SELECT' zlabel = 'Marriage consummated' zlabel_ar = |تم الدخول| fgroup = 'ROW:H2'
+  ftype = 'SELECT' closed_list = 'X' zlabel = 'Marriage consummated' zlabel_ar = |تم الدخول| fgroup = 'ROW:H2'
   domname = 'ZADTEL0001TU' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UW'
   msg = 'Marriage consummated is required' msg_ar = |تم الدخول مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'ISOLATION' seqnr = 50
-  ftype = 'SELECT' zlabel = 'Isolation' zlabel_ar = |تمت الخلوة| fgroup = 'ROW:H3'
+  ftype = 'SELECT' closed_list = 'X' zlabel = 'Isolation' zlabel_ar = |تمت الخلوة| fgroup = 'ROW:H3'
   domname = 'ZADTEL0001TV' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UX'
   msg = 'Isolation is required' msg_ar = |تمت الخلوة مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'CHILDREN_COUNT' seqnr = 60
@@ -267,10 +293,14 @@ START-OF-SELECTION.
   msg_ar = |الرجاء ادخال ارقام فقط في حقل عدد الأولاد أقل من 21 سنة| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'WIVES_COUNT_HUSBAND' seqnr = 90
   ftype = 'INPUT' required = 'X' zlabel = 'Number of waives for husband' zlabel_ar = |عدد الزوجات في عصمة الزوج|
-  fgroup = 'ROW:H5' max_len = 1 regex = '^[0-9]+$' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000V3'
-  msg = 'Number of waives for husband is required' msg_ar = |عدد الزوجات في عصمة الزوج مطلوب| )
+  fgroup = 'ROW:H5' max_len = 1 regex = '^[0-9]+$' max_val = '9'
+  tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000V3'
+  msg = 'REQUIRED:Number of waives for husband is required;' &&
+        'FORMAT:OTR:Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG'
+  msg_ar = |REQUIRED:عدد الزوجات في عصمة الزوج مطلوب;| &&
+           |FORMAT:OTR:Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'EARLIER_MARRIAGES' seqnr = 100
-  ftype = 'SELECT' required = 'X' zlabel = 'Earlier marriages' zlabel_ar = |هل تم الزواج من قبل بين الطرفين|
+  ftype = 'SELECT' closed_list = 'X' required = 'X' zlabel = 'Earlier marriages' zlabel_ar = |هل تم الزواج من قبل بين الطرفين|
   fgroup = 'ROW:H5' domname = 'ZADTEL0001TW' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UY'
   msg = 'Earlier marriages is required' msg_ar = |هل تم الزواج من قبل بين الطرفين مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'FIRST_MARR_CTR_DT' seqnr = 105
@@ -324,8 +354,6 @@ START-OF-SELECTION.
   ftype = 'INPUT' hidden = 'X' zlabel = 'Divorcee — Date of birth (BP popup)' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCEE_NAT' seqnr = 130
   ftype = 'INPUT' hidden = 'X' zlabel = 'Divorcee — Nationality (BP popup)' )
-  ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCEE_PPTYPE' seqnr = 140
-  ftype = 'INPUT' hidden = 'X' zlabel = 'Divorcee — Passport type (BP popup)' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCEE_PHONE' seqnr = 150
   ftype = 'INPUT' hidden = 'X' zlabel = 'Divorcee — Phone (BP popup)' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCEE_EMAIL' seqnr = 160
@@ -338,8 +366,6 @@ START-OF-SELECTION.
   ftype = 'INPUT' hidden = 'X' zlabel = 'Divorcer — Date of birth (BP popup)' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCER_NAT' seqnr = 200
   ftype = 'INPUT' hidden = 'X' zlabel = 'Divorcer — Nationality (BP popup)' )
-  ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCER_PPTYPE' seqnr = 210
-  ftype = 'INPUT' hidden = 'X' zlabel = 'Divorcer — Passport type (BP popup)' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCER_PHONE' seqnr = 220
   ftype = 'INPUT' hidden = 'X' zlabel = 'Divorcer — Phone (BP popup)' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCER_EMAIL' seqnr = 230
@@ -352,8 +378,6 @@ START-OF-SELECTION.
   ftype = 'INPUT' hidden = 'X' zlabel = 'Witness1 — Date of birth (BP popup)' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'WITNESS1_NAT' seqnr = 270
   ftype = 'INPUT' hidden = 'X' zlabel = 'Witness1 — Nationality (BP popup)' )
-  ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'WITNESS1_PPTYPE' seqnr = 280
-  ftype = 'INPUT' hidden = 'X' zlabel = 'Witness1 — Passport type (BP popup)' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'WITNESS1_PHONE' seqnr = 290
   ftype = 'INPUT' hidden = 'X' zlabel = 'Witness1 — Phone (BP popup)' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'WITNESS1_EMAIL' seqnr = 300
@@ -366,8 +390,6 @@ START-OF-SELECTION.
   ftype = 'INPUT' hidden = 'X' zlabel = 'Witness2 — Date of birth (BP popup)' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'WITNESS2_NAT' seqnr = 340
   ftype = 'INPUT' hidden = 'X' zlabel = 'Witness2 — Nationality (BP popup)' )
-  ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'WITNESS2_PPTYPE' seqnr = 350
-  ftype = 'INPUT' hidden = 'X' zlabel = 'Witness2 — Passport type (BP popup)' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'WITNESS2_PHONE' seqnr = 360
   ftype = 'INPUT' hidden = 'X' zlabel = 'Witness2 — Phone (BP popup)' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'WITNESS2_EMAIL' seqnr = 370
@@ -378,7 +400,7 @@ START-OF-SELECTION.
   tech_name = 'NO_DIV_MARR_TAKEOFF-TEXT_Z11'
   msg = 'Request text is required' msg_ar = |نص الطلب مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'DOCS' field_name = 'DOCUMENT_TYPE' seqnr = 20
-  ftype = 'SELECT' required = 'X' zlabel = 'Document Type' zlabel_ar = |نوع المرفق| domname = 'ZDO_EGA_DOCUMENT_TYPE'
+  ftype = 'SELECT' closed_list = 'X' required = 'X' zlabel = 'Document Type' zlabel_ar = |نوع المرفق| domname = 'ZDO_EGA_DOCUMENT_TYPE'
   tech_name = 'SELECTED_DD_VALUES-SELECTED_DOC_TYPE'
   msg = 'Document Type is required' msg_ar = |نوع المرفق مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'DOCS' field_name = 'ATTACHMENT' seqnr = 30

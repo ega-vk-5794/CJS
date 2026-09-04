@@ -71,6 +71,8 @@ public section.
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
     redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~GET_TABLE
+    redefinition .
 protected section.
 private section.
 
@@ -457,5 +459,22 @@ CLASS ZCL_E030_NEW_HOUSING_LOGIC IMPLEMENTATION.
       WHEN OTHERS.
     ENDCASE.
 
+  endmethod.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~GET_TABLE.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~GET_TABLE
+*  EXPORTING
+*    IO_CTX  =
+*    IV_NAME =
+*  RECEIVING
+*    RS_DATA =
+*    .
+    CHECK to_upper( iv_name ) = 'ACCOMMODATIONS'.
+    rs_data-columns = VALUE #( ( `Building` ) ( `Room` ) ( `Bed` ) ( `Worker` ) ).
+    DATA(lt_rows) = io_ctx->get_val( 'ACCOMMODATIONS' ).
+    LOOP AT VALUE string_table( ) INTO DATA(lv_dummy).   " placeholder loop — replace with real row source
+      APPEND VALUE #( ( `` ) ( `` ) ( `` ) ( `` ) ) TO rs_data-rows.
+    ENDLOOP.
   endmethod.
 ENDCLASS.

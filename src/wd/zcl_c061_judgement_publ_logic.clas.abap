@@ -207,16 +207,6 @@ CLASS zcl_c061_judgement_publ_logic DEFINITION
                 iv_field  TYPE string
       RETURNING VALUE(rv) TYPE string.
 
-*   Refuse a dropdown value that is not one of the options WE offered, and say
-*   so. Needed because the four dropdowns render as sap.m.ComboBox - which is
-*   TYPABLE - and cannot be switched to sap.m.Select until engine point R7-1
-*   lands. Returns ABAP_TRUE when it rejected, having added the message.
-    METHODS opt_reject
-      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
-                iv_field  TYPE string
-                it_opt    TYPE zif_rak_journey=>tt_option
-      RETURNING VALUE(rv) TYPE abap_bool.
-
 *   One OTR alias in the ENGINE's resolved language, never SY-LANGU.
     METHODS otr
       IMPORTING iv_alias  TYPE sotr_alias
@@ -710,36 +700,13 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-*   TYPED-INTO DROPDOWNS. See OPT_REJECT( ) for why this is necessary at all
-*   and why CASE_YEAR in particular has to be checked before it is moved into
-*   a typed local a few lines below.
-*
-*   Two passes, not one. Court Type and Classification are independent of
-*   each other and of the year, so all three are reported together. Case/File
-*   Type is only checked once they are known good, because CASE_TYPE_OPTS( )
-*   FILTERS on those two - a typed Court Type narrows the list to nothing and
-*   would make a perfectly valid Case/File Type look invalid as well, which is
-*   one wrong message too many.
-    DATA(lv_rej) = abap_false.
-    IF opt_reject( io_ctx = io_ctx iv_field = c_f_court
-                   it_opt = dom_opts( c_dom_court ) ) = abap_true.
-      lv_rej = abap_true.
-    ENDIF.
-    IF opt_reject( io_ctx = io_ctx iv_field = c_f_classify
-                   it_opt = dom_opts( c_dom_classify ) ) = abap_true.
-      lv_rej = abap_true.
-    ENDIF.
-    IF opt_reject( io_ctx = io_ctx iv_field = c_f_caseyear
-                   it_opt = year_opts( ) ) = abap_true.
-      lv_rej = abap_true.
-    ENDIF.
-    IF lv_rej = abap_true.
-      RETURN.
-    ENDIF.
-    IF opt_reject( io_ctx = io_ctx iv_field = c_f_casetype
-                   it_opt = case_type_opts( io_ctx ) ) = abap_true.
-      RETURN.
-    ENDIF.
+*   NO TYPED-VALUE GUARD HERE ANY MORE. An OPT_REJECT( ) used to refuse any
+*   value that was not one of the options this handler had offered, because
+*   CLOSED_LIST was held back by engine point R7-1 and a sap.m.ComboBox is
+*   typable - so CASE_YEAR could reach the ZADTEL00008R local below as 'abcd'.
+*   R7-1 is closed and CLOSED_LIST is set on all four dropdowns in the loader,
+*   so a sap.m.Select is the only control drawn and there is nothing to type
+*   into. Put the guard back if CLOSED_LIST is ever taken off again.
 
     DATA lv_num TYPE zadtel00008n.
     DATA lv_yr  TYPE zadtel00008r.
@@ -1449,48 +1416,6 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
     IF rv IS INITIAL.
       rv = iv_field.
     ENDIF.
-  ENDMETHOD.
-
-
-  METHOD opt_reject.
-*&---------------------------------------------------------------------*
-*& opt_reject — a dropdown value that is not one of ours.
-*&
-*& WHY THIS EXISTS. All four criteria are dropdowns, and the engine draws a
-*& dropdown as sap.m.ComboBox unless CLOSED_LIST is set - a ComboBox is
-*& TYPABLE. CLOSED_LIST is held back on this journey (and on AS3) by engine
-*& point R7-1: the sap.m.Select branch does not pass FORCESELECTION, whose
-*& UI5 default is true, so an empty field would render showing its first
-*& option while the model held nothing. A typable dropdown was the lesser
-*& evil - but it means anything can arrive in these four fields, which the
-*& WD's own DropDownByKey did not allow.
-*&
-*& CASE_YEAR is the one that makes this more than cosmetic. DO_SEARCH moves
-*& it into a local typed ZADTEL00008R to hand to ZFM_JUDGEMENT_PUBLICATION,
-*& and if that data element is numeric then a typed 'abcd' is a
-*& CX_SY_CONVERSION_NO_NUMBER on the assignment - the same uncatchable shape
-*& as the '19.08.1987' date dump on AS3's BP popup. Whether it IS numeric
-*& could not be checked from outside the system, so this guard makes the
-*& question moot instead of betting on the answer.
-*&
-*& Membership, not a pattern: the lists are built HERE - DOM_OPTS( ),
-*& CASE_TYPE_OPTS( ), YEAR_OPTS( ) - so "not in the list" is exact and needs
-*& no knowledge of the DDIC types behind them. Blank passes, because blank is
-*& the citizen not having chosen and REQUIRED already owns that.
-*&---------------------------------------------------------------------*
-    DATA(lv_val) = io_ctx->get_val( iv_field ).
-    IF lv_val IS INITIAL.
-      RETURN.
-    ENDIF.
-    IF line_exists( it_opt[ key = lv_val ] ).
-      RETURN.
-    ENDIF.
-    DATA(lv_msg) = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-bad_format
-                                      iv_default = '&1 has an invalid format'
-                                      iv_v1      = fld_label( io_ctx = io_ctx
-                                                              iv_field = iv_field ) ).
-    io_ctx->add_msg( iv_type = 'Error' iv_text = lv_msg ).
-    rv = abap_true.
   ENDMETHOD.
 
 

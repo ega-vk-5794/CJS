@@ -227,58 +227,52 @@ CLASS ZCL_EPDA_E020_BATT_SCRAP_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-  method ZIF_RAK_JOURNEY_LOGIC~ON_INIT.
-
-      DATA: lv_loginbp TYPE bu_partner.
-      lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
-      DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
-      DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
-
-      IF lv_loginbp IS INITIAL AND syst-sysid = 'E10'.
-        lv_loginbp = '1000116563'.
-      ENDIF.
-
-      IF lv_loginbp IS NOT INITIAL.
-        NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
-          EXPORTING
-            iv_bp_id      = lv_loginbp
-          IMPORTING
-            es_bp_details = DATA(ls_bp) ).
-
-        io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
-
-        IF sy-langu = c_lang_en.
-          io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name ) ).
-        ELSE.
-          io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
-        ENDIF.
-
-        io_ctx->set_val( iv_name = c_app_id     iv_value = CONV #( ls_bp-emirates_id ) ).
-        io_ctx->set_val( iv_name = c_app_mobile iv_value = CONV #( ls_bp-mobile_number ) ).
-        io_ctx->set_val( iv_name = c_app_email  iv_value = CONV #( ls_bp-email_address ) ).
-*      io_ctx->set_val( iv_name = c_app_role iv_value = |{ lv_role }| ).
-        io_ctx->set_val( iv_name = c_app_role iv_value = |{ c_rep }| ).
+  METHOD zif_rak_journey_logic~on_init.
 
 
+
+    DATA: lv_loginbp TYPE bu_partner.
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
+
+
+    IF sy-uname = 'HASAN.F.VND'.
+      lv_loginbp = '1000116563'.
+      lv_rolebp   = '1000116563'.
+      lv_role = 'OWNER'.
+    ENDIF.
+
+    IF lv_loginbp IS NOT INITIAL.
+      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+        EXPORTING
+          iv_bp_id      = lv_loginbp
+        IMPORTING
+          es_bp_details = DATA(ls_bp) ).
+
+      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+
+      IF sy-langu = c_lang_en.
+        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name ) ).
       ELSE.
-
-
-*      io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '3000180559' ). "'1000116563' )
-*      io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '1000116563' ). "'1000116563' ).
-*
-**    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
-*      io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
-**    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
-*      io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
-*
-**    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
-*      io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
-
+        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
       ENDIF.
 
+      io_ctx->set_val( iv_name = c_app_id     iv_value = CONV #( ls_bp-emirates_id ) ).
+      io_ctx->set_val( iv_name = c_app_mobile iv_value = CONV #( ls_bp-mobile_number ) ).
+      io_ctx->set_val( iv_name = c_app_email  iv_value = CONV #( ls_bp-email_address ) ).
+*      io_ctx->set_val( iv_name = c_app_role iv_value = |{ lv_role }| ).
+      io_ctx->set_val( iv_name = c_app_role iv_value = |{ c_rep }| ).
+
+      io_ctx->set_val( iv_name = c_owner_bp_idtype    iv_value = CONV #( 'YFS002' ) ).
+      io_ctx->set_val( iv_name = 'PERMIT_NUMBER_IDTYPE'    iv_value = CONV #( 'HF001' ) ).
 
 
-  endmethod.
+    ENDIF.
+
+
+
+  ENDMETHOD.
 
 
   method ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH.
