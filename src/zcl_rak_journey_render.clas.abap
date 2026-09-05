@@ -870,8 +870,42 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           ls_data-columns = lt_csh.
         ENDIF.
 
-        DATA(lv_pick) = COND string( WHEN lv_chk = abap_true OR lv_csok = abap_true
-                                     THEN `` ELSE is_field-default ).
+*       THE ROW-PICK CAPTION IS PER FIELD, not one catalogue entry for every
+*       TABLE in every journey. DEFAULT_VAL already carries the pick target, so
+*       an optional second and third part carry the button's own wording:
+*
+*           SEL_GUID                 the catalogue's "Select", as today
+*           SEL_GUID|View            "View" in both languages
+*           SEL_GUID|View|عرض        "View" / "عرض"
+*
+*       Splitting on '|' is safe here: DEFAULT_VAL on a TABLE field names a
+*       model field, and a field name cannot contain a pipe. The single-value
+*       form is untouched, which is what every journey has today.
+*
+*       DEFAULT_VAL already carries three meanings on a TABLE and this is a
+*       fourth reading of the same column, so it is taken LAST: CHK: and the
+*       KEY:Label:TYPE column spec are both decided above, on the whole
+*       string, before anything is split for a caption. Where either of them
+*       claimed the column there is no per-row button to caption and all three
+*       parts are dropped. A caption must therefore not contain a colon - one
+*       would turn the value into a column spec at the test above, which is
+*       reached first and knows nothing about captions.
+        DATA lv_pick    TYPE string.
+        DATA lv_pick_en TYPE string.
+        DATA lv_pick_ar TYPE string.
+        SPLIT is_field-default AT '|' INTO lv_pick lv_pick_en lv_pick_ar.
+        IF lv_chk = abap_true OR lv_csok = abap_true.
+          CLEAR: lv_pick, lv_pick_en, lv_pick_ar.
+        ENDIF.
+
+*       Blank falls back to the shared catalogue entry, so a TABLE that names
+*       no caption reads exactly as it does now.
+        DATA(lv_pick_txt) = COND string(
+          WHEN lv_pick_en IS NOT INITIAL
+          THEN zcl_rak_journey_util=>pick_text( iv_en   = lv_pick_en
+                                                iv_ar   = lv_pick_ar
+                                                iv_lang = zcl_rak_text=>lang( ) )
+          ELSE zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-select iv_default = 'Select' ) ).
 
         DATA(lo_tab) = io_parent->table( alternaterowcolors = abap_true
                                          mode               = COND string( WHEN lv_pick IS NOT INITIAL THEN 'SingleSelectMaster' ELSE 'None' )
@@ -950,7 +984,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                        class = 'sapUiMediumMarginEnd' ).
             ELSE.
               lo_cells->button(
-                text      = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-select iv_default = 'Select' )
+                text      = lv_pick_txt
                 type      = 'Default'
                 icon      = 'sap-icon://navigation-right-arrow'
                 iconfirst = abap_false
@@ -1431,6 +1465,26 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   THE STEP CAN DECLINE THE ACTION ALTOGETHER, which the three-way at the end
+*   of this method has no value for: linear-and-not-last gives Next, NO_SUBMIT
+*   gives Close, and everything else gives Submit. There is no fourth state, so
+*   a step answered by picking a row rather than by pressing anything ended up
+*   with a Close button that abandons a journey the citizen has not started.
+*
+*   It sits ABOVE the payment branch on purpose. "No primary action" has to
+*   mean the Pay button too, or the flag would hold everywhere except the one
+*   step where a stray button costs the citizen something. A step wanting Pay
+*   and nothing else is the default and needs no flag.
+*
+*   Back and the message strip are already drawn above, so returning here
+*   leaves exactly those - the same shape NO_FORWARD leaves, which is why this
+*   is next to it. NO_FORWARD is not the same flag: it removes Next and lets
+*   Close or Submit through, which is still a button. Blank NO_ACTION is every
+*   step that existed before the column did, so nothing moves.
+    IF ls_cur-no_action = abap_true.
+      RETURN.
+    ENDIF.
+
     IF lv_pay = abap_true.
       DATA(lv_feefld) = pay_field( mo_e->mv_step ).
       IF lv_feefld IS NOT INITIAL
@@ -1582,7 +1636,15 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     DATA(lv_min)  = COND string( WHEN is_field-validation-min_val IS NOT INITIAL THEN is_field-validation-min_val ELSE '0' ).
     DATA(lv_max)  = COND string( WHEN is_field-validation-max_val IS NOT INITIAL THEN is_field-validation-max_val ELSE '100' ).
     DATA(lv_w)    = zcl_rak_journey_util=>ctrl_width( is_field ).
-    IF mv_in_cell = abap_true AND mv_flow_cell = abap_false.
+*   An AUTHORED width outranks the cell's 100%, and it has to: a laid-out step
+*   is exactly where two controls of different types come out different widths,
+*   so a per-field width that any laid-out cell overwrote would be a knob that
+*   does nothing on the only screens that need it. The test is CFG_WIDTH( ),
+*   not the column - a value the unit check refused is not initial and must
+*   still take the 100%, or a mistyped width would silently narrow the control
+*   to its type default instead of rendering as it did before.
+    DATA(lv_cfgw) = zcl_rak_journey_util=>cfg_width( is_field ).
+    IF mv_in_cell = abap_true AND mv_flow_cell = abap_false AND lv_cfgw IS INITIAL.
       lv_w = '100%'.
     ENDIF.
 

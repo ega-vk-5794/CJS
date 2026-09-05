@@ -46,6 +46,31 @@ INTERFACE zif_rak_journey
 *     to sap.m.Select instead; blank changes nothing, so no existing
 *     dropdown's type-ahead is affected until an author opts a field in.
       closed_list  TYPE abap_bool,
+      " An explicit control width for THIS field, overriding the per-type
+      " default in ZCL_RAK_JOURNEY_UTIL=>CTRL_WIDTH( ). Blank falls through to
+      " that CASE, so a journey authored before this was read renders
+      " identically.
+      "
+      " It comes from ZRAK_T_JNY_FLD-WIDTH - an EXISTING column, not a new
+      " one. The Studio has always offered it and always saved it, and
+      " nothing has ever read it: the field editor said "Width (not applied
+      " yet)" in as many words. So there is no DDIC change and no table
+      " adjust behind this, and any width an author already typed starts
+      " taking effect the moment the loader is active. Worth knowing before
+      " assuming a blank screen means nothing was configured.
+      "
+      " Named CTRL_WIDTH here rather than WIDTH to keep it apart from the
+      " CELL width in ZRAK_CJ_LAYOUT, which sizes the box the control sits
+      " in. The two are separately authored and both real.
+      "
+      " Values are constrained to % and rem by ZCL_RAK_JOURNEY_UTIL=>
+      " CFG_WIDTH( ). A hard px width does not collapse on a phone and is the
+      " one way to break the responsive layout from configuration, so an
+      " authored px value is ignored rather than honoured - and, because it
+      " is ignored rather than merely unused, it also leaves the laid-out
+      " cell's 100% in place instead of silently narrowing the control to its
+      " type default.
+      ctrl_width   TYPE string,
       options      TYPE tt_option,
       validation   TYPE ty_validation,
     END OF ty_field,
@@ -71,6 +96,22 @@ INTERFACE zif_rak_journey
       " not have to learn a new special case each time.
       next_req    TYPE string,
       no_forward  TYPE abap_bool,
+      " The step declines the footer's primary action. RENDER_FOOTER( ) draws
+      " Back and the message strip and nothing else - no Next, no Submit, no
+      " Close. Blank is today's behaviour, so no existing step moves.
+      "
+      " It exists because the footer was a three-way choice with no fourth
+      " value: linear-and-not-last gives Next, NO_SUBMIT gives Close, and
+      " everything else gives Submit. A step that is answered by picking a row
+      " rather than by pressing anything had no way to say so, and ended up
+      " with a Close button that abandons a journey the citizen has not
+      " started.
+      "
+      " Step-level rather than journey-level deliberately: a search step wants
+      " this and the terminal read-only step that follows it does not - Close
+      " is the right button there. One flag per step can say that; a
+      " journey-wide switch cannot.
+      no_action   TYPE abap_bool,
       fields      TYPE tt_field,
     END OF ty_step,
     tt_step TYPE STANDARD TABLE OF ty_step WITH EMPTY KEY.

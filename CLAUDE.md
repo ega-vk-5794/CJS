@@ -287,6 +287,15 @@ These raise nothing and render nothing. They account for most of the bugs found 
   the literal string `false`, which is not blank and survives that filter — but a bare
   `''` or an untyped blank would be dropped again. Check the parameter's documented UI5
   default before assuming that leaving it out is the safe option.
+  **The same filter means a SPACE cannot be sent as a property value at all**, which is a
+  different-looking version of the same trap and was met a second time on the COUNT mask:
+  `sap.m.MaskInput`'s `placeholderSymbol` was to be set to a space so an empty two-digit
+  field showed nothing rather than `__`, and a space **is** blank — the property never
+  reached the markup, the ABAP read as set, and UI5's `_` default applied. There is no way
+  to pass it. When a control's default is wrong and the value that would fix it is a space,
+  the fix has to be downstream of the control (`ZCL_RAK_JOURNEY_ENGINE->NORM_MASKED( )`
+  strips `_` and spaces from every `COUNT` value once per round trip) rather than a
+  property. `forceSelection` and `placeholderSymbol` are one mechanism, not two.
 - **A required label is marked by the `required` property, never by a CSS class.**
   `label( ... required = abap_true )` is what makes UI5's own renderer draw the asterisk
   (`sapMLabelRequired`). The old mechanism — a `rakReq` class plus a hand-written
@@ -835,9 +844,10 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
   traps in this file; a logic error unique to one journey (E017's non-blocking validation
   was exactly that) only surfaces on a real read.
 
-- **Four DDIC changes are in git but not necessarily in SAP**: `ZRAK_T_JNY` gained
-  `DRAFT_MODE` / `ATTACH_MODE`, `ZRAK_CJ_LAY` gained `FLOW`, and `ZRAK_T_JNY_FLD` gained
-  `ZSECTION_AR` and `CLOSED_LIST`. All four need activation **and a table adjust** before the
+- **Five DDIC changes are in git but not necessarily in SAP**: `ZRAK_T_JNY` gained
+  `DRAFT_MODE` / `ATTACH_MODE`, `ZRAK_CJ_LAY` gained `FLOW`, `ZRAK_T_JNY_FLD` gained
+  `ZSECTION_AR` and `CLOSED_LIST`, and `ZRAK_T_JNY_STEP` gained `NO_ACTION`. All need
+  activation **and a table adjust** before the
   code reading them behaves. `ZSECTION_AR` additionally needs its Studio maintenance screen
   regenerated — the `ZCL_RAK_CJS` field editor already has a "Section (AR)" input wired to it,
   but the column won't reach a plain SM30/view-cluster screen on `ZRAK_T_JNY_FLD` until that's
@@ -847,6 +857,27 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
   end to end — DDIC column, `ZCL_RAK_JOURNEY_REPO`
   mapping, `ZCL_RAK_JOURNEY_RENDER`'s branch, and a "Closed list" checkbox in the Studio field
   editor — same activation caveat as the other three.
+  `NO_ACTION` (`ZRAK_T_JNY_STEP`) is the **footer's fourth state**: `RENDER_FOOTER( )`'s
+  three-way is Next / Close / Submit with no value for "this step is answered by acting on
+  the page", so a search step that navigates by picking a row got a Close button that
+  abandons a journey the citizen has not started. `'X'` returns after Back and the message
+  strip and draws no primary action at all — including Pay, deliberately, since "no primary
+  action" that made an exception for the one button that costs money would be the wrong
+  half. It is **not** `NO_FORWARD`, which removes Next and lets Close or Submit through.
+  Wired end to end with a "No footer action" checkbox in the Studio step editor; the SM30
+  screen (`ZFG_MV_JNY_STEP`) needs regenerating, same as `ZSECTION_AR`.
+- **`ZRAK_T_JNY_FLD-WIDTH` is read now, and it was not before.** The column has always
+  existed and the Studio has always saved it; `ZCL_RAK_JOURNEY_UTIL=>CTRL_WIDTH( )` returned
+  a per-type default and nothing else, and the Studio label said "Width (not applied yet)"
+  in as many words. It now comes back through `TY_FIELD-CTRL_WIDTH` (named for the method,
+  to keep it apart from the **cell** width in `ZRAK_CJ_LAYOUT`) and outranks both the type
+  default and the laid-out cell's `100%` — the second one matters, because a laid-out step
+  is exactly where two controls of different types come out different widths. **No DDIC
+  change and no table adjust**, but for the same reason a width somebody typed years ago
+  starts taking effect the moment the loader is active. `CFG_WIDTH( )` accepts only `%` and
+  `rem`: a px width does not collapse on a phone, and a refused value falls through to the
+  type default *and* leaves the cell's `100%` in place, so a typo renders as it did before
+  rather than as a broken row.
 - `ZRAK_CJ_ATT_PURGE` **has never been run.** Nothing has ever purged `ZRAK_CJ_ATTX`, so every
   file staged against an abandoned journey is still there with its content and its uploader.
   Test run is the default; schedule it once the retention days are agreed.

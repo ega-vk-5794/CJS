@@ -18,6 +18,10 @@ CLASS zcl_rak_cjs DEFINITION
 *       this step. Blank on nearly every step - it exists for the payment one.
         next_requires TYPE string,
         no_forward    TYPE abap_bool,
+*       Draws the footer with no primary action at all - Back and the message
+*       strip and nothing else. NO_FORWARD is a different thing: it removes
+*       Next and leaves Close/Submit, which is still a button.
+        no_action     TYPE abap_bool,
       END OF ty_step,
       tt_step TYPE STANDARD TABLE OF ty_step WITH EMPTY KEY.
     TYPES:
@@ -248,6 +252,7 @@ CLASS zcl_rak_cjs DEFINITION
 *   step. Blank on nearly every step - it exists for the payment one.
     DATA sv_nextreq  TYPE string.
     DATA sv_nofwd    TYPE abap_bool.
+    DATA sv_noact    TYPE abap_bool.
     DATA sv_icon     TYPE string.
     DATA sv_cols     TYPE string.
     DATA sv_bscreen  TYPE string.
@@ -772,6 +777,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         sv_title_ar = ls_es-title_ar. sv_icon = ls_es-icon.
         sv_cols = ls_es-columns. sv_bscreen = ls_es-bknd_screen.
         sv_nextreq = ls_es-next_requires. sv_nofwd = ls_es-no_forward.
+        sv_noact = ls_es-no_action.
         focus_panel( 'STEPS' ).
         mv_msg = |Step { lv_es } loaded — change values, then Add / update step|. mv_mtype = 'Information'.
       ENDIF.
@@ -943,7 +949,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         WHEN 'THEMESAVE'. theme_form_save( ).
         WHEN 'PAYTPL'. add_payment_step( ). IF mv_mtype = 'Success'. mv_dirty = abap_true. ENDIF.
 
-        WHEN 'CLR_STEP'. CLEAR: sv_seq, sv_step, sv_title, sv_title_ar, sv_icon, sv_cols, sv_bscreen, sv_nextreq, sv_nofwd.
+        WHEN 'CLR_STEP'. CLEAR: sv_seq, sv_step, sv_title, sv_title_ar, sv_icon, sv_cols, sv_bscreen, sv_nextreq, sv_nofwd,
+                              sv_noact.
         WHEN 'CLR_FLD'.  clear_field_form( ).
         WHEN 'CLR_OPT'.  CLEAR: ov_seq, ov_key, ov_text, ov_text_ar.
         WHEN 'CLR_COL'.  CLEAR: cv_seq, cv_col, cv_label, cv_label_ar, cv_ctrl, cv_shlp, cv_rollname,
@@ -1087,9 +1094,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
             IF sy-subrc <> 0. APPEND INITIAL LINE TO mt_steps ASSIGNING <s>. ENDIF.
             <s> = VALUE #( seqnr = sv_seq step_id = to_upper( sv_step ) title = sv_title title_ar = sv_title_ar
                            icon = sv_icon columns = sv_cols bknd_screen = to_upper( sv_bscreen )
-                           next_requires = to_upper( sv_nextreq ) no_forward = sv_nofwd ).
+                           next_requires = to_upper( sv_nextreq ) no_forward = sv_nofwd
+                           no_action = sv_noact ).
             resort( ).
-            CLEAR: sv_seq, sv_step, sv_title, sv_title_ar, sv_icon, sv_cols, sv_bscreen, sv_nextreq, sv_nofwd.
+            CLEAR: sv_seq, sv_step, sv_title, sv_title_ar, sv_icon, sv_cols, sv_bscreen, sv_nextreq, sv_nofwd,
+                              sv_noact.
             mv_dirty = abap_true.
           ENDIF.
 
@@ -1259,7 +1268,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     LOOP AT ls INTO DATA(s).
       APPEND VALUE #( seqnr = |{ s-seqnr }| step_id = s-step_id title = s-title title_ar = s-title_ar
                       icon = s-icon columns = |{ s-columns }| bknd_screen = s-bknd_screen
-                      next_requires = s-next_requires no_forward = s-no_forward ) TO mt_steps.
+                      next_requires = s-next_requires no_forward = s-no_forward
+                      no_action = s-no_action ) TO mt_steps.
     ENDLOOP.
     SELECT * FROM zrak_t_jny_fld INTO TABLE @DATA(lf) WHERE journey_id = @mv_sel ORDER BY step_id, seqnr.
     LOOP AT lf INTO DATA(f).
@@ -1441,7 +1451,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       INSERT zrak_t_jny_step FROM @( VALUE #( mandt = sy-mandt journey_id = jid step_id = s-step_id
         seqnr = to_int( s-seqnr ) title = s-title title_ar = s-title_ar icon = s-icon
         columns = to_int( s-columns ) bknd_screen = s-bknd_screen
-        next_requires = s-next_requires no_forward = s-no_forward ) ).
+        next_requires = s-next_requires no_forward = s-no_forward
+        no_action = s-no_action ) ).
       IF sy-subrc <> 0.
         lv_err = abap_true.
         EXIT.
@@ -2113,6 +2124,12 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     placeholder = 'field name — Next/Submit stays disabled until it has a value, e.g. PAYFEE' ).
     f->label( 'No forward button' ). f->checkbox( selected = mo_client->_bind_edit( sv_nofwd )
     text = 'ends the journey without submitting' ).
+*   The third footer state. NO_FORWARD removes Next and leaves Close or
+*   Submit; this removes the primary action outright, for a step that is
+*   answered by something on the page - picking a search result - rather than
+*   by a button. Back and the message strip still draw.
+    f->label( 'No footer action' ). f->checkbox( selected = mo_client->_bind_edit( sv_noact )
+    text = 'no Next / Close / Submit - the step is left by acting on it' ).
     DATA(b) = p->hbox( class = 'sapUiSmallMargin' ).
     b->button( text = 'Add / update step' icon = 'sap-icon://add' type = 'Emphasized' press = mo_client->_event( 'ASTEP' ) ).
     b->button( text = 'Clear form' icon = 'sap-icon://clear-all' press = mo_client->_event( 'CLR_STEP' ) class = 'sapUiTinyMarginBegin' ).
@@ -2179,8 +2196,13 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     f->label( 'Label (AR)' ). f->input( value = mo_client->_bind_edit( fv_label_ar ) ).
     f->label( 'Placeholder (EN)' ). f->input( value = mo_client->_bind_edit( fv_place ) ).
     f->label( 'Placeholder (AR)' ). f->input( value = mo_client->_bind_edit( fv_place_ar ) ).
+*   A TABLE's DEFAULT_VAL now has one more reading: a plain pick target may
+*   carry the row button's own wording after it, FIELD|View|EN-AR, instead of
+*   the shared "Select" every table in every journey draws. It is read last
+*   and only when the column spec and CHK: have not already claimed the value,
+*   so a caption must not contain a colon.
     f->label( 'Default value' ). f->input( value = mo_client->_bind_edit( fv_default )
-    placeholder = 'grid cols name:label:type|... plus SEL:SINGLE:TARGET or SEL:MULTI:TARGET for a tick column (put SEL first)' ).
+    placeholder = 'grid cols name:label:type|... or SEL:SINGLE:TARGET; a pick target may add |Caption|CaptionAR' ).
     f->label( '' ).
     f->button( text  = 'Test column spec'
                icon  = 'sap-icon://table-view'
@@ -2190,13 +2212,15 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     placeholder = 'container heading, OR ROW:name to share a row with the neighbouring ROW:name fields' ).
     f->label( 'Section' ).    f->input( value = mo_client->_bind_edit( fv_sect ) ).
     f->label( 'Section (AR)' ). f->input( value = mo_client->_bind_edit( fv_sect_ar ) ).
-*   Stored in ZRAK_T_JNY_FLD-WIDTH, but ZCL_RAK_JOURNEY_UTIL=>CTRL_WIDTH( )
-*   never reads it - the renderer calls that method and it returns a per-type
-*   default and nothing else. Say so rather than let an author set a width and
-*   then hunt for why the control did not move.
-    f->label( 'Width (not applied yet)' ).
+*   ZRAK_T_JNY_FLD-WIDTH, and it IS applied now - CTRL_WIDTH( ) returns it
+*   ahead of the per-type default, and a laid-out cell's 100% no longer
+*   overwrites it. Only % and rem are accepted: a px width does not collapse
+*   on a phone, so CFG_WIDTH( ) refuses it and the field falls back to the
+*   type default rather than breaking the row. The placeholder says so,
+*   because a refused value looks exactly like a value that was never typed.
+    f->label( 'Control width' ).
     f->input( value = mo_client->_bind_edit( fv_width )
-      placeholder = 'stored, but CTRL_WIDTH( ) still returns the per-type default' ).
+      placeholder = 'e.g. 18rem or 50% - px is ignored, blank = the per-type default' ).
     f->label( 'State' ).      DATA(fs) = f->combobox( selectedkey = mo_client->_bind_edit( fv_state ) ).
     fs->item( key = '' text = '(none)' ).
     fs->item( key = 'None' text = 'None' ).

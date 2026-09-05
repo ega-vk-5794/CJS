@@ -136,7 +136,8 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
         columns     = ls_s-columns
         bknd_screen = ls_s-bknd_screen
         next_req    = to_upper( ls_s-next_requires )
-        no_forward  = ls_s-no_forward ).
+        no_forward  = ls_s-no_forward
+        no_action   = bool( ls_s-no_action ) ).
 
       LOOP AT lt_fld INTO DATA(ls_f) WHERE step_id = ls_s-step_id.
         DATA(ls_cfld) = VALUE zif_rak_journey=>ty_field(
@@ -160,6 +161,12 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
           hidden       = bool( ls_f-hidden )
           readonly     = bool( ls_f-readonly )
           closed_list  = bool( ls_f-closed_list )
+*         ZRAK_T_JNY_FLD-WIDTH, which the Studio has always stored and
+*         nothing has ever read. Named CTRL_WIDTH on TY_FIELD after the
+*         method that consumes it, and to keep it apart from the CELL
+*         width on ZRAK_CJ_LAYOUT - a different object sizing a different
+*         thing.
+          ctrl_width   = ls_f-width
           validation   = VALUE #(
             required = bool( ls_f-required )
             regex    = ls_f-regex

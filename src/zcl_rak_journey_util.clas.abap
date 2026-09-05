@@ -24,6 +24,17 @@ CLASS zcl_rak_journey_util DEFINITION
     CLASS-METHODS ctrl_width IMPORTING is_field  TYPE zif_rak_journey=>ty_field
                        RETURNING VALUE(rv) TYPE string.
 
+*   The AUTHORED width alone - blank when the field carries none, and blank
+*   when what it carries is not a unit that survives a phone. Separate from
+*   CTRL_WIDTH( ) because two callers need to tell an authored width from a
+*   type default: CTRL_WIDTH( ) to return it instead of the CASE, and
+*   ZCL_RAK_JOURNEY_RENDER to stop the laid-out cell's 100% overwriting it.
+*   Reading ZRAK_T_JNY_FLD-CTRL_WIDTH directly in the renderer would get the
+*   second one wrong, because a REJECTED value is not initial and would
+*   suppress the 100% while contributing nothing in its place.
+    CLASS-METHODS cfg_width  IMPORTING is_field  TYPE zif_rak_journey=>ty_field
+                       RETURNING VALUE(rv) TYPE string.
+
 *   Language fallback (Arabic when IV_LANG = 'A' and the Arabic text is
 *   filled, English otherwise) plus OTR:<alias> resolution, lifted out of
 *   ZCL_RAK_JOURNEY_REPO~PICK( ) so a bilingual pair that never passes
@@ -199,18 +210,39 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD cfg_width.
+*   Only % and rem are accepted, and that is the whole point of this method
+*   rather than reading the column. A hard px width does not collapse on a
+*   phone, so it is the one way a config value can break the responsive
+*   layout - and a config value that breaks a layout is worse than no config
+*   value at all, because nothing on the screen says where the width came
+*   from. Anything else - px, em, vw, a bare number, a typo - answers blank
+*   and the field renders exactly as it did before the column existed.
+*
+*   The number is checked as well as the unit. '%' or 'rem' on its own is not
+*   a width, and z2ui5 would put it in the markup unchanged for the browser
+*   to discard silently.
+    DATA(lv) = to_lower( condense( is_field-ctrl_width ) ).
+    IF lv IS INITIAL.
+      RETURN.
+    ENDIF.
+    FIND REGEX '^[0-9]+(\.[0-9]+)?(%|rem)$' IN lv.
+    IF sy-subrc = 0.
+      rv = lv.
+    ENDIF.
+  ENDMETHOD.
+
+
   METHOD ctrl_width.
-*   Per-field width from config is NOT wired up yet - the type defaults below are
-*   the only source. To enable it, add CTRL_WIDTH to ZIF_RAK_JOURNEY=>TY_FIELD,
-*   add the DDIC column, read it in the config loader, then reinstate:
-*     IF is_field-ctrl_width IS NOT INITIAL.
-*       rv = is_field-ctrl_width.
-*       RETURN.
-*     ENDIF.
-*   Blank must fall through to the CASE, so journeys authored before the column
-*   existed keep rendering identically. Constrain authored values to % or rem:
-*   a hard px width will not collapse on a phone and is the one way to break the
-*   responsive layout from config.
+*   Per-field width from config first, the type defaults below when there is
+*   none. CFG_WIDTH( ) answers blank both for a field that authored nothing
+*   and for a value it refuses, so both fall through to the CASE and every
+*   journey authored before the column existed renders identically.
+    rv = cfg_width( is_field ).
+    IF rv IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+
     CASE is_field-type.
 *     Controls with no usable width property, or already at 100%. RATING was
 *     here returning 10rem, which was dead: sap.m.RatingIndicator has no width
