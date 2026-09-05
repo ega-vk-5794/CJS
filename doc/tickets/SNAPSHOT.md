@@ -63,7 +63,7 @@ Handler ZCL_EPDA_E021_ALTER_FUEL_LOGIC has no ON_INIT, so the applicant's name, 
 
 EPDA · CJSMIG-684 · SIT · anand babu · blocks CJSMIG-477 · 8 screenshots on the ticket · **15 observations, 1 closed, 14 open**
 
-The duplicate applicant write was fixed in the handler earlier; the applicant BP now also goes out as LOGIN_BP. Everything else on this ticket is step names, field order and two missing texts - all Studio work, and four of them are already coded into ZRAK_CJ_FIXPACK.
+Two handler changes are written out on the Handler code sheet: ON_INIT was writing the applicant details twice, and the applicant's partner never reached LOGIN_BP. Everything else on this ticket is step names, field order and two missing texts - all Studio work, and four of them are already coded into ZRAK_CJ_FIXPACK.
 
 | # | Observation | Status | What closes it |
 | ---: | --- | --- | --- |
@@ -205,7 +205,7 @@ Five lines, all config or portal. The missing BP labels are a ZLABEL fill and ar
 
 DOK · CJSMIG-693 · SIT · anand babu · blocks CJSMIG-396 · 4 screenshots on the ticket · **4 observations, 0 closed, 4 open**
 
-Small ticket, one hard blocker: transportation fees do not pick the distance up from the system, and the case cannot be submitted. That is a backend read plus a field rename, not an engine fault. The applicant BP now also goes out as LOGIN_BP on this journey.
+Small ticket, one hard blocker: transportation fees do not pick the distance up from the system, and the case cannot be submitted. That is a backend read plus a field rename, not an engine fault. Separately, and not reported on this ticket: ZCL_D021_MOD_SCHOOL_FEE_LOGIC is one of the five classes that never send the applicant's partner to LOGIN_BP - the two lines are on the Handler code sheet if you want them.
 
 | # | Observation | Status | What closes it |
 | ---: | --- | --- | --- |
@@ -353,7 +353,7 @@ One line: 'CJS service Not found'. The handler class exists and is complete, so 
 
 EPDA · CJSMIG-703 · SIT · anand babu · blocks CJSMIG-567 · 4 screenshots on the ticket · **6 observations, 0 closed, 6 open**
 
-The applicant BP fault is fixed. It was a one-word defect: the class called the applicant field 'OWNER_BP', which on this journey is the owner SEARCH BOX - so ON_INIT typed the applicant's partner number into the search field and blanked it again sixteen lines later.
+The applicant BP fault is a one-word defect and the correction is on the Handler code sheet: the class calls the applicant field 'OWNER_BP', which on this journey is the owner SEARCH BOX - so ON_INIT types the applicant's partner number into the search field and blanks it again sixteen lines later. This is the one journey of the six where the constant itself is wrong rather than missing.
 
 | # | Observation | Status | What closes it |
 | ---: | --- | --- | --- |
@@ -368,7 +368,7 @@ The applicant BP fault is fixed. It was a one-word defect: the class called the 
 
 EPDA · CJSMIG-704 · SIT · anand babu · blocks CJSMIG-576 · 3 screenshots on the ticket · **5 observations, 0 closed, 5 open**
 
-Same applicant-BP family as E025 and fixed the same way, additively. The four remaining lines are config and are shared with E025.
+Same applicant-BP family as E025, but here it is two added lines rather than a corrected constant - the shared snippet on the Handler code sheet covers it. The four remaining lines are config and are shared with E025.
 
 | # | Observation | Status | What closes it |
 | ---: | --- | --- | --- |
