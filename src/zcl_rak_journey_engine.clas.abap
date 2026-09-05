@@ -215,6 +215,10 @@ CLASS zcl_rak_journey_engine DEFINITION
                                iv_suffix TYPE string OPTIONAL
                                iv_value  TYPE string.
 
+*   Strip a mask's placeholder characters out of every COUNT value, once per
+*   round trip, before anything reads them. See the method body.
+    METHODS norm_masked.
+
     METHODS take_case IMPORTING iv_case TYPE string.
 
     METHODS resolve_identity.
@@ -446,6 +450,16 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   state while the render at the bottom of this method draws the fresh
 *   one, so a field could be validated and rendered as disagreeing answers
 *   to the same round trip.
+*
+*   NORM_MASKED( ) runs FIRST, and before every read below it too. A COUNT
+*   field drawn as a sap.m.MaskInput hands back the mask's PLACEHOLDER
+*   CHARACTERS for the positions the citizen did not fill, so a one-digit
+*   answer in a two-digit mask arrives as "5_" rather than "5". Left alone
+*   that fails a REGEX of '^[0-9]+$' - the field's own configured check - and
+*   produces a field nobody can get past no matter what they type, which is
+*   the worst shape a validation bug takes.
+    norm_masked( ).
+
     mo_rules->eval_rules( ).
 
     IF strlen( lv_event ) > 7 AND substring( val = lv_event len = 7 ) = 'SEARCH_'.
@@ -1236,6 +1250,47 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         ENDTRY.
       ENDIF.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD norm_masked.
+*   THE MASK'S PLACEHOLDER IS NOT PART OF THE ANSWER.
+*
+*   RENDER_ONE( )'s COUNT branch draws an editable bounded count as a
+*   sap.m.MaskInput, which is what stops a letter being typed at all instead
+*   of reporting it on Next. The cost is that the control returns its mask,
+*   not only what was entered: positions still empty come back as the
+*   placeholder symbol.
+*
+*   That symbol is '_', UI5's default, and it is the default because a space -
+*   which is what this would rather show - cannot be passed. A space is blank,
+*   and XML_GET_PARTS( ) drops every blank property from the markup, so
+*   PLACEHOLDERSYMBOL would read as set in the ABAP and never reach the
+*   control. The renderer says so at the call site.
+*
+*   Both are removed rather than only '_', because which one arrives depends
+*   on a property that may or may not have been emitted, and a COUNT is digits
+*   only - there is no legitimate space or underscore in one to preserve. A
+*   value that is already clean is left exactly as it is, so a COUNT drawn
+*   through the INPUT( ) fallback - read-only, or no MAX_LEN - is untouched.
+*
+*   Every step, not only the current one: VALIDATE_ALL( ) on submit reads
+*   fields from steps the citizen left long ago, and a value clean enough to
+*   pass its own step has to still be clean at the end.
+    LOOP AT ms_config-steps INTO DATA(ls_ns).
+      LOOP AT ls_ns-fields INTO DATA(ls_nf) WHERE type = 'COUNT'.
+        DATA(lv_raw) = val_get( ls_nf-name ).
+        IF lv_raw IS INITIAL.
+          CONTINUE.
+        ENDIF.
+        DATA(lv_cln) = lv_raw.
+        REPLACE ALL OCCURRENCES OF '_' IN lv_cln WITH ''.
+        CONDENSE lv_cln NO-GAPS.
+        IF lv_cln <> lv_raw.
+          val_set( iv_name = ls_nf-name iv_value = lv_cln ).
+        ENDIF.
+      ENDLOOP.
+    ENDLOOP.
   ENDMETHOD.
 
 
