@@ -40,17 +40,17 @@ public section.
   methods ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
     redefinition .
 protected section.
-private section.
+PRIVATE SECTION.
 
-  constants C_PARTNER_OWNER_1 type STRING value 'PARTNER_OWNER_1' ##NO_TEXT.
-  constants C_PERMIT_YES type STRING value 'PERMIT_YES' ##NO_TEXT.
-  constants C_PARTNER_NAME type STRING value 'APP_NAME' ##NO_TEXT.
-  constants C_PARTNER_ID type STRING value 'APP_ID' ##NO_TEXT.
-  constants C_APPLICANTTYPE type STRING value 'APP_TYPE' ##NO_TEXT.
-  constants C_LANG_EN type STRING value 'E' ##NO_TEXT.
-  constants C_PARTNER_MOBILE type STRING value 'PARTNER_MOBILE' ##NO_TEXT.
-  constants C_PARTNER_EMAIL type STRING value 'PARTNER_EMAIL' ##NO_TEXT.
-    " constants C_ROLE type STRING value 'STAFF_ROLE' ##NO_TEXT.
+  CONSTANTS c_partner_owner_1 TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
+  CONSTANTS c_permit_yes TYPE string VALUE 'PERMIT_YES' ##NO_TEXT.
+  CONSTANTS c_partner_name TYPE string VALUE 'APP_NAME' ##NO_TEXT.
+  CONSTANTS c_partner_id TYPE string VALUE 'APP_ID' ##NO_TEXT.
+  CONSTANTS c_applicanttype TYPE string VALUE 'APP_TYPE' ##NO_TEXT.
+  CONSTANTS c_lang_en TYPE string VALUE 'E' ##NO_TEXT.
+  CONSTANTS c_partner_mobile TYPE string VALUE 'PARTNER_MOBILE' ##NO_TEXT.
+  CONSTANTS c_partner_email TYPE string VALUE 'PARTNER_EMAIL' ##NO_TEXT.
+  " constants C_ROLE type STRING value 'STAFF_ROLE' ##NO_TEXT.
 *    CONSTANTS c_role TYPE string VALUE 'STAFF_ROLE' ##NO_TEXT.
 *    CONSTANTS c_login_bp TYPE string VALUE 'OWNER_BP' ##NO_TEXT.
 *    CONSTANTS c_partner_name TYPE string VALUE 'APP_NAME' ##NO_TEXT.
@@ -59,16 +59,17 @@ private section.
 *    CONSTANTS c_lang_en TYPE string VALUE 'E' ##NO_TEXT.
 *    CONSTANTS c_partner_mobile TYPE string VALUE 'PARTNER_MOBILE_1' ##NO_TEXT.
 *    CONSTANTS c_partner_email TYPE string VALUE 'PARTNER_EMAIL_1' ##NO_TEXT.
-  constants C_LOGIN_BP type STRING value 'OWNER_BP' ##NO_TEXT.
-  constants C_ROLE type STRING value 'APPLICANT_ROLE' ##NO_TEXT.
-  constants C_PERMIT type STRING value 'PERMIT_HELD' ##NO_TEXT.
+  CONSTANTS c_login_bp TYPE string VALUE 'OWNER_BP' ##NO_TEXT.
+  CONSTANTS c_app_bp TYPE string VALUE 'LOGIN_BP' ##NO_TEXT.
+  CONSTANTS c_role TYPE string VALUE 'APPLICANT_ROLE' ##NO_TEXT.
+  CONSTANTS c_permit TYPE string VALUE 'PERMIT_HELD' ##NO_TEXT.
 
-  methods WRITE_FLAGS
-    importing
-      !IO_CTX type ref to ZIF_RAK_JOURNEY .
-  methods COMPANY_FIELDS
-    returning
-      value(RT) type ZIF_RAK_JOURNEY=>TT_STRING .
+  METHODS write_flags
+    IMPORTING
+      !io_ctx TYPE REF TO zif_rak_journey .
+  METHODS company_fields
+    RETURNING
+      VALUE(rt) TYPE zif_rak_journey=>tt_string .
 ENDCLASS.
 
 
@@ -266,6 +267,7 @@ CLASS ZCL_EPDA_E022_DEV_PROJ_LOGIC IMPLEMENTATION.
           es_bp_details = DATA(ls_bp) ).
 
       io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+      io_ctx->set_val( iv_name = c_app_bp   iv_value = |{ lv_loginbp }| ).
 
 *     WRITTEN ONCE. C_PARTNER_NAME is 'APP_NAME' and C_PARTNER_ID is
 *     'APP_ID', and both were then written a SECOND time below this IF, under
@@ -286,8 +288,6 @@ CLASS ZCL_EPDA_E022_DEV_PROJ_LOGIC IMPLEMENTATION.
 
       io_ctx->set_val( iv_name = c_partner_mobile iv_value = CONV #( ls_bp-mobile_number ) ).
       io_ctx->set_val( iv_name = c_partner_email iv_value = CONV #( ls_bp-email_address ) ).
-
-
       io_ctx->set_val( iv_name = c_applicanttype iv_value = |{ lv_role }| ).
 
     ENDIF.

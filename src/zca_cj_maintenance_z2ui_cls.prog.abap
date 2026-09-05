@@ -562,9 +562,11 @@ CLASS lcl_editor IMPLEMENTATION.
     SET HANDLER lc_event_receiver->data_changed_finished  FOR me->lo_property_grid.
   ENDMETHOD.
   METHOD add_editor_node.
+    CLEAR: node_layout-isfolder, node_layout-expander.
+
     me->lo_fav_behaviour->get_handle( IMPORTING handle = DATA(dnd_handle) ).
     node_layout-dragdropid = dnd_handle.
-    CLEAR: node_layout-isfolder, node_layout-expander.
+
     me->lo_editor->add_node(
       EXPORTING
         i_relat_node_key = relat_node_key

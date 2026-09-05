@@ -13,6 +13,8 @@ CLASS zcl_c061_judgement_publ_logic DEFINITION
       REDEFINITION .
     METHODS zif_rak_journey_logic~on_popup_event
       REDEFINITION .
+    METHODS zif_rak_journey_logic~on_render_start
+      REDEFINITION .
     METHODS zif_rak_journey_logic~on_render_after_field
       REDEFINITION .
     METHODS zif_rak_journey_logic~render_field
@@ -107,6 +109,9 @@ CLASS zcl_c061_judgement_publ_logic DEFINITION
 *   Model fields. The first five are the citizen's search criteria; JUD_ROWS
 *   and SEL_GUID carry the result and the picked row; the JD_* group is
 *   where load_judgment( ) parks the document for render_field( ) to draw.
+*   Step indices, as ZIF_RAK_JOURNEY~GET_STEP( ) reports them: zero-based,
+*   in SEQNR order, so SRCH is 0 and JDGM is 1.
+    CONSTANTS c_step_srch  TYPE i      VALUE 0.
     CONSTANTS c_f_court    TYPE string VALUE 'COURT_TYPE'.
     CONSTANTS c_f_classify TYPE string VALUE 'CLASSIFY_TYPE'.
     CONSTANTS c_f_casetype TYPE string VALUE 'CASE_TYPE'.
@@ -219,13 +224,19 @@ CLASS zcl_c061_judgement_publ_logic DEFINITION
                 iv_no     TYPE symsgno
       RETURNING VALUE(rv) TYPE string.
 
+*   IV_LANGU is optional and blank means "the engine's resolved language",
+*   which is what the search step wants. The JUDGMENT PAGE passes Arabic
+*   explicitly - see the note on OTR( ). Without it the court name arrived in
+*   the citizen's language and landed inside an Arabic sentence.
     METHODS dom_opts
       IMPORTING iv_domain TYPE ddobjname
+                iv_langu  TYPE sylangu OPTIONAL
       RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
 
     METHODS dom_text
       IMPORTING iv_domain TYPE ddobjname
                 iv_key    TYPE string
+                iv_langu  TYPE sylangu OPTIONAL
       RETURNING VALUE(rv) TYPE string.
 
     METHODS jud_cfg
@@ -357,9 +368,9 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
 *&---------------------------------------------------------------------*
     CASE to_upper( iv_field ).
       WHEN c_f_court.
-        rt = dom_opts( c_dom_court ).
+        rt = dom_opts( iv_domain = c_dom_court ).
       WHEN c_f_classify.
-        rt = dom_opts( c_dom_classify ).
+        rt = dom_opts( iv_domain = c_dom_classify ).
       WHEN c_f_casetype.
         rt = case_type_opts( io_ctx ).
       WHEN c_f_caseyear.
@@ -404,6 +415,35 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_rak_journey_logic~on_render_start.
+*&---------------------------------------------------------------------*
+*& on_render_start — forget the picked row while the search step is drawn.
+*&
+*& THE ROW STOPS BEING CLICKABLE AFTER BACK, and this is the whole of it.
+*& RENDER_BLOCK( ) decides per row whether to draw a Select BUTTON or a
+*& "Selected" OBJECT_STATUS, on LV_SEL = ( VAL_GET( <default_val> ) =
+*& row key ) - and the object_status has no PRESS. So once SEL_GUID holds
+*& the GUID of the row the citizen opened, coming Back leaves that row
+*& showing a status with nothing behind it: it looks answered, it looks
+*& clickable, and it does nothing. Every OTHER row still works, which is
+*& what makes it read as a broken button rather than as a selection.
+*&
+*& Clearing SEL_GUID on the way back in restores the button and makes the
+*& next pick a real change. Guarded on the STEP so it only runs while SRCH
+*& is the one being drawn: LOAD_JUDGMENT( ) sets SEL_GUID and immediately
+*& ADVANCE_STEP( )s, so JDGM renders with the value intact and nothing here
+*& touches it.
+*&
+*& Not in ON_CHANGE and not in DO_SEARCH: the citizen can also reach this
+*& step by the footer Back, which raises neither.
+*&---------------------------------------------------------------------*
+    IF io_ctx->get_step( ) = c_step_srch
+       AND io_ctx->get_val( c_f_sel ) IS NOT INITIAL.
+      io_ctx->set_val( iv_name = c_f_sel iv_value = '' ).
+    ENDIF.
+  ENDMETHOD.
+
+
   METHOD zif_rak_journey_logic~on_render_after_field.
 *&---------------------------------------------------------------------*
 *& on_render_after_field — the buttons.
@@ -415,19 +455,29 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
 *& buttons stack UNDERNEATH their field rather than beside it. That is the
 *& engine's layout, not a choice made here: only a cell whose FLOW flag is
 *& set turns into a row, and FLOW lives in ZCL_RAK_CJ_LAY's Design tab
-*& rather than in ZRAK_T_JNY_FLD. So Search and Clear land in the
-*& Case/File No. cell - the right-hand end of the second row, where the WD
-*& screen had them - but one line lower. AS3's Add-BP buttons sit the same
-*& way. Turn FLOW on for the cell if the two should share a line.
+*& rather than in ZRAK_T_JNY_FLD. Turn FLOW on for the cell if they should
+*& share a line with the field above them.
+*&
+*& THEY HANG OFF CASE_YEAR, NOT CASE_NUMBER. Both are in the second row, so
+*& the choice is only which column the pair sits under - and under CASE_YEAR
+*& they start at the left edge of the form, reading as a third row of their
+*& own. Under CASE_NUMBER they sat mid-form under a field they have nothing
+*& to do with. Same reason the WD put them at the end of the criteria block
+*& rather than beside one criterion.
 *&
 *& Search takes its caption from the framework catalogue, which already
 *& holds "Search" / "بحث" - the WD's own two texts. Clear has no catalogue
 *& entry, so it is a PICK( ) pair read off the screenshots.
+*&
+*& BOTH BUTTONS CARRY THE ACCENT TYPE. Clear was 'Transparent', which is the
+*& sap.m default for a secondary action and renders as plain text - on this
+*& screen it read as a link rather than a button next to an Emphasized
+*& Search. The WD drew both as buttons of equal weight, so they match here.
 *&---------------------------------------------------------------------*
     CASE to_upper( is_field-name ).
 
-      WHEN c_f_casenum.
-        DATA(lo_btn) = io_view->hbox( alignitems = 'End' class = 'sapUiSmallMarginBegin' ).
+      WHEN c_f_caseyear.
+        DATA(lo_btn) = io_view->hbox( alignitems = 'End' class = 'sapUiSmallMarginTop' ).
         lo_btn->button(
           text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-search iv_default = 'Search' )
           icon  = 'sap-icon://search'
@@ -436,7 +486,7 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
         lo_btn->button(
           text  = zcl_rak_text=>pick( iv_base = `Clear` iv_ar = |مسح| )
           icon  = 'sap-icon://clear-all'
-          type  = 'Transparent'
+          type  = 'Emphasized'
           class = 'sapUiTinyMarginBegin'
           press = io_ctx->event( c_ev_clear ) ).
 
@@ -445,8 +495,10 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
 *       MAIN and ONACTIONADOBEFORM_DISPLAY on VIEW_CASE_DETAILS, the same
 *       eighty lines twice, with the MAIN one already commented out at its
 *       only call site. Only one is migrated.
+*       ARABIC CAPTION, like the page it sits on. The WD's own button read
+*       "نسخة العرض" whatever the logon language.
         io_view->button(
-          text  = zcl_rak_text=>pick( iv_base = `View copy` iv_ar = |نسخة العرض| )
+          text  = |نسخة العرض|
           icon  = 'sap-icon://pdf-attachment'
           type  = 'Emphasized'
           class = 'sapUiSmallMarginTop'
@@ -1017,7 +1069,9 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
     READ TABLE lt_cfg INTO DATA(ls_map) WITH KEY case_type = lv_case_type.
     IF sy-subrc = 0.
       lv_court     = ls_map-court_type.
-      lv_court_txt = dom_text( iv_domain = c_dom_court iv_key = lv_court ).
+      lv_court_txt = dom_text( iv_domain = c_dom_court
+                               iv_key    = lv_court
+                               iv_langu  = zcl_rak_text=>c_langu_ar ).
     ENDIF.
     io_ctx->set_val( iv_name = c_f_jdcourt iv_value = lv_court ).
 
@@ -1078,8 +1132,10 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
                                   `Mohammed Al Qasimi, Ruler of Ras Al Khaimah`
                        iv_ar    = |باسم حضرة صاحب السمو/ الشيخ سعود بن صقر بن محمد | &&
                                   |القاسمي حاكم إمارة رأس الخيمة| ).
-    DATA(lv_l3) = zcl_rak_text=>pick( iv_base = `Ras Al Khaimah Court`
-                                      iv_ar   = |محكمة رأس الخيمة| ).
+*   ARABIC, NOT PICK( ). The other two lines of this block come from OTR( ),
+*   which is Arabic-only now, so a PICK( ) here would put the one English line
+*   in the middle of an Arabic document.
+    DATA(lv_l3) = |محكمة رأس الخيمة|.
 
     rv = lv_l1
       && cl_abap_char_utilities=>newline && lv_l2
@@ -1421,13 +1477,27 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
 
   METHOD otr.
 *&---------------------------------------------------------------------*
-*& otr — one OTR alias in the ENGINE's language.
+*& otr — one OTR alias, ALWAYS IN ARABIC.
 *&
-*& Not SY-LANGU. The engine reads &lang= from the URL and falls back to
-*& SY-LANGU only when it is absent, so a citizen who asked for Arabic must
-*& get Arabic whatever language the ICF service user logs on with. Reading
-*& SY-LANGU here is the specific mistake that once left a page in RTL with
-*& English text on it.
+*& THE JUDGMENT PAGE IS AN ARABIC DOCUMENT, NOT A BILINGUAL SCREEN. It was
+*& built the other way: the ruling text came back in Arabic (LOAD_JUDGMENT( )
+*& passes IV_LANGU = 'A') while the furniture around it - the head lines, the
+*& party captions, the verdict title - followed the citizen's language. That
+*& reads as "genuinely bilingual" in a specification and as a mistake on
+*& screen: English labels wrapped around Arabic names, in a block that is one
+*& continuous quotation from a court document. The WD rendered the whole page
+*& in Arabic whatever the logon language, and it was right to.
+*&
+*& So this reads C_LANGU_AR rather than ZCL_RAK_TEXT=>LANG( ). Every one of
+*& the seventeen aliases goes through here, which is the whole reason the
+*& helper exists - the alternative was seventeen call sites to remember.
+*&
+*& SCOPE: this method and the two literals that do not come from an alias
+*& (HEADTXT_LINE_3, and the View-copy caption). It does NOT touch the search
+*& step, which stays bilingual - OTR( ) is called from LOAD_JUDGMENT( ) and
+*& its helpers and from nowhere else. Nor the engine's own chrome: the wizard
+*& step titles and the footer buttons come from the framework catalogue in the
+*& resolved language and are not ours to force.
 *&
 *& SOTR_GET_TEXT_KEY answers a missing alias with BLANK rather than
 *& anything worth propagating, so every caller needs a fallback and gets
@@ -1437,7 +1507,7 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
     CALL FUNCTION 'SOTR_GET_TEXT_KEY'
       EXPORTING
         alias           = iv_alias
-        langu           = zcl_rak_text=>lang( )
+        langu           = zcl_rak_text=>c_langu_ar
       IMPORTING
         e_text          = lv_text
       EXCEPTIONS
@@ -1447,8 +1517,13 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
     IF sy-subrc = 0.
       rv = condense( CONV string( lv_text ) ).
     ENDIF.
+*   THE FALLBACK IS THE ARABIC SIDE, for the same reason. IV_EN is kept on the
+*   signature rather than deleted: it documents what each alias says, which is
+*   the only readable record of these seventeen texts for anyone who cannot
+*   read the Arabic, and it is what to fall back to if the page is ever made
+*   bilingual again.
     IF rv IS INITIAL.
-      rv = zcl_rak_text=>pick( iv_base = iv_en iv_ar = iv_ar ).
+      rv = iv_ar.
     ENDIF.
   ENDMETHOD.
 
@@ -1483,10 +1558,12 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
 *& dropdown cannot disagree.
 *&---------------------------------------------------------------------*
     DATA lt_dd07v TYPE STANDARD TABLE OF dd07v.
+    DATA(lv_langu) = COND sylangu( WHEN iv_langu IS NOT INITIAL THEN iv_langu
+                                   ELSE zcl_rak_text=>lang( ) ).
     CALL FUNCTION 'DDUT_DOMVALUES_GET'
       EXPORTING
         name          = iv_domain
-        langu         = zcl_rak_text=>lang( )
+        langu         = lv_langu
       TABLES
         dd07v_tab     = lt_dd07v
       EXCEPTIONS
@@ -1508,7 +1585,7 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
     IF iv_key IS INITIAL.
       RETURN.
     ENDIF.
-    DATA(lt_o) = dom_opts( iv_domain ).
+    DATA(lt_o) = dom_opts( iv_domain = iv_domain iv_langu = iv_langu ).
     READ TABLE lt_o INTO DATA(ls_o) WITH KEY key = iv_key.
     IF sy-subrc = 0.
       rv = ls_o-text.

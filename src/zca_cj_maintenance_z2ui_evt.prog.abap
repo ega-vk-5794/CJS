@@ -7,7 +7,8 @@ CLASS lcl_dragdropdataobject DEFINITION.
           node_text   TYPE lvc_value,
           node_key    TYPE lvc_nkey,
           item_layout	TYPE lvc_t_layi,
-          node_layout	TYPE lvc_s_layn.
+          node_layout	TYPE lvc_s_layn,
+          operation   TYPE char10.
 
 
 ENDCLASS.
@@ -16,7 +17,9 @@ CLASS lcl_event_receiver IMPLEMENTATION.
     DATA: dataobj TYPE REF TO lcl_dragdropdataobject.
     CREATE OBJECT dataobj.
     dataobj->node_key = node_key.
-
+    IF sender EQ go_editor->lo_editor.
+      dataobj->operation = 'MOVE'.
+    ENDIF.
     CALL METHOD sender->get_outtab_line
       EXPORTING
         i_node_key     = node_key
@@ -38,30 +41,36 @@ CLASS lcl_event_receiver IMPLEMENTATION.
       dataobj ?= drag_drop_object->object.
     ENDCATCH.
 
-    CALL FUNCTION 'POPUP_TO_CONFIRM'
-      EXPORTING
-        text_question  = 'Add new node as subnode or next child?'
-        text_button_1  = 'Under'
-        text_button_2  = 'Next to'
-      IMPORTING
-        answer         = lv_answer
-      EXCEPTIONS
-        text_not_found = 1
-        OTHERS         = 2.
-
-    CASE lv_answer.
-      WHEN '1'.
-        DATA(lv_node_key) = node_key.
-      WHEN '2'.
-        sender->get_parent( EXPORTING i_node_key = node_key IMPORTING e_parent_node_key = lv_node_key ).
+*    CALL FUNCTION 'POPUP_TO_CONFIRM'
+*      EXPORTING
+*        text_question  = 'Add new node as subnode or next child?'
+*        text_button_1  = 'Under'
+*        text_button_2  = 'Next to'
+*      IMPORTING
+*        answer         = lv_answer
+*      EXCEPTIONS
+*        text_not_found = 1
+*        OTHERS         = 2.
+*
+*    CASE lv_answer.
+*      WHEN '1'.
+*        DATA(lv_node_key) = node_key.
+*      WHEN '2'.
+*        sender->get_parent( EXPORTING i_node_key = node_key IMPORTING e_parent_node_key = lv_node_key ).
+*      WHEN OTHERS.
+*    ENDCASE.
+    CASE dataobj->operation.
+      WHEN 'MOVE'.
+        sender->move_node( EXPORTING i_node_key = dataobj->node_key i_relatkey = node_key i_relatship = cl_gui_column_tree=>relat_last_child
+                           EXCEPTIONS node_not_found = 1 relative_not_found = 2 ).
       WHEN OTHERS.
+        go_editor->add_editor_node( EXPORTING
+                                      relat_node_key = node_key
+                                      node_text      = dataobj->node_text
+                                      item           = dataobj->item
+                                      item_layout    = dataobj->item_layout
+                                      node_layout    = dataobj->node_layout ).
     ENDCASE.
-    go_editor->add_editor_node( EXPORTING
-                                  relat_node_key = lv_node_key
-                                  node_text      = dataobj->node_text
-                                  item           = dataobj->item
-                                  item_layout    = dataobj->item_layout
-                                  node_layout    = dataobj->node_layout ).
 
     CALL METHOD sender->expand_node
       EXPORTING
