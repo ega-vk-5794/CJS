@@ -320,6 +320,11 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   causes any other round trip on the same step is challenged again,
 *   which reads as the control rejecting a correct answer.
     DATA mv_cap_ok    TYPE abap_bool.
+*   TEMPORARY - how many times CAPTCHA_NEW( ) has run in this session.
+*   The one number that separates 'the refresh never fires' from 'the
+*   generator returns the same digits every time', which look identical
+*   on screen and have had three rounds spent on them.
+    DATA mv_cap_gen   TYPE i.
 
 *   A fresh challenge. First render, the refresh button, and after every
 *   WRONG answer - a challenge that survives a failed attempt can be
@@ -2001,6 +2006,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     DATA lv_h TYPE string.
 
     CLEAR: mv_cap_code, mv_cap_ok.
+    mv_cap_gen = mv_cap_gen + 1.   " TEMPORARY - see the declaration
 
 *   THE CODE DOES NOT COME FROM THE CLOCK, and the difference matters.
 *   CL_ABAP_RANDOM_INT is a deterministic generator: give it the same

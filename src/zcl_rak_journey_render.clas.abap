@@ -630,13 +630,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *                     which is a different object and may not be active
 *     seed changed    the challenge IS regenerating and the picture is
 *                     stale, so the fault is in the repaint, not here
-    DATA(lv_build) = `CAP-5`.
+    DATA(lv_build) = `CAP-6`.
     DATA(lv_hint)  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-cap_hint
                                         iv_default = 'Type the five digits shown below.' ).
 *   Built into a variable first: an embedded expression inside | | cannot
 *   contain a line break, and this call does not fit on one 255-character
 *   source line.
-    lo_box->text( text  = |{ lv_hint }  ·  build { lv_build } · seed { mo_e->mv_cap_seed }|
+    lo_box->text( text  = |{ lv_hint }  ·  build { lv_build } · gen { mo_e->mv_cap_gen }| &&
+                          | · seed { mo_e->mv_cap_seed } · len { strlen( mo_e->captcha_code( ) ) }|
                   class = 'rakCapHint' ).
 
     DATA(lo_row) = lo_box->hbox( alignitems = 'Center' class = 'rakCapRow' ).
