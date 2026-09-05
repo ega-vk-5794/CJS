@@ -325,6 +325,9 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   generator returns the same digits every time', which look identical
 *   on screen and have had three rounds spent on them.
     DATA mv_cap_gen   TYPE i.
+*   TEMPORARY - calls that produced DIFFERENT digits. GEN counts calls;
+*   the gap between them is the measurement.
+    DATA mv_cap_chg   TYPE i.
 
 *   A fresh challenge. First render, the refresh button, and after every
 *   WRONG answer - a challenge that survives a failed attempt can be
@@ -2001,51 +2004,79 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   reader see the same five characters. The alternative usually reached
 *   for - an arithmetic question - asks the citizen to do sums to report a
 *   pothole, which is a literacy test the service never meant to set.
-    DATA lv_i TYPE i.
-    DATA lv_o TYPE i.
-    DATA lv_h TYPE string.
-
-    CLEAR: mv_cap_code, mv_cap_ok.
-    mv_cap_gen = mv_cap_gen + 1.   " TEMPORARY - see the declaration
-
-*   THE CODE DOES NOT COME FROM THE CLOCK, and the difference matters.
-*   CL_ABAP_RANDOM_INT is a deterministic generator: give it the same
-*   seed and it yields the same sequence. Seed it from the current second
-*   - the obvious thing to write - and the five digits become a function
-*   of the time the request was made, which is a value the caller already
-*   knows. The challenge would be computable rather than guessable.
 *
-*   A UUID is not a cryptographic random source either, but it is not
-*   derived from a quantity the other end of the wire is holding. Each
-*   hex character contributes one digit, folded 0-15 -> 0-9. That fold is
-*   very slightly biased towards 0-5 and it does not matter here: the
-*   attack this control exists to stop is a script POSTing a complaint id
-*   in a loop, not somebody modelling the digit distribution.
-    lv_h = to_lower( cl_system_uuid=>create_uuid_c32_static( ) ).
+*   EVERY CHARACTER OF THE INPUT REACHES EVERY DIGIT, and that is the
+*   whole lesson of this method. The first version took the first five
+*   usable hex characters of a UUID, which is the obvious way to write it
+*   and is wrong: a SAP GUID is not five random characters followed by
+*   twenty-seven more, and whatever those leading characters encode on
+*   this system, they did not move. The control drew 00224 on every
+*   render, on every refresh, and on a fresh session with nothing behind
+*   it - eight generations, a different seed each time, identical digits.
+*
+*   Folding fixes it by construction rather than by picking a better
+*   place to slice. Each source character is added into one of five
+*   accumulators by position, so a change ANYWHERE in the input moves a
+*   digit. There is no longer a part of the UUID that does not matter.
+*
+*   The timestamp is mixed in as well, for a reason worth stating: it is
+*   the one input observed to change on this system. It is also
+*   predictable, which is why it is mixed WITH the UUID and not used
+*   instead of it - the UUID supplies the unpredictability, the clock
+*   supplies the guaranteed movement, and folding means an attacker who
+*   knows the second still cannot derive the digits.
+    DATA lt_acc TYPE STANDARD TABLE OF i WITH EMPTY KEY.
+    DATA lv_v   TYPE i.
+    DATA lv_ix  TYPE i.
+    DATA lv_o   TYPE i.
+    DATA lv_h   TYPE string.
 
-    lv_o = 0.
-    WHILE lv_o < strlen( lv_h ) AND strlen( mv_cap_code ) < 5.
-      DATA(lv_c) = substring( val = lv_h off = lv_o len = 1 ).
-      lv_o = lv_o + 1.
-*     Hex digit to its value, then to a decimal digit. Anything that is
-*     not hex is skipped rather than assumed - CREATE_UUID_C32_STATIC( )
-*     returns hex today and this does not depend on that staying true.
-      IF lv_c CA '0123456789'.
-        lv_i = CONV i( lv_c ).
-      ELSEIF lv_c CA 'abcdef'.
-        lv_i = 10 + find( val = 'abcdef' sub = lv_c ).
-      ELSE.
-        CONTINUE.
-      ENDIF.
-      mv_cap_code = |{ mv_cap_code }{ lv_i MOD 10 }|.
-    ENDWHILE.
+    DATA(lv_prev) = mv_cap_code.
+    CLEAR: mv_cap_code, mv_cap_ok.
 
-*   THE JITTER, and only the jitter, is clock-seeded - a predictable tilt
-*   angle gives away nothing, and seeding it from the clock is what makes
-*   the same challenge redraw identically on every repaint without
-*   parking the finished SVG on the serialized instance.
     GET TIME STAMP FIELD DATA(lv_ts).
     mv_cap_seed = CONV i( lv_ts MOD 2147483647 ).
+
+    lv_h = to_lower( |{ cl_system_uuid=>create_uuid_c32_static( ) }{ mv_cap_seed }| ).
+
+    DO 5 TIMES.
+      APPEND 0 TO lt_acc.
+    ENDDO.
+
+    lv_o = 0.
+    WHILE lv_o < strlen( lv_h ).
+      DATA(lv_c) = substring( val = lv_h off = lv_o len = 1 ).
+*     Hex digit to its value. Anything else is skipped rather than
+*     assumed - the input is a UUID today and this does not depend on
+*     that staying true.
+      IF lv_c CA '0123456789'.
+        lv_v = CONV i( lv_c ).
+      ELSEIF lv_c CA 'abcdef'.
+        lv_v = 10 + find( val = 'abcdef' sub = lv_c ).
+      ELSE.
+        lv_o = lv_o + 1.
+        CONTINUE.
+      ENDIF.
+      lv_ix = ( lv_o MOD 5 ) + 1.
+      READ TABLE lt_acc ASSIGNING FIELD-SYMBOL(<a>) INDEX lv_ix.
+      IF sy-subrc = 0.
+        <a> = <a> + lv_v.
+      ENDIF.
+      lv_o = lv_o + 1.
+    ENDWHILE.
+
+    LOOP AT lt_acc INTO DATA(lv_a).
+      mv_cap_code = |{ mv_cap_code }{ lv_a MOD 10 }|.
+    ENDLOOP.
+
+*   TEMPORARY - see the declaration. GEN counts calls, CHG counts calls
+*   that actually produced different digits. The gap between the two is
+*   what this round trip is for: eight generations and one change is a
+*   constant generator, eight and eight is a working one.
+    mv_cap_gen = mv_cap_gen + 1.
+    IF mv_cap_code <> lv_prev.
+      mv_cap_chg = mv_cap_chg + 1.
+    ENDIF.
   ENDMETHOD.
 
 
