@@ -243,7 +243,7 @@ Four lines. The new manager's details not appearing on the application form is a
 
 EPDA · CJSMIG-697 · SIT · Hasan Fraz · blocks CJSMIG-531 · 5 screenshots on the ticket · **10 observations, 2 closed, 8 open**
 
-This journey's class had NO ACTIVE VERSION - a CONSTANTS ... TYPE string VALUE '' would not compile, so SAP kept running an older build and every fix looked like it had not been applied. That is fixed in git. Re-test the CX_SY_CONVERSION_NO_NUMBER post failure only after the class is activated; it may well go with it.
+This journey's class had NO ACTIVE VERSION - a CONSTANTS ... TYPE string VALUE '' would not compile, so SAP kept running an older build and every fix looked like it had not been applied. The one-line correction is on the Handler code sheet. Re-test the CX_SY_CONVERSION_NO_NUMBER post failure only after the class compiles and activates; it may well go with it.
 
 | # | Observation | Status | What closes it |
 | ---: | --- | --- | --- |
@@ -256,7 +256,7 @@ This journey's class had NO ACTIVE VERSION - a CONSTANTS ... TYPE string VALUE '
 | 7 | Bill of Lading input clears its own value | Needs a look | Check BOL_POP exists in ZRAK_T_JNY_FLD. |
 | 8 | 'Use a previous declaration' field not required | Config - developer | Hide the field. |
 | 9 | HS code should be a guided formatted number with a watermark | Config - developer | REGEX + PLACEHOLDER. |
-| 10 | Backend POST failed - CX_SY_CONVERSION_NO_NUMBER, cannot go to the next step | Handler class - developer | The class had no active version at all - a CONSTANTS ... TYPE string VALUE '' will not compile - so SAP was running an older build of every method on this journey. Fixed in git. Pull, activate, and re-test this line first. |
+| 10 | Backend POST failed - CX_SY_CONVERSION_NO_NUMBER, cannot go to the next step | Handler class - developer | The class had no active version at all - a CONSTANTS ... TYPE string VALUE '' will not compile - so SAP was running an older build of every method on this journey. The one-line correction is on the Handler code sheet. Fix it, activate, and re-test this line first. |
 
 ## D005 - Amend - Name Change
 

@@ -107,7 +107,7 @@
    "ticket": "CJSMIG-697",
    "jira": "SIT",
    "assignee": "Hasan Fraz",
-   "note": "This journey's class had NO ACTIVE VERSION - a CONSTANTS ... TYPE string VALUE '' would not compile, so SAP kept running an older build and every fix looked like it had not been applied. That is fixed in git. Re-test the CX_SY_CONVERSION_NO_NUMBER post failure only after the class is activated; it may well go with it."
+   "note": "This journey's class had NO ACTIVE VERSION - a CONSTANTS ... TYPE string VALUE '' would not compile, so SAP kept running an older build and every fix looked like it had not been applied. The one-line correction is on the Handler code sheet. Re-test the CX_SY_CONVERSION_NO_NUMBER post failure only after the class compiles and activates; it may well go with it."
   },
   {
    "code": "D005",
@@ -1092,7 +1092,7 @@
    "journey": "E018",
    "observation": "Backend POST failed - CX_SY_CONVERSION_NO_NUMBER, cannot go to the next step",
    "state": "handler",
-   "action": "The class had no active version at all - a CONSTANTS ... TYPE string VALUE '' will not compile - so SAP was running an older build of every method on this journey. Fixed in git. Pull, activate, and re-test this line first."
+   "action": "The class had no active version at all - a CONSTANTS ... TYPE string VALUE '' will not compile - so SAP was running an older build of every method on this journey. The one-line correction is on the Handler code sheet. Fix it, activate, and re-test this line first."
   },
   {
    "ticket": "CJSMIG-698",

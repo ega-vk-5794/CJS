@@ -210,7 +210,8 @@ A('<footer><p>Source: Jira exports of 5 September 2026, Issues and Comments shee
   'The register lives in the repository at <code>doc/tickets/register.py</code>; this page is '
   'generated from it by <code>doc/tickets/build.py</code>, so the next round is an edit and a re-run.</p>'
   '<p>Nothing on this page has been compiled or activated - there is no SAP connection from where it '
-  'was written. Code marked fixed is fixed in git.</p></footer>')
+  'was written. Framework changes are in git and wait on a Pull and an activation; handler '
+  'code is written out in the spreadsheet and is not pushed for anyone.</p></footer>')
 A('</div>')
 A("<script>%JS%</script>")
 

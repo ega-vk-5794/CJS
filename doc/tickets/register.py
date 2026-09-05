@@ -7,8 +7,8 @@ classified. Edit this file and re-run build.py - nothing else is hand-written.
 
 state values
   fw           framework change - engine class, made and pushed by us; the team pulls it
-  handler      journey handler class - the developer's own ABAP; the change is written
-               and sitting in git, but it is theirs to take
+  handler      journey handler class - the developer's own ABAP. The change is
+               written out as code on the Handler code sheet, NOT pushed to git
   done_dev     the developer has already closed it on the Jira thread
   config       CJS configuration - Studio tables, no ABAP
   backend      backend / BAdI / record model - not CJS
@@ -66,9 +66,9 @@ JOURNEYS = [
  ("E018","Transport of Chemical Products","EPDA","CJSMIG-697","SIT","Hasan Fraz",
   "This journey's class had NO ACTIVE VERSION - a CONSTANTS ... TYPE string "
   "VALUE '' would not compile, so SAP kept running an older build and every "
-  "fix looked like it had not been applied. That is fixed in git. Re-test the "
-  "CX_SY_CONVERSION_NO_NUMBER post failure only after the class is activated; "
-  "it may well go with it."),
+  "fix looked like it had not been applied. The one-line correction is on the "
+  "Handler code sheet. Re-test the CX_SY_CONVERSION_NO_NUMBER post failure only "
+  "after the class compiles and activates; it may well go with it."),
  ("D005","Amend - Name Change","DOK","CJSMIG-698","Backlog","Hasan Fraz",
   "Three lines, all of them shared with D003/D006/D016 - the Arabic start "
   "button, the attachment asterisk and the Customer Action redirect."),
@@ -258,7 +258,7 @@ OBS = [
 ("CJSMIG-697",8,"E018","'Use a previous declaration' field not required","config","Hide the field."),
 ("CJSMIG-697",9,"E018","HS code should be a guided formatted number with a watermark","config","REGEX + PLACEHOLDER."),
 ("CJSMIG-697",10,"E018","Backend POST failed - CX_SY_CONVERSION_NO_NUMBER, cannot go to the next step","handler",
- "The class had no active version at all - a CONSTANTS ... TYPE string VALUE '' will not compile - so SAP was running an older build of every method on this journey. Fixed in git. Pull, activate, and re-test this line first."),
+ "The class had no active version at all - a CONSTANTS ... TYPE string VALUE '' will not compile - so SAP was running an older build of every method on this journey. The one-line correction is on the Handler code sheet. Fix it, activate, and re-test this line first."),
 # ---------------- CJSMIG-698  D005 --------------------------------------
 ("CJSMIG-698",1,"D005","Arabic version has no Start button","portal","Service card."),
 ("CJSMIG-698",2,"D005","Mandatory attachments need the *","config","Tick REQUIRED on each upload field."),
@@ -335,7 +335,8 @@ OBS = [
  "The applicant partner now also goes out as LOGIN_BP, the field every other journey uses. ZCL_E026_TREE_REMOVAL_LOGIC."),
 ]
 
-# Code that is in git and waiting on an abapGit Pull + activate.
+# Framework objects in git and waiting on an abapGit Pull + activate. Kept for
+# reference; the FRAMEWORK list below is the one the sheets are built from.
 PENDING_ACTIVATION = [
  ("ZCL_E025_BEEKEEPING_LOGIC","Applicant BP goes to LOGIN_BP, not to the owner search box","CJSMIG-703"),
  ("ZCL_E026_TREE_REMOVAL_LOGIC","Applicant BP also goes out as LOGIN_BP","CJSMIG-704"),
@@ -527,8 +528,24 @@ HANDLER_CODE = [
 * Activate the class after this and re-test the whole journey - including the
 * CX_SY_CONVERSION_NO_NUMBER on post, which may go with it."""),
  ("E022","CJSMIG-684","ZCL_EPDA_E022_DEV_PROJ_LOGIC",
-  "Applicant details written twice, and the applicant BP now also goes to LOGIN_BP",
-  "method","zif_rak_journey_logic~on_init"),
+  "Applicant details were written twice on ON_INIT","method",
+  "zif_rak_journey_logic~on_init"),
+ ("E022 E026 E027 D021 D014gv","CJSMIG-684 / 704","six classes - see the code",
+  "The applicant's own partner never reached LOGIN_BP, the field every other journey "
+  "and the record model use. Additive: the existing OWNER_BP write is left alone, so "
+  "nothing that works today changes","text",
+  """* Applies to ZCL_EPDA_E022_DEV_PROJ_LOGIC, ZCL_E026_TREE_REMOVAL_LOGIC,
+* ZCL_E027_VICE_CAPTAIN_LOGIC, ZCL_D021_MOD_SCHOOL_FEE_LOGIC and
+* ZCL_D014_STAFF_GOLD_VISA_LOGIC - all five declare C_LOGIN_BP as 'OWNER_BP'.
+* E025 is the exception and has its own row above: there OWNER_BP is the owner
+* SEARCH box, so the constant itself has to be corrected, not added to.
+
+* --- private section: ADD this. Leave C_LOGIN_BP exactly as it is. ----
+  constants C_APP_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
+
+* --- ON_INIT: ADD the second line under the existing first one. -------
+    io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+    io_ctx->set_val( iv_name = c_app_bp   iv_value = |{ lv_loginbp }| )."""),
  ("E017","CJSMIG-687","ZCL_E017_NOC_EXP_CHEM_LOGIC",
   "Step 0 refused whenever the role flags disagreed with APPLICANT_ROLE - re-derived "
   "now instead of refused","method","zif_rak_journey_logic~on_custom_validate"),
