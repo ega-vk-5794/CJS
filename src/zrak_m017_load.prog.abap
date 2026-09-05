@@ -111,6 +111,17 @@ CLASS lcl_txt IMPLEMENTATION.
   ENDMETHOD.
 ENDCLASS.
 
+* ------------------------------------------------------------- runtime
+* START-OF-SELECTION IS REQUIRED HERE, AND IT WAS NOT BEFORE.
+* A report's first executable statement normally opens an implicit
+* START-OF-SELECTION, which is why every other feeder runs without the
+* keyword. A local CLASS ... IMPLEMENTATION is itself a processing
+* block, so once LCL_TXT was added above, everything after ENDCLASS
+* belonged to no block at all - "Statement is not accessible" on the
+* first DELETE, with the rest of the report silently unreachable behind
+* it. Adding the class means adding the event.
+START-OF-SELECTION.
+
 * ------------------------------------------------------------- teardown
 * Every table this report writes, so a re-run replaces rather than
 * duplicates. ZRAK_T_JNY_COL is included even though this journey seeds
