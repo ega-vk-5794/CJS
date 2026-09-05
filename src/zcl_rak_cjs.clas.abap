@@ -1602,7 +1602,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       ( `CHECKBOX` ) ( `SWITCH` ) ( `SEGMENTED` ) ( `CHECKGROUP` ) ( `SLIDER` ) ( `STEPPER` ) ( `RATING` )
       ( `DISPLAY` ) ( `READONLY` ) ( `STATUS` ) ( `OBJNUM` ) ( `PROGRESS` ) ( `LINK` )
       ( `SEARCH` ) ( `TABLE` ) ( `EDITABLE_TABLE` ) ( `RECORDCARD` ) ( `RO_PANEL` ) ( `REVIEW` ) ( `REQPANEL` ) ( `UPLOAD` ) ( `PAYFEE` )
-      ( `PDF` ) ).
+      ( `PDF` ) ( `CAPTCHA` ) ).
   ENDMETHOD.
 
 

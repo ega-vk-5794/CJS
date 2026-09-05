@@ -218,6 +218,15 @@ CLASS zcl_rak_text DEFINITION
         col_description     TYPE symsgno VALUE '130',
 *       Navigation is locked once the fee is PAID - see ZCL_RAK_JOURNEY_ENGINE->NAV_LOCKED( ).
         nav_locked          TYPE symsgno VALUE '132',
+*       CAPTCHA - the verification control. Framework wording, not a
+*       journey's: the same challenge appears on every service that turns
+*       it on, and a per-journey label would drift into five spellings of
+*       the same instruction.
+        cap_title           TYPE symsgno VALUE '133',
+        cap_hint            TYPE symsgno VALUE '134',
+        cap_ph              TYPE symsgno VALUE '135',
+        cap_refresh         TYPE symsgno VALUE '136',
+        cap_wrong           TYPE symsgno VALUE '137',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -528,7 +537,25 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
       ( msgno = c_no-col_description    en = `Description`    ar = `الوصف` )
       ( msgno = c_no-nav_locked
         en = `The fee has been paid, so the earlier steps are closed. Press Done to finish.`
-        ar = `تم دفع الرسوم، لذلك أُغلقت الخطوات السابقة. اضغط "تم" لإكمال الطلب.` ) ).
+        ar = `تم دفع الرسوم، لذلك أُغلقت الخطوات السابقة. اضغط "تم" لإكمال الطلب.` )
+      ( msgno = c_no-cap_title
+        en = `Verification`
+        ar = `التحقق` )
+*     "Five digits" and not "the code": the citizen is looking at a
+*     deliberately distorted picture, and the one thing that makes it
+*     quick to read is knowing how many characters to expect.
+      ( msgno = c_no-cap_hint
+        en = `Type the five digits shown below.`
+        ar = `أدخل الأرقام الخمسة الظاهرة أدناه.` )
+      ( msgno = c_no-cap_ph
+        en = `5 digits`
+        ar = `٥ أرقام` )
+      ( msgno = c_no-cap_refresh
+        en = `Show a different code`
+        ar = `عرض رمز آخر` )
+      ( msgno = c_no-cap_wrong
+        en = `The verification code does not match. A new code is shown - please try again.`
+        ar = `رمز التحقق غير مطابق. تم عرض رمز جديد - يرجى المحاولة مرة أخرى.` ) ).
   ENDMETHOD.
 
 

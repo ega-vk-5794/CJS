@@ -437,6 +437,19 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakReqPend\{color:#c9cfd8!important;font-size:1rem;margin-inline-end:.5rem;\}| &&
         |.rakReqDone\{color:{ n };\}| &&
         |.rakReqTodo\{color:#8a93a2;\}| &&
+*       CAPTCHA. Same panel shape as rakReqPanel above so the challenge
+*       reads as part of the form rather than an advert dropped into it.
+*       The image is given its exact drawn size - 208x64, the viewBox in
+*       ZCL_RAK_JOURNEY_RENDER->CAPTCHA_SVG( ) - because an SVG left to
+*       size itself stretches to its container and the jitter that makes
+*       the glyphs hard to machine-read turns into a blur that makes them
+*       hard for the citizen to read too.
+        |.rakCaptcha\{background:#fff;border:1px solid #E3E6EB;border-radius:14px;| &&
+        |padding:.9rem 1rem;margin:.4rem 1rem;\}| &&
+        |.rakCapHint\{display:block;font-size:.8rem;color:#6B7484;margin-bottom:.55rem;\}| &&
+        |.rakCapRow\{gap:.5rem;\}| &&
+        |.rakCapImg\{width:208px;height:64px;border-radius:8px;border:1px solid #E3E6EB;| &&
+        |user-select:none;-webkit-user-select:none;-webkit-user-drag:none;\}| &&
         |.rakSplit\{width:100%;align-items:flex-start;\}| &&
         |.rakRail\{flex:none;align-self:flex-start;position:sticky;top:0;\}| &&
         |.rakMain\{flex:1;min-width:0;\}| &&

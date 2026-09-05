@@ -323,6 +323,10 @@ CLASS zcl_rak_test_all_logic DEFINITION
 *   The reference example for FTYPE = 'PDF' - see the method for the two
 *   config shapes a developer can copy.
     METHODS seed_pdf  IMPORTING io_ctx TYPE REF TO zif_rak_journey.
+*   The reference example for FTYPE = 'CAPTCHA'. No runtime half - the
+*   control is entirely engine-side - so this is the config shape and the
+*   list of things a handler must NOT try to do to it.
+    METHODS seed_captcha IMPORTING io_ctx TYPE REF TO zif_rak_journey.
 
 *   The field list behind the two multi-column dialogs. One list, three layouts:
 *   that is the demonstration. Building it once also makes the point that nothing
@@ -1786,6 +1790,82 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 
     seed_fees( io_ctx ).
     seed_pdf( io_ctx ).
+    seed_captcha( io_ctx ).
+  ENDMETHOD.
+
+
+  METHOD seed_captcha.
+*&---------------------------------------------------------------------*
+*& CAPTCHA - the reference example for FTYPE = 'CAPTCHA'.
+*&
+*& Added for the Track e-Complaint (EC02) and Track e-Suggestion (EC06)
+*& screens on the security team's recommendation. Those two are lookup
+*& forms: no login, no payment, a short numeric id and a mobile number,
+*& and an answer that says whether that pair exists. That shape is worth
+*& enumerating to somebody, which is what a captcha on the search step
+*& is there to stop.
+*&
+*& THERE IS NO RUNTIME HALF. Unlike every other control in this class,
+*& a handler contributes nothing: the engine generates the challenge,
+*& renders it and checks it. What follows is the configuration, and then
+*& the three things a handler must not do.
+*&
+*& CONFIG - one row in ZRAK_T_JNY_FLD on the step being protected:
+*&
+*&   JOURNEY_ID  EC02
+*&   STEP_ID     the SEARCH step, not the results step
+*&   FIELD_NAME  CAPTCHA
+*&   FTYPE       CAPTCHA
+*&   ZLABEL      Verification          (optional - msgno 133 is the default)
+*&   ZLABEL_AR   التحقق                 (optional, same)
+*&   TECH_NAME   leave BLANK
+*&   REQUIRED    leave BLANK
+*&
+*& TECH_NAME BLANK, and this is the one that will be got wrong. Every
+*& other field on a journey needs TECH_NAME or it reaches the backend as
+*& nothing - the first rule in the skill. A captcha answer is the
+*& opposite: it is a gate, not data, and posting it would file the
+*& citizen's five digits in the case record for no reason.
+*&
+*& REQUIRED BLANK for the same kind of reason. VALIDATE_STEP( ) checks
+*& the control itself and treats an empty box as a mismatch, and
+*& MISSING_REQUIRED( ) skips FTYPE 'CAPTCHA' precisely so that ticking
+*& this does not produce two errors for one blank field.
+*&
+*& WHAT A HANDLER MUST NOT DO:
+*&
+*&   1. Do not read the answer. IO_CTX->GET_VAL( 'CAPTCHA' ) returns
+*&      whatever the citizen typed, which is worth nothing - the engine
+*&      has already compared it and cleared it on failure.
+*&   2. Do not seed it in ON_INIT( ). A value in the box on first render
+*&      is either wrong (the citizen must clear it) or, if somehow right,
+*&      a captcha that answers itself.
+*&   3. Do not put it behind a rule in ZRAK_T_JNY_RULE. A control that
+*&      hides on some condition is a control a request can arrange not to
+*&      face; IS_HIDDEN( ) is checked before the captcha branch in
+*&      VALIDATE_STEP( ), so a hidden captcha is not checked at all.
+*&
+*& WHAT IT DOES NOT YET DO - say this to the security team rather than
+*& letting them assume otherwise:
+*&
+*&   - No audio or screen-reader alternative. The challenge is a picture
+*&     with no text in it, by design, and that is exactly what makes it
+*&     unreadable to a citizen using a screen reader. The refresh button
+*&     gives a different picture, not a different modality. On a public
+*&     government service this is a real gap, not a nicety.
+*&   - No rate limiting. Each failure burns the challenge, so guessing
+*&     costs one round trip per attempt, but nothing counts attempts or
+*&     locks a source that makes ten thousand of them.
+*&   - No proof of independence from the session. Anything holding the
+*&     Z2UI5_T_01 draft id is the same visitor as far as this control is
+*&     concerned.
+*&
+*& Those three are the honest difference between this and reCAPTCHA, and
+*& they are why the ftype exists as a swappable control: replacing the
+*& body of CAPTCHA_SVG( ) and the check in VALIDATE_STEP( ) changes the
+*& mechanism without touching a single journey's configuration.
+*&---------------------------------------------------------------------*
+    RETURN.
   ENDMETHOD.
 
 

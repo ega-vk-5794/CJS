@@ -257,7 +257,11 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
     rv = xsdbool( iv_type = 'SEARCH' OR iv_type = 'TABLE'
                OR iv_type = 'UPLOAD' OR iv_type = 'PAYFEE'
                OR iv_type = 'EDITABLE_TABLE' OR iv_type = 'RECORDCARD'
-               OR iv_type = 'REQPANEL' OR iv_type = 'PDF' ).
+*              CAPTCHA is a block: it draws a picture, an input and a
+*              refresh button as one panel, so it must reach RENDER_BLOCK( )
+*              rather than RENDER_ONE( ), which draws a single control.
+               OR iv_type = 'REQPANEL' OR iv_type = 'PDF'
+               OR iv_type = 'CAPTCHA' ).
   ENDMETHOD.
 
 
@@ -309,7 +313,8 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
       OR iv_type = 'PARCEL' OR iv_type = 'PROPERTY' OR iv_type = 'TITLEDEED'
       OR iv_type = 'FLOORUNIT' OR iv_type = 'CONTRACT' OR iv_type = 'BUILDINGS'
       OR iv_type = 'SIGN' OR iv_type = 'CHEMICALS'
-      OR iv_type = 'ACCOM' OR iv_type = 'BOATS' ).
+      OR iv_type = 'ACCOM' OR iv_type = 'BOATS'
+      OR iv_type = 'CAPTCHA' ).
   ENDMETHOD.
 
 

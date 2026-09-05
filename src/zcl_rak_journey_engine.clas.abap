@@ -298,6 +298,42 @@ CLASS zcl_rak_journey_engine DEFINITION
       IMPORTING iv_name   TYPE string
       RETURNING VALUE(rv) TYPE abap_bool.
 
+
+*   ---- CAPTCHA ---------------------------------------------------------
+*   THE ANSWER NEVER LEAVES THE SERVER, and that is the whole reason this
+*   is an engine attribute and not a model component. Z2UI5 persists the
+*   serialized app instance in Z2UI5_T_01 and hands the browser only its
+*   id (Z2UI5_CL_CORE_SRV_DRAFT->CREATE), so MV_CAP_CODE round trips
+*   through the database, not through the page. The model is the opposite:
+*   BUILD_MODEL( ) binds every component into the view, where it is
+*   readable from the browser's own model inspector. Put the expected
+*   answer there and the control is theatre - it renders a challenge a
+*   script reads straight back out.
+*
+*   MV_CAP_SEED, not the drawn markup, is what makes a repaint stable. The
+*   jitter is regenerated from the seed on every render, so the same
+*   challenge redraws identically without parking an SVG on the instance.
+    DATA mv_cap_code  TYPE string.
+    DATA mv_cap_seed  TYPE i.
+*   Answered correctly already. Cleared by CAPTCHA_NEW( ), never by a
+*   repaint - without it a citizen who passes the challenge and then
+*   causes any other round trip on the same step is challenged again,
+*   which reads as the control rejecting a correct answer.
+    DATA mv_cap_ok    TYPE abap_bool.
+
+*   A fresh challenge. First render, the refresh button, and after every
+*   WRONG answer - a challenge that survives a failed attempt can be
+*   brute-forced one guess per round trip against a target that never moves.
+    METHODS captcha_new.
+*   The current code, generated on demand so the renderer never has to
+*   care whether this is the first pass.
+    METHODS captcha_code RETURNING VALUE(rv) TYPE string.
+*   ASCII digits only, with Arabic-Indic U+0660..U+0669 folded in. An
+*   Arabic run draws its numerals in Arabic-Indic and a citizen typing on
+*   an Arabic keyboard sends those code points back; comparing them raw
+*   fails every time, on the language half these citizens use.
+    METHODS captcha_digits IMPORTING iv TYPE string RETURNING VALUE(rv) TYPE string.
+
   PRIVATE SECTION.
 
 *   ---- E10 CLIENT 200 ONLY: a borrowed portal session -----------------
@@ -769,6 +805,19 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                                iv_case    = mv_case_guid
                                iv_result  = COND string( WHEN mv_step > lv_from THEN 'OK' ELSE 'BLOCK' )
                                iv_detail  = |{ lv_from }>{ mv_step }| ).
+*         ONE CHALLENGE, ONE LOOKUP. A captcha that is answered once and
+*         then stands for the rest of the session stops a bot for exactly
+*         one request, which on a tracking service - the whole point of
+*         putting it there - is the request that costs nothing. Burning
+*         the challenge on every successful advance means each new search
+*         is a new puzzle.
+*
+*         Unconditional on purpose. MV_CAP_CODE is read by nothing but the
+*         CAPTCHA control, so regenerating it on a journey that has no such
+*         field costs one short string and cannot be observed.
+          IF mv_step > lv_from.
+            captcha_new( ).
+          ENDIF.
         WHEN 'BACK'.
           IF nav_locked( ) = abap_true.
             nav_locked_msg( ).
@@ -789,6 +838,10 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
           zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-save
                                iv_step_no = mv_step
                                iv_case    = mv_case_guid ).
+*       The refresh arrow under the challenge. A citizen who cannot read
+*       this one gets another; the button is the accessibility floor of an
+*       image control, not a convenience.
+        WHEN 'CAPTCHA_NEW'. captcha_new( ).
         WHEN 'ASKDEL'. mv_popup = 'DELCONF'.
         WHEN 'DELETE'.
           handle_delete( ).
@@ -1920,6 +1973,101 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         ENDIF.
       ENDLOOP.
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD captcha_new.
+*   FIVE DIGITS, NOT LETTERS. Digits carry no case to confuse, no I/l/1 or
+*   O/0 lookalike pair, and no alphabet: an Arabic reader and an English
+*   reader see the same five characters. The alternative usually reached
+*   for - an arithmetic question - asks the citizen to do sums to report a
+*   pothole, which is a literacy test the service never meant to set.
+    DATA lv_i TYPE i.
+    DATA lv_o TYPE i.
+    DATA lv_h TYPE string.
+
+    CLEAR: mv_cap_code, mv_cap_ok.
+
+*   THE CODE DOES NOT COME FROM THE CLOCK, and the difference matters.
+*   CL_ABAP_RANDOM_INT is a deterministic generator: give it the same
+*   seed and it yields the same sequence. Seed it from the current second
+*   - the obvious thing to write - and the five digits become a function
+*   of the time the request was made, which is a value the caller already
+*   knows. The challenge would be computable rather than guessable.
+*
+*   A UUID is not a cryptographic random source either, but it is not
+*   derived from a quantity the other end of the wire is holding. Each
+*   hex character contributes one digit, folded 0-15 -> 0-9. That fold is
+*   very slightly biased towards 0-5 and it does not matter here: the
+*   attack this control exists to stop is a script POSTing a complaint id
+*   in a loop, not somebody modelling the digit distribution.
+    lv_h = to_lower( cl_system_uuid=>create_uuid_c32_static( ) ).
+
+    lv_o = 0.
+    WHILE lv_o < strlen( lv_h ) AND strlen( mv_cap_code ) < 5.
+      DATA(lv_c) = substring( val = lv_h off = lv_o len = 1 ).
+      lv_o = lv_o + 1.
+*     Hex digit to its value, then to a decimal digit. Anything that is
+*     not hex is skipped rather than assumed - CREATE_UUID_C32_STATIC( )
+*     returns hex today and this does not depend on that staying true.
+      IF lv_c CA '0123456789'.
+        lv_i = CONV i( lv_c ).
+      ELSEIF lv_c CA 'abcdef'.
+        lv_i = 10 + find( val = 'abcdef' sub = lv_c ).
+      ELSE.
+        CONTINUE.
+      ENDIF.
+      mv_cap_code = |{ mv_cap_code }{ lv_i MOD 10 }|.
+    ENDWHILE.
+
+*   THE JITTER, and only the jitter, is clock-seeded - a predictable tilt
+*   angle gives away nothing, and seeding it from the clock is what makes
+*   the same challenge redraw identically on every repaint without
+*   parking the finished SVG on the serialized instance.
+    GET TIME STAMP FIELD DATA(lv_ts).
+    mv_cap_seed = CONV i( lv_ts MOD 2147483647 ).
+  ENDMETHOD.
+
+
+  METHOD captcha_code.
+    IF mv_cap_code IS INITIAL.
+      captcha_new( ).
+    ENDIF.
+    rv = mv_cap_code.
+  ENDMETHOD.
+
+
+  METHOD captcha_digits.
+*   Everything that is not a digit goes, so a citizen who typed spaces or
+*   a dash between groups is not failed for punctuation they were never
+*   told to leave out. Arabic-Indic numerals fold onto their ASCII twin
+*   first - see the declaration for why that is not optional here.
+    DATA lv_c TYPE string.
+    DATA lv_o TYPE i.
+
+    CLEAR rv.
+    DATA(lv_len) = strlen( iv ).
+    lv_o = 0.
+    WHILE lv_o < lv_len.
+      lv_c = substring( val = iv off = lv_o len = 1 ).
+      CASE lv_c.
+        WHEN `٠`. rv = |{ rv }0|.
+        WHEN `١`. rv = |{ rv }1|.
+        WHEN `٢`. rv = |{ rv }2|.
+        WHEN `٣`. rv = |{ rv }3|.
+        WHEN `٤`. rv = |{ rv }4|.
+        WHEN `٥`. rv = |{ rv }5|.
+        WHEN `٦`. rv = |{ rv }6|.
+        WHEN `٧`. rv = |{ rv }7|.
+        WHEN `٨`. rv = |{ rv }8|.
+        WHEN `٩`. rv = |{ rv }9|.
+        WHEN OTHERS.
+          IF lv_c CA '0123456789'.
+            rv = |{ rv }{ lv_c }|.
+          ENDIF.
+      ENDCASE.
+      lv_o = lv_o + 1.
+    ENDWHILE.
   ENDMETHOD.
 
 

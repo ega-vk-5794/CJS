@@ -26,6 +26,11 @@ CLASS zcl_rak_journey_render DEFINITION
                                        is_field  TYPE zif_rak_journey=>ty_field.
     METHODS render_pay       IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view
                                        is_field  TYPE zif_rak_journey=>ty_field.
+    METHODS render_captcha   IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view
+                                       is_field  TYPE zif_rak_journey=>ty_field.
+*   The challenge as a base64 SVG data URI, drawn from the engine's
+*   current code and seed. Never the answer in text form - see the method.
+    METHODS captcha_svg      RETURNING VALUE(rv) TYPE string.
     METHODS render_attach    IMPORTING io_form  TYPE REF TO z2ui5_cl_xml_view
                                        is_field TYPE zif_rak_journey=>ty_field.
     METHODS render_uploader  IMPORTING io_box   TYPE REF TO z2ui5_cl_xml_view
@@ -479,6 +484,161 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD captcha_svg.
+
+*   A SEVEN-SEGMENT GLYPH, NOT AN <svg:text> ELEMENT, and that is the
+*   entire security of the picture. An SVG carrying <text>5</text> puts
+*   the answer in the DOM in plain sight - View Source reads it, and so
+*   does the three-line script this control exists to stop. Drawn as
+*   rectangles there is no character anywhere in the markup: the shape of
+*   a 5 is seven boxes, and recovering the digit from them is the work
+*   the citizen's eye does for free and a scraper does not.
+*
+*   Digits rather than letters: no case to confuse, no I/l/1 or O/0
+*   lookalike pair, and the same five characters for an Arabic reader and
+*   an English one.
+    CONSTANTS c_w   TYPE i VALUE 208.
+    CONSTANTS c_h   TYPE i VALUE 64.
+
+    DATA lv_body TYPE string.
+    DATA lv_g    TYPE string.
+    DATA lv_i    TYPE i.
+    DATA lv_x    TYPE i.
+    DATA lv_y    TYPE i.
+    DATA lv_rot  TYPE i.
+    DATA lv_n    TYPE i.
+
+*   Segments in the order a b c d e f g - top, upper right, lower right,
+*   bottom, lower left, upper left, middle. Index is the digit plus one.
+    DATA(lt_seg) = VALUE string_table(
+      ( `1111110` ) ( `0110000` ) ( `1101101` ) ( `1111001` ) ( `0110011` )
+      ( `1011011` ) ( `1011111` ) ( `1110000` ) ( `1111111` ) ( `1111011` ) ).
+
+    DATA(lv_code) = mo_e->captcha_code( ).
+
+*   Re-created from the seed the challenge was generated with, so a
+*   repaint draws the same picture. Storing the finished SVG on the
+*   instance would do the same job and park a kilobyte of markup in
+*   Z2UI5_T_01 on every round trip of every journey that uses this.
+    DATA(lo_r) = cl_abap_random_int=>create( seed = mo_e->mv_cap_seed
+                                             min  = 0
+                                             max  = 999 ).
+
+*   Ground, then noise, then glyphs - painter's order, so the strokes
+*   cross the digits instead of hiding under them.
+    DATA(lv_ink) = `#2b3a4a`.
+    lv_body = |<rect width="{ c_w }" height="{ c_h }" rx="8" fill="#eef1f5"/>|.
+
+    DO 3 TIMES.
+      DATA(lv_y1) = lo_r->get_next( ) MOD c_h.
+      DATA(lv_y2) = lo_r->get_next( ) MOD c_h.
+      DATA(lv_y3) = lo_r->get_next( ) MOD c_h.
+      lv_body = |{ lv_body }<path d="M0 { lv_y1 } Q { c_w / 2 } { lv_y2 } { c_w } { lv_y3 }"| &&
+                | fill="none" stroke="#b9c0cb" stroke-width="2"/>|.
+    ENDDO.
+
+    lv_i = 0.
+    WHILE lv_i < strlen( lv_code ).
+      lv_n   = CONV i( substring( val = lv_code off = lv_i len = 1 ) ).
+      DATA(lv_f) = VALUE string( lt_seg[ lv_n + 1 ] OPTIONAL ).
+*     Cannot happen while CAPTCHA_NEW( ) only ever emits 0-9, and checked
+*     anyway: an offset read on an empty string is a dump, and a dump here
+*     takes the whole page with it rather than one control.
+      IF strlen( lv_f ) < 7.
+        lv_i = lv_i + 1.
+        CONTINUE.
+      ENDIF.
+      lv_x   = 14 + lv_i * 37.
+      lv_y   = 12 + ( lo_r->get_next( ) MOD 7 ) - 3.
+*     Enough tilt to defeat a fixed-grid template match, little enough
+*     that the digit still reads at a glance on a phone.
+      lv_rot = ( lo_r->get_next( ) MOD 31 ) - 15.
+
+      CLEAR lv_g.
+      IF substring( val = lv_f off = 0 len = 1 ) = '1'.
+        lv_g = |{ lv_g }<rect x="{ lv_x + 5 }" y="{ lv_y }" width="14" height="5"/>|.
+      ENDIF.
+      IF substring( val = lv_f off = 1 len = 1 ) = '1'.
+        lv_g = |{ lv_g }<rect x="{ lv_x + 19 }" y="{ lv_y + 5 }" width="5" height="14"/>|.
+      ENDIF.
+      IF substring( val = lv_f off = 2 len = 1 ) = '1'.
+        lv_g = |{ lv_g }<rect x="{ lv_x + 19 }" y="{ lv_y + 21 }" width="5" height="14"/>|.
+      ENDIF.
+      IF substring( val = lv_f off = 3 len = 1 ) = '1'.
+        lv_g = |{ lv_g }<rect x="{ lv_x + 5 }" y="{ lv_y + 35 }" width="14" height="5"/>|.
+      ENDIF.
+      IF substring( val = lv_f off = 4 len = 1 ) = '1'.
+        lv_g = |{ lv_g }<rect x="{ lv_x }" y="{ lv_y + 21 }" width="5" height="14"/>|.
+      ENDIF.
+      IF substring( val = lv_f off = 5 len = 1 ) = '1'.
+        lv_g = |{ lv_g }<rect x="{ lv_x }" y="{ lv_y + 5 }" width="5" height="14"/>|.
+      ENDIF.
+      IF substring( val = lv_f off = 6 len = 1 ) = '1'.
+        lv_g = |{ lv_g }<rect x="{ lv_x + 5 }" y="{ lv_y + 17 }" width="14" height="5"/>|.
+      ENDIF.
+
+      lv_body = |{ lv_body }<g fill="{ lv_ink }" transform="rotate({ lv_rot } { lv_x + 12 }| &&
+                | { lv_y + 20 })">{ lv_g }</g>|.
+      lv_i = lv_i + 1.
+    ENDWHILE.
+
+    DATA(lv_svg) = |<svg xmlns="http://www.w3.org/2000/svg" width="{ c_w }" height="{ c_h }"| &&
+                   | viewBox="0 0 { c_w } { c_h }">{ lv_body }</svg>|.
+
+*   Base64 rather than a raw utf8 data URI: the SVG is going into an XML
+*   attribute of the generated view, where every < and " would have to
+*   survive two rounds of escaping intact. Base64 has neither.
+*   Split across two statements, not one string template: an embedded
+*   expression inside | | cannot contain a line break, and this call pair
+*   does not fit in the 255 characters an ABAP source line allows.
+    DATA(lv_x64) = z2ui5_cl_util_abap=>conv_encode_x_base64(
+                     z2ui5_cl_util_abap=>conv_get_xstring_by_string( lv_svg ) ).
+    rv = |data:image/svg+xml;base64,{ lv_x64 }|.
+
+  ENDMETHOD.
+
+
+  METHOD render_captcha.
+
+*   Label, picture, answer box, refresh - in that order, and all of it
+*   inside one bordered panel so it reads as a single question rather
+*   than an image that happens to sit above an unrelated input.
+    io_parent->title( text  = zcl_rak_journey_util=>esc( COND string(
+                                WHEN is_field-label IS NOT INITIAL THEN is_field-label
+                                ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-cap_title
+                                                        iv_default = 'Verification' ) ) )
+                      class = |{ mo_e->mo_css->cls( 'SECTION' ) } rakBlkTitle| ).
+
+    DATA(lo_box) = io_parent->vbox( class = 'rakCaptcha' ).
+
+    lo_box->text( text  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-cap_hint
+                                             iv_default = 'Type the five digits shown below.' )
+                  class = 'rakCapHint' ).
+
+    DATA(lo_row) = lo_box->hbox( alignitems = 'Center' class = 'rakCapRow' ).
+    lo_row->image( src = captcha_svg( ) class = 'rakCapImg' ).
+
+*   The refresh arrow is not a convenience. An image challenge has no
+*   readable alternative, so the only thing standing between a citizen
+*   who cannot resolve this particular picture and an unusable service is
+*   another picture. See the note in ZCL_RAK_JOURNEY_ENGINE on what is
+*   still missing for a citizen using a screen reader.
+    lo_row->button( icon    = 'sap-icon://refresh'
+                    type    = 'Transparent'
+                    tooltip = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-cap_refresh
+                                                 iv_default = 'Show a different code' )
+                    press   = mo_e->mo_client->_event( 'CAPTCHA_NEW' ) ).
+
+    lo_row->input( value       = bind_of( is_field-name )
+                   width       = '9rem'
+                   maxlength   = '5'
+                   placeholder = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-cap_ph
+                                                    iv_default = '5 digits' )
+                   class       = |{ mo_e->mo_css->cls( 'INPUT' ) } sapUiSmallMarginBegin| ).
+
+  ENDMETHOD.
+
+
   METHOD render_block.
     CASE is_field-type.
       WHEN 'PAYFEE'.
@@ -518,6 +678,9 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                          iv_types = is_field-attach_types
                          iv_maxmb = is_field-attach_maxmb ).
 
+      WHEN 'CAPTCHA'.
+        render_captcha( io_parent = io_parent is_field = is_field ).
+
       WHEN 'REQPANEL'.
         DATA(lt_rqm) = mo_e->mo_rules->missing_required( mo_e->mv_step ).
         DATA(lo_rq)  = io_parent->vbox( class = 'rakReqPanel' ).
@@ -531,7 +694,8 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         LOOP AT ls_rqs-fields INTO DATA(ls_rqf).
           IF mo_e->mo_rules->is_required( ls_rqf ) = abap_false
              OR mo_e->mo_rules->is_hidden( ls_rqf ) = abap_true
-             OR ls_rqf-type = 'PAYFEE' OR ls_rqf-type = 'REQPANEL'.
+             OR ls_rqf-type = 'PAYFEE' OR ls_rqf-type = 'REQPANEL'
+             OR ls_rqf-type = 'CAPTCHA'.
             CONTINUE.
           ENDIF.
           lv_rqn = lv_rqn + 1.

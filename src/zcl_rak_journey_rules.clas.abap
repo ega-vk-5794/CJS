@@ -226,8 +226,17 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
 *   editable. Genuinely unenforceable field types (DISPLAY, TABLE, UPLOAD,
 *   STATUS, OBJNUM, PROGRESS, LINK) are still excluded below, by FTYPE.
     LOOP AT ls_ms-fields INTO DATA(ls_mf).
+*     CAPTCHA is excluded because VALIDATE_STEP( ) checks it itself, and
+*     an empty box there is already "does not match". Left in, an author
+*     who ticks REQUIRED on the row - which is the natural thing to do -
+*     gets two errors for one blank field: "Verification is required" from
+*     here and the mismatch message from there. It is also the reason
+*     REQPANEL must not list it: a checklist line reading "Verification"
+*     that ticks itself the moment the citizen types five wrong digits is
+*     worse than no line at all.
       IF is_hidden( ls_mf ) = abap_true
-         OR ls_mf-type = 'PAYFEE' OR ls_mf-type = 'REQPANEL'.
+         OR ls_mf-type = 'PAYFEE' OR ls_mf-type = 'REQPANEL'
+         OR ls_mf-type = 'CAPTCHA'.
         CONTINUE.
       ENDIF.
       IF is_required( ls_mf ) = abap_false.
@@ -411,6 +420,41 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
       ENDIF.
 
       IF ls_f-type = 'PAYFEE' OR ls_f-type = 'REQPANEL'.
+        CONTINUE.
+      ENDIF.
+
+*     CAPTCHA. Checked here and nowhere else, because this is the one
+*     place that runs on Next AND on Submit and cannot be reached around:
+*     a control that validated itself while rendering would be skipped by
+*     any round trip that does not repaint it.
+*
+*     The comparison is against the engine's copy, never against anything
+*     that travelled to the browser - see ZCL_RAK_JOURNEY_ENGINE, where
+*     the code lives and why it lives there.
+      IF ls_f-type = 'CAPTCHA'.
+        IF mo_e->mv_cap_ok = abap_false.
+          DATA(lv_typed) = mo_e->captcha_digits( mo_e->val_get( ls_f-name ) ).
+          IF lv_typed IS NOT INITIAL AND lv_typed = mo_e->captcha_code( ).
+            mo_e->mv_cap_ok = abap_true.
+          ELSE.
+*           EMPTY AND WRONG GET THE SAME MESSAGE ON PURPOSE. Telling a
+*           script which of the two it managed is telling it whether the
+*           request shape was right, and a citizen who left the box blank
+*           does not need to be told they left it blank - the field is
+*           marked and sitting in front of them.
+            DATA(lv_cmsg) = zcl_rak_text=>get(
+              iv_no      = zcl_rak_text=>c_no-cap_wrong
+              iv_default = `The verification code does not match. A new code is shown - please try again.` ).
+            APPEND VALUE #( type = 'Error' text = lv_cmsg ) TO rt_msg.
+            mo_e->set_field_state( iv_name = ls_f-name iv_state = 'Error' iv_text = lv_cmsg ).
+*           A NEW CHALLENGE ON EVERY FAILURE. Leaving the old one standing
+*           turns the control into a fixed target that can be guessed one
+*           round trip at a time - 100000 tries against five digits is a
+*           long afternoon for a person and no obstacle at all to a script.
+            mo_e->captcha_new( ).
+            mo_e->val_set( iv_name = ls_f-name iv_value = `` ).
+          ENDIF.
+        ENDIF.
         CONTINUE.
       ENDIF.
 
