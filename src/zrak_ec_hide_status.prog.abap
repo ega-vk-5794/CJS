@@ -82,7 +82,7 @@ START-OF-SELECTION.
 *     has to be case-insensitive, but an SQL function in a WHERE is a
 *     release-dependent thing to write and this cannot be compiled here.
 *     TO_UPPER( ) on the ABAP side costs a few rows and no risk.
-      SELECT col_name, hidden
+      SELECT col_name, zlabel, hidden
         FROM zrak_t_jny_col
         WHERE journey_id = @lv_jny
           AND step_id    = @ls_fld-step_id
@@ -94,7 +94,12 @@ START-OF-SELECTION.
       DATA lv_chid  TYPE abap_bool.
       CLEAR: lv_cname, lv_chid.
       LOOP AT lt_col INTO DATA(ls_col).
-        IF to_upper( condense( CONV string( ls_col-col_name ) ) ) = 'STATUS'.
+*       NAME OR LABEL. The heading a citizen reads is ZLABEL; the column
+*       NAME under it is whatever the migration produced. On EC02 the two
+*       happened to agree - the spec there reads STATUS:@122 - but that is
+*       not something to rely on for the next journey.
+        IF to_upper( condense( CONV string( ls_col-col_name ) ) ) = 'STATUS'
+           OR to_upper( condense( CONV string( ls_col-zlabel ) ) ) = 'STATUS'.
           lv_cname = ls_col-col_name.
           lv_chid  = ls_col-hidden.
           EXIT.
@@ -125,7 +130,10 @@ START-OF-SELECTION.
 *     a DEFAULT_VAL that nothing reads.
       IF lv_ncol > 0.
         WRITE: / lv_jny, ls_fld-field_name,
-                 ': has ZRAK_T_JNY_COL rows but no STATUS column - nothing to hide.'.
+                 ': has ZRAK_T_JNY_COL rows, none named or labelled STATUS.'.
+        LOOP AT lt_col INTO DATA(ls_shw).
+          WRITE: /   '   column:', ls_shw-col_name, '/', ls_shw-zlabel.
+        ENDLOOP.
         CONTINUE.
       ENDIF.
 
@@ -146,7 +154,11 @@ START-OF-SELECTION.
       LOOP AT lt_tok INTO DATA(lv_tok).
         SPLIT lv_tok AT ':' INTO DATA(lv_n) DATA(lv_l) DATA(lv_t) DATA(lv_s) DATA(lv_a).
 
-        IF to_upper( condense( lv_n ) ) = 'STATUS'.
+*       Slot 1 is the column name, slot 2 the heading - which on these
+*       migrated grids is a TEXT reference such as @122 rather than a word,
+*       so the name is usually the only readable half. Both are checked.
+        IF to_upper( condense( lv_n ) ) = 'STATUS'
+           OR to_upper( condense( lv_l ) ) = 'STATUS'.
           lv_hit = abap_true.
           IF to_upper( condense( lv_t ) ) = 'HIDE'.
             lv_was = abap_true.
@@ -166,7 +178,12 @@ START-OF-SELECTION.
       ENDLOOP.
 
       IF lv_hit = abap_false.
-        WRITE: / lv_jny, ls_fld-field_name, ': no STATUS column in the spec - nothing to hide.'.
+*       PRINT THE SPEC. "Nothing to hide" on its own is the least useful
+*       thing this report can say: it is indistinguishable from a column
+*       that is there under a name nobody guessed. The spec is short and
+*       settles it on the spot.
+        WRITE: / lv_jny, ls_fld-field_name, ': no column named or labelled STATUS.'.
+        WRITE: /   '   spec:', ls_fld-default_val.
         CONTINUE.
       ENDIF.
       IF lv_was = abap_true.
