@@ -110,6 +110,21 @@ START-OF-SELECTION.
 *   - it is not enforced at the keyboard. Neither was COUNT_CHECK; nothing is
 *     lost, and MAX_LEN remains the only client-side half.
 *
+* FTYPE 'COUNT' ON THE FOUR COUNT FIELDS, not 'INPUT'. It is the ftype the
+* engine provides for exactly this - a bounded whole number - and it renders
+* sap.m.Input with TYPE = 'Tel' rather than 'Number', so MAXLENGTH genuinely
+* caps the digits (an <input type="number"> ignores it) and a phone gets a
+* numeric keypad. VALIDATE_STEP treats COUNT identically to INPUT: it is in
+* neither skip list, so REGEX, MIN/MAX_LEN and MIN/MAX_VAL all still apply.
+*
+* IT STILL DOES NOT STOP A LETTER BEING TYPED ON A DESKTOP, and the engine says
+* so in its own comment on that branch: z2ui5's INPUT( ) exposes no keystroke
+* filter. So a citizen can type 'aa' into No. of children and only finds out on
+* Next, where the field turns red. That is the current, correct behaviour - not
+* a missing REGEX - and the fix for it is engine point R10-4, which asks for
+* sap.m.MaskInput. Do not add an ABAP check here to compensate; that is what
+* COUNT_CHECK was and R8-1 removed it.
+*
 * THE MESSAGE. A regex failure uses the field's own MSG / MSG_AR when set, else
 * the framework's C_NO-BAD_FORMAT ("&1 has an invalid format" / "صيغة &1 غير
 * صحيحة") with the label substituted - bilingual either way. MISSING_REQUIRED
@@ -142,13 +157,23 @@ START-OF-SELECTION.
 *                                        and is right as it stands
 *   WIVES_COUNT_HUSBAND                 KEYED, because it is the one field with
 *                                       a WD message of its own to honour
+*   PREV_DIVORCES_COUNT                 KEYED, because a RULE makes it required
+*                                       and an unkeyed MSG is returned to EVERY
+*                                       check that reads it - so a citizen who
+*                                       typed 'dd' was told it "is required"
 *
 * THE WIVES COUNT GETS ITS WD WORDING BACK. VALIDATE_NUMERIC in the WD read
 * ZZAFLD0000V3 and nothing else, and reported it through OTR concept
-* Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG. The FORMAT: clause carries that ALIAS
-* rather than a transcription of its text, so MSG_TOKEN( ) resolves it at
-* runtime in the engine's language - which is the rule about following a WD OTR
-* text satisfied exactly, rather than approximated by copying words out of it.
+* Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG. The NUMBER: and FORMAT: clauses carry
+* that ALIAS rather than a transcription of its text, so MSG_TOKEN( ) resolves
+* it at runtime in the engine's language - which is the rule about following a
+* WD OTR text satisfied exactly, rather than approximated by copying words out
+* of it.
+*   THAT ALIAS BELONGS TO THIS FIELD ALONE. Its text names the field -
+* "Please add numeric value only number of waives for husband" - so it cannot
+* be lent to another count. Doing exactly that on PREV_DIVORCES_COUNT put the
+* wives count's sentence on screen twice, once against a field the citizen had
+* not touched. The other three counts carry their own bilingual literals.
 *
 * MAX_VAL = 9 ON THAT FIELD, and the "cannot be more than 9" check is gone from
 * ON_CUSTOM_VALIDATE with it. VALIDATE_STEP's numeric gate covers FTYPE 'INPUT',
@@ -279,7 +304,7 @@ START-OF-SELECTION.
   domname = 'ZADTEL0001TV' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UX'
   msg = 'Isolation is required' msg_ar = |تمت الخلوة مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'CHILDREN_COUNT' seqnr = 60
-  ftype = 'INPUT' zlabel = 'No. of children' zlabel_ar = |عدد الابناء| fgroup = 'ROW:H3'
+  ftype = 'COUNT' zlabel = 'No. of children' zlabel_ar = |عدد الابناء| fgroup = 'ROW:H3'
   max_len = 2 regex = '^[0-9]+$' tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008M'
   msg = 'Please enter numbers only for No. of children'
   msg_ar = |الرجاء ادخال ارقام فقط في حقل عدد الابناء| )
@@ -287,17 +312,27 @@ START-OF-SELECTION.
   ftype = 'DATE' zlabel = 'Marriage proving date' zlabel_ar = |تاريخ الدخول| fgroup = 'ROW:H4'
   tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008N' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'CHILDREN_UNDER_21' seqnr = 80
-  ftype = 'INPUT' zlabel = 'Children under 21' zlabel_ar = |عدد الأولاد أقل من 21 سنة| fgroup = 'ROW:H4'
+  ftype = 'COUNT' zlabel = 'Children under 21' zlabel_ar = |عدد الأولاد أقل من 21 سنة| fgroup = 'ROW:H4'
   max_len = 2 regex = '^[0-9]+$' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UL'
   msg = 'Please enter numbers only for Children under 21'
   msg_ar = |الرجاء ادخال ارقام فقط في حقل عدد الأولاد أقل من 21 سنة| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'WIVES_COUNT_HUSBAND' seqnr = 90
-  ftype = 'INPUT' required = 'X' zlabel = 'Number of waives for husband' zlabel_ar = |عدد الزوجات في عصمة الزوج|
+  ftype = 'COUNT' required = 'X' zlabel = 'Number of waives for husband' zlabel_ar = |عدد الزوجات في عصمة الزوج|
   fgroup = 'ROW:H5' max_len = 1 regex = '^[0-9]+$' max_val = '9'
   tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000V3'
+*     NUMBER: AS WELL AS FORMAT:, and NUMBER: is the one that actually fires.
+*     This is the only one of the four counts with MAX_VAL, and the numeric gate
+*     runs BEFORE the regex and CONTINUEs - so a letter here raises
+*     CX_SY_CONVERSION_NO_NUMBER and takes MSG_FOR( 'NUMBER' ), never
+*     MSG_FOR( 'FORMAT' ). Without this clause the field read "Number of waives
+*     for husband must be a valid number" while its three neighbours read the
+*     WD's own "numbers only" wording. FORMAT: stays for the case where MAX_VAL
+*     is ever removed, and both point at the same OTR text.
   msg = 'REQUIRED:Number of waives for husband is required;' &&
+        'NUMBER:OTR:Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG;' &&
         'FORMAT:OTR:Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG'
   msg_ar = |REQUIRED:عدد الزوجات في عصمة الزوج مطلوب;| &&
+           |NUMBER:OTR:Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG;| &&
            |FORMAT:OTR:Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'EARLIER_MARRIAGES' seqnr = 100
   ftype = 'SELECT' closed_list = 'X' required = 'X' zlabel = 'Earlier marriages' zlabel_ar = |هل تم الزواج من قبل بين الطرفين|
@@ -308,10 +343,21 @@ START-OF-SELECTION.
   fgroup = 'ROW:H6' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UE'
   msg = 'First marriage contract date is required' msg_ar = |تاريخ عقد الزواج الأول بين الطرفين مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'PREV_DIVORCES_COUNT' seqnr = 110
-  ftype = 'INPUT' zlabel = 'The number of previous divorces'
+  ftype = 'COUNT' zlabel = 'The number of previous divorces'
   zlabel_ar = |عدد حالات الطلاق السابقة بين الطرفين| fgroup = 'ROW:H6'
   max_len = 2 regex = '^[0-9]+$' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UM'
-  msg = 'The number of previous divorces is required' msg_ar = |عدد حالات الطلاق السابقة بين الطرفين مطلوب| )
+*     ITS OWN WORDING, NOT THE WIVES COUNT'S OTR ALIAS. The first attempt reused
+*     Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG here on the assumption that a
+*     "numbers only" text would be generic. It is not - it reads "Please add
+*     numeric value only number of waives for husband", naming a different
+*     field - so the citizen got that sentence twice, once for the wives count
+*     and once for this field, and nothing pointed at what they had actually
+*     typed. Following the OTR is the rule; following an OTR that names someone
+*     else's field is not. Literal, in the same shape as the other two counts.
+  msg = 'REQUIRED:The number of previous divorces is required;' &&
+        'FORMAT:Please enter numbers only for the number of previous divorces'
+  msg_ar = |REQUIRED:عدد حالات الطلاق السابقة بين الطرفين مطلوب;| &&
+           |FORMAT:الرجاء ادخال ارقام فقط في حقل عدد حالات الطلاق السابقة بين الطرفين| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'LAST_DIV_DATE' seqnr = 120
   ftype = 'DATE' zlabel = 'Last divorce date' zlabel_ar = |تاريخ الطلاق السابق| fgroup = 'ROW:H7'
   tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UF'

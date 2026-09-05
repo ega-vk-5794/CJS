@@ -23,7 +23,6 @@ public section.
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
     redefinition .
-protected section.
   PRIVATE SECTION.
     CONSTANTS c_step_marr TYPE i VALUE 0.   " MARR  Marriage Contract        (seq 10)
     CONSTANTS c_step_divo TYPE i VALUE 1.   " DIVO  Divorce Details          (seq 20)
@@ -453,17 +452,24 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     required = abap_true ).
     lo_form->input( value = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'IDNUM' ) ) ).
 
-*   FIELD ORDER FOLLOWS THE LEGACY SCREEN, PER BRANCH, and the Emirates ID
-*   branch differs from the other two:
-*     Emirates ID              ID number, date of birth, nationality
-*     Passport / Unified ID    number, nationality, date of birth
-    IF lv_by = c_bp_eid.
-      bp_dob_field( io_ctx = io_ctx iv_subject = iv_subject io_form = lo_form ).
-      bp_nat_field( io_ctx = io_ctx iv_subject = iv_subject io_form = lo_form ).
-    ELSE.
-      bp_nat_field( io_ctx = io_ctx iv_subject = iv_subject io_form = lo_form ).
-      bp_dob_field( io_ctx = io_ctx iv_subject = iv_subject io_form = lo_form ).
-    ENDIF.
+*   ONE FIELD ORDER FOR ALL THREE: number, date of birth, nationality.
+*
+*   It used to branch, because the legacy screens branched - the passport and
+*   unified screens put nationality above date of birth and the Emirates ID one
+*   below it. Reproducing that faithfully made the popup look like it had been
+*   assembled by three different people, since the citizen sees all three by
+*   switching one dropdown rather than by opening three separate services the
+*   way the WebDynpros were. Consistency wins over fidelity here and the
+*   business asked for it explicitly.
+*
+*   NOT MERELY COSMETIC, WHICH IS WHY THE EMIRATES ID ORDER IS THE ONE KEPT. The
+*   two fields are not independent on the passport branch: a passport number is
+*   only unique within its issuing country, so nationality is part of that key
+*   and a wrong one returns "No data found" rather than a mismatch. Date of
+*   birth above nationality puts the fields in the order the search actually
+*   resolves them - identify, then qualify - on every branch.
+    bp_dob_field( io_ctx = io_ctx iv_subject = iv_subject io_form = lo_form ).
+    bp_nat_field( io_ctx = io_ctx iv_subject = iv_subject io_form = lo_form ).
 
     DATA(lo_btns) = lo_dlg->buttons( ).
 *   ITS OWN EVENT, NOT C_EV_BP_GO. That event also backs the Search By
@@ -508,12 +514,17 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
                           ELSE                |الرقم الموحد| ) ) = abap_true.
       lv_gap = abap_true.
     ENDIF.
-    IF bp_need( io_ctx = io_ctx iv_subject = iv_subject iv_suffix = 'NAT'
-                iv_en = `Nationality` iv_ar = |الجنسية| ) = abap_true.
-      lv_gap = abap_true.
-    ENDIF.
+*   DATE OF BIRTH BEFORE NATIONALITY, to match the screen. BP_NEED( ) adds a
+*   message as it answers, so these three calls decide the order an empty form
+*   reports its gaps in - and a list that runs down the fields is easier to act
+*   on than one that jumps. Changed with the field order in BP_RENDER( ); if the
+*   fields are ever reordered again, reorder these with them.
     IF bp_need( io_ctx = io_ctx iv_subject = iv_subject iv_suffix = 'DOB'
                 iv_en = `Date of Birth` iv_ar = |تاريخ الميلاد| ) = abap_true.
+      lv_gap = abap_true.
+    ENDIF.
+    IF bp_need( io_ctx = io_ctx iv_subject = iv_subject iv_suffix = 'NAT'
+                iv_en = `Nationality` iv_ar = |الجنسية| ) = abap_true.
       lv_gap = abap_true.
     ENDIF.
     IF lv_gap = abap_true.
@@ -617,7 +628,15 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
       WHEN OTHERS.
         ls_req-eid             = lv_num.
     ENDCASE.
-    ls_req-call_moi = abap_true.
+*   GUARDED ON NO_MOI_CALL, which is how ZCL_RAK_BP_POPUP writes it since the
+*   engine took R10-2. BP_SEARCH_OPTS( ) does not set NO_MOI_CALL today, so the
+*   guard is a no-op right now - it is here so that the day it does, this popup
+*   honours it instead of asking for a verification the template just declined.
+*   Keeping the two implementations the same shape is the point; the last two
+*   defects on this popup were both a copy quietly disagreeing with the original.
+    IF ls_req-no_moi_call = abap_false.
+      ls_req-call_moi = abap_true.
+    ENDIF.
 
     DATA(ls_res) = NEW zcl_rak_bp_search( )->search( is_req = ls_req ).
 
@@ -666,20 +685,37 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
 *& Only the non-identity switches belong here; bp_run_search fills EID /
 *& TRADE_LICENCE / IDTYPE / DOB / NATIONALITY from what the citizen typed.
 *&---------------------------------------------------------------------*
-    " E10 / E20 are the non-production systems. Their BP data is test data, so a
-    " MOI date-of-birth or nationality mismatch and an expired trade licence or
-    " Emirates ID are artefacts of that data rather than real findings — and
-    " because those findings are errors, they would block every search there.
-    " Skip only those three VERDICTS: MOI is still called and the BP still
-    " updated from it (that is SKIP_MOI_MISMATCH, not NO_MOI_CALL). Production
-    " keeps the full checks, because this must never soften a live decision.
-*   SKIP_TL_EXPIRY is not set any more: the trade-licence branch is gone from
-*   this popup, so there is no licence whose expiry could be judged. Leaving it
-*   would have read as though this journey still searched for companies.
-*    IF sy-sysid = 'E10' OR sy-sysid = 'E20'.
-*      rs-skip_moi_mismatch = abap_true.
+*   E10 / E20 ARE THE NON-PRODUCTION SYSTEMS, and only they get a waiver.
+*   PRODUCTION SETS NEITHER SWITCH, so it keeps the full checks - an expired
+*   Emirates ID and a MOI mismatch are both findings there, as they must be.
+*
+*   SKIP_EID_EXPIRY = ABAP_TRUE on E10 / E20. Their BP data is test data and
+*   its Emirates IDs are long expired, so that finding is an artefact of the
+*   data rather than a fact about the citizen - and because it is an error, it
+*   would block every search on those systems. It suppresses the expiry FINDING
+*   only: MOI is still called and the BP still updated from it, which is what
+*   SKIP_EID_EXPIRY means and NO_MOI_CALL does not.
+*
+*   SKIP_MOI_MISMATCH = ABAP_FALSE, and this is the one that changed. It used to
+*   be ABAP_TRUE here on the same test-data reasoning, and that reasoning does
+*   not survive: the date-of-birth and nationality cross-check is the only thing
+*   standing between a citizen's typing and a partner they have not been
+*   verified against, engine round 10 was spent getting it to reach the passport
+*   and unified branches at all, and waiving it on the two systems this journey
+*   is TESTED on would have meant never once exercising it. A mismatch on test
+*   data is a test-data problem to fix, not a verdict to switch off.
+*
+*   Assigning ABAP_FALSE is redundant against an initial RS and is written
+*   anyway: it is the one value here that is a decision rather than a default,
+*   and a branch that set only SKIP_EID_EXPIRY would not say it had been made.
+*
+*   SKIP_TL_EXPIRY is not set: the trade-licence branch is gone from this popup,
+*   so there is no licence whose expiry could be judged. Leaving it would have
+*   read as though this journey still searched for companies.
+    IF sy-sysid = 'E10' OR sy-sysid = 'E20'.
+      rs-skip_moi_mismatch = abap_false.
       rs-skip_eid_expiry   = abap_true.
-*    ENDIF.
+    ENDIF.
   ENDMETHOD.
 
 

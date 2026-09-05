@@ -33,8 +33,13 @@ CLASS lcl_event_receiver DEFINITION.
       data_changed_finished
         FOR EVENT data_changed_finished
         OF cl_gui_alv_grid
-        IMPORTING sender e_modified et_good_cells.
-
+        IMPORTING sender e_modified et_good_cells,
+      handle_node_cm_req
+        FOR EVENT node_context_menu_request OF cl_gui_alv_tree
+        IMPORTING sender node_key menu,
+      handle_node_cm_sel
+        FOR EVENT node_context_menu_selected OF cl_gui_alv_tree
+        IMPORTING sender node_key fcode.
 
 ENDCLASS.
 CLASS lcl_editor DEFINITION.
@@ -427,6 +432,8 @@ CLASS lcl_editor IMPLEMENTATION.
     SET HANDLER lc_event_receiver->handle_fav_drop FOR me->lo_editor.
     SET HANDLER lc_event_receiver->handle_line_drag FOR me->lo_editor.
     SET HANDLER lc_event_receiver->tree_selection_changed FOR  me->lo_editor.
+    SET HANDLER lc_event_receiver->handle_node_cm_req FOR  me->lo_editor.
+    SET HANDLER lc_event_receiver->handle_node_cm_sel FOR  me->lo_editor.
 
     CLEAR: lt_fcat[].
 

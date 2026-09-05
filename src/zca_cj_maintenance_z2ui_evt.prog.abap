@@ -32,17 +32,37 @@ CLASS lcl_event_receiver IMPLEMENTATION.
 *--------------------------------------------------------------------
   METHOD handle_fav_drop.
     DATA: dataobj   TYPE REF TO lcl_dragdropdataobject,
-          l_new_key TYPE lvc_nkey.
+          l_new_key TYPE lvc_nkey,
+          lv_answer TYPE char1.
     CATCH SYSTEM-EXCEPTIONS move_cast_error = 1.
       dataobj ?= drag_drop_object->object.
-      go_editor->add_editor_node( EXPORTING
-                                    relat_node_key = node_key
-                                    node_text      = dataobj->node_text
-                                    item           = dataobj->item
-                                    item_layout    = dataobj->item_layout
-                                    node_layout    = dataobj->node_layout ).
-
     ENDCATCH.
+
+    CALL FUNCTION 'POPUP_TO_CONFIRM'
+      EXPORTING
+        text_question  = 'Add new node as subnode or next child?'
+        text_button_1  = 'Under'
+        text_button_2  = 'Next to'
+      IMPORTING
+        answer         = lv_answer
+      EXCEPTIONS
+        text_not_found = 1
+        OTHERS         = 2.
+
+    CASE lv_answer.
+      WHEN '1'.
+        DATA(lv_node_key) = node_key.
+      WHEN '2'.
+        sender->get_parent( EXPORTING i_node_key = node_key IMPORTING e_parent_node_key = lv_node_key ).
+      WHEN OTHERS.
+    ENDCASE.
+    go_editor->add_editor_node( EXPORTING
+                                  relat_node_key = lv_node_key
+                                  node_text      = dataobj->node_text
+                                  item           = dataobj->item
+                                  item_layout    = dataobj->item_layout
+                                  node_layout    = dataobj->node_layout ).
+
     CALL METHOD sender->expand_node
       EXPORTING
         i_node_key = node_key.
@@ -82,5 +102,16 @@ CLASS lcl_event_receiver IMPLEMENTATION.
         go_editor->property_data_changed_finished( EXPORTING e_modified    = e_modified
                                                              et_good_cells = et_good_cells ).
     ENDCASE.
+  ENDMETHOD.
+  METHOD handle_node_cm_req.
+    CALL METHOD menu->clear.
+    CALL METHOD menu->add_function
+      EXPORTING
+        fcode = 'UNDER_NODE'
+        text  = 'Under node'
+        icon  = icon_previous_value.
+  ENDMETHOD.
+  METHOD handle_node_cm_sel.
+
   ENDMETHOD.
 ENDCLASS.

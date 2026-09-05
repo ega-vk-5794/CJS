@@ -1937,51 +1937,16 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       real even so: MAXLENGTH plus a number-friendly keypad, in one
 *       FTYPE, instead of a config author choosing which of the two to
 *       give up.
-*       DIGITS-ONLY AT THE KEYBOARD, where MAX_LEN says how many.
-*       sap.m.MaskInput enforces its mask entirely in the browser - no event,
-*       no round trip - and its built-in '9' symbol is already [0-9], so a
-*       bounded count needs the mask repeated MAX_LEN times and no rule. The
-*       citizen stops being able to type a letter at all, instead of being
-*       told about it on Next after filling eight more fields.
-*
-*       ONLY WHEN EDITABLE, and that is not a preference. Z2UI5's MASK_INPUT( )
-*       exposes no EDITABLE property, so a read-only COUNT drawn through it
-*       would become typable - the field would go from displaying a value to
-*       accepting one. The INPUT( ) below stays the read-only path and keeps
-*       exactly the markup it has today.
-*
-*       ONLY WHEN MAX_LEN IS SET, because the mask IS the length: with no
-*       MAX_LEN there is nothing to repeat, and REPEAT( occ = 0 ) is an empty
-*       mask that would accept nothing at all.
-*
-*       PLACEHOLDERSYMBOL IS DELIBERATELY NOT PASSED. A space is the symbol
-*       this would want - it keeps an empty field looking empty - and a space
-*       cannot be sent: it is blank, and XML_GET_PARTS( ) drops every blank
-*       property from the markup, exactly as it dropped FORCESELECTION on the
-*       CLOSED_LIST branch. Passing one would leave UI5's own default applying
-*       while the ABAP read as though it had been set. So the default '_'
-*       applies and is handled where it lands, in NORM_MASKED( ) - an empty
-*       two-digit field shows "__" until the citizen types.
-        IF is_field-validation-max_len > 0 AND lv_edit = abap_true.
-          io_form->mask_input( mask           = repeat( val = `9` occ = is_field-validation-max_len )
-                               value          = lv_bind
-                               placeholder    = is_field-placeholder
-                               change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
-                               valuestate     = lv_vs
-                               valuestatetext = lv_vst
-                               width          = lv_w ).
-        ELSE.
-          io_form->input( class          = mo_e->mo_css->cls( 'INPUT' )
-                          value          = lv_bind
-                          type           = 'Tel'
-                          placeholder    = is_field-placeholder
-                          editable       = lv_edit
-                          change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
-                          maxlength      = COND string( WHEN is_field-validation-max_len > 0 THEN |{ is_field-validation-max_len }| ELSE `0` )
-                          valuestate     = lv_vs
-                          valuestatetext = lv_vst
-                          width          = lv_w ).
-        ENDIF.
+        io_form->input( class          = mo_e->mo_css->cls( 'INPUT' )
+                        value          = lv_bind
+                        type           = 'Tel'
+                        placeholder    = is_field-placeholder
+                        editable       = lv_edit
+                        change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
+                        maxlength      = COND string( WHEN is_field-validation-max_len > 0 THEN |{ is_field-validation-max_len }| ELSE `0` )
+                        valuestate     = lv_vs
+                        valuestatetext = lv_vst
+                        width          = lv_w ).
 
       WHEN 'EMAIL'.
         req_label( io_form = io_form is_field = is_field ).
