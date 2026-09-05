@@ -162,8 +162,8 @@ OBS = [
 ("CJSMIG-685",9,"D012","Curriculum type field alignment","done_dev","Closed by Jyoti."),
 # ---------------- CJSMIG-687  E017 --------------------------------------
 ("CJSMIG-687",1,"E017","Owner search should be in EID format; Browse not required","config","PLACEHOLDER + REGEX; FTYPE SEARCH. Listed in the fixpack worklist."),
-("CJSMIG-687",2,"E017","Representative + owner EID search errors and will not move to the next step","check",
- "Needs one run with the exact search value. The popup validation now blocks correctly, so an error here is the search itself."),
+("CJSMIG-687",2,"E017","Representative + owner EID search errors and will not move to the next step","handler",
+ "Fix written - see the Handler code sheet. ON_CUSTOM_VALIDATE refused step 0 whenever APPLICANT_ROLE was set and its projected flags PARTNER_OWNER / PARTNER_REP were not. Those flags are only written by ON_CHANGE, so a BP search coming back left the pair inconsistent, and re-selecting the same value raises no CHANGE - so the one instruction the message gave could not clear it. It re-derives now instead of refusing."),
 ("CJSMIG-687",3,"E017","Permit number / trade licence etc. not required on the chemical tab","config","Coded in ZRAK_CJ_FIXPACK as three HIDE rules anchored on the CHEMICALS_DETAILS grid."),
 ("CJSMIG-687",4,"E017","Add Chemical - all fields should be mandatory","handler",
  "All fourteen are now marked with an asterisk and enforced. Ten of the fourteen checks had been commented out. ZCL_E017_NOC_EXP_CHEM_LOGIC->VALIDATE_INPUT( )."),
@@ -248,7 +248,8 @@ OBS = [
 ("CJSMIG-696",4,"D006","Customer Action should redirect to CJS","portal","Portal team."),
 # ---------------- CJSMIG-697  E018 --------------------------------------
 ("CJSMIG-697",1,"E018","Owner search should be in EID format; Browse not required","config","PLACEHOLDER + REGEX; FTYPE SEARCH. In the fixpack worklist."),
-("CJSMIG-697",2,"E018","Representative + owner EID search errors and will not move on","check","Re-test after the class is activated."),
+("CJSMIG-697",2,"E018","Representative + owner EID search errors and will not move on","handler",
+ "Same fix as E017 - ON_CUSTOM_VALIDATE re-derives the role flags instead of refusing the step. Re-test after the class is activated, since it had no active version."),
 ("CJSMIG-697",3,"E018","Permit number / trade licence etc. not required on the chemical tab","config","Coded in ZRAK_CJ_FIXPACK as three HIDE rules."),
 ("CJSMIG-697",4,"E018","Add Chemical - all fields should be mandatory","handler","All fourteen marked and enforced. ZCL_E018_NOC_TRANS_CHEM_LOGIC."),
 ("CJSMIG-697",5,"E018","Mandatory-field message shows on the main screen, not in the dialog","fw","Engine fix - messages now draw inside the dialog."),
@@ -422,26 +423,127 @@ HANDLER = {
  "E025": "ZCL_E025_BEEKEEPING_LOGIC",
  "E026": "ZCL_E026_TREE_REMOVAL_LOGIC",
 }
-
-# Framework objects we changed and pushed. These are engine classes, shared by
-# every journey - not any one developer's to own.
+# Framework objects we changed. These are engine classes shared by EVERY family -
+# DOK, EPDA, Municipality, Notary, the WD-derived journeys - so each one carries
+# what else it touches and how much risk that is. Read the risk column before
+# pulling: two of these are deliberate global behaviour changes, not fixes that
+# only show up where the defect was.
+#   object, what changed, what else it touches, risk
 FRAMEWORK = [
- ("ZCL_RAK_JOURNEY_LOGIC",
-  "Popup dialogs draw their own messages instead of putting them behind the modal, "
-  "and lay out in two columns (FormContainers, not the columnsL property)."),
- ("ZCL_RAK_JOURNEY_RENDER",
-  "A 'Not now' button beside Send feedback, so feedback is no longer compulsory; "
-  "attachment labels carry the native required property, so the * actually draws."),
- ("ZCL_RAK_JOURNEY_ENGINE",
-  "FBSKIP handling behind the 'Not now' button."),
+ ("ZCL_RAK_JOURNEY_ENGINE + ZCL_RAK_JOURNEY_RENDER",
+  "NAV_LOCKED( ): once a PAYFEE field on any step holds PAID, or the journey is "
+  "submitted or closed, Back / the stepper dots / the tab strip stop offering a way "
+  "back, and the event handler refuses the move even where something was still drawn.",
+  "EVERY journey with a fee, in every family - the twelve Municipality journeys that "
+  "carry RAKPAY included - and every journey at all once it is submitted.",
+  "HIGH - a real behaviour change and not opt-in. If any service must let the citizen "
+  "go back after paying, say so before this is pulled."),
  ("ZCL_RAK_JOURNEY_BE",
-  "Counts the attachments it could not read, says so on screen and names them on "
-  "the trace - so 'attachments not saving' can be diagnosed in one run."),
+  "A backend read now SEEDS an editable grid and does not RE-seed one that already "
+  "holds rows - the citizen's copy wins. GET_BACKEND_TABLE( ) still returns the "
+  "backend's current answer, so grids served from the store are untouched.",
+  "Any family with an editable grid fed by a backend read. Store-fed grids - the "
+  "LICENSES lists on D003/D004/D011 - are not affected.",
+  "MEDIUM - stated cost: a grid the backend re-derives from an EARLIER step's answer "
+  "no longer refreshes when that answer changes. A handler that needs it to clears "
+  "the grid itself from ON_CHANGE( )."),
+ ("ZCL_RAK_JOURNEY_RENDER + ZCL_RAK_JOURNEY_ENGINE",
+  "A 'Not now' button beside Send feedback, and FBSKIP behind it, so the closing page "
+  "always has a way out.",
+  "Every journey whose WANTS_FEEDBACK( ) is true - that is the base default, so all "
+  "of them unless a handler says otherwise.",
+  "MEDIUM - feedback becomes skippable everywhere. Deliberate: before this the page "
+  "had no other exit. If a service must have compulsory feedback, decide now."),
+ ("ZCL_RAK_JOURNEY_BE",
+  "A staged file whose content the store cannot return is counted, named on the trace "
+  "and reported once on screen as a Warning instead of vanishing.",
+  "Every journey - but the code only runs when a file is already being lost.",
+  "LOW - inert unless the fault is happening. Adds nothing to a healthy submit."),
+ ("ZCL_RAK_JOURNEY_RENDER",
+  "RENDER_ATTACH( ) passes the native REQUIRED property on the attachment label, so "
+  "the asterisk actually draws. The old CSS-class marker never reached the DOM.",
+  "Every journey with an upload field already marked REQUIRED in ZRAK_T_JNY_FLD.",
+  "LOW - visual only, and it follows configuration that is already there. Enforcement "
+  "was already correct; only the marker was missing."),
+ ("ZCL_RAK_JOURNEY_LOGIC",
+  "DIALOG_FORM( ) repeats the pending messages inside the dialog, so a handler that "
+  "refuses an OK and keeps the dialog open can be read.",
+  "Every popup built through DIALOG_FORM( ) - D001, D004, D006, E016-E018, showcase, "
+  "test.",
+  "LOW - draws nothing when there are no pending messages, so a dialog that opens "
+  "clean looks exactly as it did."),
+ ("ZCL_RAK_JOURNEY_LOGIC",
+  "DIALOG_FORM( ) gained IV_COLUMNS for two- and three-column dialogs.",
+  "Nothing unless a handler asks for it. IV_COLUMNS DEFAULT 1 draws the identical "
+  "markup the method always drew; only E016/E017/E018 pass 2.",
+  "NONE - opt-in per call site."),
  ("ZIF_RAK_JOURNEY",
-  "MSGS( ) so a dialog can read the pending messages."),
+  "MSGS( ) added so a dialog can read the pending messages.",
+  "The interface is implemented by ZCL_RAK_JOURNEY_ENGINE and by nothing else, so no "
+  "other class has to implement anything.",
+  "NONE - additive."),
  ("ZRAK_CJ_FIXPACK",
-  "Report. Applies 19 of the config points mechanically, per journey, idempotent."),
+  "New report. Applies 19 of the config points mechanically, per journey, idempotent.",
+  "Only the journey named on its selection screen.",
+  "NONE - new object, nothing calls it."),
  ("ZRAK_CJ_BACKUP",
-  "Report. Full export and import of one journey's configuration - the fallback "
-  "before anyone edits config in anger."),
+  "New report. Full export and import of one journey's configuration - the fallback "
+  "before anyone edits config in anger.",
+  "Only the journey named on its selection screen.",
+  "NONE - new object, nothing calls it."),
+]
+
+# The handler-class fixes written this round, as code the developer can retype in
+# SE24 - they have no git access. kind 'method' pulls the CURRENT source of that
+# method straight out of src/, so the sheet cannot drift from the class; kind
+# 'text' is a literal snippet for a change that is not a whole method.
+#   journey, ticket, class, what it fixes, kind, ref
+HANDLER_CODE = [
+ ("E025","CJSMIG-703","ZCL_E025_BEEKEEPING_LOGIC",
+  "Applicant BP was written to the owner SEARCH field and then blanked","text",
+  """* --- private section: the constant named the wrong field ------------
+*   was:  constants C_LOGIN_BP type STRING value 'OWNER_BP' ##NO_TEXT.
+  constants C_LOGIN_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
+
+* --- ZIF_RAK_JOURNEY_LOGIC~ON_INIT, last line inside the IF -----------
+*   was:  io_ctx->set_val( iv_name = 'OWNER_BP' iv_value = ' ' ).
+*   'OWNER_BP' is the owner search box (see ON_SEARCH), not the applicant.
+  io_ctx->set_val( iv_name = c_owner_bp iv_value = ' ' )."""),
+ ("E026","CJSMIG-704","ZCL_E026_TREE_REMOVAL_LOGIC",
+  "Applicant BP never reached LOGIN_BP","text",
+  """* --- private section: add, leave C_LOGIN_BP exactly as it is ---------
+  constants C_APP_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
+
+* --- ZIF_RAK_JOURNEY_LOGIC~ON_INIT, straight after the existing line --
+    io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+    io_ctx->set_val( iv_name = c_app_bp   iv_value = |{ lv_loginbp }| )."""),
+ ("E018","CJSMIG-697","ZCL_E018_NOC_TRANS_CHEM_LOGIC",
+  "The class had NO ACTIVE VERSION - a string constant does not take an empty literal, "
+  "so every earlier fix was in the source and none of it was running","text",
+  """* --- private section --------------------------------------------------
+*   was:  constants C_IMPEXP type STRING value ''.       <- will not compile
+  constants C_IMPEXP type STRING value IS INITIAL ##NO_TEXT.
+
+* Activate the class after this and re-test the whole journey - including the
+* CX_SY_CONVERSION_NO_NUMBER on post, which may go with it."""),
+ ("E022","CJSMIG-684","ZCL_EPDA_E022_DEV_PROJ_LOGIC",
+  "Applicant details written twice, and the applicant BP now also goes to LOGIN_BP",
+  "method","zif_rak_journey_logic~on_init"),
+ ("E017","CJSMIG-687","ZCL_E017_NOC_EXP_CHEM_LOGIC",
+  "Step 0 refused whenever the role flags disagreed with APPLICANT_ROLE - re-derived "
+  "now instead of refused","method","zif_rak_journey_logic~on_custom_validate"),
+ ("E017","CJSMIG-687","ZCL_E017_NOC_EXP_CHEM_LOGIC",
+  "Add Chemical: all fourteen fields enforced. Ten of the checks were commented out",
+  "method","validate_input"),
+ ("E017","CJSMIG-687","ZCL_E017_NOC_EXP_CHEM_LOGIC",
+  "Add Chemical: the fourteen required markers, and IV_COLUMNS = 2 for the two-column "
+  "dialog","method","zif_rak_journey_logic~on_render_popup"),
+ ("E018","CJSMIG-697","ZCL_E018_NOC_TRANS_CHEM_LOGIC",
+  "Same role-flag fix as E017","method","zif_rak_journey_logic~on_custom_validate"),
+ ("E018","CJSMIG-697","ZCL_E018_NOC_TRANS_CHEM_LOGIC",
+  "Add Chemical: the fourteen required markers, and IV_COLUMNS = 2","method",
+  "zif_rak_journey_logic~on_render_popup"),
+ ("E018","CJSMIG-697","ZCL_E018_NOC_TRANS_CHEM_LOGIC",
+  "Add Chemical: all fourteen enforced on OK, and the dialog stays open when one fails",
+  "method","zif_rak_journey_logic~on_popup_event"),
 ]

@@ -499,8 +499,8 @@
    "seq": 2,
    "journey": "E017",
    "observation": "Representative + owner EID search errors and will not move to the next step",
-   "state": "check",
-   "action": "Needs one run with the exact search value. The popup validation now blocks correctly, so an error here is the search itself."
+   "state": "handler",
+   "action": "Fix written - see the Handler code sheet. ON_CUSTOM_VALIDATE refused step 0 whenever APPLICANT_ROLE was set and its projected flags PARTNER_OWNER / PARTNER_REP were not. Those flags are only written by ON_CHANGE, so a BP search coming back left the pair inconsistent, and re-selecting the same value raises no CHANGE - so the one instruction the message gave could not clear it. It re-derives now instead of refusing."
   },
   {
    "ticket": "CJSMIG-687",
@@ -1027,8 +1027,8 @@
    "seq": 2,
    "journey": "E018",
    "observation": "Representative + owner EID search errors and will not move on",
-   "state": "check",
-   "action": "Re-test after the class is activated."
+   "state": "handler",
+   "action": "Same fix as E017 - ON_CUSTOM_VALIDATE re-derives the role flags instead of refusing the step. Re-test after the class is activated, since it had no active version."
   },
   {
    "ticket": "CJSMIG-697",

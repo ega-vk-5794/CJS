@@ -103,6 +103,11 @@ table{border-collapse:collapse;width:100%}
 .split{margin:14px 0 0;font-size:12.5px;color:var(--ink3);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline}
 .split .k{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-weight:600}
 .split code{font-size:11.5px}
+.pend.fw td{font-size:12.5px}
+.risk{display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.05em;padding:1px 6px;border-radius:3px;margin-right:6px}
+.rhigh{background:var(--chkb);color:var(--chk)}
+.rmedium{background:var(--cfgb);color:var(--cfg)}
+.rlow,.rnone{background:var(--doneb);color:var(--done)}
 .shots{margin:8px 0 0;font-size:12.5px;color:var(--ink3)}
 .note{color:var(--ink2);max-width:78ch;margin:14px 0 4px;font-size:14.5px}
 .obs{font-size:14px;margin:10px 0 0}
@@ -149,43 +154,48 @@ footer p{margin:0 0 8px}
 </dl>
 <div class="bar" role="img" aria-label="Where the work sits">
 <span class="seg fw" style="width:5.23%" title="Framework - we push: 9"></span>
-<span class="seg hd" style="width:3.49%" title="Handler class - developer: 6"></span>
+<span class="seg hd" style="width:4.65%" title="Handler class - developer: 8"></span>
 <span class="seg done" style="width:8.72%" title="Closed by developer: 15"></span>
 <span class="seg cfg" style="width:41.86%" title="Config - developer: 72"></span>
 <span class="seg be" style="width:11.63%" title="Backend / record model: 20"></span>
 <span class="seg pt" style="width:16.28%" title="Portal / launchpad: 28"></span>
-<span class="seg chk" style="width:12.79%" title="Needs a look: 22"></span>
+<span class="seg chk" style="width:11.63%" title="Needs a look: 20"></span>
 </div>
 <ul class="legend">
 <li><i class="sw fw"></i>Framework - we push <b>9</b></li>
-<li><i class="sw hd"></i>Handler class - developer <b>6</b></li>
+<li><i class="sw hd"></i>Handler class - developer <b>8</b></li>
 <li><i class="sw done"></i>Closed by developer <b>15</b></li>
 <li><i class="sw cfg"></i>Config - developer <b>72</b></li>
 <li><i class="sw be"></i>Backend / record model <b>20</b></li>
 <li><i class="sw pt"></i>Portal / launchpad <b>28</b></li>
-<li><i class="sw chk"></i>Needs a look <b>22</b></li>
+<li><i class="sw chk"></i>Needs a look <b>20</b></li>
 </ul>
 </div></header>
 <div class="wrap">
 <section class="callout">
 <h2>Who pushes what</h2>
-<p>Three kinds of change came out of this round, and they do not travel the same way. <strong>Framework</strong> is the shared engine - one change, every journey feels it - so we make it, push it, and the team pulls it. <strong>Handler class</strong> is the journey's own ABAP and belongs to the developer who owns that service; where a fix is already written it is sitting in git for them to read, take or reject - nobody pulls it on their behalf. <strong>Config</strong> never leaves the Studio.</p>
+<p>Three kinds of change came out of this round, and they do not travel the same way. <strong>Framework</strong> is the shared engine - one change, every journey feels it - so we make it, push it, and the team pulls it - so every one of them below carries what else it touches and how much risk that is, because the engine serves Municipality, Notary and the WD-derived journeys too, not only DOK and EPDA. <strong>Handler class</strong> is the journey's own ABAP and belongs to the developer who owns that service: the code is written out in full in the spreadsheet, to retype in SE24 - nobody needs git and nobody pushes it for them. <strong>Config</strong> never leaves the Studio.</p>
 <h3>Framework - made and pushed by us</h3>
 <p class="sub">Pull these and activate them. In the abapGit pull dialog every <em>Overwrite local object</em> row arrives unticked and the ticks reset each time the dialog opens, so an existing class is skipped unless you tick it by hand. Take <code>ZCL_RAK_JOURNEY_LOGIC</code> and <code>ZCL_RAK_JOURNEY_RENDER</code> first; they break widest.</p>
-<table class="pend"><thead><tr><th>Object</th><th>What changed</th></tr></thead><tbody>
-<tr><td><code>ZCL_RAK_JOURNEY_LOGIC</code></td><td>Popup dialogs draw their own messages instead of putting them behind the modal, and lay out in two columns (FormContainers, not the columnsL property).</td></tr>
-<tr><td><code>ZCL_RAK_JOURNEY_RENDER</code></td><td>A &#x27;Not now&#x27; button beside Send feedback, so feedback is no longer compulsory; attachment labels carry the native required property, so the * actually draws.</td></tr>
-<tr><td><code>ZCL_RAK_JOURNEY_ENGINE</code></td><td>FBSKIP handling behind the &#x27;Not now&#x27; button.</td></tr>
-<tr><td><code>ZCL_RAK_JOURNEY_BE</code></td><td>Counts the attachments it could not read, says so on screen and names them on the trace - so &#x27;attachments not saving&#x27; can be diagnosed in one run.</td></tr>
-<tr><td><code>ZIF_RAK_JOURNEY</code></td><td>MSGS( ) so a dialog can read the pending messages.</td></tr>
-<tr><td><code>ZRAK_CJ_FIXPACK</code></td><td>Report. Applies 19 of the config points mechanically, per journey, idempotent.</td></tr>
-<tr><td><code>ZRAK_CJ_BACKUP</code></td><td>Report. Full export and import of one journey&#x27;s configuration - the fallback before anyone edits config in anger.</td></tr>
+<table class="pend fw"><thead><tr><th>Object</th><th>What changed</th><th>What else it touches</th><th>Risk</th></tr></thead><tbody>
+<tr><td><code>ZCL_RAK_JOURNEY_ENGINE + ZCL_RAK_JOURNEY_RENDER</code></td><td>NAV_LOCKED( ): once a PAYFEE field on any step holds PAID, or the journey is submitted or closed, Back / the stepper dots / the tab strip stop offering a way back, and the event handler refuses the move even where something was still drawn.</td><td>EVERY journey with a fee, in every family - the twelve Municipality journeys that carry RAKPAY included - and every journey at all once it is submitted.</td><td><span class="risk rhigh">HIGH</span> a real behaviour change and not opt-in. If any service must let the citizen go back after paying, say so before this is pulled.</td></tr>
+<tr><td><code>ZCL_RAK_JOURNEY_BE</code></td><td>A backend read now SEEDS an editable grid and does not RE-seed one that already holds rows - the citizen&#x27;s copy wins. GET_BACKEND_TABLE( ) still returns the backend&#x27;s current answer, so grids served from the store are untouched.</td><td>Any family with an editable grid fed by a backend read. Store-fed grids - the LICENSES lists on D003/D004/D011 - are not affected.</td><td><span class="risk rmedium">MEDIUM</span> stated cost: a grid the backend re-derives from an EARLIER step&#x27;s answer no longer refreshes when that answer changes. A handler that needs it to clears the grid itself from ON_CHANGE( ).</td></tr>
+<tr><td><code>ZCL_RAK_JOURNEY_RENDER + ZCL_RAK_JOURNEY_ENGINE</code></td><td>A &#x27;Not now&#x27; button beside Send feedback, and FBSKIP behind it, so the closing page always has a way out.</td><td>Every journey whose WANTS_FEEDBACK( ) is true - that is the base default, so all of them unless a handler says otherwise.</td><td><span class="risk rmedium">MEDIUM</span> feedback becomes skippable everywhere. Deliberate: before this the page had no other exit. If a service must have compulsory feedback, decide now.</td></tr>
+<tr><td><code>ZCL_RAK_JOURNEY_BE</code></td><td>A staged file whose content the store cannot return is counted, named on the trace and reported once on screen as a Warning instead of vanishing.</td><td>Every journey - but the code only runs when a file is already being lost.</td><td><span class="risk rlow">LOW</span> inert unless the fault is happening. Adds nothing to a healthy submit.</td></tr>
+<tr><td><code>ZCL_RAK_JOURNEY_RENDER</code></td><td>RENDER_ATTACH( ) passes the native REQUIRED property on the attachment label, so the asterisk actually draws. The old CSS-class marker never reached the DOM.</td><td>Every journey with an upload field already marked REQUIRED in ZRAK_T_JNY_FLD.</td><td><span class="risk rlow">LOW</span> visual only, and it follows configuration that is already there. Enforcement was already correct; only the marker was missing.</td></tr>
+<tr><td><code>ZCL_RAK_JOURNEY_LOGIC</code></td><td>DIALOG_FORM( ) repeats the pending messages inside the dialog, so a handler that refuses an OK and keeps the dialog open can be read.</td><td>Every popup built through DIALOG_FORM( ) - D001, D004, D006, E016-E018, showcase, test.</td><td><span class="risk rlow">LOW</span> draws nothing when there are no pending messages, so a dialog that opens clean looks exactly as it did.</td></tr>
+<tr><td><code>ZCL_RAK_JOURNEY_LOGIC</code></td><td>DIALOG_FORM( ) gained IV_COLUMNS for two- and three-column dialogs.</td><td>Nothing unless a handler asks for it. IV_COLUMNS DEFAULT 1 draws the identical markup the method always drew; only E016/E017/E018 pass 2.</td><td><span class="risk rnone">NONE</span> opt-in per call site.</td></tr>
+<tr><td><code>ZIF_RAK_JOURNEY</code></td><td>MSGS( ) added so a dialog can read the pending messages.</td><td>The interface is implemented by ZCL_RAK_JOURNEY_ENGINE and by nothing else, so no other class has to implement anything.</td><td><span class="risk rnone">NONE</span> additive.</td></tr>
+<tr><td><code>ZRAK_CJ_FIXPACK</code></td><td>New report. Applies 19 of the config points mechanically, per journey, idempotent.</td><td>Only the journey named on its selection screen.</td><td><span class="risk rnone">NONE</span> new object, nothing calls it.</td></tr>
+<tr><td><code>ZRAK_CJ_BACKUP</code></td><td>New report. Full export and import of one journey&#x27;s configuration - the fallback before anyone edits config in anger.</td><td>Only the journey named on its selection screen.</td><td><span class="risk rnone">NONE</span> new object, nothing calls it.</td></tr>
 </tbody></table>
-<h3>Handler class - written, but the developer's call</h3>
-<p class="sub">These are in git too, on the same branch. They are one journey's own class, so read the diff before taking it - and if you would rather write it yourself, the observation column says exactly what the defect was.</p>
+<h3>Handler class - written out, but the developer's call</h3>
+<p class="sub">One journey's own class. The full code is on the <em>Handler code</em> sheet of the spreadsheet - whole methods where a whole method changed - so it can be retyped in SE24 without git. Take it, or write your own from the defect description; it is your service.</p>
 <table class="pend"><thead><tr><th>Journey</th><th>Class</th><th>What it fixes</th></tr></thead><tbody>
 <tr><td class="num">E022 · CJSMIG-684</td><td><code>ZCL_EPDA_E022_DEV_PROJ_LOGIC</code></td><td>Applicant details are duplicated</td></tr>
+<tr><td class="num">E017 · CJSMIG-687</td><td><code>ZCL_E017_NOC_EXP_CHEM_LOGIC</code></td><td>Representative + owner EID search errors and will not move to the next step</td></tr>
 <tr><td class="num">E017 · CJSMIG-687</td><td><code>ZCL_E017_NOC_EXP_CHEM_LOGIC</code></td><td>Add Chemical - all fields should be mandatory</td></tr>
+<tr><td class="num">E018 · CJSMIG-697</td><td><code>ZCL_E018_NOC_TRANS_CHEM_LOGIC</code></td><td>Representative + owner EID search errors and will not move on</td></tr>
 <tr><td class="num">E018 · CJSMIG-697</td><td><code>ZCL_E018_NOC_TRANS_CHEM_LOGIC</code></td><td>Add Chemical - all fields should be mandatory</td></tr>
 <tr><td class="num">E018 · CJSMIG-697</td><td><code>ZCL_E018_NOC_TRANS_CHEM_LOGIC</code></td><td>Backend POST failed - CX_SY_CONVERSION_NO_NUMBER, cannot go to the next step</td></tr>
 <tr><td class="num">E025 · CJSMIG-703</td><td><code>ZCL_E025_BEEKEEPING_LOGIC</code></td><td>Applicant BP not saved in the record model, not in the backend application</td></tr>
@@ -196,12 +206,12 @@ footer p{margin:0 0 8px}
 <input type="search" id="q" placeholder="Search observations, journeys, field names" aria-label="Search">
 <div class="chips" id="stchips">
 <button class="fchip fw" data-st="fw" aria-pressed="false">Framework - we push<b>9</b></button>
-<button class="fchip hd" data-st="handler" aria-pressed="false">Handler class - developer<b>6</b></button>
+<button class="fchip hd" data-st="handler" aria-pressed="false">Handler class - developer<b>8</b></button>
 <button class="fchip done" data-st="done_dev" aria-pressed="false">Closed by developer<b>15</b></button>
 <button class="fchip cfg" data-st="config" aria-pressed="false">Config - developer<b>72</b></button>
 <button class="fchip be" data-st="backend" aria-pressed="false">Backend / record model<b>20</b></button>
 <button class="fchip pt" data-st="portal" aria-pressed="false">Portal / launchpad<b>28</b></button>
-<button class="fchip chk" data-st="check" aria-pressed="false">Needs a look<b>22</b></button>
+<button class="fchip chk" data-st="check" aria-pressed="false">Needs a look<b>20</b></button>
 </div>
 <div class="chips">
 <button class="fchip dept" data-dept="DOK" aria-pressed="false">DOK</button>
@@ -338,16 +348,16 @@ image-20260903-070958.png">8 screenshots attached to CJSMIG-685 &#183; not reach
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg fw" style="width:16.67%"></span>
-<span class="seg hd" style="width:5.56%"></span>
+<span class="seg hd" style="width:11.11%"></span>
 <span class="seg cfg" style="width:38.89%"></span>
 <span class="seg be" style="width:5.56%"></span>
 <span class="seg pt" style="width:5.56%"></span>
-<span class="seg chk" style="width:27.78%"></span>
+<span class="seg chk" style="width:22.22%"></span>
 </div>
 <p class="pnum"><b>3</b> of 18 closed</p></div>
 <p class="split">
 <span class="k">Handler</span> <code>ZCL_E017_NOC_EXP_CHEM_LOGIC</code>
-<span class="k">Config</span> 7 points &#183; <span class="k">Not CJS</span> 2 &#183; <span class="k">Needs a look</span> 5</p>
+<span class="k">Config</span> 7 points &#183; <span class="k">Not CJS</span> 2 &#183; <span class="k">Needs a look</span> 4</p>
 <p class="note">The Add Chemical dialog was the bulk of this ticket and is fixed in code: all fourteen fields are now marked required AND enforced, the dialog shows its own messages instead of throwing them behind the modal, and it lays out in two columns. Search from History is a genuine gap - the legacy control reads ChemicalHistorySet and nothing in CJS calls it yet.</p>
 <p class="shots" title="0df49494-9dd8-44c5-bbd4-199a05be8211.png
 image-20260903-073034.png
@@ -358,7 +368,7 @@ image-20260903-085047.png
 image-20260903-090205.png">7 screenshots attached to CJSMIG-687 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="config" data-hay="owner search should be in eid format; browse not required placeholder + regex; ftype search. listed in the fixpack worklist. e017 export chemical products cjsmig-687"><td class="n">1</td><td class="what">Owner search should be in EID format; Browse not required</td><td><span class="chip cfg">Config - developer</span></td><td class="how">PLACEHOLDER + REGEX; FTYPE SEARCH. Listed in the fixpack worklist.</td></tr>
-<tr data-st="check" data-hay="representative + owner eid search errors and will not move to the next step needs one run with the exact search value. the popup validation now blocks correctly, so an error here is the search itself. e017 export chemical products cjsmig-687"><td class="n">2</td><td class="what">Representative + owner EID search errors and will not move to the next step</td><td><span class="chip chk">Needs a look</span></td><td class="how">Needs one run with the exact search value. The popup validation now blocks correctly, so an error here is the search itself.</td></tr>
+<tr data-st="handler" data-hay="representative + owner eid search errors and will not move to the next step fix written - see the handler code sheet. on_custom_validate refused step 0 whenever applicant_role was set and its projected flags partner_owner / partner_rep were not. those flags are only written by on_change, so a bp search coming back left the pair inconsistent, and re-selecting the same value raises no change - so the one instruction the message gave could not clear it. it re-derives now instead of refusing. e017 export chemical products cjsmig-687"><td class="n">2</td><td class="what">Representative + owner EID search errors and will not move to the next step</td><td><span class="chip hd">Handler class - developer</span></td><td class="how">Fix written - see the Handler code sheet. ON_CUSTOM_VALIDATE refused step 0 whenever APPLICANT_ROLE was set and its projected flags PARTNER_OWNER / PARTNER_REP were not. Those flags are only written by ON_CHANGE, so a BP search coming back left the pair inconsistent, and re-selecting the same value raises no CHANGE - so the one instruction the message gave could not clear it. It re-derives now instead of refusing.</td></tr>
 <tr data-st="config" data-hay="permit number / trade licence etc. not required on the chemical tab coded in zrak_cj_fixpack as three hide rules anchored on the chemicals_details grid. e017 export chemical products cjsmig-687"><td class="n">3</td><td class="what">Permit number / trade licence etc. not required on the chemical tab</td><td><span class="chip cfg">Config - developer</span></td><td class="how">Coded in ZRAK_CJ_FIXPACK as three HIDE rules anchored on the CHEMICALS_DETAILS grid.</td></tr>
 <tr data-st="handler" data-hay="add chemical - all fields should be mandatory all fourteen are now marked with an asterisk and enforced. ten of the fourteen checks had been commented out. zcl_e017_noc_exp_chem_logic-&gt;validate_input( ). e017 export chemical products cjsmig-687"><td class="n">4</td><td class="what">Add Chemical - all fields should be mandatory</td><td><span class="chip hd">Handler class - developer</span></td><td class="how">All fourteen are now marked with an asterisk and enforced. Ten of the fourteen checks had been commented out. ZCL_E017_NOC_EXP_CHEM_LOGIC-&gt;VALIDATE_INPUT( ).</td></tr>
 <tr data-st="fw" data-hay="mandatory-field message shows on the main screen, not in the dialog dialog_form( ) now draws pending messages inside the dialog. zcl_rak_journey_logic. e017 export chemical products cjsmig-687"><td class="n">5</td><td class="what">Mandatory-field message shows on the main screen, not in the dialog</td><td><span class="chip fw">Framework - we push</span></td><td class="how">DIALOG_FORM( ) now draws pending messages inside the dialog. ZCL_RAK_JOURNEY_LOGIC.</td></tr>
@@ -591,14 +601,14 @@ issue1-20260903-121242.png">3 screenshots attached to CJSMIG-696 &#183; not reac
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg fw" style="width:20.00%"></span>
-<span class="seg hd" style="width:20.00%"></span>
+<span class="seg hd" style="width:30.00%"></span>
 <span class="seg cfg" style="width:40.00%"></span>
-<span class="seg chk" style="width:20.00%"></span>
+<span class="seg chk" style="width:10.00%"></span>
 </div>
 <p class="pnum"><b>2</b> of 10 closed</p></div>
 <p class="split">
 <span class="k">Handler</span> <code>ZCL_E018_NOC_TRANS_CHEM_LOGIC</code>
-<span class="k">Config</span> 4 points &#183; <span class="k">Not CJS</span> 0 &#183; <span class="k">Needs a look</span> 2</p>
+<span class="k">Config</span> 4 points &#183; <span class="k">Not CJS</span> 0 &#183; <span class="k">Needs a look</span> 1</p>
 <p class="note">This journey&#x27;s class had NO ACTIVE VERSION - a CONSTANTS ... TYPE string VALUE &#x27;&#x27; would not compile, so SAP kept running an older build and every fix looked like it had not been applied. That is fixed in git. Re-test the CX_SY_CONVERSION_NO_NUMBER post failure only after the class is activated; it may well go with it.</p>
 <p class="shots" title="0df49494-9dd8-44c5-bbd4-199a05be8211.png
 image-20260903-073034.png
@@ -607,7 +617,7 @@ image-20260903-131011.png
 image-20260903-131532.png">5 screenshots attached to CJSMIG-697 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="config" data-hay="owner search should be in eid format; browse not required placeholder + regex; ftype search. in the fixpack worklist. e018 transport of chemical products cjsmig-697"><td class="n">1</td><td class="what">Owner search should be in EID format; Browse not required</td><td><span class="chip cfg">Config - developer</span></td><td class="how">PLACEHOLDER + REGEX; FTYPE SEARCH. In the fixpack worklist.</td></tr>
-<tr data-st="check" data-hay="representative + owner eid search errors and will not move on re-test after the class is activated. e018 transport of chemical products cjsmig-697"><td class="n">2</td><td class="what">Representative + owner EID search errors and will not move on</td><td><span class="chip chk">Needs a look</span></td><td class="how">Re-test after the class is activated.</td></tr>
+<tr data-st="handler" data-hay="representative + owner eid search errors and will not move on same fix as e017 - on_custom_validate re-derives the role flags instead of refusing the step. re-test after the class is activated, since it had no active version. e018 transport of chemical products cjsmig-697"><td class="n">2</td><td class="what">Representative + owner EID search errors and will not move on</td><td><span class="chip hd">Handler class - developer</span></td><td class="how">Same fix as E017 - ON_CUSTOM_VALIDATE re-derives the role flags instead of refusing the step. Re-test after the class is activated, since it had no active version.</td></tr>
 <tr data-st="config" data-hay="permit number / trade licence etc. not required on the chemical tab coded in zrak_cj_fixpack as three hide rules. e018 transport of chemical products cjsmig-697"><td class="n">3</td><td class="what">Permit number / trade licence etc. not required on the chemical tab</td><td><span class="chip cfg">Config - developer</span></td><td class="how">Coded in ZRAK_CJ_FIXPACK as three HIDE rules.</td></tr>
 <tr data-st="handler" data-hay="add chemical - all fields should be mandatory all fourteen marked and enforced. zcl_e018_noc_trans_chem_logic. e018 transport of chemical products cjsmig-697"><td class="n">4</td><td class="what">Add Chemical - all fields should be mandatory</td><td><span class="chip hd">Handler class - developer</span></td><td class="how">All fourteen marked and enforced. ZCL_E018_NOC_TRANS_CHEM_LOGIC.</td></tr>
 <tr data-st="fw" data-hay="mandatory-field message shows on the main screen, not in the dialog engine fix - messages now draw inside the dialog. e018 transport of chemical products cjsmig-697"><td class="n">5</td><td class="what">Mandatory-field message shows on the main screen, not in the dialog</td><td><span class="chip fw">Framework - we push</span></td><td class="how">Engine fix - messages now draw inside the dialog.</td></tr>

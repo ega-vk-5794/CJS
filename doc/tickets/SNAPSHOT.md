@@ -7,12 +7,12 @@ Built from the five Jira exports (Issues + Comments sheets). Regenerate with `py
 | Bucket | Count | Who closes it |
 | --- | ---: | --- |
 | Framework - we push | 9 | Framework team (us) |
-| Handler class - developer | 6 | Journey developer - ABAP |
+| Handler class - developer | 8 | Journey developer - ABAP |
 | Closed by developer | 15 | Journey developer - closed |
 | Config - developer | 72 | Journey developer - Studio config |
 | Backend / record model | 20 | Backend team |
 | Portal / launchpad | 28 | Portal team |
-| Needs a look | 22 | Reporter + developer |
+| Needs a look | 20 | Reporter + developer |
 
 ## Waiting on an abapGit Pull
 
@@ -110,7 +110,7 @@ The Add Chemical dialog was the bulk of this ticket and is fixed in code: all fo
 | # | Observation | Status | What closes it |
 | ---: | --- | --- | --- |
 | 1 | Owner search should be in EID format; Browse not required | Config - developer | PLACEHOLDER + REGEX; FTYPE SEARCH. Listed in the fixpack worklist. |
-| 2 | Representative + owner EID search errors and will not move to the next step | Needs a look | Needs one run with the exact search value. The popup validation now blocks correctly, so an error here is the search itself. |
+| 2 | Representative + owner EID search errors and will not move to the next step | Handler class - developer | Fix written - see the Handler code sheet. ON_CUSTOM_VALIDATE refused step 0 whenever APPLICANT_ROLE was set and its projected flags PARTNER_OWNER / PARTNER_REP were not. Those flags are only written by ON_CHANGE, so a BP search coming back left the pair inconsistent, and re-selecting the same value raises no CHANGE - so the one instruction the message gave could not clear it. It re-derives now instead of refusing. |
 | 3 | Permit number / trade licence etc. not required on the chemical tab | Config - developer | Coded in ZRAK_CJ_FIXPACK as three HIDE rules anchored on the CHEMICALS_DETAILS grid. |
 | 4 | Add Chemical - all fields should be mandatory | Handler class - developer | All fourteen are now marked with an asterisk and enforced. Ten of the fourteen checks had been commented out. ZCL_E017_NOC_EXP_CHEM_LOGIC->VALIDATE_INPUT( ). |
 | 5 | Mandatory-field message shows on the main screen, not in the dialog | Framework - we push | DIALOG_FORM( ) now draws pending messages inside the dialog. ZCL_RAK_JOURNEY_LOGIC. |
@@ -248,7 +248,7 @@ This journey's class had NO ACTIVE VERSION - a CONSTANTS ... TYPE string VALUE '
 | # | Observation | Status | What closes it |
 | ---: | --- | --- | --- |
 | 1 | Owner search should be in EID format; Browse not required | Config - developer | PLACEHOLDER + REGEX; FTYPE SEARCH. In the fixpack worklist. |
-| 2 | Representative + owner EID search errors and will not move on | Needs a look | Re-test after the class is activated. |
+| 2 | Representative + owner EID search errors and will not move on | Handler class - developer | Same fix as E017 - ON_CUSTOM_VALIDATE re-derives the role flags instead of refusing the step. Re-test after the class is activated, since it had no active version. |
 | 3 | Permit number / trade licence etc. not required on the chemical tab | Config - developer | Coded in ZRAK_CJ_FIXPACK as three HIDE rules. |
 | 4 | Add Chemical - all fields should be mandatory | Handler class - developer | All fourteen marked and enforced. ZCL_E018_NOC_TRANS_CHEM_LOGIC. |
 | 5 | Mandatory-field message shows on the main screen, not in the dialog | Framework - we push | Engine fix - messages now draw inside the dialog. |

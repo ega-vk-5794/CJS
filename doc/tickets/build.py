@@ -123,23 +123,29 @@ A('<section class="callout">')
 A('<h2>Who pushes what</h2>')
 A('<p>Three kinds of change came out of this round, and they do not travel the same way. '
   '<strong>Framework</strong> is the shared engine - one change, every journey feels it - so we make it, '
-  'push it, and the team pulls it. <strong>Handler class</strong> is the journey\'s own ABAP and belongs to '
-  'the developer who owns that service; where a fix is already written it is sitting in git for them to read, '
-  'take or reject - nobody pulls it on their behalf. <strong>Config</strong> never leaves the Studio.</p>')
+  'push it, and the team pulls it - so every one of them below carries what else it touches and how '
+  'much risk that is, because the engine serves Municipality, Notary and the WD-derived journeys too, '
+  'not only DOK and EPDA. <strong>Handler class</strong> is the journey\'s own ABAP and belongs to the '
+  'developer who owns that service: the code is written out in full in the spreadsheet, to retype in '
+  'SE24 - nobody needs git and nobody pushes it for them. <strong>Config</strong> never leaves the '
+  'Studio.</p>')
 A('<h3>Framework - made and pushed by us</h3>')
 A('<p class="sub">Pull these and activate them. In the abapGit pull dialog every '
   '<em>Overwrite local object</em> row arrives unticked and the ticks reset each time the dialog '
   'opens, so an existing class is skipped unless you tick it by hand. Take '
   '<code>ZCL_RAK_JOURNEY_LOGIC</code> and <code>ZCL_RAK_JOURNEY_RENDER</code> first; they break widest.</p>')
-A('<table class="pend"><thead><tr><th>Object</th><th>What changed</th></tr></thead><tbody>')
-for o, w in R.FRAMEWORK:
-    A(f'<tr><td><code>{e(o)}</code></td><td>{e(w)}</td></tr>')
+A('<table class="pend fw"><thead><tr><th>Object</th><th>What changed</th>'
+  '<th>What else it touches</th><th>Risk</th></tr></thead><tbody>')
+for o, w, scope, risk in R.FRAMEWORK:
+    lvl = risk.split(" ")[0].lower()
+    A(f'<tr><td><code>{e(o)}</code></td><td>{e(w)}</td><td>{e(scope)}</td>'
+      f'<td><span class="risk r{lvl}">{lvl.upper()}</span> {e(risk.split(" - ",1)[-1])}</td></tr>')
 A('</tbody></table>')
 hrows = [(o[2], o[0], o[3], o[5]) for o in R.OBS if o[4] == "handler"]
-A('<h3>Handler class - written, but the developer\'s call</h3>')
-A('<p class="sub">These are in git too, on the same branch. They are one journey\'s own class, so read '
-  'the diff before taking it - and if you would rather write it yourself, the observation column says '
-  'exactly what the defect was.</p>')
+A('<h3>Handler class - written out, but the developer\'s call</h3>')
+A('<p class="sub">One journey\'s own class. The full code is on the <em>Handler code</em> sheet of the '
+  'spreadsheet - whole methods where a whole method changed - so it can be retyped in SE24 without git. '
+  'Take it, or write your own from the defect description; it is your service.</p>')
 A('<table class="pend"><thead><tr><th>Journey</th><th>Class</th><th>What it fixes</th></tr></thead><tbody>')
 for j, tk, what, act in hrows:
     A(f'<tr><td class="num">{j} · {tk}</td><td><code>{e(R.HANDLER.get(j,"-").split(" (")[0])}</code></td>'
@@ -311,6 +317,11 @@ table{border-collapse:collapse;width:100%}
 .split{margin:14px 0 0;font-size:12.5px;color:var(--ink3);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline}
 .split .k{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-weight:600}
 .split code{font-size:11.5px}
+.pend.fw td{font-size:12.5px}
+.risk{display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.05em;padding:1px 6px;border-radius:3px;margin-right:6px}
+.rhigh{background:var(--chkb);color:var(--chk)}
+.rmedium{background:var(--cfgb);color:var(--cfg)}
+.rlow,.rnone{background:var(--doneb);color:var(--done)}
 .shots{margin:8px 0 0;font-size:12.5px;color:var(--ink3)}
 .note{color:var(--ink2);max-width:78ch;margin:14px 0 4px;font-size:14.5px}
 .obs{font-size:14px;margin:10px 0 0}
@@ -393,6 +404,28 @@ json.dump({"as_at": AS_AT,
           open(os.path.join(HERE, "register.json"), "w"), indent=1, ensure_ascii=False)
 print("SNAPSHOT.md, snapshot.html, register.json written")
 
+
+# ---------------------------------------------------------------- ABAP source
+SRC = os.path.join(HERE, "..", "..", "src")
+
+def method_source(cls, meth):
+    """Pull the current text of one method straight out of the class file."""
+    f = os.path.join(SRC, cls.lower() + ".clas.abap")
+    if not os.path.exists(f):
+        return "(%s not found)" % f
+    src = open(f, encoding="utf-8", errors="replace").read().split("\n")
+    want = meth.lower()
+    out, on = [], False
+    for ln in src:
+        low = ln.strip().lower()
+        if not on and (low == "method " + want + "." or low.startswith("method " + want + ".")):
+            on = True
+        if on:
+            out.append(ln.rstrip())
+            if low in ("endmethod.", "endmethod"):
+                break
+    return "\n".join(out) if out else "(method %s not found in %s)" % (meth, cls)
+
 # ---------------------------------------------------------------- xlsx
 try:
     from openpyxl import Workbook
@@ -442,15 +475,21 @@ if Workbook:
         rows = by_j.get(code, [])
         c = counts([(0,0,0,x[3],0) for x in rows])
         cl = c["fw"] + c["done_dev"]
-        def lines(state):
-            return "\n".join("%d. %s" % (x[1], x[2]) for x in rows if x[3] == state)
-        fwtxt = lines("fw") or "-"
+        def lines(state, how=True):
+            out = []
+            for x in rows:
+                if x[3] != state:
+                    continue
+                out.append("%d. %s%s" % (x[1], x[2], ("\n     -> " + x[4]) if how else ""))
+            return "\n".join(out)
+        fwtxt = lines("fw", how=False) or "-"
         hdtxt = R.HANDLER.get(code, "-")
-        w = lines("handler")
+        w = lines("handler", how=False)
         if w:
-            hdtxt += "\nFIX WRITTEN, IN GIT - YOURS TO TAKE:\n" + w
+            hdtxt += "\n\nCODE READY - see the 'Handler code' sheet:\n" + w
         cfg = lines("config") or "-"
-        ext = "\n".join(x for x in (lines("backend"), lines("portal")) if x) or "-"
+        ext = "\n".join(x for x in (lines("backend", how=False),
+                                    lines("portal", how=False)) if x) or "-"
         chk = lines("check") or "-"
         vals = [code, name, dept, tk, R.BLOCKS.get(tk, ""), who,
                 len(rows), cl, len(rows) - cl, fwtxt, hdtxt, cfg, ext, chk]
@@ -493,15 +532,41 @@ if Workbook:
                  "ZCL_RAK_JOURNEY_LOGIC and ZCL_RAK_JOURNEY_RENDER first.")
     ws3["A2"].font = Font(size=10, italic=True, color="5A6A6C", name="Calibri")
     ws3["A2"].alignment = WRAP
-    head(ws3, 4, [("Object",34),("What changed",100),("Applies to",24)])
+    head(ws3, 4, [("Object",34),("What changed",64),("What else it touches",46),("Risk",46)])
     ws3.freeze_panes = "A5"
+    RISKF = {"HIGH":"F6DDE1","MEDIUM":"FBEEDD","LOW":"EFF3F1","NONE":"EFF3F1"}
     r = 5
-    for o, w in R.FRAMEWORK:
-        scope = "run it per journey" if o.startswith("ZRAK_") else "every journey"
-        for i, v in enumerate([o, w, scope], 1):
+    for o, w, scope, risk in R.FRAMEWORK:
+        for i, v in enumerate([o, w, scope, risk], 1):
             cell = ws3.cell(row=r, column=i, value=v)
             cell.font = MONO if i == 1 else BODY
             cell.alignment = WRAP; cell.border = THIN
+        ws3.cell(row=r, column=4).fill = PatternFill(
+            "solid", fgColor=RISKF.get(risk.split(" ")[0], "FFFFFF"))
+        r += 1
+
+    # ---- sheet 4: the handler code, for developers with no git
+    ws4 = wb.create_sheet("Handler code")
+    ws4["A1"] = "Handler class fixes - the code, to retype in SE24"
+    ws4["A1"].font = Font(bold=True, size=13, name="Calibri")
+    ws4["A2"] = ("These are the journey's OWN class, not the framework. Read it, take it or write "
+                 "your own - it is your service. Where a whole method is given, it is the complete "
+                 "current method: replace the method body with it. Nothing here is pushed for you.")
+    ws4["A2"].font = Font(size=10, italic=True, color="5A6A6C", name="Calibri")
+    ws4["A2"].alignment = WRAP
+    head(ws4, 4, [("Journey",9),("Ticket",13),("Class",34),("Method / where",34),
+                  ("What it fixes",44),("Code",120)])
+    ws4.freeze_panes = "A5"
+    r = 5
+    for j, tk, cls, what, kind, ref in R.HANDLER_CODE:
+        code = method_source(cls, ref) if kind == "method" else ref
+        where = ("METHOD " + ref.upper()) if kind == "method" else "see the code"
+        for i, v in enumerate([j, tk, cls, where, what, code], 1):
+            cell = ws4.cell(row=r, column=i, value=v)
+            cell.font = MONO if i in (3, 4, 6) else BODY
+            cell.alignment = WRAP if i in (5, 6) else TOP
+            cell.border = THIN
+        ws4.row_dimensions[r].height = 150
         r += 1
 
     wb.save(os.path.join(HERE, "CJS_journey_ownership.xlsx"))
