@@ -748,6 +748,38 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakCell\{min-width:0;gap:.25rem;\}| &&
         |.rakCellFlow\{gap:.5rem;flex-wrap:wrap;\}| &&
         |.rakCellFlow>*\{flex:0 0 auto;margin:0;\}| &&
+*     THE CONTROL YIELDS, THE BUTTON DOES NOT WRAP. Every child was
+*     flex:0 0 auto - nothing could shrink - and the row wraps, so the moment
+*     the control's width plus the button's width passed the cell the BUTTON
+*     dropped onto a second line. That made it depend on the button's LABEL:
+*     a field with a partner already picked reads "CHANGE witness 1" where an
+*     empty one reads "ADD witness 2", and the longer text was enough to tip
+*     it over. FLOW was set and honoured; the cell ran out of room and had no
+*     way to give any back.
+*
+*     The first child is the control - the label is redirected to its own vbox
+*     through MO_LBL_TGT and never enters this row. Letting it shrink
+*     (min-width:0 is what actually permits it; a flex item will not go below
+*     its content width without it) means the input gives up width and the
+*     button stays beside it. Wrap is KEPT as the last resort so a genuinely
+*     narrow screen still stacks instead of overflowing sideways.
+*
+*     IT WAS NOT THE STAGE. This block was "reverted by a stage-without-pull"
+*     three times - b7344b0, then again, and the note that used to sit here
+*     blamed abapGit both times and told the next person to pull before
+*     staging. That was the wrong diagnosis and it cost three rounds.
+*
+*     The comment lines above were indented, with the * in column 9. An ABAP
+*     full-line comment is only a comment when the * is in column 1; indented
+*     inside a chained string expression it is a multiplication operator, and
+*     the class does not compile. So it never activated, SAP never held it,
+*     and every full stage correctly wrote back a version without it. The
+*     symptom pointed at git the whole time and the cause was in the source.
+*
+*     Nothing else in this repository has an indented * comment - it was 40
+*     lines, all of them here. If this block goes missing again, check the
+*     syntax of THIS class before blaming the stage.
+        |.rakCellFlow>*:first-child\{flex:0 1 auto;min-width:0;\}| &&
         |.rakRowEq>*\{flex:1 1 0;\}| &&
         |.rakRowC2>*\{flex:0 0 calc((100% - .75rem)/2);\}| &&
         |.rakRowC3>*\{flex:0 0 calc((100% - 1.5rem)/3);\}| &&
@@ -1062,6 +1094,38 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
       |.rakCell\{min-width:0;gap:.25rem;\}| &&
       |.rakCellFlow\{gap:.5rem;flex-wrap:wrap;\}| &&
       |.rakCellFlow>*\{flex:0 0 auto;margin:0;\}| &&
+*     THE CONTROL YIELDS, THE BUTTON DOES NOT WRAP. Every child was
+*     flex:0 0 auto - nothing could shrink - and the row wraps, so the moment
+*     the control's width plus the button's width passed the cell the BUTTON
+*     dropped onto a second line. That made it depend on the button's LABEL:
+*     a field with a partner already picked reads "CHANGE witness 1" where an
+*     empty one reads "ADD witness 2", and the longer text was enough to tip
+*     it over. FLOW was set and honoured; the cell ran out of room and had no
+*     way to give any back.
+*
+*     The first child is the control - the label is redirected to its own vbox
+*     through MO_LBL_TGT and never enters this row. Letting it shrink
+*     (min-width:0 is what actually permits it; a flex item will not go below
+*     its content width without it) means the input gives up width and the
+*     button stays beside it. Wrap is KEPT as the last resort so a genuinely
+*     narrow screen still stacks instead of overflowing sideways.
+*
+*     IT WAS NOT THE STAGE. This block was "reverted by a stage-without-pull"
+*     three times - b7344b0, then again, and the note that used to sit here
+*     blamed abapGit both times and told the next person to pull before
+*     staging. That was the wrong diagnosis and it cost three rounds.
+*
+*     The comment lines above were indented, with the * in column 9. An ABAP
+*     full-line comment is only a comment when the * is in column 1; indented
+*     inside a chained string expression it is a multiplication operator, and
+*     the class does not compile. So it never activated, SAP never held it,
+*     and every full stage correctly wrote back a version without it. The
+*     symptom pointed at git the whole time and the cause was in the source.
+*
+*     Nothing else in this repository has an indented * comment - it was 40
+*     lines, all of them here. If this block goes missing again, check the
+*     syntax of THIS class before blaming the stage.
+      |.rakCellFlow>*:first-child\{flex:0 1 auto;min-width:0;\}| &&
       |.rakRowEq>*\{flex:1 1 0;\}| &&
       |.rakRowC2>*\{flex:0 0 calc((100% - .75rem)/2);\}| &&
       |.rakRowC3>*\{flex:0 0 calc((100% - 1.5rem)/3);\}| &&
