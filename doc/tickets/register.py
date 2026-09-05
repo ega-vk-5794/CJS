@@ -6,7 +6,9 @@ Every observation below is one line a tester wrote, kept in their words and
 classified. Edit this file and re-run build.py - nothing else is hand-written.
 
 state values
-  done_claude  fixed in CJS code, in git, waiting on abapGit Pull + activate
+  fw           framework change - engine class, made and pushed by us; the team pulls it
+  handler      journey handler class - the developer's own ABAP; the change is written
+               and sitting in git, but it is theirs to take
   done_dev     the developer has already closed it on the Jira thread
   config       CJS configuration - Studio tables, no ABAP
   backend      backend / BAdI / record model - not CJS
@@ -122,7 +124,7 @@ OBS = [
  "The engine draws the asterisk now - RENDER_ATTACH( ) passes the native required property. What is left is ticking REQUIRED on each upload field."),
 ("CJSMIG-683",12,"E021","Declaration & Notes missing","config",
  "Add a DISPLAY field whose DEFAULT_VAL is TEXT:@nnn pointing at a ZRAK_T_CJ_TXT row, so it reads in both languages."),
-("CJSMIG-683",13,"E021","Feedback is mandatory","done_claude",
+("CJSMIG-683",13,"E021","Feedback is mandatory","fw",
  "A 'Not now' button now sits beside Send feedback and the journey finishes without it. ZCL_RAK_JOURNEY_RENDER + ZCL_RAK_JOURNEY_ENGINE (FBSKIP)."),
 ("CJSMIG-683",14,"E021","Case created (1959717) but attachments not saved","check",
  "Instrumented: ZCL_RAK_JOURNEY_BE now counts the files it could not read, says so on screen and names them on the trace. Re-run with &trace=x and send the ATTACH line."),
@@ -132,7 +134,7 @@ OBS = [
 ("CJSMIG-684",1,"E022","Initial page loads with error messages","check",
  "The screenshot is on the ticket; paste it here - Jira is not reachable from where this register is built."),
 ("CJSMIG-684",2,"E022","Applicant details not aligned - should be row wise","config","Design tab."),
-("CJSMIG-684",3,"E022","Applicant details are duplicated","done_claude",
+("CJSMIG-684",3,"E022","Applicant details are duplicated","handler",
  "The handler was writing the applicant fields twice. Fixed in ZCL_EPDA_E022_DEV_PROJ_LOGIC."),
 ("CJSMIG-684",4,"E022","Emirates ID search should follow the format; Browse not required","config",
  "PLACEHOLDER for the mask, REGEX for the format, FTYPE SEARCH instead of the browse control."),
@@ -145,7 +147,7 @@ OBS = [
 ("CJSMIG-684",10,"E022","Trade licence attachment is missing","config","Add the upload field to the Documents step."),
 ("CJSMIG-684",11,"E022","Declaration & Note missing","config","DISPLAY field with a TEXT: default."),
 ("CJSMIG-684",12,"E022","Step 5 request confirmation not required","config","Coded in ZRAK_CJ_FIXPACK as STEP_OFF - reversible, sets ACTIVE blank."),
-("CJSMIG-684",13,"E022","Feedback is mandatory","done_claude","'Not now' button - same engine fix as E021."),
+("CJSMIG-684",13,"E022","Feedback is mandatory","fw","'Not now' button - same engine fix as E021."),
 ("CJSMIG-684",14,"E022","Attachments are not saving","check","Re-run with &trace=x and send the ATTACH line."),
 ("CJSMIG-684",15,"E022","Customer action not working","portal","Landing page redirect - portal team."),
 # ---------------- CJSMIG-685  D012 --------------------------------------
@@ -163,11 +165,11 @@ OBS = [
 ("CJSMIG-687",2,"E017","Representative + owner EID search errors and will not move to the next step","check",
  "Needs one run with the exact search value. The popup validation now blocks correctly, so an error here is the search itself."),
 ("CJSMIG-687",3,"E017","Permit number / trade licence etc. not required on the chemical tab","config","Coded in ZRAK_CJ_FIXPACK as three HIDE rules anchored on the CHEMICALS_DETAILS grid."),
-("CJSMIG-687",4,"E017","Add Chemical - all fields should be mandatory","done_claude",
+("CJSMIG-687",4,"E017","Add Chemical - all fields should be mandatory","handler",
  "All fourteen are now marked with an asterisk and enforced. Ten of the fourteen checks had been commented out. ZCL_E017_NOC_EXP_CHEM_LOGIC->VALIDATE_INPUT( )."),
-("CJSMIG-687",5,"E017","Mandatory-field message shows on the main screen, not in the dialog","done_claude",
+("CJSMIG-687",5,"E017","Mandatory-field message shows on the main screen, not in the dialog","fw",
  "DIALOG_FORM( ) now draws pending messages inside the dialog. ZCL_RAK_JOURNEY_LOGIC."),
-("CJSMIG-687",6,"E017","One field per row - should be two or more","done_claude",
+("CJSMIG-687",6,"E017","One field per row - should be two or more","fw",
  "Popup dialogs lay out in two columns now. The fix was FormContainers, not the columnsL property. ZCL_RAK_JOURNEY_LOGIC->DIALOG_FORM( )."),
 ("CJSMIG-687",7,"E017","Bill of Lading input clears its own value","check",
  "Check BOL_POP actually exists in ZRAK_T_JNY_FLD - a field name that is not on the journey accepts set_val and get_val and does nothing."),
@@ -180,7 +182,7 @@ OBS = [
  "The asterisk is engine-side and done; the repeated size hint is per-field wording."),
 ("CJSMIG-687",13,"E017","Preview page should be removed","config","Coded in ZRAK_CJ_FIXPACK as STEP_OFF."),
 ("CJSMIG-687",14,"E017","Step 5 request confirmation not required","config","Coded in ZRAK_CJ_FIXPACK as STEP_OFF."),
-("CJSMIG-687",15,"E017","Feedback is mandatory","done_claude","'Not now' button."),
+("CJSMIG-687",15,"E017","Feedback is mandatory","fw","'Not now' button."),
 ("CJSMIG-687",16,"E017","Attachments are not saving","check","Re-run with &trace=x."),
 ("CJSMIG-687",17,"E017","Customer action not working","portal","Portal team."),
 ("CJSMIG-687",18,"E017","Chemical details missing in the backend","backend",
@@ -248,13 +250,13 @@ OBS = [
 ("CJSMIG-697",1,"E018","Owner search should be in EID format; Browse not required","config","PLACEHOLDER + REGEX; FTYPE SEARCH. In the fixpack worklist."),
 ("CJSMIG-697",2,"E018","Representative + owner EID search errors and will not move on","check","Re-test after the class is activated."),
 ("CJSMIG-697",3,"E018","Permit number / trade licence etc. not required on the chemical tab","config","Coded in ZRAK_CJ_FIXPACK as three HIDE rules."),
-("CJSMIG-697",4,"E018","Add Chemical - all fields should be mandatory","done_claude","All fourteen marked and enforced. ZCL_E018_NOC_TRANS_CHEM_LOGIC."),
-("CJSMIG-697",5,"E018","Mandatory-field message shows on the main screen, not in the dialog","done_claude","Engine fix - messages now draw inside the dialog."),
-("CJSMIG-697",6,"E018","One field per row - should be two or more","done_claude","Two-column dialogs - engine fix."),
+("CJSMIG-697",4,"E018","Add Chemical - all fields should be mandatory","handler","All fourteen marked and enforced. ZCL_E018_NOC_TRANS_CHEM_LOGIC."),
+("CJSMIG-697",5,"E018","Mandatory-field message shows on the main screen, not in the dialog","fw","Engine fix - messages now draw inside the dialog."),
+("CJSMIG-697",6,"E018","One field per row - should be two or more","fw","Two-column dialogs - engine fix."),
 ("CJSMIG-697",7,"E018","Bill of Lading input clears its own value","check","Check BOL_POP exists in ZRAK_T_JNY_FLD."),
 ("CJSMIG-697",8,"E018","'Use a previous declaration' field not required","config","Hide the field."),
 ("CJSMIG-697",9,"E018","HS code should be a guided formatted number with a watermark","config","REGEX + PLACEHOLDER."),
-("CJSMIG-697",10,"E018","Backend POST failed - CX_SY_CONVERSION_NO_NUMBER, cannot go to the next step","done_claude",
+("CJSMIG-697",10,"E018","Backend POST failed - CX_SY_CONVERSION_NO_NUMBER, cannot go to the next step","handler",
  "The class had no active version at all - a CONSTANTS ... TYPE string VALUE '' will not compile - so SAP was running an older build of every method on this journey. Fixed in git. Pull, activate, and re-test this line first."),
 # ---------------- CJSMIG-698  D005 --------------------------------------
 ("CJSMIG-698",1,"D005","Arabic version has no Start button","portal","Service card."),
@@ -287,7 +289,7 @@ OBS = [
 ("CJSMIG-700",15,"E019","Step name should change to Documents","config","Step title, EN + AR."),
 ("CJSMIG-700",16,"E019","Mandatory attachments need the *","config","Tick REQUIRED on each upload field."),
 ("CJSMIG-700",17,"E019","Declaration & Notes missing","config","DISPLAY field with a TEXT: default."),
-("CJSMIG-700",18,"E019","Feedback is mandatory","done_claude","'Not now' button."),
+("CJSMIG-700",18,"E019","Feedback is mandatory","fw","'Not now' button."),
 ("CJSMIG-700",19,"E019","Attachments are not saving","check","Re-run with &trace=x."),
 ("CJSMIG-700",20,"E019","Company name not updated in the backend","backend","Backend write."),
 ("CJSMIG-700",21,"E019","UOM not updated in the backend","backend","Backend write."),
@@ -307,7 +309,7 @@ OBS = [
 ("CJSMIG-701",9,"E020","'Materials Det' is duplicated and should be renamed","config","Hide one, rename the other."),
 ("CJSMIG-701",10,"E020","Declaration & Note missing","config","DISPLAY field with a TEXT: default."),
 ("CJSMIG-701",11,"E020","Step 5 request confirmation not required","config","STEP_OFF - the fixpack does this for other journeys and takes one more line."),
-("CJSMIG-701",12,"E020","Feedback is mandatory","done_claude","'Not now' button."),
+("CJSMIG-701",12,"E020","Feedback is mandatory","fw","'Not now' button."),
 ("CJSMIG-701",13,"E020","Attachments are not saving","check","Re-run with &trace=x."),
 ("CJSMIG-701",14,"E020","Vehicle details not saving in the backend","backend",
  "Line the grid spec up against the LIST_SEQUENCE rows for that screen before treating it as a rendering fault."),
@@ -321,14 +323,14 @@ OBS = [
 ("CJSMIG-703",4,"E025","Declaration & Note missing","config","DISPLAY field with a TEXT: default."),
 ("CJSMIG-703",5,"E025","Case id is not correct - shows the wrong number","check",
  "Send the number that was shown next to the case it belongs to. On some families the journey key is not the case id, and the engine has one resolver for that - but it needs the pair to confirm."),
-("CJSMIG-703",6,"E025","Applicant BP not saved in the record model, not in the backend application","done_claude",
+("CJSMIG-703",6,"E025","Applicant BP not saved in the record model, not in the backend application","handler",
  "Fixed. The class called the applicant field OWNER_BP, which is this journey's owner SEARCH BOX; ON_INIT wrote the partner there and blanked it sixteen lines later. Now goes to LOGIN_BP. ZCL_E025_BEEKEEPING_LOGIC."),
 # ---------------- CJSMIG-704  E026 --------------------------------------
 ("CJSMIG-704",1,"E026","Emirates ID search should follow the format; Browse not required","config","PLACEHOLDER + REGEX; FTYPE SEARCH."),
 ("CJSMIG-704",2,"E026","Mandatory attachments need the *","config","Tick REQUIRED on each upload field."),
 ("CJSMIG-704",3,"E026","Declaration & Note missing","config","DISPLAY field with a TEXT: default."),
 ("CJSMIG-704",4,"E026","Case id is not correct - shows the wrong number","check","Same as E025 - send the pair of numbers."),
-("CJSMIG-704",5,"E026","Applicant BP not saved in the record model, not in the backend application","done_claude",
+("CJSMIG-704",5,"E026","Applicant BP not saved in the record model, not in the backend application","handler",
  "The applicant partner now also goes out as LOGIN_BP, the field every other journey uses. ZCL_E026_TREE_REMOVAL_LOGIC."),
 ]
 
@@ -397,3 +399,49 @@ ATTACHMENTS = {
   "CJSMIG-703": ['image-20260904-104239.png', 'image-20260904-104517.png', 'image-20260904-104935.png', 'image-20260904-113134.png'],
   "CJSMIG-704": ['image-20260904-104239.png', 'image-20260904-104935.png', 'image-20260904-113134.png'],
 }
+
+# The journey's own handler class - the one a developer edits for that service.
+HANDLER = {
+ "E021": "ZCL_EPDA_E021_ALTER_FUEL_LOGIC",
+ "E022": "ZCL_EPDA_E022_DEV_PROJ_LOGIC",
+ "D012": "ZCL_D012_SCHOOL_TRIP_ACT_LOGIC",
+ "E017": "ZCL_E017_NOC_EXP_CHEM_LOGIC",
+ "D002": "ZCL_D002_SCHOOL_LIC_NEW_LOGIC",
+ "D013": "ZCL_D013_STAFF_APP_LET_LOGIC",
+ "D014": "ZCL_D014_STAFF_EXP_CERT_LOGIC (and ZCL_D014_STAFF_GOLD_VISA_LOGIC - two classes claim D014)",
+ "D003": "ZCL_D003_SCHOOL_LIC_RNEW_LOGIC",
+ "D021": "ZCL_D021_MOD_SCHOOL_FEE_LOGIC",
+ "D016": "ZCL_D016_SCHOOL_LIC_CANC_LOGIC",
+ "D006": "ZCL_D006_SCHOOL_MNG_CHG_LOGIC",
+ "E018": "ZCL_E018_NOC_TRANS_CHEM_LOGIC",
+ "D005": "ZCL_D005_SCHOOL_NAME_CHG_LOGIC",
+ "D022": "ZCL_D022_STUD_STUDY_CERT_LOGIC",
+ "E019": "ZCL_EPDA_E019_TRANS_USED_LOGIC",
+ "E020": "ZCL_EPDA_E020_BATT_SCRAP_LOGIC",
+ "E023": "ZCL_E023_DEWATERING_LOGIC",
+ "E025": "ZCL_E025_BEEKEEPING_LOGIC",
+ "E026": "ZCL_E026_TREE_REMOVAL_LOGIC",
+}
+
+# Framework objects we changed and pushed. These are engine classes, shared by
+# every journey - not any one developer's to own.
+FRAMEWORK = [
+ ("ZCL_RAK_JOURNEY_LOGIC",
+  "Popup dialogs draw their own messages instead of putting them behind the modal, "
+  "and lay out in two columns (FormContainers, not the columnsL property)."),
+ ("ZCL_RAK_JOURNEY_RENDER",
+  "A 'Not now' button beside Send feedback, so feedback is no longer compulsory; "
+  "attachment labels carry the native required property, so the * actually draws."),
+ ("ZCL_RAK_JOURNEY_ENGINE",
+  "FBSKIP handling behind the 'Not now' button."),
+ ("ZCL_RAK_JOURNEY_BE",
+  "Counts the attachments it could not read, says so on screen and names them on "
+  "the trace - so 'attachments not saving' can be diagnosed in one run."),
+ ("ZIF_RAK_JOURNEY",
+  "MSGS( ) so a dialog can read the pending messages."),
+ ("ZRAK_CJ_FIXPACK",
+  "Report. Applies 19 of the config points mechanically, per journey, idempotent."),
+ ("ZRAK_CJ_BACKUP",
+  "Report. Full export and import of one journey's configuration - the fallback "
+  "before anyone edits config in anger."),
+]

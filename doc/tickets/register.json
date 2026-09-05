@@ -275,7 +275,7 @@
    "seq": 13,
    "journey": "E021",
    "observation": "Feedback is mandatory",
-   "state": "done_claude",
+   "state": "fw",
    "action": "A 'Not now' button now sits beside Send feedback and the journey finishes without it. ZCL_RAK_JOURNEY_RENDER + ZCL_RAK_JOURNEY_ENGINE (FBSKIP)."
   },
   {
@@ -315,7 +315,7 @@
    "seq": 3,
    "journey": "E022",
    "observation": "Applicant details are duplicated",
-   "state": "done_claude",
+   "state": "handler",
    "action": "The handler was writing the applicant fields twice. Fixed in ZCL_EPDA_E022_DEV_PROJ_LOGIC."
   },
   {
@@ -395,7 +395,7 @@
    "seq": 13,
    "journey": "E022",
    "observation": "Feedback is mandatory",
-   "state": "done_claude",
+   "state": "fw",
    "action": "'Not now' button - same engine fix as E021."
   },
   {
@@ -515,7 +515,7 @@
    "seq": 4,
    "journey": "E017",
    "observation": "Add Chemical - all fields should be mandatory",
-   "state": "done_claude",
+   "state": "handler",
    "action": "All fourteen are now marked with an asterisk and enforced. Ten of the fourteen checks had been commented out. ZCL_E017_NOC_EXP_CHEM_LOGIC->VALIDATE_INPUT( )."
   },
   {
@@ -523,7 +523,7 @@
    "seq": 5,
    "journey": "E017",
    "observation": "Mandatory-field message shows on the main screen, not in the dialog",
-   "state": "done_claude",
+   "state": "fw",
    "action": "DIALOG_FORM( ) now draws pending messages inside the dialog. ZCL_RAK_JOURNEY_LOGIC."
   },
   {
@@ -531,7 +531,7 @@
    "seq": 6,
    "journey": "E017",
    "observation": "One field per row - should be two or more",
-   "state": "done_claude",
+   "state": "fw",
    "action": "Popup dialogs lay out in two columns now. The fix was FormContainers, not the columnsL property. ZCL_RAK_JOURNEY_LOGIC->DIALOG_FORM( )."
   },
   {
@@ -603,7 +603,7 @@
    "seq": 15,
    "journey": "E017",
    "observation": "Feedback is mandatory",
-   "state": "done_claude",
+   "state": "fw",
    "action": "'Not now' button."
   },
   {
@@ -1043,7 +1043,7 @@
    "seq": 4,
    "journey": "E018",
    "observation": "Add Chemical - all fields should be mandatory",
-   "state": "done_claude",
+   "state": "handler",
    "action": "All fourteen marked and enforced. ZCL_E018_NOC_TRANS_CHEM_LOGIC."
   },
   {
@@ -1051,7 +1051,7 @@
    "seq": 5,
    "journey": "E018",
    "observation": "Mandatory-field message shows on the main screen, not in the dialog",
-   "state": "done_claude",
+   "state": "fw",
    "action": "Engine fix - messages now draw inside the dialog."
   },
   {
@@ -1059,7 +1059,7 @@
    "seq": 6,
    "journey": "E018",
    "observation": "One field per row - should be two or more",
-   "state": "done_claude",
+   "state": "fw",
    "action": "Two-column dialogs - engine fix."
   },
   {
@@ -1091,7 +1091,7 @@
    "seq": 10,
    "journey": "E018",
    "observation": "Backend POST failed - CX_SY_CONVERSION_NO_NUMBER, cannot go to the next step",
-   "state": "done_claude",
+   "state": "handler",
    "action": "The class had no active version at all - a CONSTANTS ... TYPE string VALUE '' will not compile - so SAP was running an older build of every method on this journey. Fixed in git. Pull, activate, and re-test this line first."
   },
   {
@@ -1299,7 +1299,7 @@
    "seq": 18,
    "journey": "E019",
    "observation": "Feedback is mandatory",
-   "state": "done_claude",
+   "state": "fw",
    "action": "'Not now' button."
   },
   {
@@ -1435,7 +1435,7 @@
    "seq": 12,
    "journey": "E020",
    "observation": "Feedback is mandatory",
-   "state": "done_claude",
+   "state": "fw",
    "action": "'Not now' button."
   },
   {
@@ -1507,7 +1507,7 @@
    "seq": 6,
    "journey": "E025",
    "observation": "Applicant BP not saved in the record model, not in the backend application",
-   "state": "done_claude",
+   "state": "handler",
    "action": "Fixed. The class called the applicant field OWNER_BP, which is this journey's owner SEARCH BOX; ON_INIT wrote the partner there and blanked it sixteen lines later. Now goes to LOGIN_BP. ZCL_E025_BEEKEEPING_LOGIC."
   },
   {
@@ -1547,7 +1547,7 @@
    "seq": 5,
    "journey": "E026",
    "observation": "Applicant BP not saved in the record model, not in the backend application",
-   "state": "done_claude",
+   "state": "handler",
    "action": "The applicant partner now also goes out as LOGIN_BP, the field every other journey uses. ZCL_E026_TREE_REMOVAL_LOGIC."
   }
  ],

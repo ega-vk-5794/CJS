@@ -30,3 +30,21 @@ closes each line.
 3. `python3 doc/tickets/build.py`
 4. Commit, and republish `snapshot.html` to the same artifact URL so the link
    the team already has stays current.
+
+## Who does what
+
+The register splits the work by **who does it**, not only by what it is:
+
+- **`fw` - framework.** A shared engine class (`ZCL_RAK_JOURNEY_*`). One change,
+  every journey feels it, so the CJS team makes it and pushes it and the team
+  pulls it. Listed on the *Framework changes* sheet.
+- **`handler` - the journey's own class.** `ZCL_<journey>_..._LOGIC` belongs to
+  the developer who owns that service. Where a fix is already written it sits in
+  git for them to read and take - it is not pushed on their behalf and it does
+  not count as closed until they take it.
+- **`config`** never leaves the Studio.
+
+`CJS_journey_ownership.xlsx` is the same split as a spreadsheet: one row per
+journey with a FRAMEWORK column, a HANDLER CLASS column and a CONFIG column,
+plus a sheet of all 172 observations and a sheet of the framework changes on
+their own.
