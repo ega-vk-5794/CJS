@@ -19,7 +19,8 @@ protected section.
 *   grid arrives with its long cells cut at the width of a legacy DDIC
 *   component, and the whole of each one is still sitting in the BAdI's
 *   own detail record.
-    METHODS unclip CHANGING cs_data TYPE zif_rak_journey=>ty_table.
+    METHODS unclip IMPORTING io_ctx  TYPE REF TO zif_rak_journey
+                   CHANGING  cs_data TYPE zif_rak_journey=>ty_table.
 ENDCLASS.
 
 
@@ -29,7 +30,7 @@ CLASS ZCL_RAK_EC06_LOGIC IMPLEMENTATION.
 
 METHOD zif_rak_journey_logic~get_table.
   rs_data = io_ctx->get_backend_table( iv_name ).
-  unclip( CHANGING cs_data = rs_data ).
+  unclip( EXPORTING io_ctx = io_ctx CHANGING cs_data = rs_data ).
 ENDMETHOD.
 
 
@@ -37,55 +38,73 @@ METHOD unclip.
 *&---------------------------------------------------------------------*
 *& THE DESCRIPTION WAS BEING CUT AT 250 CHARACTERS, AND NOT BY CJS.
 *&
-*& The BAdI answers a table read into /QNV/SBUILD_UI_TABLE_CUST_TT, whose
-*& FIELDn components are fixed-width DDIC characters. It assigns a STRING
-*& into one of them - the whole complaint description - and ABAP truncates
-*& silently at the assignment. By the time the bridge reads the row the
-*& tail is gone, so nothing downstream can recover it: every CJS cell is
-*& already a STRING, and no column width, MAXLEN or renderer change makes
-*& any difference.
+*& The BAdI assigns a STRING into a FIELDn of
+*& /QNV/SBUILD_UI_TABLE_CUST_TT, whose components are fixed-width DDIC
+*& characters, and ABAP truncates silently at that assignment. By the time
+*& the bridge reads the row the tail is gone, so nothing downstream can
+*& recover it - every CJS cell is already a STRING, and no column width,
+*& MAXLEN or renderer change makes any difference. That structure is
+*& legacy and is not widened here.
 *&
-*& That structure is legacy and must not be widened. On the WebDynpro
-*& screen this never showed, because the old screen bound the detail
+*& On WebDynpro this never showed, because the old screen bound the detail
 *& record's own string field rather than reading the description out of
-*& the flattened table - the cap simply never applied to it.
+*& the flattened table. This does the same: ZCL_EGA_CJ_ECOMP_ABS parks the
+*& whole record in GS_DATA - the public static EC01 and EC05 already read
+*& CASEID from - and the untruncated text should still be in it.
 *&
-*& So the fix is to do what the old screen did. ZCL_EGA_CJ_ECOMP_ABS
-*& parks the full detail record in GS_DATA, the same public static EC01
-*& and EC05 already read CASEID from, and the untruncated description is
-*& still in there. This puts it back into the cell the bridge clipped.
+*& NO COLUMN NAME AND NO COLUMN INDEX. Cell order comes from LIST_SEQUENCE
+*& in /QNV/SB_UI_DEFIN, not from the CJS spec, so an index drifts when a
+*& column is added on the legacy side; and a table with no DEFAULT_VAL
+*& spec has no column names at all. A truncated cell is a PREFIX of what
+*& it was cut from, which is the one property that cannot drift.
 *&
-*& NO COLUMN NAME AND NO COLUMN INDEX. The obvious version of this reads
-*& cell 4, or the column called DESCRIPTION. Both are wrong here: the
-*& order of a backend table's cells comes from LIST_SEQUENCE in
-*& /QNV/SB_UI_DEFIN and not from the CJS spec, so a column added on the
-*& legacy side shifts every index after it, and a table with no
-*& DEFAULT_VAL spec has no column names at all - its columns are FIELD1..N.
+*& ---- TEMPORARY PROBE - REMOVE BEFORE THIS GOES ANYWHERE NEAR LIVE ----
 *&
-*& The test used instead needs neither: a cell that was truncated is a
-*& PREFIX of the value it was truncated from. So for each long cell, look
-*& for a field of GS_DATA whose text starts with that cell and is longer.
-*& That identifies the clipped column by what happened to it, which is
-*& the one property that cannot drift.
+*& The first attempt at this fix produced no visible change, and there are
+*& four candidates that look identical on screen: the class is not active,
+*& GS_DATA is empty when GET_TABLE( ) runs, GS_DATA holds the text but the
+*& prefix test misses, or GS_DATA is itself already truncated. Inference
+*& cannot separate those and has already cost a round, so the numbers that
+*& do are printed instead.
 *&
-*& It also fixes any other clipped column for free, which is the point -
-*& DESCRIPTION is simply the first one long enough to notice.
+*& It renders at the BOTTOM of the page, after the footer - strips are
+*& drawn from MT_MSG before the fields are, so anything added while a
+*& field renders missed that loop and the engine draws it separately at
+*& the end. Scroll down.
+*&
+*& How to read it:
+*&   no probe line at all  -> the class is not active. Verify by content,
+*&                            not by the Class Builder status.
+*&   comps=0               -> GS_DATA is empty at this point. The read
+*&                            populates it later, or not on this path.
+*&   best=249 (or 250)     -> GS_DATA is truncated too. The premise is
+*&                            wrong and the text must come from elsewhere.
+*&   best=<big> matched=0  -> the text is there and the prefix test missed.
 *&---------------------------------------------------------------------*
   FIELD-SYMBOLS <comp> TYPE any.
-  DATA lv_full TYPE string.
-  DATA lv_ix   TYPE i.
-  DATA lv_kind TYPE c LENGTH 1.
+  DATA lv_full  TYPE string.
+  DATA lv_ix    TYPE i.
+  DATA lv_kind  TYPE c LENGTH 1.
+  DATA lv_comps TYPE i.
+  DATA lv_best  TYPE i.
+  DATA lv_cells TYPE i.
+  DATA lv_max   TYPE i.
+  DATA lv_hit   TYPE i.
+
+  CLEAR: lv_comps, lv_best, lv_cells, lv_max, lv_hit.
 
   LOOP AT cs_data-rows ASSIGNING FIELD-SYMBOL(<row>).
     LOOP AT <row> ASSIGNING FIELD-SYMBOL(<cell>).
 
+      lv_cells = lv_cells + 1.
       DATA(lv_len) = strlen( <cell> ).
+      IF lv_len > lv_max.
+        lv_max = lv_len.
+      ENDIF.
+
 *     Only a cell sitting near the cap can be a truncated one. The cap is
-*     250; the bridge CONDENSEs the cell on the way in, so a clipped value
-*     arrives a few characters short of it - the 250-character original in
-*     the reported case measured 249 on screen. 240 is comfortably below
-*     any of that and comfortably above every other column on these two
-*     journeys, so a complaint id or a mobile number is never scanned.
+*     250 and the bridge CONDENSEs on the way in, so a clipped value
+*     arrives a few characters short of it.
       IF lv_len < 240.
         CONTINUE.
       ENDIF.
@@ -98,28 +117,37 @@ METHOD unclip.
         ENDIF.
         lv_ix = lv_ix + 1.
 
-*       Text only. GS_DATA carries dates, numbers and - depending on the
-*       release - inner tables, and CONV string( ) on a deep component is
-*       a dump, not a conversion.
+*       Text only. GS_DATA carries dates, numbers and possibly inner
+*       tables, and CONV string( ) on a deep component is a dump.
         DESCRIBE FIELD <comp> TYPE lv_kind.
         IF lv_kind <> 'C' AND lv_kind <> 'g'.
           CONTINUE.
         ENDIF.
 
+        lv_comps = lv_comps + 1.
 *       CONDENSE on this side too, because the bridge condensed the cell.
-*       Without it a description with two spaces anywhere in its first 240
-*       characters fails the prefix test and silently keeps its short form.
         lv_full = condense( CONV string( <comp> ) ).
+        IF strlen( lv_full ) > lv_best.
+          lv_best = strlen( lv_full ).
+        ENDIF.
 
         IF strlen( lv_full ) > lv_len
            AND substring( val = lv_full off = 0 len = lv_len ) = <cell>.
           <cell> = lv_full.
+          lv_hit = lv_hit + 1.
           EXIT.
         ENDIF.
       ENDDO.
 
     ENDLOOP.
   ENDLOOP.
+
+* ---- TEMPORARY PROBE - REMOVE WITH THE COMMENT BLOCK ABOVE ----
+  io_ctx->add_msg(
+    iv_type = 'Information'
+    iv_text = |UNCLIP probe · rows { lines( cs_data-rows ) } · cells { lv_cells }| &&
+              | · longest cell { lv_max } · GS_DATA text comps { lv_comps }| &&
+              | · longest GS_DATA text { lv_best } · replaced { lv_hit }| ).
 ENDMETHOD.
 
 
