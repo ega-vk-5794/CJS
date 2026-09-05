@@ -506,9 +506,17 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                            iv_device  = zif_rak_journey~get_param( 'device' ) ).
 
     IF lv_first = abap_true.
-      DATA(lv_resumed) = xsdbool(
-        zif_rak_journey~get_param( 'caseid' )  IS NOT INITIAL OR
-        zif_rak_journey~get_param( 'draftid' ) IS NOT INITIAL ).
+*     THE TEST IS THE KEY, NOT THE PARAMETER NAME. This used to ask whether
+*     &caseid= or &draftid= was on the URL, which is a question about the
+*     portal's spelling rather than about the journey. MV_CASE_GUID is
+*     filled from all three carriers just above, and BACKEND_CREATE( ) has
+*     not run yet at this point - so a value here means one thing only:
+*     the citizen was let back into a case that already exists.
+*
+*     It cannot drift when a parameter is renamed or a fourth is added,
+*     which the last round showed is a real risk: the landing page sends
+*     Intreno on the tile and the launch URL never carried it.
+      DATA(lv_resumed) = xsdbool( mv_case_guid IS NOT INITIAL ).
 *     Kept, because CASE_MODE( ) needs it on every later round trip and
 *     this block runs once.
       mv_resumed = lv_resumed.
@@ -1030,12 +1038,32 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     DATA lv_launch_case TYPE string.
 
+*   THREE CARRIERS, ONE KEY. The portal decides which parameter the key
+*   travels in and CJS does not get a say, so all three are read.
+*
+*   INTRENO is the one that was missing, and on Municipality it is the one
+*   that matters. ZCL_ZEGA_CJ_DPC_EXT->GETSCREENSET_GET_ENTITYSET receives
+*   Intreno as a filter and never appends it to the CJS launch URL - it
+*   sends &caseid= only - while CASESET_GET_ENTITYSET fills the two tile
+*   fields from different places: CASEID from SCMG_T_CASE_ATTR-EXT_KEY and
+*   INTRENO from VIBDCHARACT. On a journey whose key IS the INTRENO those
+*   are different values, and CJS was being handed the wrong one.
+*
+*   Order is deliberate. CASEID first, because every journey that works
+*   today arrives that way and nothing about it should change. DRAFTID
+*   next. INTRENO last, so it only ever fills a gap.
     IF mv_case_guid IS INITIAL.
       mv_case_guid = zif_rak_journey~get_param( 'caseid' ).
       IF mv_case_guid IS NOT INITIAL.
         lv_launch_case = mv_case_guid.
       ELSE.
         mv_case_guid = zif_rak_journey~get_param( 'draftid' ).
+        IF mv_case_guid IS INITIAL.
+          mv_case_guid = zif_rak_journey~get_param( 'intreno' ).
+          IF mv_case_guid IS NOT INITIAL.
+            lv_launch_case = mv_case_guid.
+          ENDIF.
+        ENDIF.
       ENDIF.
     ENDIF.
 *   Already resolved above, before RESOLVE_IDENTITY( ) - see there.
