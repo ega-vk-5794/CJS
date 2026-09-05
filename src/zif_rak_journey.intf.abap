@@ -46,6 +46,14 @@ INTERFACE zif_rak_journey
 *     to sap.m.Select instead; blank changes nothing, so no existing
 *     dropdown's type-ahead is affected until an author opts a field in.
       closed_list  TYPE abap_bool,
+*     Suppress the Browse (partner search) button on a SEARCH control.
+*     Opt-IN, exactly like CLOSED_LIST above and for the same reason:
+*     blank leaves the button exactly where it is, so no journey already
+*     in SIT changes behaviour until an author sets it. Testers asked for
+*     it gone on seven EPDA services where the citizen searches by a
+*     formatted Emirates ID and the browse dialog is not part of the
+*     service; other journeys rely on it and keep it.
+      no_browse    TYPE abap_bool,
       " An explicit control width for THIS field, overriding the per-type
       " default in ZCL_RAK_JOURNEY_UTIL=>CTRL_WIDTH( ). Blank falls through to
       " that CASE, so a journey authored before this was read renders

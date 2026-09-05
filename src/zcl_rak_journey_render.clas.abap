@@ -664,13 +664,39 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                         icon  = 'sap-icon://search'
                         class = 'sapUiSmallMarginBegin'
                         press = mo_e->mo_client->_event( |SEARCH_{ is_field-name }| ) ).
-        lo_box->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-browse iv_default = 'Browse' )
-                        icon  = 'sap-icon://value-help'
-                        class = 'sapUiTinyMarginBegin'
-                        press = mo_e->mo_client->_event( |BPOPEN_{ is_field-name }| ) ).
+*       THE BROWSE BUTTON IS NOW OPT-OUT, and the default is unchanged.
+*       Seven EPDA services asked for it gone: the citizen searches by a
+*       formatted Emirates ID and the partner-browse dialog is not part of
+*       those journeys. Others rely on it, so it stays unless a field says
+*       otherwise - a blank NO_BROWSE renders exactly what it renders now.
+        IF is_field-no_browse = abap_false.
+          lo_box->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-browse iv_default = 'Browse' )
+                          icon  = 'sap-icon://value-help'
+                          class = 'sapUiTinyMarginBegin'
+                          press = mo_e->mo_client->_event( |BPOPEN_{ is_field-name }| ) ).
+        ENDIF.
 
       WHEN 'UPLOAD'.
-        io_parent->title( text = zcl_rak_journey_util=>esc( is_field-label ) class = |{ mo_e->mo_css->cls( 'SECTION' ) } rakBlkTitle| ).
+*       AN UPLOAD BLOCK COULD NOT SHOW A REQUIRED MARKER AT ALL. It draws
+*       a sap.m.Title, and Title has no REQUIRED property - so nine
+*       journeys reported "put * for mandatory attachment" against a
+*       control with nowhere to put one. RENDER_ATTACH( ), twenty lines
+*       up, has had it all along, because a field-level attachment is
+*       drawn with a sap.m.Label.
+*
+*       The marker is a separate span UI5 appends for REQUIRED, so an
+*       empty label beside the title renders the asterisk and nothing
+*       else. The title keeps its own styling and a NOT-required upload
+*       draws precisely what it drew before - the whole branch is
+*       untouched on that path.
+        DATA(lv_upreq) = mo_e->mo_rules->is_required( is_field ).
+        IF lv_upreq = abap_false.
+          io_parent->title( text = zcl_rak_journey_util=>esc( is_field-label ) class = |{ mo_e->mo_css->cls( 'SECTION' ) } rakBlkTitle| ).
+        ELSE.
+          DATA(lo_uph) = io_parent->hbox( alignitems = 'Center' ).
+          lo_uph->title( text = zcl_rak_journey_util=>esc( is_field-label ) class = |{ mo_e->mo_css->cls( 'SECTION' ) } rakBlkTitle| ).
+          lo_uph->label( text = `` required = abap_true class = 'sapUiFormLabelNoColon' ).
+        ENDIF.
         DATA(lo_ub) = io_parent->vbox( class = 'rakSearch' ).
         render_chips( io_box = lo_ub iv_field = is_field-name ).
         render_uploader( io_box   = lo_ub

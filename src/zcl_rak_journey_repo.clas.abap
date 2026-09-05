@@ -161,6 +161,7 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
           hidden       = bool( ls_f-hidden )
           readonly     = bool( ls_f-readonly )
           closed_list  = bool( ls_f-closed_list )
+          no_browse    = bool( ls_f-no_browse )
 *         ZRAK_T_JNY_FLD-WIDTH, which the Studio has always stored and
 *         nothing has ever read. Named CTRL_WIDTH on TY_FIELD after the
 *         method that consumes it, and to keep it apart from the CELL
