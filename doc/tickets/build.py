@@ -546,29 +546,49 @@ if Workbook:
             "solid", fgColor=RISKF.get(risk.split(" ")[0], "FFFFFF"))
         r += 1
 
-    # ---- sheet 4: the handler code, for developers with no git
+    # ---- sheet 4: the handler code, printed one line per row so nothing is
+    #      clipped, hidden in a wide wrapped cell, or off the side of the screen
     ws4 = wb.create_sheet("Handler code")
+    ws4.column_dimensions["A"].width = 118
     ws4["A1"] = "Handler class fixes - the code, to retype in SE24"
     ws4["A1"].font = Font(bold=True, size=13, name="Calibri")
-    ws4["A2"] = ("These are the journey's OWN class, not the framework. Read it, take it or write "
-                 "your own - it is your service. Where a whole method is given, it is the complete "
-                 "current method: replace the method body with it. Nothing here is pushed for you.")
+    ws4["A2"] = ("The journey's OWN class, not the framework. Read it, take it, or write your own - "
+                 "it is your service. Where a whole method is given it is the complete current "
+                 "method: replace the method body with it. Nothing here is pushed for anyone.")
     ws4["A2"].font = Font(size=10, italic=True, color="5A6A6C", name="Calibri")
-    ws4["A2"].alignment = WRAP
-    head(ws4, 4, [("Journey",9),("Ticket",13),("Class",34),("Method / where",34),
-                  ("What it fixes",44),("Code",120)])
-    ws4.freeze_panes = "A5"
-    r = 5
+    BAR  = PatternFill("solid", fgColor="0B3B39")
+    SUBF = PatternFill("solid", fgColor="E8EEED")
+    r = 4
+    for j, tk, cls, what, kind, ref in R.HANDLER_CODE:
+        code  = method_source(cls, ref) if kind == "method" else ref
+        where = ("METHOD " + ref.upper()) if kind == "method" else "see the code below"
+        c = ws4.cell(row=r, column=1, value="%s  ·  %s  ·  %s" % (j, tk, cls))
+        c.fill, c.font = BAR, Font(color="FFFFFF", bold=True, size=11, name="Calibri")
+        ws4.row_dimensions[r].height = 20
+        r += 1
+        c = ws4.cell(row=r, column=1, value=where + "   |   " + what)
+        c.fill, c.font, c.alignment = SUBF, Font(size=10, italic=True, name="Calibri"), WRAP
+        ws4.row_dimensions[r].height = 30
+        r += 1
+        for ln in code.split("\n"):
+            cell = ws4.cell(row=r, column=1, value=ln if ln.strip() else None)
+            cell.font = MONO
+            cell.alignment = Alignment(vertical="top")
+            r += 1
+        r += 1
+    ws4.sheet_view.showGridLines = False
+
+    code_dir = os.path.join(HERE, "handler_code")
+    if not os.path.exists(code_dir):
+        os.makedirs(code_dir)
     for j, tk, cls, what, kind, ref in R.HANDLER_CODE:
         code = method_source(cls, ref) if kind == "method" else ref
-        where = ("METHOD " + ref.upper()) if kind == "method" else "see the code"
-        for i, v in enumerate([j, tk, cls, where, what, code], 1):
-            cell = ws4.cell(row=r, column=i, value=v)
-            cell.font = MONO if i in (3, 4, 6) else BODY
-            cell.alignment = WRAP if i in (5, 6) else TOP
-            cell.border = THIN
-        ws4.row_dimensions[r].height = 150
-        r += 1
+        nm = "%s_%s.abap" % (j.split(" ")[0], (ref if kind == "method" else "snippet")
+                             .replace("~", "-").replace(" ", "_"))
+        with open(os.path.join(code_dir, nm), "w") as fh:
+            fh.write("* %s  %s  %s\n* %s\n*\n* Retype this in SE24. It is your journey's own class,\n"
+                     "* not the framework - nothing is pushed for you.\n\n" % (j, tk, cls, what))
+            fh.write(code + "\n")
 
     wb.save(os.path.join(HERE, "CJS_journey_ownership.xlsx"))
     print("CJS_journey_ownership.xlsx written")
