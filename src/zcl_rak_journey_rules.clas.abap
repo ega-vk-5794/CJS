@@ -172,6 +172,26 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
 
 
   METHOD is_readonly.
+*   THE CASE MODE OUTRANKS EVERYTHING BELOW, INCLUDING A HANDLER. Every
+*   other rule in this method is somebody's preference about how a field
+*   should behave; this one is about whether the application may be
+*   changed at all, and a handler is not entitled to reopen a paid case.
+*   It is the one override in the engine that sits above MT_OVR.
+*
+*   PAY_ONLY leaves the payment step alone, because paying is the entire
+*   reason the citizen was let back in. Everything behind it is readable
+*   and frozen.
+    DATA(lv_mode) = mo_e->case_mode( ).
+    IF lv_mode = mo_e->c_mode_view OR lv_mode = mo_e->c_mode_done.
+      rv = abap_true.
+      RETURN.
+    ENDIF.
+    IF lv_mode = mo_e->c_mode_pay
+       AND mo_e->step_of( is_field-name ) <> mo_e->pay_step( ).
+      rv = abap_true.
+      RETURN.
+    ENDIF.
+
 *   EDITABLE wins over the configured flag, READONLY wins over everything. That
 *   ordering is what lets a field be authored locked and released by a rule, as
 *   well as the other way round. A handler outranks all three.

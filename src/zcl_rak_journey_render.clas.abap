@@ -475,7 +475,13 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
     DATA(lv_count) = render_chips( io_box = lo_box iv_field = is_field-name ).
 
-    IF is_field-attach_multi = abap_true OR lv_count = 0.
+*   A FROZEN CASE TAKES NO MORE FILES. Making the field readonly is not
+*   enough on its own: whether the uploader is drawn is decided here, from
+*   ATTACH_MULTI and the chip count, and neither of those knows the case
+*   has been paid for. Without this the citizen can still attach to - and
+*   delete from - an application they can no longer edit.
+    IF ( is_field-attach_multi = abap_true OR lv_count = 0 )
+       AND mo_e->case_mode( ) = mo_e->c_mode_edit.
       render_uploader( io_box   = lo_box
                        iv_field = is_field-name
                        iv_types = is_field-attach_types
@@ -699,10 +705,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         ENDIF.
         DATA(lo_ub) = io_parent->vbox( class = 'rakSearch' ).
         render_chips( io_box = lo_ub iv_field = is_field-name ).
-        render_uploader( io_box   = lo_ub
-                         iv_field = is_field-name
-                         iv_types = is_field-attach_types
-                         iv_maxmb = is_field-attach_maxmb ).
+*       Same reason as RENDER_ATTACH( ) - see the note there. The chips
+*       stay: the citizen should still see what is filed against the case.
+        IF mo_e->case_mode( ) = mo_e->c_mode_edit.
+          render_uploader( io_box   = lo_ub
+                           iv_field = is_field-name
+                           iv_types = is_field-attach_types
+                           iv_maxmb = is_field-attach_maxmb ).
+        ENDIF.
 
       WHEN 'CAPTCHA'.
         render_captcha( io_parent = io_parent is_field = is_field ).

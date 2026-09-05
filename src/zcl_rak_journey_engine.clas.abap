@@ -321,6 +321,53 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   which reads as the control rejecting a correct answer.
     DATA mv_cap_ok    TYPE abap_bool.
 
+*   ---- CASE EDIT MODE --------------------------------------------------
+*   WAS THE CITIZEN LET BACK IN, AND TO DO WHAT. Navigation and editing are
+*   two questions and the old NAV_LOCKED( ) answered only one of them: it
+*   refused Back, the stepper and GOTO the moment PAYFEE read PAID.
+*
+*   That guarded nothing. A case that exists can be reopened from the
+*   landing page, and the load path runs BACKEND_READ( 0 ) and rehydrates
+*   it completely - values, grids, and attachments into MT_BE_ATTACH. So
+*   "go back into an existing case" was always reachable by leaving and
+*   returning; the lock stopped the button, not the behaviour.
+*
+*   What actually needs protecting is not looking, it is CHANGING - a paid
+*   application must not be amended quietly, and on a journey whose fee is
+*   computed from the data (school fees by stage, by distance) an amendment
+*   after payment means the amount paid no longer matches the amount due.
+*
+*   So the mode says what may be edited and navigation is left alone:
+*
+*     EDIT      everything, as today
+*     PAY_ONLY  the citizen came back to an unpaid case: they may pay and
+*               read, and nothing else. This is the open-item case - the
+*               application was filed, the fee was raised, and the return
+*               trip exists to settle it.
+*     VIEW      paid. Read the whole thing, change none of it.
+*     DONE      submitted or closed. Navigation stops too - there is no
+*               earlier step to go back to in a finished case.
+*
+*   A journey with no PAYFEE control is always EDIT, so nothing without a
+*   payment step behaves differently from the day before this existed.
+    CONSTANTS c_mode_edit TYPE string VALUE 'EDIT'.
+    CONSTANTS c_mode_pay  TYPE string VALUE 'PAY_ONLY'.
+    CONSTANTS c_mode_view TYPE string VALUE 'VIEW'.
+    CONSTANTS c_mode_done TYPE string VALUE 'DONE'.
+
+*   Launched on an existing case rather than started fresh - &caseid= or
+*   &draftid= on the URL. Kept on the instance because MAIN( ) only works
+*   it out on the first round trip.
+    DATA mv_resumed TYPE abap_bool.
+
+    METHODS case_mode RETURNING VALUE(rv) TYPE string.
+*   Index of the step carrying the PAYFEE control, -1 when the journey has
+*   none. Matched on FTYPE, not on the field being called PAYFEE.
+    METHODS pay_step  RETURNING VALUE(rv) TYPE i.
+*   Index of the step carrying IV_FIELD, -1 when nothing does.
+    METHODS step_of   IMPORTING iv_field  TYPE string
+                      RETURNING VALUE(rv) TYPE i.
+
 *   A fresh challenge. First render, the refresh button, and after every
 *   WRONG answer - a challenge that survives a failed attempt can be
 *   brute-forced one guess per round trip against a target that never moves.
@@ -462,6 +509,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       DATA(lv_resumed) = xsdbool(
         zif_rak_journey~get_param( 'caseid' )  IS NOT INITIAL OR
         zif_rak_journey~get_param( 'draftid' ) IS NOT INITIAL ).
+*     Kept, because CASE_MODE( ) needs it on every later round trip and
+*     this block runs once.
+      mv_resumed = lv_resumed.
 
       zcl_rak_cj_evt=>add(
         iv_type   = COND #( WHEN lv_resumed = abap_true
@@ -665,7 +715,8 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       set_field_state( iv_name = mv_pop_field iv_state = 'None' iv_text = '' ).
       CLEAR: mv_popup, mt_bp_hits.
 
-    ELSEIF strlen( lv_event ) > 8 AND substring( val = lv_event len = 8 ) = 'ATTSAVE_'.
+    ELSEIF strlen( lv_event ) > 8 AND substring( val = lv_event len = 8 ) = 'ATTSAVE_'
+           AND case_mode( ) = c_mode_edit.
       DATA(lv_att_raw) = substring( val = lv_event off = 8 ).
       DATA lv_att_field TYPE string.
       DATA lv_att_key   TYPE string.
@@ -750,7 +801,13 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         ENDIF.
       ENDIF.
 
-    ELSEIF strlen( lv_event ) > 7 AND substring( val = lv_event len = 7 ) = 'ATTDEL_'.
+    ELSEIF strlen( lv_event ) > 7 AND substring( val = lv_event len = 7 ) = 'ATTDEL_'
+           AND case_mode( ) = c_mode_edit.
+*     A HIDDEN BUTTON IS NOT AN UNREACHABLE EVENT, which this codebase has
+*     already paid to learn once - it is why HANDLE_SAVE( ) refuses an OFF
+*     draft mode rather than trusting the renderer to hide the button. The
+*     uploader and the delete chips are not drawn on a frozen case, and the
+*     events they would have raised are refused here as well.
       DATA(lv_del) = substring( val = lv_event off = 7 ).
       IF lv_del CO '0123456789'.
         DATA(lv_del_ix) = CONV i( lv_del ).
@@ -823,6 +880,26 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
             nav_locked_msg( ).
           ELSEIF mv_step > 0.
             mv_step = mv_step - 1.
+*           RE-READ, the way ADVANCE_STEP( ) does. Going back used to move
+*           the index and nothing else, so the citizen saw the last state
+*           the MODEL held rather than what the backend now holds - and a
+*           post can transform values, apply defaults and change field
+*           control on the way through. Forward refreshed, back did not,
+*           and the two disagreeing was invisible because paid journeys
+*           could not go back at all.
+*
+*           An editable grid that already holds rows is not re-seeded by
+*           this - BACKEND_READ( ) is careful about that - so a citizen's
+*           own rows survive the trip.
+            IF mo_bridge IS BOUND.
+              mo_be->backend_read( mv_step ).
+              IF mo_logic IS BOUND.
+                TRY.
+                    mo_logic->on_after_read( me ).
+                  CATCH cx_root.
+                ENDTRY.
+              ENDIF.
+            ENDIF.
             zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-back
                                  iv_step_no = mv_step
                                  iv_case    = mv_case_guid ).
@@ -1111,6 +1188,17 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       DATA(lv_si) = CONV i( lv_sp ).
       IF lv_si > 0 AND lv_si < lines( ms_config-steps ).
         mv_step = lv_si.
+      ENDIF.
+
+*   LAND WHERE THERE IS SOMETHING TO DO. Reopening an unpaid case put the
+*   citizen back on step 0, walking forward through steps that are already
+*   filled and re-posting each one on the way to the fee they came to pay.
+*   An explicit &step= still wins - it is a deliberate instruction from
+*   whoever built the link.
+    ELSEIF case_mode( ) = c_mode_pay.
+      DATA(lv_pst) = pay_step( ).
+      IF lv_pst > 0.
+        mv_step = lv_pst.
       ENDIF.
     ENDIF.
   ENDMETHOD.
@@ -2181,22 +2269,86 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD nav_locked.
-    IF mv_submitted = abap_true OR mv_closed = abap_true.
-      rv = abap_true.
-      RETURN.
-    ENDIF.
+*   NAVIGATION ONLY, and only for a case that is finished. Paid used to
+*   stop Back here as well; it now stops EDITING instead - see CASE_MODE( )
+*   in the declarations for why the old answer protected nothing.
+    rv = xsdbool( case_mode( ) = c_mode_done ).
+  ENDMETHOD.
 
+
+  METHOD pay_step.
+    rv = -1.
+    DATA lv_ix TYPE i.
+    lv_ix = 0.
     LOOP AT ms_config-steps INTO DATA(ls_ns).
       LOOP AT ls_ns-fields INTO DATA(ls_nf).
-*       TO_UPPER, the way PAY_FIELD( ) tests it. FTYPE is free text on
-*       ZRAK_T_JNY_FLD and a WHERE clause cannot fold the case.
-        CHECK to_upper( ls_nf-type ) = 'PAYFEE'.
-        IF val_get( ls_nf-name ) = 'PAID'.
-          rv = abap_true.
+*       TO_UPPER: FTYPE is free text on ZRAK_T_JNY_FLD and a WHERE clause
+*       cannot fold the case.
+        IF to_upper( ls_nf-type ) = 'PAYFEE'.
+          rv = lv_ix.
           RETURN.
         ENDIF.
       ENDLOOP.
+      lv_ix = lv_ix + 1.
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD step_of.
+    rv = -1.
+    DATA lv_ix TYPE i.
+    DATA(lv_n) = to_upper( iv_field ).
+    lv_ix = 0.
+    LOOP AT ms_config-steps INTO DATA(ls_ss).
+      LOOP AT ls_ss-fields INTO DATA(ls_sf).
+        IF to_upper( ls_sf-name ) = lv_n.
+          rv = lv_ix.
+          RETURN.
+        ENDIF.
+      ENDLOOP.
+      lv_ix = lv_ix + 1.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD case_mode.
+    rv = c_mode_edit.
+
+    IF mv_submitted = abap_true OR mv_closed = abap_true.
+      rv = c_mode_done.
+      RETURN.
+    ENDIF.
+
+*   No fee, no lock of any kind. A journey without a PAYFEE control is
+*   exactly as editable as it was before this method existed.
+    DATA(lv_ps) = pay_step( ).
+    IF lv_ps < 0.
+      RETURN.
+    ENDIF.
+
+    READ TABLE ms_config-steps INTO DATA(ls_ps) INDEX lv_ps + 1.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    LOOP AT ls_ps-fields INTO DATA(ls_pf).
+      CHECK to_upper( ls_pf-type ) = 'PAYFEE'.
+      IF val_get( ls_pf-name ) = 'PAID'.
+        rv = c_mode_view.
+        RETURN.
+      ENDIF.
+      EXIT.
+    ENDLOOP.
+
+*   Unpaid AND reopened: the application was filed, a fee was raised, and
+*   the citizen has come back to settle it. Reading is fine; amending is
+*   not, because the amount raised was computed from what is on the screen.
+*
+*   Not applied to a journey being filled in for the first time - a case
+*   guid exists almost immediately there, because BACKEND_CREATE( ) runs on
+*   load, so "a case exists" would have locked the entire first pass.
+    IF mv_resumed = abap_true.
+      rv = c_mode_pay.
+    ENDIF.
   ENDMETHOD.
 
 
