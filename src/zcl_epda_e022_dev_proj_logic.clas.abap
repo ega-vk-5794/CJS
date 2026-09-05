@@ -60,6 +60,10 @@ private section.
 *    CONSTANTS c_partner_mobile TYPE string VALUE 'PARTNER_MOBILE_1' ##NO_TEXT.
 *    CONSTANTS c_partner_email TYPE string VALUE 'PARTNER_EMAIL_1' ##NO_TEXT.
   constants C_LOGIN_BP type STRING value 'OWNER_BP' ##NO_TEXT.
+  " Every other journey posts the applicant's own partner under LOGIN_BP;
+  " this one only ever wrote OWNER_BP, so the record model and the backend
+  " application had no applicant BP.
+  constants C_APP_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
   constants C_ROLE type STRING value 'APPLICANT_ROLE' ##NO_TEXT.
   constants C_PERMIT type STRING value 'PERMIT_HELD' ##NO_TEXT.
 
@@ -266,6 +270,7 @@ CLASS ZCL_EPDA_E022_DEV_PROJ_LOGIC IMPLEMENTATION.
           es_bp_details = DATA(ls_bp) ).
 
       io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+      io_ctx->set_val( iv_name = c_app_bp   iv_value = |{ lv_loginbp }| ).
 
 *     WRITTEN ONCE. C_PARTNER_NAME is 'APP_NAME' and C_PARTNER_ID is
 *     'APP_ID', and both were then written a SECOND time below this IF, under

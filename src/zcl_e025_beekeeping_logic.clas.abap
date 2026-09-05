@@ -21,7 +21,12 @@ private section.
   constants C_MIN_SEARCH_LEN type I value 3 ##NO_TEXT.
   constants C_DEFAULT_IDTYPE type STRING value 'YFS002' ##NO_TEXT.
   constants C_OWNER_BP type STRING value 'OWNER_BP' ##NO_TEXT.
-  constants C_LOGIN_BP type STRING value 'OWNER_BP' ##NO_TEXT.
+  " The applicant's own partner goes to LOGIN_BP, the same field every other
+  " journey uses. It used to say 'OWNER_BP', which is the OWNER SEARCH INPUT on
+  " this journey (see ON_SEARCH) - so ON_INIT filled the search box with the
+  " applicant's partner number, the line further down blanked it again, and the
+  " applicant BP reached neither the model nor the backend.  CJSMIG-703.
+  constants C_LOGIN_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
   constants C_PARTNER_NAME type STRING value 'APP_NAME' ##NO_TEXT.
   constants C_PARTNER_ID type STRING value 'APP_ID' ##NO_TEXT.
   constants C_APPLICANTTYPE type STRING value 'APP_TYPE' ##NO_TEXT.
@@ -190,7 +195,8 @@ CLASS ZCL_E025_BEEKEEPING_LOGIC IMPLEMENTATION.
 
       io_ctx->set_val( iv_name = c_applicanttype iv_value = |{ lv_role }| ).
 
-      io_ctx->set_val( iv_name = 'OWNER_BP' iv_value = ' ' ).
+      " leave the owner search box empty - it is the citizen's to fill in
+      io_ctx->set_val( iv_name = c_owner_bp iv_value = ' ' ).
 
     ENDIF.
   ENDMETHOD.
