@@ -276,7 +276,7 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
         text = 'The backend did not return a draft reference. The application cannot be started.' ) ).
       RETURN.
     ENDIF.
-    mo_e->mv_case_guid = lv_guid.
+    mo_e->mv_intreno = lv_guid.
   ENDMETHOD.
 
 
@@ -390,13 +390,13 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
       RETURN.
     ENDIF.
     DATA(lt_ri) = post_items( iv_step ).
-    mo_e->trace( |READ    screen { ls_step-bknd_screen } · guid { mo_e->mv_case_guid } · { lines( lt_ri ) } fields asked| ).
+    mo_e->trace( |READ    screen { ls_step-bknd_screen } · guid { mo_e->mv_intreno } · { lines( lt_ri ) } fields asked| ).
 
     DATA(lv_rt0) = mo_e->tick( ).
     mo_e->mo_bridge->read(
       EXPORTING
         iv_screen      = ls_step-bknd_screen
-        iv_guid        = mo_e->mv_case_guid
+        iv_guid        = mo_e->mv_intreno
         it_items       = lt_ri
 *       PARAM3. ZIF_EGA_FW_CJI~READ takes no LOGINBP - unlike CREATE and UPDATE,
 *       which both do - so the header is the only channel a read has for identity,
@@ -462,8 +462,8 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
 *              which is what PAY_ENGINE( ) and PREPARE_PAYMENT( ) read, and why a
 *              journey resumed on a case could not pay. Idempotent, so a step read
 *              that returns the same case every time costs one compare.
-    IF lv_rguid IS NOT INITIAL AND mo_e->mv_case_guid IS INITIAL.
-      mo_e->mv_case_guid = lv_rguid.
+    IF lv_rguid IS NOT INITIAL AND mo_e->mv_intreno IS INITIAL.
+      mo_e->mv_intreno = lv_rguid.
       mo_e->trace( |READ    backend supplied journey key { lv_rguid }| ).
     ENDIF.
     IF lv_rcase IS NOT INITIAL.
@@ -475,12 +475,12 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
 *   like a citizen who has not typed anything yet. On a RESUMED application it
 *   means the draft was not found or the read BAdI is not registered.
     IF lt_val IS INITIAL AND lt_ri IS NOT INITIAL AND lt_m IS INITIAL
-       AND mo_e->mv_case_guid IS NOT INITIAL.
+       AND mo_e->mv_intreno IS NOT INITIAL.
       mo_e->trace_gate( |READ on screen { ls_step-bknd_screen } asked for | &&
                         |{ lines( lt_ri ) } field(s), got nothing back and reported | &&
                         |no error. Either the read BAdI is not registered for BE | &&
                         |journey { mo_e->ms_config-backend-journey }, or guid | &&
-                        |{ mo_e->mv_case_guid } does not exist on the backend.| ).
+                        |{ mo_e->mv_intreno } does not exist on the backend.| ).
     ENDIF.
 
 *   Merged rather than replaced. Attachments are case-level but a read is
@@ -572,7 +572,7 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
       mo_e->mo_bridge->read_table(
         EXPORTING
           iv_screen = ls_step-bknd_screen
-          iv_guid   = mo_e->mv_case_guid
+          iv_guid   = mo_e->mv_intreno
           iv_field  = ls_f-name
 *         The type, so the bridge can send FEESLIST for a fee control instead of
 *         the field name. Fees are the one table on this loop whose backend name

@@ -73,7 +73,29 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   never required - see the FBSKIP branch.
     DATA mv_fb_skip    TYPE abap_bool.
     DATA mv_fb_rating  TYPE string.
-    DATA mv_case_guid TYPE string.
+*   THE JOURNEY KEY, AND IT IS NEVER A GUID. This was called MV_CASE_GUID
+*   and the name was wrong twice over.
+*
+*   Not a case: the case number the backend returns is MV_CASE_NUMBER, kept
+*   apart on purpose by TAKE_CASE( ), because the BAdI used to write the
+*   case id over the INTRENO_JOURNEY item and that made the key move
+*   mid-journey.
+*
+*   Not a guid: ZCL_RAK_QNV_BRIDGE sends this as PARAM1, and the read FM
+*   treats PARAM1 as one of three things - a real estate INTRENO, a draft
+*   id, or a case id. A GUID_22 is none of those three; it exists only as
+*   the INDX(CJ) buffer id before the first key and is abandoned the moment
+*   one appears.
+*
+*   INTRENO is the name that covers all three real shapes, which is why the
+*   bridge already calls the item it travels in INTRENO_JOURNEY. Whichever
+*   parameter the portal spells it with - caseid, draftid - it lands here
+*   and goes out as the INTRENO, so the parameter name never mattered and
+*   reading a third one was solving nothing.
+*
+*   GET_CASE( ) on ZIF_RAK_JOURNEY keeps its name: 71 handlers in git call
+*   it and others exist only in SAP.
+    DATA mv_intreno TYPE string.
     DATA mv_case_number TYPE string.
     DATA ms_handle    TYPE zif_rak_journey_backend=>ty_handle.
     DATA mt_msg       TYPE zif_rak_journey=>tt_msg.
@@ -506,17 +528,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                            iv_device  = zif_rak_journey~get_param( 'device' ) ).
 
     IF lv_first = abap_true.
-*     THE TEST IS THE KEY, NOT THE PARAMETER NAME. This used to ask whether
-*     &caseid= or &draftid= was on the URL, which is a question about the
-*     portal's spelling rather than about the journey. MV_CASE_GUID is
-*     filled from all three carriers just above, and BACKEND_CREATE( ) has
-*     not run yet at this point - so a value here means one thing only:
-*     the citizen was let back into a case that already exists.
-*
-*     It cannot drift when a parameter is renamed or a fourth is added,
-*     which the last round showed is a real risk: the landing page sends
-*     Intreno on the tile and the launch URL never carried it.
-      DATA(lv_resumed) = xsdbool( mv_case_guid IS NOT INITIAL ).
+      DATA(lv_resumed) = xsdbool(
+        zif_rak_journey~get_param( 'caseid' )  IS NOT INITIAL OR
+        zif_rak_journey~get_param( 'draftid' ) IS NOT INITIAL ).
 *     Kept, because CASE_MODE( ) needs it on every later round trip and
 *     this block runs once.
       mv_resumed = lv_resumed.
@@ -525,7 +539,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         iv_type   = COND #( WHEN lv_resumed = abap_true
                             THEN zcl_rak_cj_evt=>c_type-resume
                             ELSE zcl_rak_cj_evt=>c_type-launch )
-        iv_case   = mv_case_guid
+        iv_case   = mv_intreno
         iv_bp     = mv_loginbp
         iv_detail = |{ ms_config-backend-category }| ).
     ENDIF.
@@ -867,7 +881,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
           handle_next( ).
           zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-next
                                iv_step_no = mv_step
-                               iv_case    = mv_case_guid
+                               iv_case    = mv_intreno
                                iv_result  = COND string( WHEN mv_step > lv_from THEN 'OK' ELSE 'BLOCK' )
                                iv_detail  = |{ lv_from }>{ mv_step }| ).
 *         ONE CHALLENGE, ONE LOOKUP. A captcha that is answered once and
@@ -910,19 +924,19 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
             ENDIF.
             zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-back
                                  iv_step_no = mv_step
-                                 iv_case    = mv_case_guid ).
+                                 iv_case    = mv_intreno ).
           ENDIF.
         WHEN 'SUBMIT'.
           handle_submit( ).
           zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-submit
                                iv_step_no = mv_step
-                               iv_case    = mv_case_guid
+                               iv_case    = mv_intreno
                                iv_bp      = mv_loginbp ).
         WHEN 'SAVE'.
           handle_save( ).
           zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-save
                                iv_step_no = mv_step
-                               iv_case    = mv_case_guid ).
+                               iv_case    = mv_intreno ).
 *       The refresh arrow under the challenge. A citizen who cannot read
 *       this one gets another; the button is the accessibility floor of an
 *       image control, not a convenience.
@@ -946,7 +960,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
           handle_delete( ).
           zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-delete
                                iv_step_no = mv_step
-                               iv_case    = mv_case_guid ).
+                               iv_case    = mv_intreno ).
         WHEN 'POPCLOSE'. CLEAR: mv_popup, mt_bp_hits, mv_pcl_det.
         WHEN 'BPGO'.     bp_search( ).
       ENDCASE.
@@ -970,10 +984,10 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     zcl_rak_cj_evt=>add_view( iv_step_id = ``
                               iv_step_no = mv_step ).
 
-    IF mv_case_guid IS NOT INITIAL.
+    IF mv_intreno IS NOT INITIAL.
       zcl_rak_cj_evt=>add_once( iv_type    = zcl_rak_cj_evt=>c_type-case_new
-                                iv_key     = mv_case_guid
-                                iv_case    = mv_case_guid
+                                iv_key     = mv_intreno
+                                iv_case    = mv_intreno
                                 iv_step_no = mv_step ).
     ENDIF.
 
@@ -1038,32 +1052,12 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     DATA lv_launch_case TYPE string.
 
-*   THREE CARRIERS, ONE KEY. The portal decides which parameter the key
-*   travels in and CJS does not get a say, so all three are read.
-*
-*   INTRENO is the one that was missing, and on Municipality it is the one
-*   that matters. ZCL_ZEGA_CJ_DPC_EXT->GETSCREENSET_GET_ENTITYSET receives
-*   Intreno as a filter and never appends it to the CJS launch URL - it
-*   sends &caseid= only - while CASESET_GET_ENTITYSET fills the two tile
-*   fields from different places: CASEID from SCMG_T_CASE_ATTR-EXT_KEY and
-*   INTRENO from VIBDCHARACT. On a journey whose key IS the INTRENO those
-*   are different values, and CJS was being handed the wrong one.
-*
-*   Order is deliberate. CASEID first, because every journey that works
-*   today arrives that way and nothing about it should change. DRAFTID
-*   next. INTRENO last, so it only ever fills a gap.
-    IF mv_case_guid IS INITIAL.
-      mv_case_guid = zif_rak_journey~get_param( 'caseid' ).
-      IF mv_case_guid IS NOT INITIAL.
-        lv_launch_case = mv_case_guid.
+    IF mv_intreno IS INITIAL.
+      mv_intreno = zif_rak_journey~get_param( 'caseid' ).
+      IF mv_intreno IS NOT INITIAL.
+        lv_launch_case = mv_intreno.
       ELSE.
-        mv_case_guid = zif_rak_journey~get_param( 'draftid' ).
-        IF mv_case_guid IS INITIAL.
-          mv_case_guid = zif_rak_journey~get_param( 'intreno' ).
-          IF mv_case_guid IS NOT INITIAL.
-            lv_launch_case = mv_case_guid.
-          ENDIF.
-        ENDIF.
+        mv_intreno = zif_rak_journey~get_param( 'draftid' ).
       ENDIF.
     ENDIF.
 *   Already resolved above, before RESOLVE_IDENTITY( ) - see there.
@@ -1084,7 +1078,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ELSE.
         trace( 'path = NONE. No backend call will be made on any event. BKND_ACTIVE is blank.' ).
       ENDIF.
-      trace( |case/draft on entry = { COND string( WHEN mv_case_guid IS NOT INITIAL THEN mv_case_guid ELSE '(new application)' ) }| ).
+      trace( |case/draft on entry = { COND string( WHEN mv_intreno IS NOT INITIAL THEN mv_intreno ELSE '(new application)' ) }| ).
     ENDIF.
 
 
@@ -1169,7 +1163,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDTRY.
     ENDIF.
 
-    IF mv_case_guid IS NOT INITIAL AND mo_bridge IS BOUND.
+    IF mv_intreno IS NOT INITIAL AND mo_bridge IS BOUND.
       mo_be->backend_read( 0 ).
       IF mo_logic IS BOUND.
         TRY.
@@ -1178,9 +1172,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         ENDTRY.
       ENDIF.
 
-    ELSEIF mv_case_guid IS INITIAL AND mo_bridge IS BOUND.
+    ELSEIF mv_intreno IS INITIAL AND mo_bridge IS BOUND.
       mo_be->backend_create( ).
-      IF mv_case_guid IS NOT INITIAL.
+      IF mv_intreno IS NOT INITIAL.
         mo_be->backend_read( 0 ).
         IF mo_logic IS BOUND.
           TRY.
@@ -1190,12 +1184,12 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         ENDIF.
       ENDIF.
 
-    ELSEIF mv_case_guid IS NOT INITIAL AND mo_backend IS BOUND.
+    ELSEIF mv_intreno IS NOT INITIAL AND mo_backend IS BOUND.
       DATA(ls_rh) = ms_handle.
       DATA lt_rr TYPE bapiret2_t.
       mo_backend->resume(
         EXPORTING
-          iv_request_id = mv_case_guid
+          iv_request_id = mv_intreno
         IMPORTING
           et_return     = lt_rr
         CHANGING
@@ -1723,7 +1717,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       IF line_exists( lt_sub[ type = 'E' ] ).
         RETURN.
       ENDIF.
-      mv_case_guid = ms_handle-request_id.
+      mv_intreno = ms_handle-request_id.
       mv_submitted = abap_true.
       drop_attachments( ).
     ELSEIF mo_bridge IS BOUND.
@@ -1732,12 +1726,12 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         EXPORTING
           iv_screen      = ls_step-bknd_screen
           iv_status      = 'SUBMIT'
-          iv_guid        = mv_case_guid
+          iv_guid        = mv_intreno
           it_items       = mo_be->post_items( )
           it_tables      = mo_be->tables_for_backend( )
           it_attachments = mo_be->attachments_for_backend( )
         IMPORTING
-          ev_guid        = mv_case_guid
+          ev_guid        = mv_intreno
           ev_case        = DATA(lv_case_sub)
           et_msg         = DATA(lt_ret) ).
       take_case( lv_case_sub ).
@@ -1756,8 +1750,8 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDIF.
       drop_attachments( ).
     ELSE.
-      IF mv_case_guid IS INITIAL.
-        mv_case_guid = COND #( WHEN ms_config-cj_type IS NOT INITIAL
+      IF mv_intreno IS INITIAL.
+        mv_intreno = COND #( WHEN ms_config-cj_type IS NOT INITIAL
                                THEN |{ ms_config-cj_type }-{ sy-datum }{ sy-uzeit }|
                                ELSE |{ sy-datum }{ sy-uzeit }| ).
       ENDIF.
@@ -1766,7 +1760,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     IF mv_ref_ovr IS NOT INITIAL.
-      mv_case_guid = mv_ref_ovr.
+      mv_intreno = mv_ref_ovr.
     ENDIF.
   ENDMETHOD.
 
@@ -1881,7 +1875,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *     Error here stops the write and leaves the citizen on the page.
       TRY.
           DATA(lt_dmsg) = mo_logic->on_draft_save( io_ctx      = me
-                                                   iv_draft_id = mv_case_guid ).
+                                                   iv_draft_id = mv_intreno ).
         CATCH cx_root INTO DATA(lx_ds).
           lt_dmsg = VALUE #( ( type = 'Error'
             text = |Draft refused: { lx_ds->get_text( ) }| ) ).
@@ -1911,10 +1905,10 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         RETURN.
       ENDIF.
       IF ms_handle-request_id IS NOT INITIAL.
-        mv_case_guid = ms_handle-request_id.
+        mv_intreno = ms_handle-request_id.
       ENDIF.
       APPEND VALUE #( type = 'Success'
-        text = |Saved as draft — { mv_case_guid }| ) TO mt_msg.
+        text = |Saved as draft — { mv_intreno }| ) TO mt_msg.
       RETURN.
     ENDIF.
 
@@ -1924,11 +1918,11 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         EXPORTING
           iv_screen = ls_step-bknd_screen
           iv_status = 'SAVE_DRAFT'
-          iv_guid   = mv_case_guid
+          iv_guid   = mv_intreno
           it_items  = mo_be->post_items( )
           it_tables = mo_be->tables_for_backend( )
         IMPORTING
-          ev_guid   = mv_case_guid
+          ev_guid   = mv_intreno
           ev_case   = DATA(lv_case_drf)
           et_msg    = DATA(lt_ret) ).
       take_case( lv_case_drf ).
@@ -1937,7 +1931,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         mt_msg = lt_ret.
         RETURN.
       ENDIF.
-      mt_msg = VALUE #( ( type = 'Success' text = |Saved as draft - { mv_case_guid }| ) ).
+      mt_msg = VALUE #( ( type = 'Success' text = |Saved as draft - { mv_intreno }| ) ).
     ELSE.
       mt_msg = VALUE #( ( type = 'Warning'
         text = 'No backend is configured for this journey — nothing was saved.' ) ).
@@ -1948,16 +1942,16 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   METHOD handle_delete.
     CLEAR mv_popup.
 
-    IF mo_bridge IS BOUND AND mv_case_guid IS NOT INITIAL.
+    IF mo_bridge IS BOUND AND mv_intreno IS NOT INITIAL.
       READ TABLE ms_config-steps INTO DATA(ls_dstep) INDEX mv_step + 1.
       mo_bridge->post(
         EXPORTING
           iv_screen = ls_dstep-bknd_screen
           iv_status = 'DELETE'
-          iv_guid   = mv_case_guid
+          iv_guid   = mv_intreno
           it_items  = mo_be->post_items( )
         IMPORTING
-          ev_guid   = mv_case_guid
+          ev_guid   = mv_intreno
           ev_case   = DATA(lv_case_del)
           et_msg    = DATA(lt_dm) ).
       take_case( lv_case_del ).
@@ -2006,7 +2000,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
            AND lv_cancelled = abap_false
       THEN ms_handle-request_id ELSE `` ).
 
-    CLEAR mv_case_guid.
+    CLEAR mv_intreno.
     CLEAR ms_handle.
     mv_step = 0.
     IF lv_orphan IS NOT INITIAL.
@@ -2719,7 +2713,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD zif_rak_journey~get_case.
-    rv = mv_case_guid.
+    rv = mv_intreno.
   ENDMETHOD.
 
 
@@ -2800,7 +2794,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
   METHOD case_reference.
     rv = COND #( WHEN mv_case_number IS NOT INITIAL THEN mv_case_number
-                 ELSE mv_case_guid ).
+                 ELSE mv_intreno ).
 
     IF rv CO '0123456789' AND rv IS NOT INITIAL.
       SHIFT rv LEFT DELETING LEADING '0'.
@@ -3179,7 +3173,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     val_set( iv_name = 'CASE_NUMBER' iv_value = mv_case_number ).
 
-    trace( |CASE    backend returned case { mv_case_number } - journey key stays { mv_case_guid }| ).
+    trace( |CASE    backend returned case { mv_case_number } - journey key stays { mv_intreno }| ).
   ENDMETHOD.
 
 
@@ -3282,7 +3276,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       IF lv_final = abap_true.
         lt_pa = mo_be->attachments_for_backend( ).
       ENDIF.
-      trace( |POST    screen { ls_step-bknd_screen } · guid { mv_case_guid } · { lines( lt_pi ) } items| &&
+      trace( |POST    screen { ls_step-bknd_screen } · guid { mv_intreno } · { lines( lt_pi ) } items| &&
              | · { lines( lt_pt ) } table row(s) · { lines( lt_pa ) } attachment(s)| &&
              | · { COND string( WHEN lv_status IS NOT INITIAL THEN lv_status ELSE 'no STATUS' ) }| &&
              COND string( WHEN lv_final = abap_false AND mt_attach IS NOT INITIAL
@@ -3297,12 +3291,12 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       mo_bridge->post(
         EXPORTING
           iv_screen      = ls_step-bknd_screen
-          iv_guid        = mv_case_guid
+          iv_guid        = mv_intreno
           it_items       = lt_pi
           it_tables      = lt_pt
           it_attachments = lt_pa
         IMPORTING
-          ev_guid        = mv_case_guid
+          ev_guid        = mv_intreno
           ev_case        = DATA(lv_case_new)
           et_msg         = DATA(lt_m) ).
       take_case( lv_case_new ).
