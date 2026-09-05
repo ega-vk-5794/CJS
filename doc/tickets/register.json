@@ -1,0 +1,1626 @@
+{
+ "as_at": "5 September 2026",
+ "journeys": [
+  {
+   "code": "E021",
+   "name": "Alternative Fuel",
+   "dept": "EPDA",
+   "ticket": "CJSMIG-683",
+   "jira": "SIT",
+   "assignee": "anand babu",
+   "note": "Handler ZCL_EPDA_E021_ALTER_FUEL_LOGIC has no ON_INIT, so the applicant's name, ID, mobile, email and role are never seeded - that is the same root cause behind 'applicant details missing' and most of the owner-step noise. Adding one needs the journey's own field names from the Studio."
+  },
+  {
+   "code": "E022",
+   "name": "Development Project",
+   "dept": "EPDA",
+   "ticket": "CJSMIG-684",
+   "jira": "SIT",
+   "assignee": "anand babu",
+   "note": "The duplicate applicant write was fixed in the handler earlier; the applicant BP now also goes out as LOGIN_BP. Everything else on this ticket is step names, field order and two missing texts - all Studio work, and four of them are already coded into ZRAK_CJ_FIXPACK."
+  },
+  {
+   "code": "D012",
+   "name": "School Trips & Activities",
+   "dept": "DOK",
+   "ticket": "CJSMIG-685",
+   "jira": "SIT",
+   "assignee": "Jyoti Meena",
+   "note": "Three of the nine are closed by the developer. What is left is the portal side - Arabic cases, Customer Action, the Back button - plus one backend mapping fault where the selected school is not the school that reaches the case."
+  },
+  {
+   "code": "E017",
+   "name": "Export Chemical Products",
+   "dept": "EPDA",
+   "ticket": "CJSMIG-687",
+   "jira": "SIT",
+   "assignee": "Jyoti Meena",
+   "note": "The Add Chemical dialog was the bulk of this ticket and is fixed in code: all fourteen fields are now marked required AND enforced, the dialog shows its own messages instead of throwing them behind the modal, and it lays out in two columns. Search from History is a genuine gap - the legacy control reads ChemicalHistorySet and nothing in CJS calls it yet."
+  },
+  {
+   "code": "D002",
+   "name": "Private School Licence - Apply",
+   "dept": "DOK",
+   "ticket": "CJSMIG-688",
+   "jira": "SIT",
+   "assignee": "Hasan Fraz",
+   "note": "Six of eleven closed by the developer. Arabic wording and the record-model access to Manager & School were handed to anand on the thread."
+  },
+  {
+   "code": "D013",
+   "name": "Staff Appointment Letters",
+   "dept": "DOK",
+   "ticket": "CJSMIG-689",
+   "jira": "SIT",
+   "assignee": "Jyoti Meena",
+   "note": "The developer answered every line. Four are framework/portal, one is backend mapping, three are done. The beneficiary not reaching the record model is the one that still stops a case completing."
+  },
+  {
+   "code": "D014",
+   "name": "Staff Experience Certificates",
+   "dept": "DOK",
+   "ticket": "CJSMIG-690",
+   "jira": "SIT",
+   "assignee": "Jyoti Meena",
+   "note": "Nothing on this ticket is CJS-side yet, and there is a repository hazard behind it: TWO handler classes claim D014 - ZCL_D014_STAFF_EXP_CERT_LOGIC and ZCL_D014_STAFF_GOLD_VISA_LOGIC. Confirm which one the journey row points at before chasing 'service not working' any further."
+  },
+  {
+   "code": "D003",
+   "name": "Private School Licence - Renew",
+   "dept": "DOK",
+   "ticket": "CJSMIG-692",
+   "jira": "Backlog",
+   "assignee": "anand babu",
+   "note": "Five lines, all config or portal. The missing BP labels are a ZLABEL fill and are already listed in the fixpack worklist."
+  },
+  {
+   "code": "D021",
+   "name": "School Fees (Amend or Increase)",
+   "dept": "DOK",
+   "ticket": "CJSMIG-693",
+   "jira": "SIT",
+   "assignee": "anand babu",
+   "note": "Small ticket, one hard blocker: transportation fees do not pick the distance up from the system, and the case cannot be submitted. That is a backend read plus a field rename, not an engine fault. The applicant BP now also goes out as LOGIN_BP on this journey."
+  },
+  {
+   "code": "D016",
+   "name": "Private School Licence - Cancel",
+   "dept": "DOK",
+   "ticket": "CJSMIG-694",
+   "jira": "Backlog",
+   "assignee": "anand babu",
+   "note": "Three lines, none of them CJS code. Reassigned to anand for the Arabic side."
+  },
+  {
+   "code": "D006",
+   "name": "Amend - Manage Change",
+   "dept": "DOK",
+   "ticket": "CJSMIG-696",
+   "jira": "Backlog",
+   "assignee": "Hasan Fraz",
+   "note": "Four lines. The new manager's details not appearing on the application form is a record-model question for the backend team."
+  },
+  {
+   "code": "E018",
+   "name": "Transport of Chemical Products",
+   "dept": "EPDA",
+   "ticket": "CJSMIG-697",
+   "jira": "SIT",
+   "assignee": "Hasan Fraz",
+   "note": "This journey's class had NO ACTIVE VERSION - a CONSTANTS ... TYPE string VALUE '' would not compile, so SAP kept running an older build and every fix looked like it had not been applied. That is fixed in git. Re-test the CX_SY_CONVERSION_NO_NUMBER post failure only after the class is activated; it may well go with it."
+  },
+  {
+   "code": "D005",
+   "name": "Amend - Name Change",
+   "dept": "DOK",
+   "ticket": "CJSMIG-698",
+   "jira": "Backlog",
+   "assignee": "Hasan Fraz",
+   "note": "Three lines, all of them shared with D003/D006/D016 - the Arabic start button, the attachment asterisk and the Customer Action redirect."
+  },
+  {
+   "code": "D022",
+   "name": "Pursuing of Study Certificate",
+   "dept": "DOK",
+   "ticket": "CJSMIG-699",
+   "jira": "SIT",
+   "assignee": "Hasan Fraz",
+   "note": "Two closed by the developer. The payment step is the blocker and needs a trace run: PREPARE_PAYMENT( ) now names its own exit (NOCASE / NOSCREEN / NOURL) under &trace=x, which is what separates a missing case from a missing gateway address."
+  },
+  {
+   "code": "E019",
+   "name": "Transport of Used Oil",
+   "dept": "EPDA",
+   "ticket": "CJSMIG-700",
+   "jira": "SIT",
+   "assignee": "anand babu",
+   "note": "The longest ticket in the round, and almost all of it is config. Same root cause as E021: ZCL_EPDA_E019_TRANS_USED_LOGIC has no ON_INIT, so no applicant details are seeded at all."
+  },
+  {
+   "code": "E020",
+   "name": "Batteries / Scrap Handling",
+   "dept": "EPDA",
+   "ticket": "CJSMIG-701",
+   "jira": "SIT",
+   "assignee": "Hasan Fraz",
+   "note": "Config-heavy. 'Vehicle details not saving in backend' is worth reading as a column-order fault first: a backend table's cells are positional at both ends and the order comes from LIST_SEQUENCE in /QNV/SB_UI_DEFIN, not from the CJS spec."
+  },
+  {
+   "code": "E023",
+   "name": "Dewatering Approval",
+   "dept": "EPDA",
+   "ticket": "CJSMIG-702",
+   "jira": "SIT",
+   "assignee": "anand babu",
+   "note": "One line: 'CJS service Not found'. The handler class exists and is complete, so this is the journey row or the launch link, not the code."
+  },
+  {
+   "code": "E025",
+   "name": "Beekeeping Activity",
+   "dept": "EPDA",
+   "ticket": "CJSMIG-703",
+   "jira": "SIT",
+   "assignee": "anand babu",
+   "note": "The applicant BP fault is fixed. It was a one-word defect: the class called the applicant field 'OWNER_BP', which on this journey is the owner SEARCH BOX - so ON_INIT typed the applicant's partner number into the search field and blanked it again sixteen lines later."
+  },
+  {
+   "code": "E026",
+   "name": "Tree Removal / Relocation / Pruning",
+   "dept": "EPDA",
+   "ticket": "CJSMIG-704",
+   "jira": "SIT",
+   "assignee": "anand babu",
+   "note": "Same applicant-BP family as E025 and fixed the same way, additively. The four remaining lines are config and are shared with E025."
+  }
+ ],
+ "observations": [
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 1,
+   "journey": "E021",
+   "observation": "Initial page loads with error messages",
+   "state": "check",
+   "action": "Send the screenshot text. Most likely the required-field messages firing before the citizen has typed anything, which is a rule/required config question, not the engine."
+  },
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 2,
+   "journey": "E021",
+   "observation": "Applicant details not aligned - should be row wise",
+   "state": "config",
+   "action": "Studio > Design tab. Place the applicant fields on one row of the 12-column grid (ZRAK_CJ_LAY)."
+  },
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 3,
+   "journey": "E021",
+   "observation": "EPDA permit no & applicant type data missing",
+   "state": "check",
+   "action": "The handler has no ON_INIT, so nothing seeds these. Confirm the field names in ZRAK_T_JNY_FLD and an ON_INIT can be written in an hour."
+  },
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 4,
+   "journey": "E021",
+   "observation": "Permit / EID / trade licence order wrong, no search button",
+   "state": "config",
+   "action": "Field order in the Design tab; the search button appears when the field's FTYPE is SEARCH."
+  },
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 5,
+   "journey": "E021",
+   "observation": "Company details field order not correct",
+   "state": "config",
+   "action": "Design tab."
+  },
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 6,
+   "journey": "E021",
+   "observation": "Company name EN/AR not filled from the permit number",
+   "state": "backend",
+   "action": "The permit read has to return the company name. Backend/BAdI."
+  },
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 7,
+   "journey": "E021",
+   "observation": "Grid: all row fields mandatory, drop the delete1 column",
+   "state": "config",
+   "action": "REQUIRED per field, and remove the column from the grid spec in ZRAK_T_JNY_FLD-DEFAULT_VAL."
+  },
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 8,
+   "journey": "E021",
+   "observation": "Units and No. of Months should be dropdowns",
+   "state": "config",
+   "action": "Add the values to ZRAK_T_JNY_OPT and set CLOSED_LIST = X."
+  },
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 9,
+   "journey": "E021",
+   "observation": "Supplier company: order and mandatory indicators",
+   "state": "config",
+   "action": "Design tab + REQUIRED."
+  },
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 10,
+   "journey": "E021",
+   "observation": "Step name 'Letter from the Supplier Company' -> 'Documents'",
+   "state": "config",
+   "action": "Already coded in ZRAK_CJ_FIXPACK, English and Arabic. Run the report for this journey."
+  },
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 11,
+   "journey": "E021",
+   "observation": "Mandatory attachment labels need the * indicator",
+   "state": "config",
+   "action": "The engine draws the asterisk now - RENDER_ATTACH( ) passes the native required property. What is left is ticking REQUIRED on each upload field."
+  },
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 12,
+   "journey": "E021",
+   "observation": "Declaration & Notes missing",
+   "state": "config",
+   "action": "Add a DISPLAY field whose DEFAULT_VAL is TEXT:@nnn pointing at a ZRAK_T_CJ_TXT row, so it reads in both languages."
+  },
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 13,
+   "journey": "E021",
+   "observation": "Feedback is mandatory",
+   "state": "done_claude",
+   "action": "A 'Not now' button now sits beside Send feedback and the journey finishes without it. ZCL_RAK_JOURNEY_RENDER + ZCL_RAK_JOURNEY_ENGINE (FBSKIP)."
+  },
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 14,
+   "journey": "E021",
+   "observation": "Case created (1959717) but attachments not saved",
+   "state": "check",
+   "action": "Instrumented: ZCL_RAK_JOURNEY_BE now counts the files it could not read, says so on screen and names them on the trace. Re-run with &trace=x and send the ATTACH line."
+  },
+  {
+   "ticket": "CJSMIG-683",
+   "seq": 15,
+   "journey": "E021",
+   "observation": "Arabic - service start button not showing",
+   "state": "portal",
+   "action": "Service card / launchpad, not CJS."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 1,
+   "journey": "E022",
+   "observation": "Initial page loads with error messages",
+   "state": "check",
+   "action": "Send the screenshot text."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 2,
+   "journey": "E022",
+   "observation": "Applicant details not aligned - should be row wise",
+   "state": "config",
+   "action": "Design tab."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 3,
+   "journey": "E022",
+   "observation": "Applicant details are duplicated",
+   "state": "done_claude",
+   "action": "The handler was writing the applicant fields twice. Fixed in ZCL_EPDA_E022_DEV_PROJ_LOGIC."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 4,
+   "journey": "E022",
+   "observation": "Emirates ID search should follow the format; Browse not required",
+   "state": "config",
+   "action": "PLACEHOLDER for the mask, REGEX for the format, FTYPE SEARCH instead of the browse control."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 5,
+   "journey": "E022",
+   "observation": "Permit / EID / trade licence order; permit number not a dropdown",
+   "state": "config",
+   "action": "Design tab + FTYPE."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 6,
+   "journey": "E022",
+   "observation": "Company details field order not correct",
+   "state": "config",
+   "action": "Design tab."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 7,
+   "journey": "E022",
+   "observation": "Company name English & Arabic duplicated",
+   "state": "config",
+   "action": "Two fields are bound to the same value. Hide one in ZRAK_T_JNY_FLD."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 8,
+   "journey": "E022",
+   "observation": "Rename step 'Development Project' -> 'Project Details'",
+   "state": "config",
+   "action": "Coded in ZRAK_CJ_FIXPACK, EN + AR."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 9,
+   "journey": "E022",
+   "observation": "Rename step 'Trade license' -> 'Documents'",
+   "state": "config",
+   "action": "Coded in ZRAK_CJ_FIXPACK, EN + AR."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 10,
+   "journey": "E022",
+   "observation": "Trade licence attachment is missing",
+   "state": "config",
+   "action": "Add the upload field to the Documents step."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 11,
+   "journey": "E022",
+   "observation": "Declaration & Note missing",
+   "state": "config",
+   "action": "DISPLAY field with a TEXT: default."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 12,
+   "journey": "E022",
+   "observation": "Step 5 request confirmation not required",
+   "state": "config",
+   "action": "Coded in ZRAK_CJ_FIXPACK as STEP_OFF - reversible, sets ACTIVE blank."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 13,
+   "journey": "E022",
+   "observation": "Feedback is mandatory",
+   "state": "done_claude",
+   "action": "'Not now' button - same engine fix as E021."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 14,
+   "journey": "E022",
+   "observation": "Attachments are not saving",
+   "state": "check",
+   "action": "Re-run with &trace=x and send the ATTACH line."
+  },
+  {
+   "ticket": "CJSMIG-684",
+   "seq": 15,
+   "journey": "E022",
+   "observation": "Customer action not working",
+   "state": "portal",
+   "action": "Landing page redirect - portal team."
+  },
+  {
+   "ticket": "CJSMIG-685",
+   "seq": 1,
+   "journey": "D012",
+   "observation": "Attachment types should allow JPG, PNG etc",
+   "state": "done_dev",
+   "action": "Closed by Jyoti."
+  },
+  {
+   "ticket": "CJSMIG-685",
+   "seq": 2,
+   "journey": "D012",
+   "observation": "Selected Indian school, a different school reached the case",
+   "state": "backend",
+   "action": "Backend data mapping - Jyoti's own answer."
+  },
+  {
+   "ticket": "CJSMIG-685",
+   "seq": 3,
+   "journey": "D012",
+   "observation": "Attachments not reflected into the case",
+   "state": "done_dev",
+   "action": "Closed by Jyoti."
+  },
+  {
+   "ticket": "CJSMIG-685",
+   "seq": 4,
+   "journey": "D012",
+   "observation": "Customer Action from landing page, Upload does nothing",
+   "state": "portal",
+   "action": "Framework side - Jyoti's answer."
+  },
+  {
+   "ticket": "CJSMIG-685",
+   "seq": 5,
+   "journey": "D012",
+   "observation": "Cases not translated into Arabic",
+   "state": "portal",
+   "action": "Framework side."
+  },
+  {
+   "ticket": "CJSMIG-685",
+   "seq": 6,
+   "journey": "D012",
+   "observation": "No case exists to submit in Arabic",
+   "state": "portal",
+   "action": "Framework side."
+  },
+  {
+   "ticket": "CJSMIG-685",
+   "seq": 7,
+   "journey": "D012",
+   "observation": "Back button does not work to submit a new case",
+   "state": "portal",
+   "action": "Framework side."
+  },
+  {
+   "ticket": "CJSMIG-685",
+   "seq": 8,
+   "journey": "D012",
+   "observation": "Applicant type field alignment",
+   "state": "done_dev",
+   "action": "Closed by Jyoti."
+  },
+  {
+   "ticket": "CJSMIG-685",
+   "seq": 9,
+   "journey": "D012",
+   "observation": "Curriculum type field alignment",
+   "state": "done_dev",
+   "action": "Closed by Jyoti."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 1,
+   "journey": "E017",
+   "observation": "Owner search should be in EID format; Browse not required",
+   "state": "config",
+   "action": "PLACEHOLDER + REGEX; FTYPE SEARCH. Listed in the fixpack worklist."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 2,
+   "journey": "E017",
+   "observation": "Representative + owner EID search errors and will not move to the next step",
+   "state": "check",
+   "action": "Needs one run with the exact search value. The popup validation now blocks correctly, so an error here is the search itself."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 3,
+   "journey": "E017",
+   "observation": "Permit number / trade licence etc. not required on the chemical tab",
+   "state": "config",
+   "action": "Coded in ZRAK_CJ_FIXPACK as three HIDE rules anchored on the CHEMICALS_DETAILS grid."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 4,
+   "journey": "E017",
+   "observation": "Add Chemical - all fields should be mandatory",
+   "state": "done_claude",
+   "action": "All fourteen are now marked with an asterisk and enforced. Ten of the fourteen checks had been commented out. ZCL_E017_NOC_EXP_CHEM_LOGIC->VALIDATE_INPUT( )."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 5,
+   "journey": "E017",
+   "observation": "Mandatory-field message shows on the main screen, not in the dialog",
+   "state": "done_claude",
+   "action": "DIALOG_FORM( ) now draws pending messages inside the dialog. ZCL_RAK_JOURNEY_LOGIC."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 6,
+   "journey": "E017",
+   "observation": "One field per row - should be two or more",
+   "state": "done_claude",
+   "action": "Popup dialogs lay out in two columns now. The fix was FormContainers, not the columnsL property. ZCL_RAK_JOURNEY_LOGIC->DIALOG_FORM( )."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 7,
+   "journey": "E017",
+   "observation": "Bill of Lading input clears its own value",
+   "state": "check",
+   "action": "Check BOL_POP actually exists in ZRAK_T_JNY_FLD - a field name that is not on the journey accepts set_val and get_val and does nothing."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 8,
+   "journey": "E017",
+   "observation": "'Use a previous declaration' field not required",
+   "state": "config",
+   "action": "Hide the field."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 9,
+   "journey": "E017",
+   "observation": "HS code should be a guided formatted number with a watermark",
+   "state": "config",
+   "action": "REGEX for the format, PLACEHOLDER for the watermark."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 10,
+   "journey": "E017",
+   "observation": "Modify - existing values are not showing",
+   "state": "check",
+   "action": "The edit path does not load the row back into the dialog. Needs a run."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 11,
+   "journey": "E017",
+   "observation": "Search from History is missing",
+   "state": "check",
+   "action": "A real gap, not a bug: the legacy control reads ChemicalHistorySet on zega_fw_fnd_srv and no CJS class calls it. Needs a decision before it can be built."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 12,
+   "journey": "E017",
+   "observation": "'up to 2 MB' repeats on every attachment; mandatory indicator missing",
+   "state": "config",
+   "action": "The asterisk is engine-side and done; the repeated size hint is per-field wording."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 13,
+   "journey": "E017",
+   "observation": "Preview page should be removed",
+   "state": "config",
+   "action": "Coded in ZRAK_CJ_FIXPACK as STEP_OFF."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 14,
+   "journey": "E017",
+   "observation": "Step 5 request confirmation not required",
+   "state": "config",
+   "action": "Coded in ZRAK_CJ_FIXPACK as STEP_OFF."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 15,
+   "journey": "E017",
+   "observation": "Feedback is mandatory",
+   "state": "done_claude",
+   "action": "'Not now' button."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 16,
+   "journey": "E017",
+   "observation": "Attachments are not saving",
+   "state": "check",
+   "action": "Re-run with &trace=x."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 17,
+   "journey": "E017",
+   "observation": "Customer action not working",
+   "state": "portal",
+   "action": "Portal team."
+  },
+  {
+   "ticket": "CJSMIG-687",
+   "seq": 18,
+   "journey": "E017",
+   "observation": "Chemical details missing in the backend",
+   "state": "backend",
+   "action": "Read the grid spec against the LIST_SEQUENCE rows for that screen in /QNV/SB_UI_DEFIN - a backend table's cells are positional at both ends."
+  },
+  {
+   "ticket": "CJSMIG-688",
+   "seq": 1,
+   "journey": "D002",
+   "observation": "Add Manager - wrong text, should be Birthday",
+   "state": "done_dev",
+   "action": "Closed by Hasan. Also coded in ZRAK_CJ_FIXPACK as a LABEL change on MANAGER_DOB."
+  },
+  {
+   "ticket": "CJSMIG-688",
+   "seq": 2,
+   "journey": "D002",
+   "observation": "Fees Details comes back empty",
+   "state": "done_dev",
+   "action": "Closed by Hasan."
+  },
+  {
+   "ticket": "CJSMIG-688",
+   "seq": 3,
+   "journey": "D002",
+   "observation": "Building Information should be demit",
+   "state": "done_dev",
+   "action": "Closed by Hasan."
+  },
+  {
+   "ticket": "CJSMIG-688",
+   "seq": 4,
+   "journey": "D002",
+   "observation": "Attachment type shows DOC, should be PDF / JPG",
+   "state": "done_dev",
+   "action": "Closed by Hasan. Also coded in ZRAK_CJ_FIXPACK as an ATTACH_TYPE change."
+  },
+  {
+   "ticket": "CJSMIG-688",
+   "seq": 5,
+   "journey": "D002",
+   "observation": "Cannot upload a PDF or a photo",
+   "state": "done_dev",
+   "action": "Closed by Hasan - same accept list."
+  },
+  {
+   "ticket": "CJSMIG-688",
+   "seq": 6,
+   "journey": "D002",
+   "observation": "Arabic translation not complete",
+   "state": "config",
+   "action": "Handed to anand on the thread. ZLABEL_AR across the journey."
+  },
+  {
+   "ticket": "CJSMIG-688",
+   "seq": 7,
+   "journey": "D002",
+   "observation": "Attachments not reflected to the record model",
+   "state": "done_dev",
+   "action": "Closed by Hasan."
+  },
+  {
+   "ticket": "CJSMIG-688",
+   "seq": 8,
+   "journey": "D002",
+   "observation": "Manager empty in the application form",
+   "state": "backend",
+   "action": "Not answered on the thread. Record model."
+  },
+  {
+   "ticket": "CJSMIG-688",
+   "seq": 9,
+   "journey": "D002",
+   "observation": "Cannot access Manager & School in the record model",
+   "state": "backend",
+   "action": "Handed to anand on the thread."
+  },
+  {
+   "ticket": "CJSMIG-688",
+   "seq": 10,
+   "journey": "D002",
+   "observation": "Customer Action should redirect to the new CJS",
+   "state": "portal",
+   "action": "Portal team."
+  },
+  {
+   "ticket": "CJSMIG-688",
+   "seq": 11,
+   "journey": "D002",
+   "observation": "Mandatory attachments need the *",
+   "state": "config",
+   "action": "Engine draws it; tick REQUIRED on each upload field."
+  },
+  {
+   "ticket": "CJSMIG-689",
+   "seq": 1,
+   "journey": "D013",
+   "observation": "Application form - data missing",
+   "state": "backend",
+   "action": "Record model."
+  },
+  {
+   "ticket": "CJSMIG-689",
+   "seq": 2,
+   "journey": "D013",
+   "observation": "Only one attachment reflected, the others not",
+   "state": "done_dev",
+   "action": "Closed by Jyoti. Worth knowing why: GET_ATTACHMENT( ) de-duplicates on (objsrc, diffcrt, objsrctype, objtrgtype), so two files sharing a document type collapse into one."
+  },
+  {
+   "ticket": "CJSMIG-689",
+   "seq": 3,
+   "journey": "D013",
+   "observation": "Selected school is not the school on the case",
+   "state": "backend",
+   "action": "Backend data mapping - Jyoti's answer."
+  },
+  {
+   "ticket": "CJSMIG-689",
+   "seq": 4,
+   "journey": "D013",
+   "observation": "Customer Action upload not working",
+   "state": "portal",
+   "action": "Framework side - Jyoti's answer."
+  },
+  {
+   "ticket": "CJSMIG-689",
+   "seq": 5,
+   "journey": "D013",
+   "observation": "Cases not translated into Arabic",
+   "state": "portal",
+   "action": "Framework side."
+  },
+  {
+   "ticket": "CJSMIG-689",
+   "seq": 6,
+   "journey": "D013",
+   "observation": "No case exists to submit in Arabic",
+   "state": "portal",
+   "action": "Framework side."
+  },
+  {
+   "ticket": "CJSMIG-689",
+   "seq": 7,
+   "journey": "D013",
+   "observation": "Back button does not work to submit a new case",
+   "state": "portal",
+   "action": "Framework side."
+  },
+  {
+   "ticket": "CJSMIG-689",
+   "seq": 8,
+   "journey": "D013",
+   "observation": "Applicant type field alignment",
+   "state": "done_dev",
+   "action": "Closed by Jyoti."
+  },
+  {
+   "ticket": "CJSMIG-689",
+   "seq": 9,
+   "journey": "D013",
+   "observation": "Remove the spaces on grades",
+   "state": "done_dev",
+   "action": "Closed by Jyoti."
+  },
+  {
+   "ticket": "CJSMIG-689",
+   "seq": 10,
+   "journey": "D013",
+   "observation": "Beneficiary not reflected in the record model - case stuck",
+   "state": "backend",
+   "action": "anand to advise on the mapping - Jyoti's answer."
+  },
+  {
+   "ticket": "CJSMIG-690",
+   "seq": 1,
+   "journey": "D014",
+   "observation": "The service does not work on the portal screen",
+   "state": "check",
+   "action": "Check which handler class the journey row points at first - two classes claim D014."
+  },
+  {
+   "ticket": "CJSMIG-690",
+   "seq": 2,
+   "journey": "D014",
+   "observation": "Application form - data missing",
+   "state": "backend",
+   "action": "Record model."
+  },
+  {
+   "ticket": "CJSMIG-690",
+   "seq": 3,
+   "journey": "D014",
+   "observation": "Beneficiary not reflected in the record model - case stuck",
+   "state": "backend",
+   "action": "Same fault as D013."
+  },
+  {
+   "ticket": "CJSMIG-690",
+   "seq": 4,
+   "journey": "D014",
+   "observation": "Cannot complete the case - problem with the case output",
+   "state": "backend",
+   "action": "Follows from the beneficiary fault."
+  },
+  {
+   "ticket": "CJSMIG-690",
+   "seq": 5,
+   "journey": "D014",
+   "observation": "Selected school is not the school on the case",
+   "state": "backend",
+   "action": "Backend data mapping."
+  },
+  {
+   "ticket": "CJSMIG-690",
+   "seq": 6,
+   "journey": "D014",
+   "observation": "Customer Action upload not working",
+   "state": "portal",
+   "action": "Framework side."
+  },
+  {
+   "ticket": "CJSMIG-690",
+   "seq": 7,
+   "journey": "D014",
+   "observation": "Old case journey portal not working, cannot compare",
+   "state": "portal",
+   "action": "Portal team."
+  },
+  {
+   "ticket": "CJSMIG-690",
+   "seq": 8,
+   "journey": "D014",
+   "observation": "Cases not translated into Arabic",
+   "state": "portal",
+   "action": "Framework side."
+  },
+  {
+   "ticket": "CJSMIG-690",
+   "seq": 9,
+   "journey": "D014",
+   "observation": "No case exists to submit in Arabic",
+   "state": "portal",
+   "action": "Framework side."
+  },
+  {
+   "ticket": "CJSMIG-690",
+   "seq": 10,
+   "journey": "D014",
+   "observation": "Back button does not work to submit a new case",
+   "state": "portal",
+   "action": "Framework side."
+  },
+  {
+   "ticket": "CJSMIG-690",
+   "seq": 11,
+   "journey": "D014",
+   "observation": "Cannot post payment through the landing page",
+   "state": "check",
+   "action": "Run with &trace=x: PREPARE_PAYMENT( ) names its exit - NOCASE, NOSCREEN or NOURL - which says whether the case, the screen mapping or the gateway address is missing."
+  },
+  {
+   "ticket": "CJSMIG-692",
+   "seq": 1,
+   "journey": "D003",
+   "observation": "Owner - BP labels missing",
+   "state": "config",
+   "action": "Fill ZLABEL / ZLABEL_AR. In the fixpack worklist."
+  },
+  {
+   "ticket": "CJSMIG-692",
+   "seq": 2,
+   "journey": "D003",
+   "observation": "Owner details missing from the application form",
+   "state": "backend",
+   "action": "Record model."
+  },
+  {
+   "ticket": "CJSMIG-692",
+   "seq": 3,
+   "journey": "D003",
+   "observation": "Arabic version has no Start button",
+   "state": "portal",
+   "action": "Service card."
+  },
+  {
+   "ticket": "CJSMIG-692",
+   "seq": 4,
+   "journey": "D003",
+   "observation": "Customer Action should redirect to CJS",
+   "state": "portal",
+   "action": "Portal team."
+  },
+  {
+   "ticket": "CJSMIG-692",
+   "seq": 5,
+   "journey": "D003",
+   "observation": "Mandatory attachments need the *",
+   "state": "config",
+   "action": "Tick REQUIRED on each upload field."
+  },
+  {
+   "ticket": "CJSMIG-693",
+   "seq": 1,
+   "journey": "D021",
+   "observation": "Field should read Distance, not Educational stage",
+   "state": "config",
+   "action": "ZLABEL / ZLABEL_AR. In the fixpack worklist - the field name is not known from here."
+  },
+  {
+   "ticket": "CJSMIG-693",
+   "seq": 2,
+   "journey": "D021",
+   "observation": "Table should show every educational stage and fetch the current fee",
+   "state": "backend",
+   "action": "The read has to return all stages with their current fee."
+  },
+  {
+   "ticket": "CJSMIG-693",
+   "seq": 3,
+   "journey": "D021",
+   "observation": "Transportation fees do not reflect the distance - error, cannot submit",
+   "state": "backend",
+   "action": "Blocker. The distance is not coming back from the system; the submit fails on it."
+  },
+  {
+   "ticket": "CJSMIG-693",
+   "seq": 4,
+   "journey": "D021",
+   "observation": "Cannot complete the case on the submission screen",
+   "state": "backend",
+   "action": "Follows from the fee fault above."
+  },
+  {
+   "ticket": "CJSMIG-694",
+   "seq": 1,
+   "journey": "D016",
+   "observation": "Arabic version has no Start button",
+   "state": "portal",
+   "action": "Service card. Reassigned to anand."
+  },
+  {
+   "ticket": "CJSMIG-694",
+   "seq": 2,
+   "journey": "D016",
+   "observation": "Mandatory attachments need the *",
+   "state": "config",
+   "action": "Tick REQUIRED on each upload field."
+  },
+  {
+   "ticket": "CJSMIG-694",
+   "seq": 3,
+   "journey": "D016",
+   "observation": "Customer Action should redirect to CJS",
+   "state": "portal",
+   "action": "Portal team."
+  },
+  {
+   "ticket": "CJSMIG-696",
+   "seq": 1,
+   "journey": "D006",
+   "observation": "New manager details not shown on the application form",
+   "state": "backend",
+   "action": "Record model."
+  },
+  {
+   "ticket": "CJSMIG-696",
+   "seq": 2,
+   "journey": "D006",
+   "observation": "Arabic version has no Start button",
+   "state": "portal",
+   "action": "Service card."
+  },
+  {
+   "ticket": "CJSMIG-696",
+   "seq": 3,
+   "journey": "D006",
+   "observation": "Mandatory attachments need the *",
+   "state": "config",
+   "action": "Tick REQUIRED on each upload field."
+  },
+  {
+   "ticket": "CJSMIG-696",
+   "seq": 4,
+   "journey": "D006",
+   "observation": "Customer Action should redirect to CJS",
+   "state": "portal",
+   "action": "Portal team."
+  },
+  {
+   "ticket": "CJSMIG-697",
+   "seq": 1,
+   "journey": "E018",
+   "observation": "Owner search should be in EID format; Browse not required",
+   "state": "config",
+   "action": "PLACEHOLDER + REGEX; FTYPE SEARCH. In the fixpack worklist."
+  },
+  {
+   "ticket": "CJSMIG-697",
+   "seq": 2,
+   "journey": "E018",
+   "observation": "Representative + owner EID search errors and will not move on",
+   "state": "check",
+   "action": "Re-test after the class is activated."
+  },
+  {
+   "ticket": "CJSMIG-697",
+   "seq": 3,
+   "journey": "E018",
+   "observation": "Permit number / trade licence etc. not required on the chemical tab",
+   "state": "config",
+   "action": "Coded in ZRAK_CJ_FIXPACK as three HIDE rules."
+  },
+  {
+   "ticket": "CJSMIG-697",
+   "seq": 4,
+   "journey": "E018",
+   "observation": "Add Chemical - all fields should be mandatory",
+   "state": "done_claude",
+   "action": "All fourteen marked and enforced. ZCL_E018_NOC_TRANS_CHEM_LOGIC."
+  },
+  {
+   "ticket": "CJSMIG-697",
+   "seq": 5,
+   "journey": "E018",
+   "observation": "Mandatory-field message shows on the main screen, not in the dialog",
+   "state": "done_claude",
+   "action": "Engine fix - messages now draw inside the dialog."
+  },
+  {
+   "ticket": "CJSMIG-697",
+   "seq": 6,
+   "journey": "E018",
+   "observation": "One field per row - should be two or more",
+   "state": "done_claude",
+   "action": "Two-column dialogs - engine fix."
+  },
+  {
+   "ticket": "CJSMIG-697",
+   "seq": 7,
+   "journey": "E018",
+   "observation": "Bill of Lading input clears its own value",
+   "state": "check",
+   "action": "Check BOL_POP exists in ZRAK_T_JNY_FLD."
+  },
+  {
+   "ticket": "CJSMIG-697",
+   "seq": 8,
+   "journey": "E018",
+   "observation": "'Use a previous declaration' field not required",
+   "state": "config",
+   "action": "Hide the field."
+  },
+  {
+   "ticket": "CJSMIG-697",
+   "seq": 9,
+   "journey": "E018",
+   "observation": "HS code should be a guided formatted number with a watermark",
+   "state": "config",
+   "action": "REGEX + PLACEHOLDER."
+  },
+  {
+   "ticket": "CJSMIG-697",
+   "seq": 10,
+   "journey": "E018",
+   "observation": "Backend POST failed - CX_SY_CONVERSION_NO_NUMBER, cannot go to the next step",
+   "state": "done_claude",
+   "action": "The class had no active version at all - a CONSTANTS ... TYPE string VALUE '' will not compile - so SAP was running an older build of every method on this journey. Fixed in git. Pull, activate, and re-test this line first."
+  },
+  {
+   "ticket": "CJSMIG-698",
+   "seq": 1,
+   "journey": "D005",
+   "observation": "Arabic version has no Start button",
+   "state": "portal",
+   "action": "Service card."
+  },
+  {
+   "ticket": "CJSMIG-698",
+   "seq": 2,
+   "journey": "D005",
+   "observation": "Mandatory attachments need the *",
+   "state": "config",
+   "action": "Tick REQUIRED on each upload field."
+  },
+  {
+   "ticket": "CJSMIG-698",
+   "seq": 3,
+   "journey": "D005",
+   "observation": "Customer Action should redirect to the new CJS",
+   "state": "portal",
+   "action": "Portal team."
+  },
+  {
+   "ticket": "CJSMIG-699",
+   "seq": 1,
+   "journey": "D022",
+   "observation": "Service card is missing the 'who can apply' information",
+   "state": "portal",
+   "action": "Service catalogue - taken by Vikram on the thread."
+  },
+  {
+   "ticket": "CJSMIG-699",
+   "seq": 2,
+   "journey": "D022",
+   "observation": "Cannot search by Emirates ID; the field stays on SIS ID",
+   "state": "done_dev",
+   "action": "Closed by Hasan - the Emirates ID option was removed, SIS ID only."
+  },
+  {
+   "ticket": "CJSMIG-699",
+   "seq": 3,
+   "journey": "D022",
+   "observation": "Academic Year / School and Terms do not match the old version",
+   "state": "done_dev",
+   "action": "Closed by Hasan - both removed."
+  },
+  {
+   "ticket": "CJSMIG-699",
+   "seq": 4,
+   "journey": "D022",
+   "observation": "The payment step errors when paying",
+   "state": "check",
+   "action": "Run with &trace=x. PREPARE_PAYMENT( ) reports its exit and the keys the backend answered with, which separates 'no case' from 'no gateway address'."
+  },
+  {
+   "ticket": "CJSMIG-699",
+   "seq": 5,
+   "journey": "D022",
+   "observation": "Cannot complete the case at the payment step",
+   "state": "check",
+   "action": "Blocker - same run as above."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 1,
+   "journey": "E019",
+   "observation": "Initial page loads with error messages",
+   "state": "check",
+   "action": "Send the screenshot text."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 2,
+   "journey": "E019",
+   "observation": "Applicant details not aligned - should be row wise",
+   "state": "config",
+   "action": "Design tab."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 3,
+   "journey": "E019",
+   "observation": "Applicant details are duplicated",
+   "state": "config",
+   "action": "Not the same cause as E022 - this handler writes nothing. Two fields are bound to the same value; hide one."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 4,
+   "journey": "E019",
+   "observation": "Emirates ID search should follow the format; Browse not required",
+   "state": "config",
+   "action": "PLACEHOLDER + REGEX; FTYPE SEARCH."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 5,
+   "journey": "E019",
+   "observation": "Permit / EID / trade licence order; permit number not a dropdown",
+   "state": "config",
+   "action": "Design tab + FTYPE."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 6,
+   "journey": "E019",
+   "observation": "Company details field order not correct",
+   "state": "config",
+   "action": "Design tab."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 7,
+   "journey": "E019",
+   "observation": "Company name English & Arabic duplicated",
+   "state": "config",
+   "action": "Hide one of the two fields."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 8,
+   "journey": "E019",
+   "observation": "'Material Text 1' should read 'Name'",
+   "state": "config",
+   "action": "ZLABEL / ZLABEL_AR."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 9,
+   "journey": "E019",
+   "observation": "Issuing emirates should be a dropdown",
+   "state": "config",
+   "action": "ZRAK_T_JNY_OPT + CLOSED_LIST."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 10,
+   "journey": "E019",
+   "observation": "Vehicle Code must not allow more than 2 digits",
+   "state": "config",
+   "action": "MAX_LEN on the field."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 11,
+   "journey": "E019",
+   "observation": "Vehicle Plate must not allow more than 4 digits",
+   "state": "config",
+   "action": "MAX_LEN on the field."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 12,
+   "journey": "E019",
+   "observation": "Remove the 'Mtable Delete 2' column",
+   "state": "config",
+   "action": "Drop it from the grid spec in DEFAULT_VAL."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 13,
+   "journey": "E019",
+   "observation": "Units should be a dropdown",
+   "state": "config",
+   "action": "ZRAK_T_JNY_OPT + CLOSED_LIST."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 14,
+   "journey": "E019",
+   "observation": "Address, Registered Emirate, Trade Licence should be inputs, not display",
+   "state": "config",
+   "action": "Change FTYPE from DISPLAY to INPUT and tick REQUIRED."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 15,
+   "journey": "E019",
+   "observation": "Step name should change to Documents",
+   "state": "config",
+   "action": "Step title, EN + AR."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 16,
+   "journey": "E019",
+   "observation": "Mandatory attachments need the *",
+   "state": "config",
+   "action": "Tick REQUIRED on each upload field."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 17,
+   "journey": "E019",
+   "observation": "Declaration & Notes missing",
+   "state": "config",
+   "action": "DISPLAY field with a TEXT: default."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 18,
+   "journey": "E019",
+   "observation": "Feedback is mandatory",
+   "state": "done_claude",
+   "action": "'Not now' button."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 19,
+   "journey": "E019",
+   "observation": "Attachments are not saving",
+   "state": "check",
+   "action": "Re-run with &trace=x."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 20,
+   "journey": "E019",
+   "observation": "Company name not updated in the backend",
+   "state": "backend",
+   "action": "Backend write."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 21,
+   "journey": "E019",
+   "observation": "UOM not updated in the backend",
+   "state": "backend",
+   "action": "Backend write."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 22,
+   "journey": "E019",
+   "observation": "Customer action",
+   "state": "portal",
+   "action": "Portal team."
+  },
+  {
+   "ticket": "CJSMIG-700",
+   "seq": 23,
+   "journey": "E019",
+   "observation": "Arabic services cannot be submitted",
+   "state": "portal",
+   "action": "Framework side."
+  },
+  {
+   "ticket": "CJSMIG-701",
+   "seq": 1,
+   "journey": "E020",
+   "observation": "Initial page loads with error messages",
+   "state": "check",
+   "action": "Send the screenshot text."
+  },
+  {
+   "ticket": "CJSMIG-701",
+   "seq": 2,
+   "journey": "E020",
+   "observation": "Applicant details not aligned - should be row wise",
+   "state": "config",
+   "action": "Design tab."
+  },
+  {
+   "ticket": "CJSMIG-701",
+   "seq": 3,
+   "journey": "E020",
+   "observation": "Applicant details are duplicated",
+   "state": "config",
+   "action": "Two fields bound to the same value; hide one."
+  },
+  {
+   "ticket": "CJSMIG-701",
+   "seq": 4,
+   "journey": "E020",
+   "observation": "Emirates ID search should follow the format; Browse not required",
+   "state": "config",
+   "action": "PLACEHOLDER + REGEX; FTYPE SEARCH."
+  },
+  {
+   "ticket": "CJSMIG-701",
+   "seq": 5,
+   "journey": "E020",
+   "observation": "Permit / EID / trade licence order; permit number not a dropdown",
+   "state": "config",
+   "action": "Design tab + FTYPE."
+  },
+  {
+   "ticket": "CJSMIG-701",
+   "seq": 6,
+   "journey": "E020",
+   "observation": "Rename the step 'Material Origin source' to 'Batteries/Scrap Details'",
+   "state": "config",
+   "action": "Step title, EN + AR."
+  },
+  {
+   "ticket": "CJSMIG-701",
+   "seq": 7,
+   "journey": "E020",
+   "observation": "Fields under Material origin source must be dynamic and mandatory by dropdown value",
+   "state": "config",
+   "action": "Show/hide belongs in ZRAK_T_JNY_RULE keyed on the dropdown, with REQUIRED on the fields it reveals."
+  },
+  {
+   "ticket": "CJSMIG-701",
+   "seq": 8,
+   "journey": "E020",
+   "observation": "Vehicle code 1 digit, vehicle plate 4 digits",
+   "state": "config",
+   "action": "MAX_LEN on both fields."
+  },
+  {
+   "ticket": "CJSMIG-701",
+   "seq": 9,
+   "journey": "E020",
+   "observation": "'Materials Det' is duplicated and should be renamed",
+   "state": "config",
+   "action": "Hide one, rename the other."
+  },
+  {
+   "ticket": "CJSMIG-701",
+   "seq": 10,
+   "journey": "E020",
+   "observation": "Declaration & Note missing",
+   "state": "config",
+   "action": "DISPLAY field with a TEXT: default."
+  },
+  {
+   "ticket": "CJSMIG-701",
+   "seq": 11,
+   "journey": "E020",
+   "observation": "Step 5 request confirmation not required",
+   "state": "config",
+   "action": "STEP_OFF - the fixpack does this for other journeys and takes one more line."
+  },
+  {
+   "ticket": "CJSMIG-701",
+   "seq": 12,
+   "journey": "E020",
+   "observation": "Feedback is mandatory",
+   "state": "done_claude",
+   "action": "'Not now' button."
+  },
+  {
+   "ticket": "CJSMIG-701",
+   "seq": 13,
+   "journey": "E020",
+   "observation": "Attachments are not saving",
+   "state": "check",
+   "action": "Re-run with &trace=x."
+  },
+  {
+   "ticket": "CJSMIG-701",
+   "seq": 14,
+   "journey": "E020",
+   "observation": "Vehicle details not saving in the backend",
+   "state": "backend",
+   "action": "Line the grid spec up against the LIST_SEQUENCE rows for that screen before treating it as a rendering fault."
+  },
+  {
+   "ticket": "CJSMIG-702",
+   "seq": 1,
+   "journey": "E023",
+   "observation": "CJS service Not found",
+   "state": "config",
+   "action": "The handler class exists and is complete. Check the ZRAK_T_JNY row and the launch URL's journey id - a code that does not resolve gives exactly this."
+  },
+  {
+   "ticket": "CJSMIG-703",
+   "seq": 1,
+   "journey": "E025",
+   "observation": "Emirates ID search should follow the format; Browse not required",
+   "state": "config",
+   "action": "PLACEHOLDER + REGEX; FTYPE SEARCH."
+  },
+  {
+   "ticket": "CJSMIG-703",
+   "seq": 2,
+   "journey": "E025",
+   "observation": "Number of Apiaries max 2 digits; Expected Production max 6",
+   "state": "config",
+   "action": "MAX_LEN on both fields."
+  },
+  {
+   "ticket": "CJSMIG-703",
+   "seq": 3,
+   "journey": "E025",
+   "observation": "Mandatory attachments need the *",
+   "state": "config",
+   "action": "Tick REQUIRED on each upload field."
+  },
+  {
+   "ticket": "CJSMIG-703",
+   "seq": 4,
+   "journey": "E025",
+   "observation": "Declaration & Note missing",
+   "state": "config",
+   "action": "DISPLAY field with a TEXT: default."
+  },
+  {
+   "ticket": "CJSMIG-703",
+   "seq": 5,
+   "journey": "E025",
+   "observation": "Case id is not correct - shows the wrong number",
+   "state": "check",
+   "action": "Send the number that was shown next to the case it belongs to. On some families the journey key is not the case id, and the engine has one resolver for that - but it needs the pair to confirm."
+  },
+  {
+   "ticket": "CJSMIG-703",
+   "seq": 6,
+   "journey": "E025",
+   "observation": "Applicant BP not saved in the record model, not in the backend application",
+   "state": "done_claude",
+   "action": "Fixed. The class called the applicant field OWNER_BP, which is this journey's owner SEARCH BOX; ON_INIT wrote the partner there and blanked it sixteen lines later. Now goes to LOGIN_BP. ZCL_E025_BEEKEEPING_LOGIC."
+  },
+  {
+   "ticket": "CJSMIG-704",
+   "seq": 1,
+   "journey": "E026",
+   "observation": "Emirates ID search should follow the format; Browse not required",
+   "state": "config",
+   "action": "PLACEHOLDER + REGEX; FTYPE SEARCH."
+  },
+  {
+   "ticket": "CJSMIG-704",
+   "seq": 2,
+   "journey": "E026",
+   "observation": "Mandatory attachments need the *",
+   "state": "config",
+   "action": "Tick REQUIRED on each upload field."
+  },
+  {
+   "ticket": "CJSMIG-704",
+   "seq": 3,
+   "journey": "E026",
+   "observation": "Declaration & Note missing",
+   "state": "config",
+   "action": "DISPLAY field with a TEXT: default."
+  },
+  {
+   "ticket": "CJSMIG-704",
+   "seq": 4,
+   "journey": "E026",
+   "observation": "Case id is not correct - shows the wrong number",
+   "state": "check",
+   "action": "Same as E025 - send the pair of numbers."
+  },
+  {
+   "ticket": "CJSMIG-704",
+   "seq": 5,
+   "journey": "E026",
+   "observation": "Applicant BP not saved in the record model, not in the backend application",
+   "state": "done_claude",
+   "action": "The applicant partner now also goes out as LOGIN_BP, the field every other journey uses. ZCL_E026_TREE_REMOVAL_LOGIC."
+  }
+ ],
+ "pending_activation": [
+  {
+   "object": "ZCL_E025_BEEKEEPING_LOGIC",
+   "change": "Applicant BP goes to LOGIN_BP, not to the owner search box",
+   "ticket": "CJSMIG-703"
+  },
+  {
+   "object": "ZCL_E026_TREE_REMOVAL_LOGIC",
+   "change": "Applicant BP also goes out as LOGIN_BP",
+   "ticket": "CJSMIG-704"
+  },
+  {
+   "object": "ZCL_E027_VICE_CAPTAIN_LOGIC",
+   "change": "Same applicant-BP fix, applied before it was reported",
+   "ticket": "-"
+  },
+  {
+   "object": "ZCL_EPDA_E022_DEV_PROJ_LOGIC",
+   "change": "Same applicant-BP fix; duplicate applicant write removed",
+   "ticket": "CJSMIG-684"
+  },
+  {
+   "object": "ZCL_D021_MOD_SCHOOL_FEE_LOGIC",
+   "change": "Same applicant-BP fix",
+   "ticket": "CJSMIG-693"
+  },
+  {
+   "object": "ZCL_D014_STAFF_GOLD_VISA_LOGIC",
+   "change": "Same applicant-BP fix",
+   "ticket": "-"
+  },
+  {
+   "object": "ZCL_E018_NOC_TRANS_CHEM_LOGIC",
+   "change": "Activation breaker removed - the class had no active version",
+   "ticket": "CJSMIG-697"
+  },
+  {
+   "object": "ZCL_E017_NOC_EXP_CHEM_LOGIC",
+   "change": "All fourteen Add Chemical fields marked and enforced",
+   "ticket": "CJSMIG-687"
+  },
+  {
+   "object": "ZCL_RAK_JOURNEY_LOGIC",
+   "change": "Dialogs draw their own messages and lay out in two columns",
+   "ticket": "CJSMIG-687 / 697"
+  },
+  {
+   "object": "ZCL_RAK_JOURNEY_RENDER",
+   "change": "'Not now' beside Send feedback; attachment labels carry the native required marker",
+   "ticket": "several"
+  },
+  {
+   "object": "ZCL_RAK_JOURNEY_ENGINE",
+   "change": "FBSKIP handling for the skipped feedback",
+   "ticket": "several"
+  },
+  {
+   "object": "ZCL_RAK_JOURNEY_BE",
+   "change": "Counts and names the attachments it could not read",
+   "ticket": "several"
+  },
+  {
+   "object": "ZRAK_CJ_FIXPACK",
+   "change": "Report: applies 19 of the config points mechanically, per journey",
+   "ticket": "682-697"
+  },
+  {
+   "object": "ZRAK_CJ_BACKUP",
+   "change": "Report: full export / import of a journey's configuration",
+   "ticket": "-"
+  }
+ ]
+}

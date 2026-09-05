@@ -1,0 +1,690 @@
+<title>CJS Journey Board</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#EEF2F2; --surface:#FFFFFF; --surface2:#F6F9F9; --raise:#FBFDFD;
+  --ink:#0F1A1B; --ink2:#4B5C5E; --ink3:#6E8082; --rule:#D5DEDE; --rule2:#E6ECEC;
+  --accent:#0B6E68;
+  --done:#1C6B43; --cfg:#9E5A08; --be:#5B4B8A; --pt:#4A5A72; --chk:#9C3A52;
+  --doneb:#E4F0E9; --cfgb:#F7EBDC; --beb:#EBE7F4; --ptb:#E7EBF1; --chkb:#F7E5E9;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0D1314; --surface:#141C1D; --surface2:#182122; --raise:#1C2627;
+    --ink:#E3ECEB; --ink2:#A2B3B3; --ink3:#7E9091; --rule:#263234; --rule2:#1F2A2B;
+    --accent:#4FBDB2;
+    --done:#66C08D; --cfg:#E0A54E; --be:#A99AE0; --pt:#9DAFC9; --chk:#E88CA0;
+    --doneb:#162A20; --cfgb:#2C2113; --beb:#211C33; --ptb:#1A222C; --chkb:#2E1A20;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0D1314; --surface:#141C1D; --surface2:#182122; --raise:#1C2627;
+  --ink:#E3ECEB; --ink2:#A2B3B3; --ink3:#7E9091; --rule:#263234; --rule2:#1F2A2B;
+  --accent:#4FBDB2;
+  --done:#66C08D; --cfg:#E0A54E; --be:#A99AE0; --pt:#9DAFC9; --chk:#E88CA0;
+  --doneb:#162A20; --cfgb:#2C2113; --beb:#211C33; --ptb:#1A222C; --chkb:#2E1A20;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+code{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.88em;color:var(--ink);background:var(--surface2);
+  padding:1px 5px;border-radius:3px;border:1px solid var(--rule2)}
+h1,h2,h3{font-family:Archivo,"IBM Plex Sans",sans-serif;text-wrap:balance;margin:0}
+.top{background:var(--surface);border-bottom:1px solid var(--rule);padding:44px 0 28px}
+.eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent);font-weight:600;margin:0 0 10px}
+h1{font-size:clamp(30px,4.4vw,46px);font-weight:700;letter-spacing:-.02em;line-height:1.04}
+.lede{max-width:62ch;color:var(--ink2);margin:12px 0 0;font-size:16px}
+.figs{display:flex;flex-wrap:wrap;gap:36px;margin:28px 0 0}
+.figs div{display:flex;flex-direction:column-reverse}
+.figs dt{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);margin:2px 0 0}
+.figs dd{margin:0;font-family:Archivo,sans-serif;font-weight:600;font-size:28px;
+  font-variant-numeric:tabular-nums;line-height:1}
+.bar{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:26px 0 12px;
+  background:var(--surface2)}
+.seg{display:block;height:100%}
+.seg.done{background:var(--done)} .seg.cfg{background:var(--cfg)}
+.seg.be{background:var(--be)} .seg.pt{background:var(--pt)} .seg.chk{background:var(--chk)}
+.legend{list-style:none;display:flex;flex-wrap:wrap;gap:6px 22px;margin:0;padding:0;
+  font-size:13px;color:var(--ink2)}
+.legend li{display:flex;align-items:center;gap:7px}
+.legend b{font-variant-numeric:tabular-nums;color:var(--ink)}
+.sw{width:9px;height:9px;border-radius:2px;display:inline-block}
+.sw.done{background:var(--done)} .sw.cfg{background:var(--cfg)}
+.sw.be{background:var(--be)} .sw.pt{background:var(--pt)} .sw.chk{background:var(--chk)}
+.callout{margin:36px 0 0;padding:22px 24px;background:var(--surface);
+  border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:2px}
+.callout h2{font-size:19px;font-weight:600;letter-spacing:-.01em}
+.callout p{color:var(--ink2);max-width:74ch;margin:8px 0 16px}
+table{border-collapse:collapse;width:100%}
+.pend{font-size:13.5px}
+.pend th{text-align:left;font-weight:600;font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink3);padding:0 12px 6px 0;border-bottom:1px solid var(--rule)}
+.pend td{padding:7px 12px 7px 0;border-bottom:1px solid var(--rule2);vertical-align:top;color:var(--ink2)}
+.pend td.num{font-family:"IBM Plex Mono",monospace;font-size:12px;white-space:nowrap;color:var(--ink3)}
+.filters{position:sticky;top:0;z-index:5;background:var(--ground);
+  padding:18px 0 12px;margin:36px 0 0;border-bottom:1px solid var(--rule);
+  display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+#q{flex:1 1 280px;min-width:220px;padding:9px 12px;border:1px solid var(--rule);
+  border-radius:3px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px}
+#q:focus-visible,.fchip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.fchip{font:inherit;font-size:12.5px;padding:6px 11px;border-radius:99px;cursor:pointer;
+  background:var(--surface);color:var(--ink2);border:1px solid var(--rule);
+  display:inline-flex;align-items:center;gap:7px}
+.fchip b{font-variant-numeric:tabular-nums;color:var(--ink3);font-weight:500}
+.fchip[aria-pressed="true"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.fchip[aria-pressed="true"] b{color:var(--ground);opacity:.7}
+.shown{font-size:12.5px;color:var(--ink3);margin:12px 0 0;height:1em}
+.jny{margin:34px 0 0;background:var(--surface);border:1px solid var(--rule);border-radius:2px;
+  padding:22px 24px 6px}
+.jhead{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;justify-content:space-between}
+.jny h2{font-size:21px;font-weight:600;letter-spacing:-.01em}
+.jcode{font-family:"IBM Plex Mono",monospace;font-size:16px;font-weight:500;
+  color:var(--accent);margin-right:8px}
+.meta{display:flex;gap:14px;margin:0;font-size:12.5px;color:var(--ink3);
+  font-family:"IBM Plex Mono",monospace}
+.dept{font-weight:500;color:var(--ink2)}
+.prog{display:flex;align-items:center;gap:14px;margin:16px 0 0}
+.pbar{display:flex;height:6px;flex:1;border-radius:3px;overflow:hidden;background:var(--surface2)}
+.pnum{margin:0;font-size:12.5px;color:var(--ink3);white-space:nowrap;font-variant-numeric:tabular-nums}
+.pnum b{color:var(--ink)}
+.note{color:var(--ink2);max-width:78ch;margin:14px 0 4px;font-size:14.5px}
+.obs{font-size:14px;margin:10px 0 0}
+.obs th{text-align:left;font-weight:600;font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink3);padding:10px 14px 7px 0;border-bottom:1px solid var(--rule)}
+.obs td{padding:11px 14px 11px 0;border-bottom:1px solid var(--rule2);vertical-align:top}
+.obs tr:last-child td{border-bottom:0}
+.obs .n{width:26px;color:var(--ink3);font-variant-numeric:tabular-nums;font-size:12.5px;padding-top:12px}
+.obs .what{width:34%;color:var(--ink)}
+.obs .how{color:var(--ink2);font-size:13.5px}
+.obs td:nth-child(3){width:172px}
+.chip{display:inline-block;font-size:11.5px;font-weight:500;padding:3px 9px;border-radius:99px;
+  white-space:nowrap;line-height:1.4}
+.chip.done{background:var(--doneb);color:var(--done)}
+.chip.cfg{background:var(--cfgb);color:var(--cfg)}
+.chip.be{background:var(--beb);color:var(--be)}
+.chip.pt{background:var(--ptb);color:var(--pt)}
+.chip.chk{background:var(--chkb);color:var(--chk)}
+.jny.hide,.obs tr.hide{display:none}
+footer{margin:48px 0 60px;padding:20px 0 0;border-top:1px solid var(--rule);
+  font-size:13px;color:var(--ink3);max-width:80ch}
+footer p{margin:0 0 8px}
+@media (max-width:720px){
+  .obs td:nth-child(3){width:auto}
+  .obs .what{width:auto}
+  .obs,.pend{display:block;overflow-x:auto}
+  .figs{gap:24px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<header class="top">
+<div class="wrap">
+<p class="eyebrow">RAK Customer Journey Studio · SIT round</p>
+<h1>Journey board</h1>
+<p class="lede">Every observation the testers raised across 19 Jira tickets, said plainly, with who closes it and how. As at 5 September 2026.</p>
+<dl class="figs">
+<div><dt>Journeys</dt><dd>19</dd></div>
+<div><dt>Tickets</dt><dd>19</dd></div>
+<div><dt>Observations</dt><dd>172</dd></div>
+<div><dt>Closed</dt><dd>30</dd></div>
+<div><dt>Open</dt><dd>142</dd></div>
+</dl>
+<div class="bar" role="img" aria-label="Where the work sits">
+<span class="seg done" style="width:8.72%" title="Fixed in CJS code: 15"></span>
+<span class="seg done" style="width:8.72%" title="Closed by developer: 15"></span>
+<span class="seg cfg" style="width:41.86%" title="CJS configuration: 72"></span>
+<span class="seg be" style="width:11.63%" title="Backend / record model: 20"></span>
+<span class="seg pt" style="width:16.28%" title="Portal / framework: 28"></span>
+<span class="seg chk" style="width:12.79%" title="Needs a look: 22"></span>
+</div>
+<ul class="legend">
+<li><i class="sw done"></i>Fixed in CJS code <b>15</b></li>
+<li><i class="sw done"></i>Closed by developer <b>15</b></li>
+<li><i class="sw cfg"></i>CJS configuration <b>72</b></li>
+<li><i class="sw be"></i>Backend / record model <b>20</b></li>
+<li><i class="sw pt"></i>Portal / framework <b>28</b></li>
+<li><i class="sw chk"></i>Needs a look <b>22</b></li>
+</ul>
+</div></header>
+<div class="wrap">
+<section class="callout">
+<h2>Before any code fix counts</h2>
+<p>The fixes below are in git on <code>main</code>. They do nothing in SAP until each object is pulled <em>and</em> activated. In the abapGit pull dialog every <em>Overwrite local object</em> row arrives unticked, and the ticks reset each time the dialog opens - so an existing class is skipped unless you tick it by hand. Activate <code>ZCL_RAK_JOURNEY_LOGIC</code> and <code>ZCL_RAK_JOURNEY_RENDER</code> first; they break widest.</p>
+<table class="pend"><thead><tr><th>Object</th><th>What changed</th><th>Ticket</th></tr></thead><tbody>
+<tr><td><code>ZCL_E025_BEEKEEPING_LOGIC</code></td><td>Applicant BP goes to LOGIN_BP, not to the owner search box</td><td class="num">CJSMIG-703</td></tr>
+<tr><td><code>ZCL_E026_TREE_REMOVAL_LOGIC</code></td><td>Applicant BP also goes out as LOGIN_BP</td><td class="num">CJSMIG-704</td></tr>
+<tr><td><code>ZCL_E027_VICE_CAPTAIN_LOGIC</code></td><td>Same applicant-BP fix, applied before it was reported</td><td class="num">-</td></tr>
+<tr><td><code>ZCL_EPDA_E022_DEV_PROJ_LOGIC</code></td><td>Same applicant-BP fix; duplicate applicant write removed</td><td class="num">CJSMIG-684</td></tr>
+<tr><td><code>ZCL_D021_MOD_SCHOOL_FEE_LOGIC</code></td><td>Same applicant-BP fix</td><td class="num">CJSMIG-693</td></tr>
+<tr><td><code>ZCL_D014_STAFF_GOLD_VISA_LOGIC</code></td><td>Same applicant-BP fix</td><td class="num">-</td></tr>
+<tr><td><code>ZCL_E018_NOC_TRANS_CHEM_LOGIC</code></td><td>Activation breaker removed - the class had no active version</td><td class="num">CJSMIG-697</td></tr>
+<tr><td><code>ZCL_E017_NOC_EXP_CHEM_LOGIC</code></td><td>All fourteen Add Chemical fields marked and enforced</td><td class="num">CJSMIG-687</td></tr>
+<tr><td><code>ZCL_RAK_JOURNEY_LOGIC</code></td><td>Dialogs draw their own messages and lay out in two columns</td><td class="num">CJSMIG-687 / 697</td></tr>
+<tr><td><code>ZCL_RAK_JOURNEY_RENDER</code></td><td>&#x27;Not now&#x27; beside Send feedback; attachment labels carry the native required marker</td><td class="num">several</td></tr>
+<tr><td><code>ZCL_RAK_JOURNEY_ENGINE</code></td><td>FBSKIP handling for the skipped feedback</td><td class="num">several</td></tr>
+<tr><td><code>ZCL_RAK_JOURNEY_BE</code></td><td>Counts and names the attachments it could not read</td><td class="num">several</td></tr>
+<tr><td><code>ZRAK_CJ_FIXPACK</code></td><td>Report: applies 19 of the config points mechanically, per journey</td><td class="num">682-697</td></tr>
+<tr><td><code>ZRAK_CJ_BACKUP</code></td><td>Report: full export / import of a journey&#x27;s configuration</td><td class="num">-</td></tr>
+</tbody></table>
+</section>
+<div class="filters" id="filters">
+<input type="search" id="q" placeholder="Search observations, journeys, field names" aria-label="Search">
+<div class="chips" id="stchips">
+<button class="fchip done" data-st="done_claude" aria-pressed="false">Fixed in CJS code<b>15</b></button>
+<button class="fchip done" data-st="done_dev" aria-pressed="false">Closed by developer<b>15</b></button>
+<button class="fchip cfg" data-st="config" aria-pressed="false">CJS configuration<b>72</b></button>
+<button class="fchip be" data-st="backend" aria-pressed="false">Backend / record model<b>20</b></button>
+<button class="fchip pt" data-st="portal" aria-pressed="false">Portal / framework<b>28</b></button>
+<button class="fchip chk" data-st="check" aria-pressed="false">Needs a look<b>22</b></button>
+</div>
+<div class="chips">
+<button class="fchip dept" data-dept="DOK" aria-pressed="false">DOK</button>
+<button class="fchip dept" data-dept="EPDA" aria-pressed="false">EPDA</button>
+<button class="fchip clear" id="clear">Clear</button>
+</div>
+</div>
+<p class="shown" id="shown"></p>
+<section class="jny" data-dept="EPDA" data-code="E021">
+<div class="jhead">
+<h2><span class="jcode">E021</span> Alternative Fuel</h2>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-683</span><span>SIT</span><span>anand babu</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg done" style="width:6.67%"></span>
+<span class="seg cfg" style="width:60.00%"></span>
+<span class="seg be" style="width:6.67%"></span>
+<span class="seg pt" style="width:6.67%"></span>
+<span class="seg chk" style="width:20.00%"></span>
+</div>
+<p class="pnum"><b>1</b> of 15 closed</p></div>
+<p class="note">Handler ZCL_EPDA_E021_ALTER_FUEL_LOGIC has no ON_INIT, so the applicant&#x27;s name, ID, mobile, email and role are never seeded - that is the same root cause behind &#x27;applicant details missing&#x27; and most of the owner-step noise. Adding one needs the journey&#x27;s own field names from the Studio.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="check" data-hay="initial page loads with error messages send the screenshot text. most likely the required-field messages firing before the citizen has typed anything, which is a rule/required config question, not the engine. e021 alternative fuel cjsmig-683"><td class="n">1</td><td class="what">Initial page loads with error messages</td><td><span class="chip chk">Needs a look</span></td><td class="how">Send the screenshot text. Most likely the required-field messages firing before the citizen has typed anything, which is a rule/required config question, not the engine.</td></tr>
+<tr data-st="config" data-hay="applicant details not aligned - should be row wise studio &gt; design tab. place the applicant fields on one row of the 12-column grid (zrak_cj_lay). e021 alternative fuel cjsmig-683"><td class="n">2</td><td class="what">Applicant details not aligned - should be row wise</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Studio &gt; Design tab. Place the applicant fields on one row of the 12-column grid (ZRAK_CJ_LAY).</td></tr>
+<tr data-st="check" data-hay="epda permit no &amp; applicant type data missing the handler has no on_init, so nothing seeds these. confirm the field names in zrak_t_jny_fld and an on_init can be written in an hour. e021 alternative fuel cjsmig-683"><td class="n">3</td><td class="what">EPDA permit no &amp; applicant type data missing</td><td><span class="chip chk">Needs a look</span></td><td class="how">The handler has no ON_INIT, so nothing seeds these. Confirm the field names in ZRAK_T_JNY_FLD and an ON_INIT can be written in an hour.</td></tr>
+<tr data-st="config" data-hay="permit / eid / trade licence order wrong, no search button field order in the design tab; the search button appears when the field&#x27;s ftype is search. e021 alternative fuel cjsmig-683"><td class="n">4</td><td class="what">Permit / EID / trade licence order wrong, no search button</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Field order in the Design tab; the search button appears when the field&#x27;s FTYPE is SEARCH.</td></tr>
+<tr data-st="config" data-hay="company details field order not correct design tab. e021 alternative fuel cjsmig-683"><td class="n">5</td><td class="what">Company details field order not correct</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Design tab.</td></tr>
+<tr data-st="backend" data-hay="company name en/ar not filled from the permit number the permit read has to return the company name. backend/badi. e021 alternative fuel cjsmig-683"><td class="n">6</td><td class="what">Company name EN/AR not filled from the permit number</td><td><span class="chip be">Backend / record model</span></td><td class="how">The permit read has to return the company name. Backend/BAdI.</td></tr>
+<tr data-st="config" data-hay="grid: all row fields mandatory, drop the delete1 column required per field, and remove the column from the grid spec in zrak_t_jny_fld-default_val. e021 alternative fuel cjsmig-683"><td class="n">7</td><td class="what">Grid: all row fields mandatory, drop the delete1 column</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">REQUIRED per field, and remove the column from the grid spec in ZRAK_T_JNY_FLD-DEFAULT_VAL.</td></tr>
+<tr data-st="config" data-hay="units and no. of months should be dropdowns add the values to zrak_t_jny_opt and set closed_list = x. e021 alternative fuel cjsmig-683"><td class="n">8</td><td class="what">Units and No. of Months should be dropdowns</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Add the values to ZRAK_T_JNY_OPT and set CLOSED_LIST = X.</td></tr>
+<tr data-st="config" data-hay="supplier company: order and mandatory indicators design tab + required. e021 alternative fuel cjsmig-683"><td class="n">9</td><td class="what">Supplier company: order and mandatory indicators</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Design tab + REQUIRED.</td></tr>
+<tr data-st="config" data-hay="step name &#x27;letter from the supplier company&#x27; -&gt; &#x27;documents&#x27; already coded in zrak_cj_fixpack, english and arabic. run the report for this journey. e021 alternative fuel cjsmig-683"><td class="n">10</td><td class="what">Step name &#x27;Letter from the Supplier Company&#x27; -&gt; &#x27;Documents&#x27;</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Already coded in ZRAK_CJ_FIXPACK, English and Arabic. Run the report for this journey.</td></tr>
+<tr data-st="config" data-hay="mandatory attachment labels need the * indicator the engine draws the asterisk now - render_attach( ) passes the native required property. what is left is ticking required on each upload field. e021 alternative fuel cjsmig-683"><td class="n">11</td><td class="what">Mandatory attachment labels need the * indicator</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">The engine draws the asterisk now - RENDER_ATTACH( ) passes the native required property. What is left is ticking REQUIRED on each upload field.</td></tr>
+<tr data-st="config" data-hay="declaration &amp; notes missing add a display field whose default_val is text:@nnn pointing at a zrak_t_cj_txt row, so it reads in both languages. e021 alternative fuel cjsmig-683"><td class="n">12</td><td class="what">Declaration &amp; Notes missing</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Add a DISPLAY field whose DEFAULT_VAL is TEXT:@nnn pointing at a ZRAK_T_CJ_TXT row, so it reads in both languages.</td></tr>
+<tr data-st="done_claude" data-hay="feedback is mandatory a &#x27;not now&#x27; button now sits beside send feedback and the journey finishes without it. zcl_rak_journey_render + zcl_rak_journey_engine (fbskip). e021 alternative fuel cjsmig-683"><td class="n">13</td><td class="what">Feedback is mandatory</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">A &#x27;Not now&#x27; button now sits beside Send feedback and the journey finishes without it. ZCL_RAK_JOURNEY_RENDER + ZCL_RAK_JOURNEY_ENGINE (FBSKIP).</td></tr>
+<tr data-st="check" data-hay="case created (1959717) but attachments not saved instrumented: zcl_rak_journey_be now counts the files it could not read, says so on screen and names them on the trace. re-run with &amp;trace=x and send the attach line. e021 alternative fuel cjsmig-683"><td class="n">14</td><td class="what">Case created (1959717) but attachments not saved</td><td><span class="chip chk">Needs a look</span></td><td class="how">Instrumented: ZCL_RAK_JOURNEY_BE now counts the files it could not read, says so on screen and names them on the trace. Re-run with &amp;trace=x and send the ATTACH line.</td></tr>
+<tr data-st="portal" data-hay="arabic - service start button not showing service card / launchpad, not cjs. e021 alternative fuel cjsmig-683"><td class="n">15</td><td class="what">Arabic - service start button not showing</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Service card / launchpad, not CJS.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="EPDA" data-code="E022">
+<div class="jhead">
+<h2><span class="jcode">E022</span> Development Project</h2>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-684</span><span>SIT</span><span>anand babu</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg done" style="width:13.33%"></span>
+<span class="seg cfg" style="width:66.67%"></span>
+<span class="seg pt" style="width:6.67%"></span>
+<span class="seg chk" style="width:13.33%"></span>
+</div>
+<p class="pnum"><b>2</b> of 15 closed</p></div>
+<p class="note">The duplicate applicant write was fixed in the handler earlier; the applicant BP now also goes out as LOGIN_BP. Everything else on this ticket is step names, field order and two missing texts - all Studio work, and four of them are already coded into ZRAK_CJ_FIXPACK.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="check" data-hay="initial page loads with error messages send the screenshot text. e022 development project cjsmig-684"><td class="n">1</td><td class="what">Initial page loads with error messages</td><td><span class="chip chk">Needs a look</span></td><td class="how">Send the screenshot text.</td></tr>
+<tr data-st="config" data-hay="applicant details not aligned - should be row wise design tab. e022 development project cjsmig-684"><td class="n">2</td><td class="what">Applicant details not aligned - should be row wise</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Design tab.</td></tr>
+<tr data-st="done_claude" data-hay="applicant details are duplicated the handler was writing the applicant fields twice. fixed in zcl_epda_e022_dev_proj_logic. e022 development project cjsmig-684"><td class="n">3</td><td class="what">Applicant details are duplicated</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">The handler was writing the applicant fields twice. Fixed in ZCL_EPDA_E022_DEV_PROJ_LOGIC.</td></tr>
+<tr data-st="config" data-hay="emirates id search should follow the format; browse not required placeholder for the mask, regex for the format, ftype search instead of the browse control. e022 development project cjsmig-684"><td class="n">4</td><td class="what">Emirates ID search should follow the format; Browse not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">PLACEHOLDER for the mask, REGEX for the format, FTYPE SEARCH instead of the browse control.</td></tr>
+<tr data-st="config" data-hay="permit / eid / trade licence order; permit number not a dropdown design tab + ftype. e022 development project cjsmig-684"><td class="n">5</td><td class="what">Permit / EID / trade licence order; permit number not a dropdown</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Design tab + FTYPE.</td></tr>
+<tr data-st="config" data-hay="company details field order not correct design tab. e022 development project cjsmig-684"><td class="n">6</td><td class="what">Company details field order not correct</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Design tab.</td></tr>
+<tr data-st="config" data-hay="company name english &amp; arabic duplicated two fields are bound to the same value. hide one in zrak_t_jny_fld. e022 development project cjsmig-684"><td class="n">7</td><td class="what">Company name English &amp; Arabic duplicated</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Two fields are bound to the same value. Hide one in ZRAK_T_JNY_FLD.</td></tr>
+<tr data-st="config" data-hay="rename step &#x27;development project&#x27; -&gt; &#x27;project details&#x27; coded in zrak_cj_fixpack, en + ar. e022 development project cjsmig-684"><td class="n">8</td><td class="what">Rename step &#x27;Development Project&#x27; -&gt; &#x27;Project Details&#x27;</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Coded in ZRAK_CJ_FIXPACK, EN + AR.</td></tr>
+<tr data-st="config" data-hay="rename step &#x27;trade license&#x27; -&gt; &#x27;documents&#x27; coded in zrak_cj_fixpack, en + ar. e022 development project cjsmig-684"><td class="n">9</td><td class="what">Rename step &#x27;Trade license&#x27; -&gt; &#x27;Documents&#x27;</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Coded in ZRAK_CJ_FIXPACK, EN + AR.</td></tr>
+<tr data-st="config" data-hay="trade licence attachment is missing add the upload field to the documents step. e022 development project cjsmig-684"><td class="n">10</td><td class="what">Trade licence attachment is missing</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Add the upload field to the Documents step.</td></tr>
+<tr data-st="config" data-hay="declaration &amp; note missing display field with a text: default. e022 development project cjsmig-684"><td class="n">11</td><td class="what">Declaration &amp; Note missing</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">DISPLAY field with a TEXT: default.</td></tr>
+<tr data-st="config" data-hay="step 5 request confirmation not required coded in zrak_cj_fixpack as step_off - reversible, sets active blank. e022 development project cjsmig-684"><td class="n">12</td><td class="what">Step 5 request confirmation not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Coded in ZRAK_CJ_FIXPACK as STEP_OFF - reversible, sets ACTIVE blank.</td></tr>
+<tr data-st="done_claude" data-hay="feedback is mandatory &#x27;not now&#x27; button - same engine fix as e021. e022 development project cjsmig-684"><td class="n">13</td><td class="what">Feedback is mandatory</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">&#x27;Not now&#x27; button - same engine fix as E021.</td></tr>
+<tr data-st="check" data-hay="attachments are not saving re-run with &amp;trace=x and send the attach line. e022 development project cjsmig-684"><td class="n">14</td><td class="what">Attachments are not saving</td><td><span class="chip chk">Needs a look</span></td><td class="how">Re-run with &amp;trace=x and send the ATTACH line.</td></tr>
+<tr data-st="portal" data-hay="customer action not working landing page redirect - portal team. e022 development project cjsmig-684"><td class="n">15</td><td class="what">Customer action not working</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Landing page redirect - portal team.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="DOK" data-code="D012">
+<div class="jhead">
+<h2><span class="jcode">D012</span> School Trips &amp; Activities</h2>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-685</span><span>SIT</span><span>Jyoti Meena</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg done" style="width:44.44%"></span>
+<span class="seg be" style="width:11.11%"></span>
+<span class="seg pt" style="width:44.44%"></span>
+</div>
+<p class="pnum"><b>4</b> of 9 closed</p></div>
+<p class="note">Three of the nine are closed by the developer. What is left is the portal side - Arabic cases, Customer Action, the Back button - plus one backend mapping fault where the selected school is not the school that reaches the case.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="done_dev" data-hay="attachment types should allow jpg, png etc closed by jyoti. d012 school trips &amp; activities cjsmig-685"><td class="n">1</td><td class="what">Attachment types should allow JPG, PNG etc</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Jyoti.</td></tr>
+<tr data-st="backend" data-hay="selected indian school, a different school reached the case backend data mapping - jyoti&#x27;s own answer. d012 school trips &amp; activities cjsmig-685"><td class="n">2</td><td class="what">Selected Indian school, a different school reached the case</td><td><span class="chip be">Backend / record model</span></td><td class="how">Backend data mapping - Jyoti&#x27;s own answer.</td></tr>
+<tr data-st="done_dev" data-hay="attachments not reflected into the case closed by jyoti. d012 school trips &amp; activities cjsmig-685"><td class="n">3</td><td class="what">Attachments not reflected into the case</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Jyoti.</td></tr>
+<tr data-st="portal" data-hay="customer action from landing page, upload does nothing framework side - jyoti&#x27;s answer. d012 school trips &amp; activities cjsmig-685"><td class="n">4</td><td class="what">Customer Action from landing page, Upload does nothing</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Framework side - Jyoti&#x27;s answer.</td></tr>
+<tr data-st="portal" data-hay="cases not translated into arabic framework side. d012 school trips &amp; activities cjsmig-685"><td class="n">5</td><td class="what">Cases not translated into Arabic</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Framework side.</td></tr>
+<tr data-st="portal" data-hay="no case exists to submit in arabic framework side. d012 school trips &amp; activities cjsmig-685"><td class="n">6</td><td class="what">No case exists to submit in Arabic</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Framework side.</td></tr>
+<tr data-st="portal" data-hay="back button does not work to submit a new case framework side. d012 school trips &amp; activities cjsmig-685"><td class="n">7</td><td class="what">Back button does not work to submit a new case</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Framework side.</td></tr>
+<tr data-st="done_dev" data-hay="applicant type field alignment closed by jyoti. d012 school trips &amp; activities cjsmig-685"><td class="n">8</td><td class="what">Applicant type field alignment</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Jyoti.</td></tr>
+<tr data-st="done_dev" data-hay="curriculum type field alignment closed by jyoti. d012 school trips &amp; activities cjsmig-685"><td class="n">9</td><td class="what">Curriculum type field alignment</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Jyoti.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="EPDA" data-code="E017">
+<div class="jhead">
+<h2><span class="jcode">E017</span> Export Chemical Products</h2>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-687</span><span>SIT</span><span>Jyoti Meena</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg done" style="width:22.22%"></span>
+<span class="seg cfg" style="width:38.89%"></span>
+<span class="seg be" style="width:5.56%"></span>
+<span class="seg pt" style="width:5.56%"></span>
+<span class="seg chk" style="width:27.78%"></span>
+</div>
+<p class="pnum"><b>4</b> of 18 closed</p></div>
+<p class="note">The Add Chemical dialog was the bulk of this ticket and is fixed in code: all fourteen fields are now marked required AND enforced, the dialog shows its own messages instead of throwing them behind the modal, and it lays out in two columns. Search from History is a genuine gap - the legacy control reads ChemicalHistorySet and nothing in CJS calls it yet.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="config" data-hay="owner search should be in eid format; browse not required placeholder + regex; ftype search. listed in the fixpack worklist. e017 export chemical products cjsmig-687"><td class="n">1</td><td class="what">Owner search should be in EID format; Browse not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">PLACEHOLDER + REGEX; FTYPE SEARCH. Listed in the fixpack worklist.</td></tr>
+<tr data-st="check" data-hay="representative + owner eid search errors and will not move to the next step needs one run with the exact search value. the popup validation now blocks correctly, so an error here is the search itself. e017 export chemical products cjsmig-687"><td class="n">2</td><td class="what">Representative + owner EID search errors and will not move to the next step</td><td><span class="chip chk">Needs a look</span></td><td class="how">Needs one run with the exact search value. The popup validation now blocks correctly, so an error here is the search itself.</td></tr>
+<tr data-st="config" data-hay="permit number / trade licence etc. not required on the chemical tab coded in zrak_cj_fixpack as three hide rules anchored on the chemicals_details grid. e017 export chemical products cjsmig-687"><td class="n">3</td><td class="what">Permit number / trade licence etc. not required on the chemical tab</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Coded in ZRAK_CJ_FIXPACK as three HIDE rules anchored on the CHEMICALS_DETAILS grid.</td></tr>
+<tr data-st="done_claude" data-hay="add chemical - all fields should be mandatory all fourteen are now marked with an asterisk and enforced. ten of the fourteen checks had been commented out. zcl_e017_noc_exp_chem_logic-&gt;validate_input( ). e017 export chemical products cjsmig-687"><td class="n">4</td><td class="what">Add Chemical - all fields should be mandatory</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">All fourteen are now marked with an asterisk and enforced. Ten of the fourteen checks had been commented out. ZCL_E017_NOC_EXP_CHEM_LOGIC-&gt;VALIDATE_INPUT( ).</td></tr>
+<tr data-st="done_claude" data-hay="mandatory-field message shows on the main screen, not in the dialog dialog_form( ) now draws pending messages inside the dialog. zcl_rak_journey_logic. e017 export chemical products cjsmig-687"><td class="n">5</td><td class="what">Mandatory-field message shows on the main screen, not in the dialog</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">DIALOG_FORM( ) now draws pending messages inside the dialog. ZCL_RAK_JOURNEY_LOGIC.</td></tr>
+<tr data-st="done_claude" data-hay="one field per row - should be two or more popup dialogs lay out in two columns now. the fix was formcontainers, not the columnsl property. zcl_rak_journey_logic-&gt;dialog_form( ). e017 export chemical products cjsmig-687"><td class="n">6</td><td class="what">One field per row - should be two or more</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">Popup dialogs lay out in two columns now. The fix was FormContainers, not the columnsL property. ZCL_RAK_JOURNEY_LOGIC-&gt;DIALOG_FORM( ).</td></tr>
+<tr data-st="check" data-hay="bill of lading input clears its own value check bol_pop actually exists in zrak_t_jny_fld - a field name that is not on the journey accepts set_val and get_val and does nothing. e017 export chemical products cjsmig-687"><td class="n">7</td><td class="what">Bill of Lading input clears its own value</td><td><span class="chip chk">Needs a look</span></td><td class="how">Check BOL_POP actually exists in ZRAK_T_JNY_FLD - a field name that is not on the journey accepts set_val and get_val and does nothing.</td></tr>
+<tr data-st="config" data-hay="&#x27;use a previous declaration&#x27; field not required hide the field. e017 export chemical products cjsmig-687"><td class="n">8</td><td class="what">&#x27;Use a previous declaration&#x27; field not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Hide the field.</td></tr>
+<tr data-st="config" data-hay="hs code should be a guided formatted number with a watermark regex for the format, placeholder for the watermark. e017 export chemical products cjsmig-687"><td class="n">9</td><td class="what">HS code should be a guided formatted number with a watermark</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">REGEX for the format, PLACEHOLDER for the watermark.</td></tr>
+<tr data-st="check" data-hay="modify - existing values are not showing the edit path does not load the row back into the dialog. needs a run. e017 export chemical products cjsmig-687"><td class="n">10</td><td class="what">Modify - existing values are not showing</td><td><span class="chip chk">Needs a look</span></td><td class="how">The edit path does not load the row back into the dialog. Needs a run.</td></tr>
+<tr data-st="check" data-hay="search from history is missing a real gap, not a bug: the legacy control reads chemicalhistoryset on zega_fw_fnd_srv and no cjs class calls it. needs a decision before it can be built. e017 export chemical products cjsmig-687"><td class="n">11</td><td class="what">Search from History is missing</td><td><span class="chip chk">Needs a look</span></td><td class="how">A real gap, not a bug: the legacy control reads ChemicalHistorySet on zega_fw_fnd_srv and no CJS class calls it. Needs a decision before it can be built.</td></tr>
+<tr data-st="config" data-hay="&#x27;up to 2 mb&#x27; repeats on every attachment; mandatory indicator missing the asterisk is engine-side and done; the repeated size hint is per-field wording. e017 export chemical products cjsmig-687"><td class="n">12</td><td class="what">&#x27;up to 2 MB&#x27; repeats on every attachment; mandatory indicator missing</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">The asterisk is engine-side and done; the repeated size hint is per-field wording.</td></tr>
+<tr data-st="config" data-hay="preview page should be removed coded in zrak_cj_fixpack as step_off. e017 export chemical products cjsmig-687"><td class="n">13</td><td class="what">Preview page should be removed</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Coded in ZRAK_CJ_FIXPACK as STEP_OFF.</td></tr>
+<tr data-st="config" data-hay="step 5 request confirmation not required coded in zrak_cj_fixpack as step_off. e017 export chemical products cjsmig-687"><td class="n">14</td><td class="what">Step 5 request confirmation not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Coded in ZRAK_CJ_FIXPACK as STEP_OFF.</td></tr>
+<tr data-st="done_claude" data-hay="feedback is mandatory &#x27;not now&#x27; button. e017 export chemical products cjsmig-687"><td class="n">15</td><td class="what">Feedback is mandatory</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">&#x27;Not now&#x27; button.</td></tr>
+<tr data-st="check" data-hay="attachments are not saving re-run with &amp;trace=x. e017 export chemical products cjsmig-687"><td class="n">16</td><td class="what">Attachments are not saving</td><td><span class="chip chk">Needs a look</span></td><td class="how">Re-run with &amp;trace=x.</td></tr>
+<tr data-st="portal" data-hay="customer action not working portal team. e017 export chemical products cjsmig-687"><td class="n">17</td><td class="what">Customer action not working</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Portal team.</td></tr>
+<tr data-st="backend" data-hay="chemical details missing in the backend read the grid spec against the list_sequence rows for that screen in /qnv/sb_ui_defin - a backend table&#x27;s cells are positional at both ends. e017 export chemical products cjsmig-687"><td class="n">18</td><td class="what">Chemical details missing in the backend</td><td><span class="chip be">Backend / record model</span></td><td class="how">Read the grid spec against the LIST_SEQUENCE rows for that screen in /QNV/SB_UI_DEFIN - a backend table&#x27;s cells are positional at both ends.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="DOK" data-code="D002">
+<div class="jhead">
+<h2><span class="jcode">D002</span> Private School Licence - Apply</h2>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-688</span><span>SIT</span><span>Hasan Fraz</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg done" style="width:54.55%"></span>
+<span class="seg cfg" style="width:18.18%"></span>
+<span class="seg be" style="width:18.18%"></span>
+<span class="seg pt" style="width:9.09%"></span>
+</div>
+<p class="pnum"><b>6</b> of 11 closed</p></div>
+<p class="note">Six of eleven closed by the developer. Arabic wording and the record-model access to Manager &amp; School were handed to anand on the thread.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="done_dev" data-hay="add manager - wrong text, should be birthday closed by hasan. also coded in zrak_cj_fixpack as a label change on manager_dob. d002 private school licence - apply cjsmig-688"><td class="n">1</td><td class="what">Add Manager - wrong text, should be Birthday</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Hasan. Also coded in ZRAK_CJ_FIXPACK as a LABEL change on MANAGER_DOB.</td></tr>
+<tr data-st="done_dev" data-hay="fees details comes back empty closed by hasan. d002 private school licence - apply cjsmig-688"><td class="n">2</td><td class="what">Fees Details comes back empty</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Hasan.</td></tr>
+<tr data-st="done_dev" data-hay="building information should be demit closed by hasan. d002 private school licence - apply cjsmig-688"><td class="n">3</td><td class="what">Building Information should be demit</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Hasan.</td></tr>
+<tr data-st="done_dev" data-hay="attachment type shows doc, should be pdf / jpg closed by hasan. also coded in zrak_cj_fixpack as an attach_type change. d002 private school licence - apply cjsmig-688"><td class="n">4</td><td class="what">Attachment type shows DOC, should be PDF / JPG</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Hasan. Also coded in ZRAK_CJ_FIXPACK as an ATTACH_TYPE change.</td></tr>
+<tr data-st="done_dev" data-hay="cannot upload a pdf or a photo closed by hasan - same accept list. d002 private school licence - apply cjsmig-688"><td class="n">5</td><td class="what">Cannot upload a PDF or a photo</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Hasan - same accept list.</td></tr>
+<tr data-st="config" data-hay="arabic translation not complete handed to anand on the thread. zlabel_ar across the journey. d002 private school licence - apply cjsmig-688"><td class="n">6</td><td class="what">Arabic translation not complete</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Handed to anand on the thread. ZLABEL_AR across the journey.</td></tr>
+<tr data-st="done_dev" data-hay="attachments not reflected to the record model closed by hasan. d002 private school licence - apply cjsmig-688"><td class="n">7</td><td class="what">Attachments not reflected to the record model</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Hasan.</td></tr>
+<tr data-st="backend" data-hay="manager empty in the application form not answered on the thread. record model. d002 private school licence - apply cjsmig-688"><td class="n">8</td><td class="what">Manager empty in the application form</td><td><span class="chip be">Backend / record model</span></td><td class="how">Not answered on the thread. Record model.</td></tr>
+<tr data-st="backend" data-hay="cannot access manager &amp; school in the record model handed to anand on the thread. d002 private school licence - apply cjsmig-688"><td class="n">9</td><td class="what">Cannot access Manager &amp; School in the record model</td><td><span class="chip be">Backend / record model</span></td><td class="how">Handed to anand on the thread.</td></tr>
+<tr data-st="portal" data-hay="customer action should redirect to the new cjs portal team. d002 private school licence - apply cjsmig-688"><td class="n">10</td><td class="what">Customer Action should redirect to the new CJS</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Portal team.</td></tr>
+<tr data-st="config" data-hay="mandatory attachments need the * engine draws it; tick required on each upload field. d002 private school licence - apply cjsmig-688"><td class="n">11</td><td class="what">Mandatory attachments need the *</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Engine draws it; tick REQUIRED on each upload field.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="DOK" data-code="D013">
+<div class="jhead">
+<h2><span class="jcode">D013</span> Staff Appointment Letters</h2>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-689</span><span>SIT</span><span>Jyoti Meena</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg done" style="width:30.00%"></span>
+<span class="seg be" style="width:30.00%"></span>
+<span class="seg pt" style="width:40.00%"></span>
+</div>
+<p class="pnum"><b>3</b> of 10 closed</p></div>
+<p class="note">The developer answered every line. Four are framework/portal, one is backend mapping, three are done. The beneficiary not reaching the record model is the one that still stops a case completing.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="backend" data-hay="application form - data missing record model. d013 staff appointment letters cjsmig-689"><td class="n">1</td><td class="what">Application form - data missing</td><td><span class="chip be">Backend / record model</span></td><td class="how">Record model.</td></tr>
+<tr data-st="done_dev" data-hay="only one attachment reflected, the others not closed by jyoti. worth knowing why: get_attachment( ) de-duplicates on (objsrc, diffcrt, objsrctype, objtrgtype), so two files sharing a document type collapse into one. d013 staff appointment letters cjsmig-689"><td class="n">2</td><td class="what">Only one attachment reflected, the others not</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Jyoti. Worth knowing why: GET_ATTACHMENT( ) de-duplicates on (objsrc, diffcrt, objsrctype, objtrgtype), so two files sharing a document type collapse into one.</td></tr>
+<tr data-st="backend" data-hay="selected school is not the school on the case backend data mapping - jyoti&#x27;s answer. d013 staff appointment letters cjsmig-689"><td class="n">3</td><td class="what">Selected school is not the school on the case</td><td><span class="chip be">Backend / record model</span></td><td class="how">Backend data mapping - Jyoti&#x27;s answer.</td></tr>
+<tr data-st="portal" data-hay="customer action upload not working framework side - jyoti&#x27;s answer. d013 staff appointment letters cjsmig-689"><td class="n">4</td><td class="what">Customer Action upload not working</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Framework side - Jyoti&#x27;s answer.</td></tr>
+<tr data-st="portal" data-hay="cases not translated into arabic framework side. d013 staff appointment letters cjsmig-689"><td class="n">5</td><td class="what">Cases not translated into Arabic</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Framework side.</td></tr>
+<tr data-st="portal" data-hay="no case exists to submit in arabic framework side. d013 staff appointment letters cjsmig-689"><td class="n">6</td><td class="what">No case exists to submit in Arabic</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Framework side.</td></tr>
+<tr data-st="portal" data-hay="back button does not work to submit a new case framework side. d013 staff appointment letters cjsmig-689"><td class="n">7</td><td class="what">Back button does not work to submit a new case</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Framework side.</td></tr>
+<tr data-st="done_dev" data-hay="applicant type field alignment closed by jyoti. d013 staff appointment letters cjsmig-689"><td class="n">8</td><td class="what">Applicant type field alignment</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Jyoti.</td></tr>
+<tr data-st="done_dev" data-hay="remove the spaces on grades closed by jyoti. d013 staff appointment letters cjsmig-689"><td class="n">9</td><td class="what">Remove the spaces on grades</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Jyoti.</td></tr>
+<tr data-st="backend" data-hay="beneficiary not reflected in the record model - case stuck anand to advise on the mapping - jyoti&#x27;s answer. d013 staff appointment letters cjsmig-689"><td class="n">10</td><td class="what">Beneficiary not reflected in the record model - case stuck</td><td><span class="chip be">Backend / record model</span></td><td class="how">anand to advise on the mapping - Jyoti&#x27;s answer.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="DOK" data-code="D014">
+<div class="jhead">
+<h2><span class="jcode">D014</span> Staff Experience Certificates</h2>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-690</span><span>SIT</span><span>Jyoti Meena</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg be" style="width:36.36%"></span>
+<span class="seg pt" style="width:45.45%"></span>
+<span class="seg chk" style="width:18.18%"></span>
+</div>
+<p class="pnum"><b>0</b> of 11 closed</p></div>
+<p class="note">Nothing on this ticket is CJS-side yet, and there is a repository hazard behind it: TWO handler classes claim D014 - ZCL_D014_STAFF_EXP_CERT_LOGIC and ZCL_D014_STAFF_GOLD_VISA_LOGIC. Confirm which one the journey row points at before chasing &#x27;service not working&#x27; any further.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="check" data-hay="the service does not work on the portal screen check which handler class the journey row points at first - two classes claim d014. d014 staff experience certificates cjsmig-690"><td class="n">1</td><td class="what">The service does not work on the portal screen</td><td><span class="chip chk">Needs a look</span></td><td class="how">Check which handler class the journey row points at first - two classes claim D014.</td></tr>
+<tr data-st="backend" data-hay="application form - data missing record model. d014 staff experience certificates cjsmig-690"><td class="n">2</td><td class="what">Application form - data missing</td><td><span class="chip be">Backend / record model</span></td><td class="how">Record model.</td></tr>
+<tr data-st="backend" data-hay="beneficiary not reflected in the record model - case stuck same fault as d013. d014 staff experience certificates cjsmig-690"><td class="n">3</td><td class="what">Beneficiary not reflected in the record model - case stuck</td><td><span class="chip be">Backend / record model</span></td><td class="how">Same fault as D013.</td></tr>
+<tr data-st="backend" data-hay="cannot complete the case - problem with the case output follows from the beneficiary fault. d014 staff experience certificates cjsmig-690"><td class="n">4</td><td class="what">Cannot complete the case - problem with the case output</td><td><span class="chip be">Backend / record model</span></td><td class="how">Follows from the beneficiary fault.</td></tr>
+<tr data-st="backend" data-hay="selected school is not the school on the case backend data mapping. d014 staff experience certificates cjsmig-690"><td class="n">5</td><td class="what">Selected school is not the school on the case</td><td><span class="chip be">Backend / record model</span></td><td class="how">Backend data mapping.</td></tr>
+<tr data-st="portal" data-hay="customer action upload not working framework side. d014 staff experience certificates cjsmig-690"><td class="n">6</td><td class="what">Customer Action upload not working</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Framework side.</td></tr>
+<tr data-st="portal" data-hay="old case journey portal not working, cannot compare portal team. d014 staff experience certificates cjsmig-690"><td class="n">7</td><td class="what">Old case journey portal not working, cannot compare</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Portal team.</td></tr>
+<tr data-st="portal" data-hay="cases not translated into arabic framework side. d014 staff experience certificates cjsmig-690"><td class="n">8</td><td class="what">Cases not translated into Arabic</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Framework side.</td></tr>
+<tr data-st="portal" data-hay="no case exists to submit in arabic framework side. d014 staff experience certificates cjsmig-690"><td class="n">9</td><td class="what">No case exists to submit in Arabic</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Framework side.</td></tr>
+<tr data-st="portal" data-hay="back button does not work to submit a new case framework side. d014 staff experience certificates cjsmig-690"><td class="n">10</td><td class="what">Back button does not work to submit a new case</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Framework side.</td></tr>
+<tr data-st="check" data-hay="cannot post payment through the landing page run with &amp;trace=x: prepare_payment( ) names its exit - nocase, noscreen or nourl - which says whether the case, the screen mapping or the gateway address is missing. d014 staff experience certificates cjsmig-690"><td class="n">11</td><td class="what">Cannot post payment through the landing page</td><td><span class="chip chk">Needs a look</span></td><td class="how">Run with &amp;trace=x: PREPARE_PAYMENT( ) names its exit - NOCASE, NOSCREEN or NOURL - which says whether the case, the screen mapping or the gateway address is missing.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="DOK" data-code="D003">
+<div class="jhead">
+<h2><span class="jcode">D003</span> Private School Licence - Renew</h2>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-692</span><span>Backlog</span><span>anand babu</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg cfg" style="width:40.00%"></span>
+<span class="seg be" style="width:20.00%"></span>
+<span class="seg pt" style="width:40.00%"></span>
+</div>
+<p class="pnum"><b>0</b> of 5 closed</p></div>
+<p class="note">Five lines, all config or portal. The missing BP labels are a ZLABEL fill and are already listed in the fixpack worklist.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="config" data-hay="owner - bp labels missing fill zlabel / zlabel_ar. in the fixpack worklist. d003 private school licence - renew cjsmig-692"><td class="n">1</td><td class="what">Owner - BP labels missing</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Fill ZLABEL / ZLABEL_AR. In the fixpack worklist.</td></tr>
+<tr data-st="backend" data-hay="owner details missing from the application form record model. d003 private school licence - renew cjsmig-692"><td class="n">2</td><td class="what">Owner details missing from the application form</td><td><span class="chip be">Backend / record model</span></td><td class="how">Record model.</td></tr>
+<tr data-st="portal" data-hay="arabic version has no start button service card. d003 private school licence - renew cjsmig-692"><td class="n">3</td><td class="what">Arabic version has no Start button</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Service card.</td></tr>
+<tr data-st="portal" data-hay="customer action should redirect to cjs portal team. d003 private school licence - renew cjsmig-692"><td class="n">4</td><td class="what">Customer Action should redirect to CJS</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Portal team.</td></tr>
+<tr data-st="config" data-hay="mandatory attachments need the * tick required on each upload field. d003 private school licence - renew cjsmig-692"><td class="n">5</td><td class="what">Mandatory attachments need the *</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Tick REQUIRED on each upload field.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="DOK" data-code="D021">
+<div class="jhead">
+<h2><span class="jcode">D021</span> School Fees (Amend or Increase)</h2>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-693</span><span>SIT</span><span>anand babu</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg cfg" style="width:25.00%"></span>
+<span class="seg be" style="width:75.00%"></span>
+</div>
+<p class="pnum"><b>0</b> of 4 closed</p></div>
+<p class="note">Small ticket, one hard blocker: transportation fees do not pick the distance up from the system, and the case cannot be submitted. That is a backend read plus a field rename, not an engine fault. The applicant BP now also goes out as LOGIN_BP on this journey.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="config" data-hay="field should read distance, not educational stage zlabel / zlabel_ar. in the fixpack worklist - the field name is not known from here. d021 school fees (amend or increase) cjsmig-693"><td class="n">1</td><td class="what">Field should read Distance, not Educational stage</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">ZLABEL / ZLABEL_AR. In the fixpack worklist - the field name is not known from here.</td></tr>
+<tr data-st="backend" data-hay="table should show every educational stage and fetch the current fee the read has to return all stages with their current fee. d021 school fees (amend or increase) cjsmig-693"><td class="n">2</td><td class="what">Table should show every educational stage and fetch the current fee</td><td><span class="chip be">Backend / record model</span></td><td class="how">The read has to return all stages with their current fee.</td></tr>
+<tr data-st="backend" data-hay="transportation fees do not reflect the distance - error, cannot submit blocker. the distance is not coming back from the system; the submit fails on it. d021 school fees (amend or increase) cjsmig-693"><td class="n">3</td><td class="what">Transportation fees do not reflect the distance - error, cannot submit</td><td><span class="chip be">Backend / record model</span></td><td class="how">Blocker. The distance is not coming back from the system; the submit fails on it.</td></tr>
+<tr data-st="backend" data-hay="cannot complete the case on the submission screen follows from the fee fault above. d021 school fees (amend or increase) cjsmig-693"><td class="n">4</td><td class="what">Cannot complete the case on the submission screen</td><td><span class="chip be">Backend / record model</span></td><td class="how">Follows from the fee fault above.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="DOK" data-code="D016">
+<div class="jhead">
+<h2><span class="jcode">D016</span> Private School Licence - Cancel</h2>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-694</span><span>Backlog</span><span>anand babu</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg cfg" style="width:33.33%"></span>
+<span class="seg pt" style="width:66.67%"></span>
+</div>
+<p class="pnum"><b>0</b> of 3 closed</p></div>
+<p class="note">Three lines, none of them CJS code. Reassigned to anand for the Arabic side.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="portal" data-hay="arabic version has no start button service card. reassigned to anand. d016 private school licence - cancel cjsmig-694"><td class="n">1</td><td class="what">Arabic version has no Start button</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Service card. Reassigned to anand.</td></tr>
+<tr data-st="config" data-hay="mandatory attachments need the * tick required on each upload field. d016 private school licence - cancel cjsmig-694"><td class="n">2</td><td class="what">Mandatory attachments need the *</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Tick REQUIRED on each upload field.</td></tr>
+<tr data-st="portal" data-hay="customer action should redirect to cjs portal team. d016 private school licence - cancel cjsmig-694"><td class="n">3</td><td class="what">Customer Action should redirect to CJS</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Portal team.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="DOK" data-code="D006">
+<div class="jhead">
+<h2><span class="jcode">D006</span> Amend - Manage Change</h2>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-696</span><span>Backlog</span><span>Hasan Fraz</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg cfg" style="width:25.00%"></span>
+<span class="seg be" style="width:25.00%"></span>
+<span class="seg pt" style="width:50.00%"></span>
+</div>
+<p class="pnum"><b>0</b> of 4 closed</p></div>
+<p class="note">Four lines. The new manager&#x27;s details not appearing on the application form is a record-model question for the backend team.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="backend" data-hay="new manager details not shown on the application form record model. d006 amend - manage change cjsmig-696"><td class="n">1</td><td class="what">New manager details not shown on the application form</td><td><span class="chip be">Backend / record model</span></td><td class="how">Record model.</td></tr>
+<tr data-st="portal" data-hay="arabic version has no start button service card. d006 amend - manage change cjsmig-696"><td class="n">2</td><td class="what">Arabic version has no Start button</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Service card.</td></tr>
+<tr data-st="config" data-hay="mandatory attachments need the * tick required on each upload field. d006 amend - manage change cjsmig-696"><td class="n">3</td><td class="what">Mandatory attachments need the *</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Tick REQUIRED on each upload field.</td></tr>
+<tr data-st="portal" data-hay="customer action should redirect to cjs portal team. d006 amend - manage change cjsmig-696"><td class="n">4</td><td class="what">Customer Action should redirect to CJS</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Portal team.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="EPDA" data-code="E018">
+<div class="jhead">
+<h2><span class="jcode">E018</span> Transport of Chemical Products</h2>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-697</span><span>SIT</span><span>Hasan Fraz</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg done" style="width:40.00%"></span>
+<span class="seg cfg" style="width:40.00%"></span>
+<span class="seg chk" style="width:20.00%"></span>
+</div>
+<p class="pnum"><b>4</b> of 10 closed</p></div>
+<p class="note">This journey&#x27;s class had NO ACTIVE VERSION - a CONSTANTS ... TYPE string VALUE &#x27;&#x27; would not compile, so SAP kept running an older build and every fix looked like it had not been applied. That is fixed in git. Re-test the CX_SY_CONVERSION_NO_NUMBER post failure only after the class is activated; it may well go with it.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="config" data-hay="owner search should be in eid format; browse not required placeholder + regex; ftype search. in the fixpack worklist. e018 transport of chemical products cjsmig-697"><td class="n">1</td><td class="what">Owner search should be in EID format; Browse not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">PLACEHOLDER + REGEX; FTYPE SEARCH. In the fixpack worklist.</td></tr>
+<tr data-st="check" data-hay="representative + owner eid search errors and will not move on re-test after the class is activated. e018 transport of chemical products cjsmig-697"><td class="n">2</td><td class="what">Representative + owner EID search errors and will not move on</td><td><span class="chip chk">Needs a look</span></td><td class="how">Re-test after the class is activated.</td></tr>
+<tr data-st="config" data-hay="permit number / trade licence etc. not required on the chemical tab coded in zrak_cj_fixpack as three hide rules. e018 transport of chemical products cjsmig-697"><td class="n">3</td><td class="what">Permit number / trade licence etc. not required on the chemical tab</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Coded in ZRAK_CJ_FIXPACK as three HIDE rules.</td></tr>
+<tr data-st="done_claude" data-hay="add chemical - all fields should be mandatory all fourteen marked and enforced. zcl_e018_noc_trans_chem_logic. e018 transport of chemical products cjsmig-697"><td class="n">4</td><td class="what">Add Chemical - all fields should be mandatory</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">All fourteen marked and enforced. ZCL_E018_NOC_TRANS_CHEM_LOGIC.</td></tr>
+<tr data-st="done_claude" data-hay="mandatory-field message shows on the main screen, not in the dialog engine fix - messages now draw inside the dialog. e018 transport of chemical products cjsmig-697"><td class="n">5</td><td class="what">Mandatory-field message shows on the main screen, not in the dialog</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">Engine fix - messages now draw inside the dialog.</td></tr>
+<tr data-st="done_claude" data-hay="one field per row - should be two or more two-column dialogs - engine fix. e018 transport of chemical products cjsmig-697"><td class="n">6</td><td class="what">One field per row - should be two or more</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">Two-column dialogs - engine fix.</td></tr>
+<tr data-st="check" data-hay="bill of lading input clears its own value check bol_pop exists in zrak_t_jny_fld. e018 transport of chemical products cjsmig-697"><td class="n">7</td><td class="what">Bill of Lading input clears its own value</td><td><span class="chip chk">Needs a look</span></td><td class="how">Check BOL_POP exists in ZRAK_T_JNY_FLD.</td></tr>
+<tr data-st="config" data-hay="&#x27;use a previous declaration&#x27; field not required hide the field. e018 transport of chemical products cjsmig-697"><td class="n">8</td><td class="what">&#x27;Use a previous declaration&#x27; field not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Hide the field.</td></tr>
+<tr data-st="config" data-hay="hs code should be a guided formatted number with a watermark regex + placeholder. e018 transport of chemical products cjsmig-697"><td class="n">9</td><td class="what">HS code should be a guided formatted number with a watermark</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">REGEX + PLACEHOLDER.</td></tr>
+<tr data-st="done_claude" data-hay="backend post failed - cx_sy_conversion_no_number, cannot go to the next step the class had no active version at all - a constants ... type string value &#x27;&#x27; will not compile - so sap was running an older build of every method on this journey. fixed in git. pull, activate, and re-test this line first. e018 transport of chemical products cjsmig-697"><td class="n">10</td><td class="what">Backend POST failed - CX_SY_CONVERSION_NO_NUMBER, cannot go to the next step</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">The class had no active version at all - a CONSTANTS ... TYPE string VALUE &#x27;&#x27; will not compile - so SAP was running an older build of every method on this journey. Fixed in git. Pull, activate, and re-test this line first.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="DOK" data-code="D005">
+<div class="jhead">
+<h2><span class="jcode">D005</span> Amend - Name Change</h2>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-698</span><span>Backlog</span><span>Hasan Fraz</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg cfg" style="width:33.33%"></span>
+<span class="seg pt" style="width:66.67%"></span>
+</div>
+<p class="pnum"><b>0</b> of 3 closed</p></div>
+<p class="note">Three lines, all of them shared with D003/D006/D016 - the Arabic start button, the attachment asterisk and the Customer Action redirect.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="portal" data-hay="arabic version has no start button service card. d005 amend - name change cjsmig-698"><td class="n">1</td><td class="what">Arabic version has no Start button</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Service card.</td></tr>
+<tr data-st="config" data-hay="mandatory attachments need the * tick required on each upload field. d005 amend - name change cjsmig-698"><td class="n">2</td><td class="what">Mandatory attachments need the *</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Tick REQUIRED on each upload field.</td></tr>
+<tr data-st="portal" data-hay="customer action should redirect to the new cjs portal team. d005 amend - name change cjsmig-698"><td class="n">3</td><td class="what">Customer Action should redirect to the new CJS</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Portal team.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="DOK" data-code="D022">
+<div class="jhead">
+<h2><span class="jcode">D022</span> Pursuing of Study Certificate</h2>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-699</span><span>SIT</span><span>Hasan Fraz</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg done" style="width:40.00%"></span>
+<span class="seg pt" style="width:20.00%"></span>
+<span class="seg chk" style="width:40.00%"></span>
+</div>
+<p class="pnum"><b>2</b> of 5 closed</p></div>
+<p class="note">Two closed by the developer. The payment step is the blocker and needs a trace run: PREPARE_PAYMENT( ) now names its own exit (NOCASE / NOSCREEN / NOURL) under &amp;trace=x, which is what separates a missing case from a missing gateway address.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="portal" data-hay="service card is missing the &#x27;who can apply&#x27; information service catalogue - taken by vikram on the thread. d022 pursuing of study certificate cjsmig-699"><td class="n">1</td><td class="what">Service card is missing the &#x27;who can apply&#x27; information</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Service catalogue - taken by Vikram on the thread.</td></tr>
+<tr data-st="done_dev" data-hay="cannot search by emirates id; the field stays on sis id closed by hasan - the emirates id option was removed, sis id only. d022 pursuing of study certificate cjsmig-699"><td class="n">2</td><td class="what">Cannot search by Emirates ID; the field stays on SIS ID</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Hasan - the Emirates ID option was removed, SIS ID only.</td></tr>
+<tr data-st="done_dev" data-hay="academic year / school and terms do not match the old version closed by hasan - both removed. d022 pursuing of study certificate cjsmig-699"><td class="n">3</td><td class="what">Academic Year / School and Terms do not match the old version</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Hasan - both removed.</td></tr>
+<tr data-st="check" data-hay="the payment step errors when paying run with &amp;trace=x. prepare_payment( ) reports its exit and the keys the backend answered with, which separates &#x27;no case&#x27; from &#x27;no gateway address&#x27;. d022 pursuing of study certificate cjsmig-699"><td class="n">4</td><td class="what">The payment step errors when paying</td><td><span class="chip chk">Needs a look</span></td><td class="how">Run with &amp;trace=x. PREPARE_PAYMENT( ) reports its exit and the keys the backend answered with, which separates &#x27;no case&#x27; from &#x27;no gateway address&#x27;.</td></tr>
+<tr data-st="check" data-hay="cannot complete the case at the payment step blocker - same run as above. d022 pursuing of study certificate cjsmig-699"><td class="n">5</td><td class="what">Cannot complete the case at the payment step</td><td><span class="chip chk">Needs a look</span></td><td class="how">Blocker - same run as above.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="EPDA" data-code="E019">
+<div class="jhead">
+<h2><span class="jcode">E019</span> Transport of Used Oil</h2>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-700</span><span>SIT</span><span>anand babu</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg done" style="width:4.35%"></span>
+<span class="seg cfg" style="width:69.57%"></span>
+<span class="seg be" style="width:8.70%"></span>
+<span class="seg pt" style="width:8.70%"></span>
+<span class="seg chk" style="width:8.70%"></span>
+</div>
+<p class="pnum"><b>1</b> of 23 closed</p></div>
+<p class="note">The longest ticket in the round, and almost all of it is config. Same root cause as E021: ZCL_EPDA_E019_TRANS_USED_LOGIC has no ON_INIT, so no applicant details are seeded at all.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="check" data-hay="initial page loads with error messages send the screenshot text. e019 transport of used oil cjsmig-700"><td class="n">1</td><td class="what">Initial page loads with error messages</td><td><span class="chip chk">Needs a look</span></td><td class="how">Send the screenshot text.</td></tr>
+<tr data-st="config" data-hay="applicant details not aligned - should be row wise design tab. e019 transport of used oil cjsmig-700"><td class="n">2</td><td class="what">Applicant details not aligned - should be row wise</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Design tab.</td></tr>
+<tr data-st="config" data-hay="applicant details are duplicated not the same cause as e022 - this handler writes nothing. two fields are bound to the same value; hide one. e019 transport of used oil cjsmig-700"><td class="n">3</td><td class="what">Applicant details are duplicated</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Not the same cause as E022 - this handler writes nothing. Two fields are bound to the same value; hide one.</td></tr>
+<tr data-st="config" data-hay="emirates id search should follow the format; browse not required placeholder + regex; ftype search. e019 transport of used oil cjsmig-700"><td class="n">4</td><td class="what">Emirates ID search should follow the format; Browse not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">PLACEHOLDER + REGEX; FTYPE SEARCH.</td></tr>
+<tr data-st="config" data-hay="permit / eid / trade licence order; permit number not a dropdown design tab + ftype. e019 transport of used oil cjsmig-700"><td class="n">5</td><td class="what">Permit / EID / trade licence order; permit number not a dropdown</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Design tab + FTYPE.</td></tr>
+<tr data-st="config" data-hay="company details field order not correct design tab. e019 transport of used oil cjsmig-700"><td class="n">6</td><td class="what">Company details field order not correct</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Design tab.</td></tr>
+<tr data-st="config" data-hay="company name english &amp; arabic duplicated hide one of the two fields. e019 transport of used oil cjsmig-700"><td class="n">7</td><td class="what">Company name English &amp; Arabic duplicated</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Hide one of the two fields.</td></tr>
+<tr data-st="config" data-hay="&#x27;material text 1&#x27; should read &#x27;name&#x27; zlabel / zlabel_ar. e019 transport of used oil cjsmig-700"><td class="n">8</td><td class="what">&#x27;Material Text 1&#x27; should read &#x27;Name&#x27;</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">ZLABEL / ZLABEL_AR.</td></tr>
+<tr data-st="config" data-hay="issuing emirates should be a dropdown zrak_t_jny_opt + closed_list. e019 transport of used oil cjsmig-700"><td class="n">9</td><td class="what">Issuing emirates should be a dropdown</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">ZRAK_T_JNY_OPT + CLOSED_LIST.</td></tr>
+<tr data-st="config" data-hay="vehicle code must not allow more than 2 digits max_len on the field. e019 transport of used oil cjsmig-700"><td class="n">10</td><td class="what">Vehicle Code must not allow more than 2 digits</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">MAX_LEN on the field.</td></tr>
+<tr data-st="config" data-hay="vehicle plate must not allow more than 4 digits max_len on the field. e019 transport of used oil cjsmig-700"><td class="n">11</td><td class="what">Vehicle Plate must not allow more than 4 digits</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">MAX_LEN on the field.</td></tr>
+<tr data-st="config" data-hay="remove the &#x27;mtable delete 2&#x27; column drop it from the grid spec in default_val. e019 transport of used oil cjsmig-700"><td class="n">12</td><td class="what">Remove the &#x27;Mtable Delete 2&#x27; column</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Drop it from the grid spec in DEFAULT_VAL.</td></tr>
+<tr data-st="config" data-hay="units should be a dropdown zrak_t_jny_opt + closed_list. e019 transport of used oil cjsmig-700"><td class="n">13</td><td class="what">Units should be a dropdown</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">ZRAK_T_JNY_OPT + CLOSED_LIST.</td></tr>
+<tr data-st="config" data-hay="address, registered emirate, trade licence should be inputs, not display change ftype from display to input and tick required. e019 transport of used oil cjsmig-700"><td class="n">14</td><td class="what">Address, Registered Emirate, Trade Licence should be inputs, not display</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Change FTYPE from DISPLAY to INPUT and tick REQUIRED.</td></tr>
+<tr data-st="config" data-hay="step name should change to documents step title, en + ar. e019 transport of used oil cjsmig-700"><td class="n">15</td><td class="what">Step name should change to Documents</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Step title, EN + AR.</td></tr>
+<tr data-st="config" data-hay="mandatory attachments need the * tick required on each upload field. e019 transport of used oil cjsmig-700"><td class="n">16</td><td class="what">Mandatory attachments need the *</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Tick REQUIRED on each upload field.</td></tr>
+<tr data-st="config" data-hay="declaration &amp; notes missing display field with a text: default. e019 transport of used oil cjsmig-700"><td class="n">17</td><td class="what">Declaration &amp; Notes missing</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">DISPLAY field with a TEXT: default.</td></tr>
+<tr data-st="done_claude" data-hay="feedback is mandatory &#x27;not now&#x27; button. e019 transport of used oil cjsmig-700"><td class="n">18</td><td class="what">Feedback is mandatory</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">&#x27;Not now&#x27; button.</td></tr>
+<tr data-st="check" data-hay="attachments are not saving re-run with &amp;trace=x. e019 transport of used oil cjsmig-700"><td class="n">19</td><td class="what">Attachments are not saving</td><td><span class="chip chk">Needs a look</span></td><td class="how">Re-run with &amp;trace=x.</td></tr>
+<tr data-st="backend" data-hay="company name not updated in the backend backend write. e019 transport of used oil cjsmig-700"><td class="n">20</td><td class="what">Company name not updated in the backend</td><td><span class="chip be">Backend / record model</span></td><td class="how">Backend write.</td></tr>
+<tr data-st="backend" data-hay="uom not updated in the backend backend write. e019 transport of used oil cjsmig-700"><td class="n">21</td><td class="what">UOM not updated in the backend</td><td><span class="chip be">Backend / record model</span></td><td class="how">Backend write.</td></tr>
+<tr data-st="portal" data-hay="customer action portal team. e019 transport of used oil cjsmig-700"><td class="n">22</td><td class="what">Customer action</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Portal team.</td></tr>
+<tr data-st="portal" data-hay="arabic services cannot be submitted framework side. e019 transport of used oil cjsmig-700"><td class="n">23</td><td class="what">Arabic services cannot be submitted</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Framework side.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="EPDA" data-code="E020">
+<div class="jhead">
+<h2><span class="jcode">E020</span> Batteries / Scrap Handling</h2>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-701</span><span>SIT</span><span>Hasan Fraz</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg done" style="width:7.14%"></span>
+<span class="seg cfg" style="width:71.43%"></span>
+<span class="seg be" style="width:7.14%"></span>
+<span class="seg chk" style="width:14.29%"></span>
+</div>
+<p class="pnum"><b>1</b> of 14 closed</p></div>
+<p class="note">Config-heavy. &#x27;Vehicle details not saving in backend&#x27; is worth reading as a column-order fault first: a backend table&#x27;s cells are positional at both ends and the order comes from LIST_SEQUENCE in /QNV/SB_UI_DEFIN, not from the CJS spec.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="check" data-hay="initial page loads with error messages send the screenshot text. e020 batteries / scrap handling cjsmig-701"><td class="n">1</td><td class="what">Initial page loads with error messages</td><td><span class="chip chk">Needs a look</span></td><td class="how">Send the screenshot text.</td></tr>
+<tr data-st="config" data-hay="applicant details not aligned - should be row wise design tab. e020 batteries / scrap handling cjsmig-701"><td class="n">2</td><td class="what">Applicant details not aligned - should be row wise</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Design tab.</td></tr>
+<tr data-st="config" data-hay="applicant details are duplicated two fields bound to the same value; hide one. e020 batteries / scrap handling cjsmig-701"><td class="n">3</td><td class="what">Applicant details are duplicated</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Two fields bound to the same value; hide one.</td></tr>
+<tr data-st="config" data-hay="emirates id search should follow the format; browse not required placeholder + regex; ftype search. e020 batteries / scrap handling cjsmig-701"><td class="n">4</td><td class="what">Emirates ID search should follow the format; Browse not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">PLACEHOLDER + REGEX; FTYPE SEARCH.</td></tr>
+<tr data-st="config" data-hay="permit / eid / trade licence order; permit number not a dropdown design tab + ftype. e020 batteries / scrap handling cjsmig-701"><td class="n">5</td><td class="what">Permit / EID / trade licence order; permit number not a dropdown</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Design tab + FTYPE.</td></tr>
+<tr data-st="config" data-hay="rename the step &#x27;material origin source&#x27; to &#x27;batteries/scrap details&#x27; step title, en + ar. e020 batteries / scrap handling cjsmig-701"><td class="n">6</td><td class="what">Rename the step &#x27;Material Origin source&#x27; to &#x27;Batteries/Scrap Details&#x27;</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Step title, EN + AR.</td></tr>
+<tr data-st="config" data-hay="fields under material origin source must be dynamic and mandatory by dropdown value show/hide belongs in zrak_t_jny_rule keyed on the dropdown, with required on the fields it reveals. e020 batteries / scrap handling cjsmig-701"><td class="n">7</td><td class="what">Fields under Material origin source must be dynamic and mandatory by dropdown value</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Show/hide belongs in ZRAK_T_JNY_RULE keyed on the dropdown, with REQUIRED on the fields it reveals.</td></tr>
+<tr data-st="config" data-hay="vehicle code 1 digit, vehicle plate 4 digits max_len on both fields. e020 batteries / scrap handling cjsmig-701"><td class="n">8</td><td class="what">Vehicle code 1 digit, vehicle plate 4 digits</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">MAX_LEN on both fields.</td></tr>
+<tr data-st="config" data-hay="&#x27;materials det&#x27; is duplicated and should be renamed hide one, rename the other. e020 batteries / scrap handling cjsmig-701"><td class="n">9</td><td class="what">&#x27;Materials Det&#x27; is duplicated and should be renamed</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Hide one, rename the other.</td></tr>
+<tr data-st="config" data-hay="declaration &amp; note missing display field with a text: default. e020 batteries / scrap handling cjsmig-701"><td class="n">10</td><td class="what">Declaration &amp; Note missing</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">DISPLAY field with a TEXT: default.</td></tr>
+<tr data-st="config" data-hay="step 5 request confirmation not required step_off - the fixpack does this for other journeys and takes one more line. e020 batteries / scrap handling cjsmig-701"><td class="n">11</td><td class="what">Step 5 request confirmation not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">STEP_OFF - the fixpack does this for other journeys and takes one more line.</td></tr>
+<tr data-st="done_claude" data-hay="feedback is mandatory &#x27;not now&#x27; button. e020 batteries / scrap handling cjsmig-701"><td class="n">12</td><td class="what">Feedback is mandatory</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">&#x27;Not now&#x27; button.</td></tr>
+<tr data-st="check" data-hay="attachments are not saving re-run with &amp;trace=x. e020 batteries / scrap handling cjsmig-701"><td class="n">13</td><td class="what">Attachments are not saving</td><td><span class="chip chk">Needs a look</span></td><td class="how">Re-run with &amp;trace=x.</td></tr>
+<tr data-st="backend" data-hay="vehicle details not saving in the backend line the grid spec up against the list_sequence rows for that screen before treating it as a rendering fault. e020 batteries / scrap handling cjsmig-701"><td class="n">14</td><td class="what">Vehicle details not saving in the backend</td><td><span class="chip be">Backend / record model</span></td><td class="how">Line the grid spec up against the LIST_SEQUENCE rows for that screen before treating it as a rendering fault.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="EPDA" data-code="E023">
+<div class="jhead">
+<h2><span class="jcode">E023</span> Dewatering Approval</h2>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-702</span><span>SIT</span><span>anand babu</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg cfg" style="width:100.00%"></span>
+</div>
+<p class="pnum"><b>0</b> of 1 closed</p></div>
+<p class="note">One line: &#x27;CJS service Not found&#x27;. The handler class exists and is complete, so this is the journey row or the launch link, not the code.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="config" data-hay="cjs service not found the handler class exists and is complete. check the zrak_t_jny row and the launch url&#x27;s journey id - a code that does not resolve gives exactly this. e023 dewatering approval cjsmig-702"><td class="n">1</td><td class="what">CJS service Not found</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">The handler class exists and is complete. Check the ZRAK_T_JNY row and the launch URL&#x27;s journey id - a code that does not resolve gives exactly this.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="EPDA" data-code="E025">
+<div class="jhead">
+<h2><span class="jcode">E025</span> Beekeeping Activity</h2>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-703</span><span>SIT</span><span>anand babu</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg done" style="width:16.67%"></span>
+<span class="seg cfg" style="width:66.67%"></span>
+<span class="seg chk" style="width:16.67%"></span>
+</div>
+<p class="pnum"><b>1</b> of 6 closed</p></div>
+<p class="note">The applicant BP fault is fixed. It was a one-word defect: the class called the applicant field &#x27;OWNER_BP&#x27;, which on this journey is the owner SEARCH BOX - so ON_INIT typed the applicant&#x27;s partner number into the search field and blanked it again sixteen lines later.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="config" data-hay="emirates id search should follow the format; browse not required placeholder + regex; ftype search. e025 beekeeping activity cjsmig-703"><td class="n">1</td><td class="what">Emirates ID search should follow the format; Browse not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">PLACEHOLDER + REGEX; FTYPE SEARCH.</td></tr>
+<tr data-st="config" data-hay="number of apiaries max 2 digits; expected production max 6 max_len on both fields. e025 beekeeping activity cjsmig-703"><td class="n">2</td><td class="what">Number of Apiaries max 2 digits; Expected Production max 6</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">MAX_LEN on both fields.</td></tr>
+<tr data-st="config" data-hay="mandatory attachments need the * tick required on each upload field. e025 beekeeping activity cjsmig-703"><td class="n">3</td><td class="what">Mandatory attachments need the *</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Tick REQUIRED on each upload field.</td></tr>
+<tr data-st="config" data-hay="declaration &amp; note missing display field with a text: default. e025 beekeeping activity cjsmig-703"><td class="n">4</td><td class="what">Declaration &amp; Note missing</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">DISPLAY field with a TEXT: default.</td></tr>
+<tr data-st="check" data-hay="case id is not correct - shows the wrong number send the number that was shown next to the case it belongs to. on some families the journey key is not the case id, and the engine has one resolver for that - but it needs the pair to confirm. e025 beekeeping activity cjsmig-703"><td class="n">5</td><td class="what">Case id is not correct - shows the wrong number</td><td><span class="chip chk">Needs a look</span></td><td class="how">Send the number that was shown next to the case it belongs to. On some families the journey key is not the case id, and the engine has one resolver for that - but it needs the pair to confirm.</td></tr>
+<tr data-st="done_claude" data-hay="applicant bp not saved in the record model, not in the backend application fixed. the class called the applicant field owner_bp, which is this journey&#x27;s owner search box; on_init wrote the partner there and blanked it sixteen lines later. now goes to login_bp. zcl_e025_beekeeping_logic. e025 beekeeping activity cjsmig-703"><td class="n">6</td><td class="what">Applicant BP not saved in the record model, not in the backend application</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">Fixed. The class called the applicant field OWNER_BP, which is this journey&#x27;s owner SEARCH BOX; ON_INIT wrote the partner there and blanked it sixteen lines later. Now goes to LOGIN_BP. ZCL_E025_BEEKEEPING_LOGIC.</td></tr>
+</tbody></table>
+</section>
+<section class="jny" data-dept="EPDA" data-code="E026">
+<div class="jhead">
+<h2><span class="jcode">E026</span> Tree Removal / Relocation / Pruning</h2>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-704</span><span>SIT</span><span>anand babu</span></p>
+</div>
+<div class="prog"><div class="pbar">
+<span class="seg done" style="width:20.00%"></span>
+<span class="seg cfg" style="width:60.00%"></span>
+<span class="seg chk" style="width:20.00%"></span>
+</div>
+<p class="pnum"><b>1</b> of 5 closed</p></div>
+<p class="note">Same applicant-BP family as E025 and fixed the same way, additively. The four remaining lines are config and are shared with E025.</p>
+<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
+<tr data-st="config" data-hay="emirates id search should follow the format; browse not required placeholder + regex; ftype search. e026 tree removal / relocation / pruning cjsmig-704"><td class="n">1</td><td class="what">Emirates ID search should follow the format; Browse not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">PLACEHOLDER + REGEX; FTYPE SEARCH.</td></tr>
+<tr data-st="config" data-hay="mandatory attachments need the * tick required on each upload field. e026 tree removal / relocation / pruning cjsmig-704"><td class="n">2</td><td class="what">Mandatory attachments need the *</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Tick REQUIRED on each upload field.</td></tr>
+<tr data-st="config" data-hay="declaration &amp; note missing display field with a text: default. e026 tree removal / relocation / pruning cjsmig-704"><td class="n">3</td><td class="what">Declaration &amp; Note missing</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">DISPLAY field with a TEXT: default.</td></tr>
+<tr data-st="check" data-hay="case id is not correct - shows the wrong number same as e025 - send the pair of numbers. e026 tree removal / relocation / pruning cjsmig-704"><td class="n">4</td><td class="what">Case id is not correct - shows the wrong number</td><td><span class="chip chk">Needs a look</span></td><td class="how">Same as E025 - send the pair of numbers.</td></tr>
+<tr data-st="done_claude" data-hay="applicant bp not saved in the record model, not in the backend application the applicant partner now also goes out as login_bp, the field every other journey uses. zcl_e026_tree_removal_logic. e026 tree removal / relocation / pruning cjsmig-704"><td class="n">5</td><td class="what">Applicant BP not saved in the record model, not in the backend application</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">The applicant partner now also goes out as LOGIN_BP, the field every other journey uses. ZCL_E026_TREE_REMOVAL_LOGIC.</td></tr>
+</tbody></table>
+</section>
+<footer><p>Source: Jira exports of 5 September 2026, Issues and Comments sheets, five assignees. The register lives in the repository at <code>doc/tickets/register.py</code>; this page is generated from it by <code>doc/tickets/build.py</code>, so the next round is an edit and a re-run.</p><p>Nothing on this page has been compiled or activated - there is no SAP connection from where it was written. Code marked fixed is fixed in git.</p></footer>
+</div>
+<script>
+(function(){
+  var q=document.getElementById('q'), shown=document.getElementById('shown');
+  var st=new Set(), dept=new Set();
+  function chips(){return Array.prototype.slice.call(document.querySelectorAll('.fchip[data-st],.fchip[data-dept]'));}
+  function apply(){
+    var term=(q.value||'').trim().toLowerCase(), vis=0, tot=0;
+    document.querySelectorAll('.jny').forEach(function(j){
+      var any=false;
+      if(dept.size && !dept.has(j.dataset.dept)){ j.classList.add('hide');
+        j.querySelectorAll('tbody tr').forEach(function(r){tot++;}); return; }
+      j.querySelectorAll('tbody tr').forEach(function(r){
+        tot++;
+        var ok=(!st.size||st.has(r.dataset.st)) && (!term||r.dataset.hay.indexOf(term)>-1);
+        r.classList.toggle('hide',!ok); if(ok){any=true;vis++;}
+      });
+      j.classList.toggle('hide',!any);
+    });
+    shown.textContent = (st.size||dept.size||term) ? ('Showing '+vis+' of '+tot+' observations') : '';
+  }
+  chips().forEach(function(b){
+    b.addEventListener('click',function(){
+      var on=b.getAttribute('aria-pressed')==='true';
+      b.setAttribute('aria-pressed',on?'false':'true');
+      var set=b.dataset.st?st:dept, key=b.dataset.st||b.dataset.dept;
+      if(on){set.delete(key);}else{set.add(key);}
+      apply();
+    });
+  });
+  q.addEventListener('input',apply);
+  document.getElementById('clear').addEventListener('click',function(){
+    st.clear();dept.clear();q.value='';
+    chips().forEach(function(b){b.setAttribute('aria-pressed','false');});
+    apply();
+  });
+})();
+</script>
