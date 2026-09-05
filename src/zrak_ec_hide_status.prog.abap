@@ -160,9 +160,29 @@ START-OF-SELECTION.
         IF to_upper( condense( lv_n ) ) = 'STATUS'
            OR to_upper( condense( lv_l ) ) = 'STATUS'.
           lv_hit = abap_true.
-          IF to_upper( condense( lv_t ) ) = 'HIDE'.
+          IF condense( lv_l ) = '-' AND to_upper( condense( lv_t ) ) = 'HIDE'.
             lv_was = abap_true.
           ENDIF.
+*         BOTH SLOTS, because TABLE and EDITABLE_TABLE hide a column by
+*         different means and a migrated journey can be either.
+*
+*         EDITABLE_TABLE goes through GRID_COLS( ), which reads HIDE out of
+*         the TYPE slot and sets GC-HIDE. That is the documented way and it
+*         is what this report set on the first run.
+*
+*         TABLE does not use GC-HIDE at all. RENDER_BLOCK( )'s own TABLE
+*         branch re-parses DEFAULT_VAL into name / header / type, keeps the
+*         header, and IGNORES the type - so HIDE in the type slot changed
+*         nothing on EC02 and the column kept rendering. What that branch
+*         hides is a column whose resolved header is blank or '-'. Blank is
+*         no use, because an empty header falls back to the column NAME and
+*         is therefore never empty. '-' is the only lever there is.
+*
+*         So the header becomes '-' and the type stays HIDE: the first hides
+*         it on a TABLE, the second on an EDITABLE_TABLE, and neither harms
+*         the other. COL_HEADER( ) returns anything not starting with @
+*         untouched, so '-' survives to the comparison.
+          lv_l = '-'.
           lv_t = 'HIDE'.
         ENDIF.
 
