@@ -320,14 +320,6 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   causes any other round trip on the same step is challenged again,
 *   which reads as the control rejecting a correct answer.
     DATA mv_cap_ok    TYPE abap_bool.
-*   TEMPORARY - how many times CAPTCHA_NEW( ) has run in this session.
-*   The one number that separates 'the refresh never fires' from 'the
-*   generator returns the same digits every time', which look identical
-*   on screen and have had three rounds spent on them.
-    DATA mv_cap_gen   TYPE i.
-*   TEMPORARY - calls that produced DIFFERENT digits. GEN counts calls;
-*   the gap between them is the measurement.
-    DATA mv_cap_chg   TYPE i.
 
 *   A fresh challenge. First render, the refresh button, and after every
 *   WRONG answer - a challenge that survives a failed attempt can be
@@ -2031,7 +2023,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     DATA lv_o   TYPE i.
     DATA lv_h   TYPE string.
 
-    DATA(lv_prev) = mv_cap_code.
     CLEAR: mv_cap_code, mv_cap_ok.
 
     GET TIME STAMP FIELD DATA(lv_ts).
@@ -2069,14 +2060,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       mv_cap_code = |{ mv_cap_code }{ lv_a MOD 10 }|.
     ENDLOOP.
 
-*   TEMPORARY - see the declaration. GEN counts calls, CHG counts calls
-*   that actually produced different digits. The gap between the two is
-*   what this round trip is for: eight generations and one change is a
-*   constant generator, eight and eight is a working one.
-    mv_cap_gen = mv_cap_gen + 1.
-    IF mv_cap_code <> lv_prev.
-      mv_cap_chg = mv_cap_chg + 1.
-    ENDIF.
   ENDMETHOD.
 
 
