@@ -87,10 +87,6 @@ private section.
 
   constants C_APPLICANT_TYPE type STRING value 'PARTNER_OWNER_1' ##NO_TEXT.
   constants C_LOGIN_BP type STRING value 'OWNER_BP' ##NO_TEXT.
-  " Every other journey posts the applicant's own partner under LOGIN_BP;
-  " this one only ever wrote OWNER_BP, so the record model and the backend
-  " application had no applicant BP.  CJSMIG-703/704.
-  constants C_APP_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
   constants C_PARTNER_NAME type STRING value 'APP_NAME' ##NO_TEXT.
   constants C_PARTNER_ID type STRING value 'APP_ID' ##NO_TEXT.
   constants C_APPLICANTTYPE type STRING value 'APP_TYPE' ##NO_TEXT.
@@ -193,7 +189,6 @@ CLASS ZCL_E027_VICE_CAPTAIN_LOGIC IMPLEMENTATION.
           es_bp_details = DATA(ls_bp) ).
 
       io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
-      io_ctx->set_val( iv_name = c_app_bp   iv_value = |{ lv_loginbp }| ).
 
       IF sy-langu = c_lang_en.
         io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name ) ).
