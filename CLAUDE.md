@@ -132,6 +132,28 @@ This shows up in several places that all trace back to the same rule:
 - **The PAID gate (above) and the case guid are two ends of the same rule.** A case's payment
   status and its identity must always refer to the same underlying application — never re-derive
   either independently in handler code.
+- **The engine's key is `MV_INTRENO`, and it is never a guid.** It was called `MV_CASE_GUID`
+  and the name was wrong twice over, which cost a whole session arguing about launch
+  parameters. Not a case: the backend's case number is `MV_CASE_NUMBER`, which `TAKE_CASE( )`
+  keeps deliberately apart — the BAdI used to write the case id over the `INTRENO_JOURNEY`
+  item and that is what made the key move mid-journey (hence `EV_GUID` / `EV_CASE` as two
+  separate returns). Not a guid: `ZCL_RAK_QNV_BRIDGE` sends it as `ls_hdr-param1`, and the read
+  FM treats `PARAM1` as **one of three things** — a real-estate INTRENO, a draft id, or a case
+  id — resolving it with `SELECT sgrnr FROM vibdro WHERE intreno EQ param1`. A `GUID_22` is
+  none of those three: it exists only as the INDX(CJ) buffer id before the first key and is
+  abandoned the moment one appears. INTRENO is the name that covers all three real shapes,
+  which is why the bridge has always called the item it travels in `INTRENO_JOURNEY`.
+  **The launch parameter name is irrelevant** — `caseid`, `draftid` and anything else all land
+  in the same variable and all go out as `INTRENO_JOURNEY`, so adding a third one reads a
+  distinction the engine does not make. What matters is the **value**: the portal's
+  `GETSCREENSET_GET_ENTITYSET` sends `SCMG_T_CASE_ATTR-EXT_KEY`, while the tile's INTRENO comes
+  from `VIBDCHARACT` — different values on any journey keyed by INTRENO. Hand the engine the
+  wrong one and the `VIBDRO` select misses, `READ_CASE` finds neither case nor draft, and
+  **the journey comes back empty with the `CX_SY_OPEN_SQL_DATA_ERROR` swallowed** — no message,
+  no log, a blank form. `GET_CASE( )` on `ZIF_RAK_JOURNEY` keeps its old name on purpose: 71
+  handlers in git call it and others exist only in SAP. The audit column
+  `ZRAK_T_CJ_EVT-CASE_GUID` still carries the old name too — a DDIC rename on a live table,
+  deliberately not done.
 - **The journey key is NOT always the case id, and the payment path needs the case.**
   `DFKKOP-ZZEXT_KEY` is a case id. On DOK and EPDA the backend re-points the journey key at
   the case the moment `CREATE_CASE` runs, so the key *is* the case and the whole payment path

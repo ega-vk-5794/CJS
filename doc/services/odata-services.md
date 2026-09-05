@@ -43,6 +43,48 @@ and **nothing else is ever called on the context**.
 `FeesSet`, `TrackerSet` and `ProjectSet` never touch it. `PropertiesSet`,
 `LeaseContractSet`, `PartnerSet`, `OccupantSet` and `UserSet` do.
 
+### GetScreenSet — the ONLY door into CJS
+
+Every CJS journey, every scenario, is launched from
+`GETSCREENSET_GET_ENTITYSET`. Nothing else builds a CJS URL, so this method is
+the single place a launch defect can live.
+
+It reads its filters from `IT_FILTER_SELECT_OPTIONS`: `JourneyId` (the tile
+code, `M011` / `E001`), `Role`, `CaseId`, `DraftId`, `Intreno`, `fromLobby`,
+`ScreenObjectType`, `ActionId`, `Partnerguid`.
+
+The CJS branch is entered when `ZRAK_T_JNY` has an **active** row whose
+`TILE_CODE` matches `JourneyId`, and it `RETURN`s immediately after building
+the URL — everything below it (the tab decode, `EPDA_CASETYPE( )`, the
+`GET BADI ... get_screen` call, the `ZEGA_T_CJ_ICONS` fallback, `CASE_WD_LINK`)
+is the legacy path and CJS never reaches it.
+
+Three things about that branch, each of which has cost time:
+
+- **`IF intreno IS INITIAL. intreno = caseid. ENDIF.` sits AFTER the early
+  `RETURN`.** So the legacy path gets that fallback and the CJS path is the one
+  caller that never did. Hoist it above the `ZRAK_T_JNY` select to fix it —
+  nothing between the two positions touches `INTRENO` or `CASEID` (`CASE`,
+  `JOURNEYID` and `ACTION` are what change), so the original becomes a no-op and
+  every legacy path is unchanged.
+- **The URL carries `&caseid=` and `&draftid=` but the VALUE is what matters,
+  not the name.** The engine funnels every launch parameter into one variable
+  and sends it out as `INTRENO_JOURNEY` — see the `MV_INTRENO` bullet in
+  `CLAUDE.md`. `CASESET_GET_ENTITYSET` fills the tile's `CASEID` from
+  `SCMG_T_CASE_ATTR-EXT_KEY` and its `INTRENO` from `VIBDCHARACT`; on DOK and
+  EPDA those coincide and everything works, on Municipality they do not.
+  Sending the case id there makes the read FM's `VIBDRO` select miss and the
+  journey render **empty, with no message and nothing logged**. Adding a third
+  `&intreno=` parameter does not help — the engine makes no distinction between
+  the names, so the fix is to put the resolved key into the parameter already
+  being sent.
+- **The whole branch is gated on `sy-sysid EQ 'E10'`** and the host is
+  hardcoded to `devgrpportal.rak.ae`. There is no E20/E30 branch, so no CJS link
+  exists outside dev. Raise this before a QA cycle depends on it, not during.
+
+`ZCL_ZEGA_CJ_DPC_EXT` is outside the CJS namespace — changes here are handed to
+the portal owner as text, never committed.
+
 ### PropertiesSet — the one the parcel selector uses
 Filters read: `ApplType`, `ParcelId`, `Type`, `Partnerguid`, `Partnerrole`, `Favourite`.
 
