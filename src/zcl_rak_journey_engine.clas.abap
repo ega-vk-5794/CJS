@@ -841,7 +841,21 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *       The refresh arrow under the challenge. A citizen who cannot read
 *       this one gets another; the button is the accessibility floor of an
 *       image control, not a convenience.
-        WHEN 'CAPTCHA_NEW'. captcha_new( ).
+        WHEN 'CAPTCHA_NEW'.
+          captcha_new( ).
+*         AND EMPTY THE BOX. A new picture with the old answer still
+*         sitting under it is a trap: the citizen pressed refresh
+*         because they could not read the last one, so whatever is in
+*         there is an answer to a challenge that no longer exists, and
+*         leaving it means their next press of Next fails for a reason
+*         the screen does not explain.
+          READ TABLE ms_config-steps INTO DATA(ls_cst) INDEX mv_step + 1.
+          IF sy-subrc = 0.
+            LOOP AT ls_cst-fields INTO DATA(ls_cf) WHERE type = 'CAPTCHA'.
+              val_set( iv_name = ls_cf-name iv_value = `` ).
+              set_field_state( iv_name = ls_cf-name iv_state = 'None' iv_text = '' ).
+            ENDLOOP.
+          ENDIF.
         WHEN 'ASKDEL'. mv_popup = 'DELCONF'.
         WHEN 'DELETE'.
           handle_delete( ).
