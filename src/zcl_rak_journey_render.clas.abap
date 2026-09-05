@@ -611,8 +611,32 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
     DATA(lo_box) = io_parent->vbox( class = 'rakCaptcha' ).
 
-    lo_box->text( text  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-cap_hint
-                                             iv_default = 'Type the five digits shown below.' )
+*   ---- TEMPORARY PROBE - REMOVE ONCE THE REFRESH QUESTION IS SETTLED ----
+*   The digits did not change after a failed attempt, and neither did the
+*   noise strokes - which is the more useful half of that observation,
+*   because the strokes are drawn from MV_CAP_SEED and the seed is taken
+*   from the clock on every CAPTCHA_NEW( ). Identical jitter across two
+*   round trips seconds apart means the seed did not move, which means
+*   CAPTCHA_NEW( ) did not run in the build that is actually active.
+*
+*   So both halves of that go on the screen. C_BUILD answers 'is the code
+*   on screen the code I just wrote' by observation instead of by trusting
+*   the Class Builder, and the seed answers whether the challenge is being
+*   regenerated. Neither leaks the answer: the seed drives the tilt of the
+*   glyphs and the noise lines, never the digits.
+*
+*     build absent    the pulled render class is not active
+*     seed unchanged  CAPTCHA_NEW( ) is not running - look at the engine,
+*                     which is a different object and may not be active
+*     seed changed    the challenge IS regenerating and the picture is
+*                     stale, so the fault is in the repaint, not here
+    DATA(lv_build) = `CAP-5`.
+    DATA(lv_hint)  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-cap_hint
+                                        iv_default = 'Type the five digits shown below.' ).
+*   Built into a variable first: an embedded expression inside | | cannot
+*   contain a line break, and this call does not fit on one 255-character
+*   source line.
+    lo_box->text( text  = |{ lv_hint }  ·  build { lv_build } · seed { mo_e->mv_cap_seed }|
                   class = 'rakCapHint' ).
 
     DATA(lo_row) = lo_box->hbox( alignitems = 'Center' class = 'rakCapRow' ).
