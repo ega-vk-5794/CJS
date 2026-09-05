@@ -61,8 +61,9 @@ for code, name, dept, tk, jst, who, note in R.JOURNEYS:
     c = counts([(0,0,0,r[3],0) for r in rows])
     cl = c["done_claude"] + c["done_dev"]
     md.append(f"## {code} - {name}\n")
-    md.append(f"{dept} · {tk} · {jst} · {who} · **{len(rows)} observations, "
-              f"{cl} closed, {len(rows)-cl} open**\n")
+    md.append(f"{dept} · {tk} · {jst} · {who} · blocks {R.BLOCKS.get(tk,'-')} · "
+              f"{len(R.ATTACHMENTS.get(tk,[]))} screenshots on the ticket · "
+              f"**{len(rows)} observations, {cl} closed, {len(rows)-cl} open**\n")
     md.append(note + "\n")
     md.append("| # | Observation | Status | What closes it |")
     md.append("| ---: | --- | --- | --- |")
@@ -147,7 +148,8 @@ for code, name, dept, tk, jst, who, note in R.JOURNEYS:
     A('<div class="jhead">')
     A(f'<h2><span class="jcode">{code}</span> {e(name)}</h2>')
     A(f'<p class="meta"><span class="dept {dept}">{dept}</span>'
-      f'<span>{tk}</span><span>{jst}</span><span>{e(who)}</span></p>')
+      f'<span>{tk}</span><span>{jst}</span><span>{e(who)}</span>'
+      f'<span title="blocks the delivery ticket">&#8594; {R.BLOCKS.get(tk,"-")}</span></p>')
     A('</div>')
     A('<div class="prog"><div class="pbar">')
     for k in ("done_claude","done_dev","config","backend","portal","check"):
@@ -156,6 +158,11 @@ for code, name, dept, tk, jst, who, note in R.JOURNEYS:
     A('</div>')
     A(f'<p class="pnum"><b>{cl}</b> of {len(rows)} closed</p></div>')
     A(f'<p class="note">{e(note)}</p>')
+    shots = R.ATTACHMENTS.get(tk, [])
+    if shots:
+        A(f'<p class="shots" title="{e(chr(10).join(shots))}">{len(shots)} screenshot'
+          f'{"s" if len(shots)>1 else ""} attached to {tk} &#183; not reachable from here, '
+          f'paste one in if a line below needs it</p>')
     A('<table class="obs"><thead><tr><th class="n">#</th><th>Observation</th>'
       '<th>Status</th><th>What closes it</th></tr></thead><tbody>')
     for t, seq, text, st, act in rows:
@@ -266,6 +273,7 @@ table{border-collapse:collapse;width:100%}
 .pbar{display:flex;height:6px;flex:1;border-radius:3px;overflow:hidden;background:var(--surface2)}
 .pnum{margin:0;font-size:12.5px;color:var(--ink3);white-space:nowrap;font-variant-numeric:tabular-nums}
 .pnum b{color:var(--ink)}
+.shots{margin:8px 0 0;font-size:12.5px;color:var(--ink3)}
 .note{color:var(--ink2);max-width:78ch;margin:14px 0 4px;font-size:14.5px}
 .obs{font-size:14px;margin:10px 0 0}
 .obs th{text-align:left;font-weight:600;font-size:11px;letter-spacing:.09em;text-transform:uppercase;
@@ -340,6 +348,7 @@ open(os.path.join(HERE, "snapshot.html"), "w").write(out)
 json.dump({"as_at": AS_AT,
            "journeys": [dict(zip(("code","name","dept","ticket","jira","assignee","note"), j)) for j in R.JOURNEYS],
            "observations": [dict(zip(("ticket","seq","journey","observation","state","action"), o)) for o in R.OBS],
-           "pending_activation": [dict(zip(("object","change","ticket"), p)) for p in R.PENDING_ACTIVATION]},
+           "pending_activation": [dict(zip(("object","change","ticket"), p)) for p in R.PENDING_ACTIVATION],
+           "blocks": R.BLOCKS, "attachments": R.ATTACHMENTS},
           open(os.path.join(HERE, "register.json"), "w"), indent=1, ensure_ascii=False)
 print("SNAPSHOT.md, snapshot.html, register.json written")

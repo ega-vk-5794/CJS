@@ -92,6 +92,7 @@ table{border-collapse:collapse;width:100%}
 .pbar{display:flex;height:6px;flex:1;border-radius:3px;overflow:hidden;background:var(--surface2)}
 .pnum{margin:0;font-size:12.5px;color:var(--ink3);white-space:nowrap;font-variant-numeric:tabular-nums}
 .pnum b{color:var(--ink)}
+.shots{margin:8px 0 0;font-size:12.5px;color:var(--ink3)}
 .note{color:var(--ink2);max-width:78ch;margin:14px 0 4px;font-size:14.5px}
 .obs{font-size:14px;margin:10px 0 0}
 .obs th{text-align:left;font-weight:600;font-size:11px;letter-spacing:.09em;text-transform:uppercase;
@@ -191,7 +192,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="EPDA" data-code="E021">
 <div class="jhead">
 <h2><span class="jcode">E021</span> Alternative Fuel</h2>
-<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-683</span><span>SIT</span><span>anand babu</span></p>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-683</span><span>SIT</span><span>anand babu</span><span title="blocks the delivery ticket">&#8594; CJSMIG-468</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg done" style="width:6.67%"></span>
@@ -202,8 +203,16 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>1</b> of 15 closed</p></div>
 <p class="note">Handler ZCL_EPDA_E021_ALTER_FUEL_LOGIC has no ON_INIT, so the applicant&#x27;s name, ID, mobile, email and role are never seeded - that is the same root cause behind &#x27;applicant details missing&#x27; and most of the owner-step noise. Adding one needs the journey&#x27;s own field names from the Studio.</p>
+<p class="shots" title="image-20260902-113807.png
+image-20260902-114953.png
+image-20260902-120122.png
+image-20260902-122028.png
+image-20260902-122606.png
+image-20260902-122723.png
+image-20260902-124215.png
+image-20260902-124850.png">8 screenshots attached to CJSMIG-683 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
-<tr data-st="check" data-hay="initial page loads with error messages send the screenshot text. most likely the required-field messages firing before the citizen has typed anything, which is a rule/required config question, not the engine. e021 alternative fuel cjsmig-683"><td class="n">1</td><td class="what">Initial page loads with error messages</td><td><span class="chip chk">Needs a look</span></td><td class="how">Send the screenshot text. Most likely the required-field messages firing before the citizen has typed anything, which is a rule/required config question, not the engine.</td></tr>
+<tr data-st="check" data-hay="initial page loads with error messages the screenshot is already on the ticket, but jira is not reachable from where this register is built - paste the error text here. most likely the required-field messages firing before the citizen has typed anything, which is a rule/required config question, not the engine. e021 alternative fuel cjsmig-683"><td class="n">1</td><td class="what">Initial page loads with error messages</td><td><span class="chip chk">Needs a look</span></td><td class="how">The screenshot is already on the ticket, but Jira is not reachable from where this register is built - paste the error text here. Most likely the required-field messages firing before the citizen has typed anything, which is a rule/required config question, not the engine.</td></tr>
 <tr data-st="config" data-hay="applicant details not aligned - should be row wise studio &gt; design tab. place the applicant fields on one row of the 12-column grid (zrak_cj_lay). e021 alternative fuel cjsmig-683"><td class="n">2</td><td class="what">Applicant details not aligned - should be row wise</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Studio &gt; Design tab. Place the applicant fields on one row of the 12-column grid (ZRAK_CJ_LAY).</td></tr>
 <tr data-st="check" data-hay="epda permit no &amp; applicant type data missing the handler has no on_init, so nothing seeds these. confirm the field names in zrak_t_jny_fld and an on_init can be written in an hour. e021 alternative fuel cjsmig-683"><td class="n">3</td><td class="what">EPDA permit no &amp; applicant type data missing</td><td><span class="chip chk">Needs a look</span></td><td class="how">The handler has no ON_INIT, so nothing seeds these. Confirm the field names in ZRAK_T_JNY_FLD and an ON_INIT can be written in an hour.</td></tr>
 <tr data-st="config" data-hay="permit / eid / trade licence order wrong, no search button field order in the design tab; the search button appears when the field&#x27;s ftype is search. e021 alternative fuel cjsmig-683"><td class="n">4</td><td class="what">Permit / EID / trade licence order wrong, no search button</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Field order in the Design tab; the search button appears when the field&#x27;s FTYPE is SEARCH.</td></tr>
@@ -223,7 +232,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="EPDA" data-code="E022">
 <div class="jhead">
 <h2><span class="jcode">E022</span> Development Project</h2>
-<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-684</span><span>SIT</span><span>anand babu</span></p>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-684</span><span>SIT</span><span>anand babu</span><span title="blocks the delivery ticket">&#8594; CJSMIG-477</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg done" style="width:13.33%"></span>
@@ -233,8 +242,16 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>2</b> of 15 closed</p></div>
 <p class="note">The duplicate applicant write was fixed in the handler earlier; the applicant BP now also goes out as LOGIN_BP. Everything else on this ticket is step names, field order and two missing texts - all Studio work, and four of them are already coded into ZRAK_CJ_FIXPACK.</p>
+<p class="shots" title="image-20260903-064001.png
+image-20260903-064227.png
+image-20260903-064350.png
+image-20260903-064549.png
+image-20260903-064940.png
+image-20260903-065249.png
+image-20260903-065637.png
+image-20260903-065812.png">8 screenshots attached to CJSMIG-684 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
-<tr data-st="check" data-hay="initial page loads with error messages send the screenshot text. e022 development project cjsmig-684"><td class="n">1</td><td class="what">Initial page loads with error messages</td><td><span class="chip chk">Needs a look</span></td><td class="how">Send the screenshot text.</td></tr>
+<tr data-st="check" data-hay="initial page loads with error messages the screenshot is on the ticket; paste it here - jira is not reachable from where this register is built. e022 development project cjsmig-684"><td class="n">1</td><td class="what">Initial page loads with error messages</td><td><span class="chip chk">Needs a look</span></td><td class="how">The screenshot is on the ticket; paste it here - Jira is not reachable from where this register is built.</td></tr>
 <tr data-st="config" data-hay="applicant details not aligned - should be row wise design tab. e022 development project cjsmig-684"><td class="n">2</td><td class="what">Applicant details not aligned - should be row wise</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Design tab.</td></tr>
 <tr data-st="done_claude" data-hay="applicant details are duplicated the handler was writing the applicant fields twice. fixed in zcl_epda_e022_dev_proj_logic. e022 development project cjsmig-684"><td class="n">3</td><td class="what">Applicant details are duplicated</td><td><span class="chip done">Fixed in CJS code</span></td><td class="how">The handler was writing the applicant fields twice. Fixed in ZCL_EPDA_E022_DEV_PROJ_LOGIC.</td></tr>
 <tr data-st="config" data-hay="emirates id search should follow the format; browse not required placeholder for the mask, regex for the format, ftype search instead of the browse control. e022 development project cjsmig-684"><td class="n">4</td><td class="what">Emirates ID search should follow the format; Browse not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">PLACEHOLDER for the mask, REGEX for the format, FTYPE SEARCH instead of the browse control.</td></tr>
@@ -254,7 +271,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="DOK" data-code="D012">
 <div class="jhead">
 <h2><span class="jcode">D012</span> School Trips &amp; Activities</h2>
-<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-685</span><span>SIT</span><span>Jyoti Meena</span></p>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-685</span><span>SIT</span><span>Jyoti Meena</span><span title="blocks the delivery ticket">&#8594; CJSMIG-351</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg done" style="width:44.44%"></span>
@@ -263,6 +280,14 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>4</b> of 9 closed</p></div>
 <p class="note">Three of the nine are closed by the developer. What is left is the portal side - Arabic cases, Customer Action, the Back button - plus one backend mapping fault where the selected school is not the school that reaches the case.</p>
+<p class="shots" title="image-20260903-064402.png
+image-20260903-064441.png
+image-20260903-064506.png
+image-20260903-064539.png
+image-20260903-064621.png
+image-20260903-064649.png
+image-20260903-070527.png
+image-20260903-070958.png">8 screenshots attached to CJSMIG-685 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="done_dev" data-hay="attachment types should allow jpg, png etc closed by jyoti. d012 school trips &amp; activities cjsmig-685"><td class="n">1</td><td class="what">Attachment types should allow JPG, PNG etc</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Jyoti.</td></tr>
 <tr data-st="backend" data-hay="selected indian school, a different school reached the case backend data mapping - jyoti&#x27;s own answer. d012 school trips &amp; activities cjsmig-685"><td class="n">2</td><td class="what">Selected Indian school, a different school reached the case</td><td><span class="chip be">Backend / record model</span></td><td class="how">Backend data mapping - Jyoti&#x27;s own answer.</td></tr>
@@ -278,7 +303,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="EPDA" data-code="E017">
 <div class="jhead">
 <h2><span class="jcode">E017</span> Export Chemical Products</h2>
-<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-687</span><span>SIT</span><span>Jyoti Meena</span></p>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-687</span><span>SIT</span><span>Jyoti Meena</span><span title="blocks the delivery ticket">&#8594; CJSMIG-522</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg done" style="width:22.22%"></span>
@@ -289,6 +314,13 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>4</b> of 18 closed</p></div>
 <p class="note">The Add Chemical dialog was the bulk of this ticket and is fixed in code: all fourteen fields are now marked required AND enforced, the dialog shows its own messages instead of throwing them behind the modal, and it lays out in two columns. Search from History is a genuine gap - the legacy control reads ChemicalHistorySet and nothing in CJS calls it yet.</p>
+<p class="shots" title="0df49494-9dd8-44c5-bbd4-199a05be8211.png
+image-20260903-073034.png
+image-20260903-074113.png
+image-20260903-084439.png
+image-20260903-084817.png
+image-20260903-085047.png
+image-20260903-090205.png">7 screenshots attached to CJSMIG-687 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="config" data-hay="owner search should be in eid format; browse not required placeholder + regex; ftype search. listed in the fixpack worklist. e017 export chemical products cjsmig-687"><td class="n">1</td><td class="what">Owner search should be in EID format; Browse not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">PLACEHOLDER + REGEX; FTYPE SEARCH. Listed in the fixpack worklist.</td></tr>
 <tr data-st="check" data-hay="representative + owner eid search errors and will not move to the next step needs one run with the exact search value. the popup validation now blocks correctly, so an error here is the search itself. e017 export chemical products cjsmig-687"><td class="n">2</td><td class="what">Representative + owner EID search errors and will not move to the next step</td><td><span class="chip chk">Needs a look</span></td><td class="how">Needs one run with the exact search value. The popup validation now blocks correctly, so an error here is the search itself.</td></tr>
@@ -313,7 +345,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="DOK" data-code="D002">
 <div class="jhead">
 <h2><span class="jcode">D002</span> Private School Licence - Apply</h2>
-<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-688</span><span>SIT</span><span>Hasan Fraz</span></p>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-688</span><span>SIT</span><span>Hasan Fraz</span><span title="blocks the delivery ticket">&#8594; CJSMIG-252</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg done" style="width:54.55%"></span>
@@ -323,6 +355,14 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>6</b> of 11 closed</p></div>
 <p class="note">Six of eleven closed by the developer. Arabic wording and the record-model access to Manager &amp; School were handed to anand on the thread.</p>
+<p class="shots" title="Issue 1 -20260903-065219.png
+Issue 2-20260903-065513.png
+Issue 3 -20260903-070016.png
+Issue 6-20260903-071134.png
+Issue 8 -20260903-073609.png
+Issue 9-20260903-074144.png
+issue 4-20260903-070148.png
+issue 7 -20260903-073323.png">8 screenshots attached to CJSMIG-688 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="done_dev" data-hay="add manager - wrong text, should be birthday closed by hasan. also coded in zrak_cj_fixpack as a label change on manager_dob. d002 private school licence - apply cjsmig-688"><td class="n">1</td><td class="what">Add Manager - wrong text, should be Birthday</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Hasan. Also coded in ZRAK_CJ_FIXPACK as a LABEL change on MANAGER_DOB.</td></tr>
 <tr data-st="done_dev" data-hay="fees details comes back empty closed by hasan. d002 private school licence - apply cjsmig-688"><td class="n">2</td><td class="what">Fees Details comes back empty</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Hasan.</td></tr>
@@ -340,7 +380,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="DOK" data-code="D013">
 <div class="jhead">
 <h2><span class="jcode">D013</span> Staff Appointment Letters</h2>
-<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-689</span><span>SIT</span><span>Jyoti Meena</span></p>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-689</span><span>SIT</span><span>Jyoti Meena</span><span title="blocks the delivery ticket">&#8594; CJSMIG-360</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg done" style="width:30.00%"></span>
@@ -349,6 +389,14 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>3</b> of 10 closed</p></div>
 <p class="note">The developer answered every line. Four are framework/portal, one is backend mapping, three are done. The beneficiary not reaching the record model is the one that still stops a case completing.</p>
+<p class="shots" title="image-20260903-084323.png
+image-20260903-084348.png
+image-20260903-084418.png
+image-20260903-084444.png
+image-20260903-084513.png
+image-20260903-084618.png
+image-20260903-084643.png
+image-20260903-084703.png">8 screenshots attached to CJSMIG-689 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="backend" data-hay="application form - data missing record model. d013 staff appointment letters cjsmig-689"><td class="n">1</td><td class="what">Application form - data missing</td><td><span class="chip be">Backend / record model</span></td><td class="how">Record model.</td></tr>
 <tr data-st="done_dev" data-hay="only one attachment reflected, the others not closed by jyoti. worth knowing why: get_attachment( ) de-duplicates on (objsrc, diffcrt, objsrctype, objtrgtype), so two files sharing a document type collapse into one. d013 staff appointment letters cjsmig-689"><td class="n">2</td><td class="what">Only one attachment reflected, the others not</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Jyoti. Worth knowing why: GET_ATTACHMENT( ) de-duplicates on (objsrc, diffcrt, objsrctype, objtrgtype), so two files sharing a document type collapse into one.</td></tr>
@@ -365,7 +413,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="DOK" data-code="D014">
 <div class="jhead">
 <h2><span class="jcode">D014</span> Staff Experience Certificates</h2>
-<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-690</span><span>SIT</span><span>Jyoti Meena</span></p>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-690</span><span>SIT</span><span>Jyoti Meena</span><span title="blocks the delivery ticket">&#8594; CJSMIG-369</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg be" style="width:36.36%"></span>
@@ -374,6 +422,12 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>0</b> of 11 closed</p></div>
 <p class="note">Nothing on this ticket is CJS-side yet, and there is a repository hazard behind it: TWO handler classes claim D014 - ZCL_D014_STAFF_EXP_CERT_LOGIC and ZCL_D014_STAFF_GOLD_VISA_LOGIC. Confirm which one the journey row points at before chasing &#x27;service not working&#x27; any further.</p>
+<p class="shots" title="image-20260903-102424.png
+image-20260903-102446.png
+image-20260903-102507.png
+image-20260903-102551.png
+image-20260903-102646.png
+image-20260903-102732.png">6 screenshots attached to CJSMIG-690 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="check" data-hay="the service does not work on the portal screen check which handler class the journey row points at first - two classes claim d014. d014 staff experience certificates cjsmig-690"><td class="n">1</td><td class="what">The service does not work on the portal screen</td><td><span class="chip chk">Needs a look</span></td><td class="how">Check which handler class the journey row points at first - two classes claim D014.</td></tr>
 <tr data-st="backend" data-hay="application form - data missing record model. d014 staff experience certificates cjsmig-690"><td class="n">2</td><td class="what">Application form - data missing</td><td><span class="chip be">Backend / record model</span></td><td class="how">Record model.</td></tr>
@@ -391,7 +445,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="DOK" data-code="D003">
 <div class="jhead">
 <h2><span class="jcode">D003</span> Private School Licence - Renew</h2>
-<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-692</span><span>Backlog</span><span>anand babu</span></p>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-692</span><span>Backlog</span><span>anand babu</span><span title="blocks the delivery ticket">&#8594; CJSMIG-261</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg cfg" style="width:40.00%"></span>
@@ -400,6 +454,9 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>0</b> of 5 closed</p></div>
 <p class="note">Five lines, all config or portal. The missing BP labels are a ZLABEL fill and are already listed in the fixpack worklist.</p>
+<p class="shots" title="Issue 1 -20260903-103115.png
+Issue 2-20260903-105745.png
+Issue 3-20260903-103708.png">3 screenshots attached to CJSMIG-692 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="config" data-hay="owner - bp labels missing fill zlabel / zlabel_ar. in the fixpack worklist. d003 private school licence - renew cjsmig-692"><td class="n">1</td><td class="what">Owner - BP labels missing</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Fill ZLABEL / ZLABEL_AR. In the fixpack worklist.</td></tr>
 <tr data-st="backend" data-hay="owner details missing from the application form record model. d003 private school licence - renew cjsmig-692"><td class="n">2</td><td class="what">Owner details missing from the application form</td><td><span class="chip be">Backend / record model</span></td><td class="how">Record model.</td></tr>
@@ -411,7 +468,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="DOK" data-code="D021">
 <div class="jhead">
 <h2><span class="jcode">D021</span> School Fees (Amend or Increase)</h2>
-<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-693</span><span>SIT</span><span>anand babu</span></p>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-693</span><span>SIT</span><span>anand babu</span><span title="blocks the delivery ticket">&#8594; CJSMIG-396</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg cfg" style="width:25.00%"></span>
@@ -419,6 +476,10 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>0</b> of 4 closed</p></div>
 <p class="note">Small ticket, one hard blocker: transportation fees do not pick the distance up from the system, and the case cannot be submitted. That is a backend read plus a field rename, not an engine fault. The applicant BP now also goes out as LOGIN_BP on this journey.</p>
+<p class="shots" title="image-20260903-111346.png
+image-20260903-111422.png
+image-20260903-111506.png
+image-20260903-111514.png">4 screenshots attached to CJSMIG-693 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="config" data-hay="field should read distance, not educational stage zlabel / zlabel_ar. in the fixpack worklist - the field name is not known from here. d021 school fees (amend or increase) cjsmig-693"><td class="n">1</td><td class="what">Field should read Distance, not Educational stage</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">ZLABEL / ZLABEL_AR. In the fixpack worklist - the field name is not known from here.</td></tr>
 <tr data-st="backend" data-hay="table should show every educational stage and fetch the current fee the read has to return all stages with their current fee. d021 school fees (amend or increase) cjsmig-693"><td class="n">2</td><td class="what">Table should show every educational stage and fetch the current fee</td><td><span class="chip be">Backend / record model</span></td><td class="how">The read has to return all stages with their current fee.</td></tr>
@@ -429,7 +490,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="DOK" data-code="D016">
 <div class="jhead">
 <h2><span class="jcode">D016</span> Private School Licence - Cancel</h2>
-<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-694</span><span>Backlog</span><span>anand babu</span></p>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-694</span><span>Backlog</span><span>anand babu</span><span title="blocks the delivery ticket">&#8594; CJSMIG-270</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg cfg" style="width:33.33%"></span>
@@ -437,6 +498,8 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>0</b> of 3 closed</p></div>
 <p class="note">Three lines, none of them CJS code. Reassigned to anand for the Arabic side.</p>
+<p class="shots" title="Issue 1-20260903-103708.png
+image-20260904-080309.png">2 screenshots attached to CJSMIG-694 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="portal" data-hay="arabic version has no start button service card. reassigned to anand. d016 private school licence - cancel cjsmig-694"><td class="n">1</td><td class="what">Arabic version has no Start button</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Service card. Reassigned to anand.</td></tr>
 <tr data-st="config" data-hay="mandatory attachments need the * tick required on each upload field. d016 private school licence - cancel cjsmig-694"><td class="n">2</td><td class="what">Mandatory attachments need the *</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Tick REQUIRED on each upload field.</td></tr>
@@ -446,7 +509,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="DOK" data-code="D006">
 <div class="jhead">
 <h2><span class="jcode">D006</span> Amend - Manage Change</h2>
-<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-696</span><span>Backlog</span><span>Hasan Fraz</span></p>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-696</span><span>Backlog</span><span>Hasan Fraz</span><span title="blocks the delivery ticket">&#8594; CJSMIG-297</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg cfg" style="width:25.00%"></span>
@@ -455,6 +518,9 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>0</b> of 4 closed</p></div>
 <p class="note">Four lines. The new manager&#x27;s details not appearing on the application form is a record-model question for the backend team.</p>
+<p class="shots" title="Issue 1-20260903-103708.png
+image-20260904-075823.png
+issue1-20260903-121242.png">3 screenshots attached to CJSMIG-696 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="backend" data-hay="new manager details not shown on the application form record model. d006 amend - manage change cjsmig-696"><td class="n">1</td><td class="what">New manager details not shown on the application form</td><td><span class="chip be">Backend / record model</span></td><td class="how">Record model.</td></tr>
 <tr data-st="portal" data-hay="arabic version has no start button service card. d006 amend - manage change cjsmig-696"><td class="n">2</td><td class="what">Arabic version has no Start button</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Service card.</td></tr>
@@ -465,7 +531,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="EPDA" data-code="E018">
 <div class="jhead">
 <h2><span class="jcode">E018</span> Transport of Chemical Products</h2>
-<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-697</span><span>SIT</span><span>Hasan Fraz</span></p>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-697</span><span>SIT</span><span>Hasan Fraz</span><span title="blocks the delivery ticket">&#8594; CJSMIG-531</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg done" style="width:40.00%"></span>
@@ -474,6 +540,11 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>4</b> of 10 closed</p></div>
 <p class="note">This journey&#x27;s class had NO ACTIVE VERSION - a CONSTANTS ... TYPE string VALUE &#x27;&#x27; would not compile, so SAP kept running an older build and every fix looked like it had not been applied. That is fixed in git. Re-test the CX_SY_CONVERSION_NO_NUMBER post failure only after the class is activated; it may well go with it.</p>
+<p class="shots" title="0df49494-9dd8-44c5-bbd4-199a05be8211.png
+image-20260903-073034.png
+image-20260903-130651.png
+image-20260903-131011.png
+image-20260903-131532.png">5 screenshots attached to CJSMIG-697 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="config" data-hay="owner search should be in eid format; browse not required placeholder + regex; ftype search. in the fixpack worklist. e018 transport of chemical products cjsmig-697"><td class="n">1</td><td class="what">Owner search should be in EID format; Browse not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">PLACEHOLDER + REGEX; FTYPE SEARCH. In the fixpack worklist.</td></tr>
 <tr data-st="check" data-hay="representative + owner eid search errors and will not move on re-test after the class is activated. e018 transport of chemical products cjsmig-697"><td class="n">2</td><td class="what">Representative + owner EID search errors and will not move on</td><td><span class="chip chk">Needs a look</span></td><td class="how">Re-test after the class is activated.</td></tr>
@@ -490,7 +561,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="DOK" data-code="D005">
 <div class="jhead">
 <h2><span class="jcode">D005</span> Amend - Name Change</h2>
-<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-698</span><span>Backlog</span><span>Hasan Fraz</span></p>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-698</span><span>Backlog</span><span>Hasan Fraz</span><span title="blocks the delivery ticket">&#8594; CJSMIG-288</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg cfg" style="width:33.33%"></span>
@@ -498,6 +569,8 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>0</b> of 3 closed</p></div>
 <p class="note">Three lines, all of them shared with D003/D006/D016 - the Arabic start button, the attachment asterisk and the Customer Action redirect.</p>
+<p class="shots" title="Issue 1-20260903-103708.png
+image-20260904-074828.png">2 screenshots attached to CJSMIG-698 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="portal" data-hay="arabic version has no start button service card. d005 amend - name change cjsmig-698"><td class="n">1</td><td class="what">Arabic version has no Start button</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Service card.</td></tr>
 <tr data-st="config" data-hay="mandatory attachments need the * tick required on each upload field. d005 amend - name change cjsmig-698"><td class="n">2</td><td class="what">Mandatory attachments need the *</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Tick REQUIRED on each upload field.</td></tr>
@@ -507,7 +580,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="DOK" data-code="D022">
 <div class="jhead">
 <h2><span class="jcode">D022</span> Pursuing of Study Certificate</h2>
-<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-699</span><span>SIT</span><span>Hasan Fraz</span></p>
+<p class="meta"><span class="dept DOK">DOK</span><span>CJSMIG-699</span><span>SIT</span><span>Hasan Fraz</span><span title="blocks the delivery ticket">&#8594; CJSMIG-405</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg done" style="width:40.00%"></span>
@@ -516,6 +589,12 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>2</b> of 5 closed</p></div>
 <p class="note">Two closed by the developer. The payment step is the blocker and needs a trace run: PREPARE_PAYMENT( ) now names its own exit (NOCASE / NOSCREEN / NOURL) under &amp;trace=x, which is what separates a missing case from a missing gateway address.</p>
+<p class="shots" title="image-20260904-054737.png
+image-20260904-054749.png
+image-20260904-054818.png
+image-20260904-054855.png
+image-20260904-054923.png
+image-20260904-055001.png">6 screenshots attached to CJSMIG-699 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="portal" data-hay="service card is missing the &#x27;who can apply&#x27; information service catalogue - taken by vikram on the thread. d022 pursuing of study certificate cjsmig-699"><td class="n">1</td><td class="what">Service card is missing the &#x27;who can apply&#x27; information</td><td><span class="chip pt">Portal / framework</span></td><td class="how">Service catalogue - taken by Vikram on the thread.</td></tr>
 <tr data-st="done_dev" data-hay="cannot search by emirates id; the field stays on sis id closed by hasan - the emirates id option was removed, sis id only. d022 pursuing of study certificate cjsmig-699"><td class="n">2</td><td class="what">Cannot search by Emirates ID; the field stays on SIS ID</td><td><span class="chip done">Closed by developer</span></td><td class="how">Closed by Hasan - the Emirates ID option was removed, SIS ID only.</td></tr>
@@ -527,7 +606,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="EPDA" data-code="E019">
 <div class="jhead">
 <h2><span class="jcode">E019</span> Transport of Used Oil</h2>
-<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-700</span><span>SIT</span><span>anand babu</span></p>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-700</span><span>SIT</span><span>anand babu</span><span title="blocks the delivery ticket">&#8594; CJSMIG-540</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg done" style="width:4.35%"></span>
@@ -538,8 +617,15 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>1</b> of 23 closed</p></div>
 <p class="note">The longest ticket in the round, and almost all of it is config. Same root cause as E021: ZCL_EPDA_E019_TRANS_USED_LOGIC has no ON_INIT, so no applicant details are seeded at all.</p>
+<p class="shots" title="image-20260903-064940.png
+image-20260904-055423.png
+image-20260904-071342.png
+image-20260904-071842.png
+image-20260904-072118.png
+image-20260904-072355.png
+image-20260904-072630.png">7 screenshots attached to CJSMIG-700 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
-<tr data-st="check" data-hay="initial page loads with error messages send the screenshot text. e019 transport of used oil cjsmig-700"><td class="n">1</td><td class="what">Initial page loads with error messages</td><td><span class="chip chk">Needs a look</span></td><td class="how">Send the screenshot text.</td></tr>
+<tr data-st="check" data-hay="initial page loads with error messages the screenshot is on the ticket; paste it here - jira is not reachable from where this register is built. e019 transport of used oil cjsmig-700"><td class="n">1</td><td class="what">Initial page loads with error messages</td><td><span class="chip chk">Needs a look</span></td><td class="how">The screenshot is on the ticket; paste it here - Jira is not reachable from where this register is built.</td></tr>
 <tr data-st="config" data-hay="applicant details not aligned - should be row wise design tab. e019 transport of used oil cjsmig-700"><td class="n">2</td><td class="what">Applicant details not aligned - should be row wise</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Design tab.</td></tr>
 <tr data-st="config" data-hay="applicant details are duplicated not the same cause as e022 - this handler writes nothing. two fields are bound to the same value; hide one. e019 transport of used oil cjsmig-700"><td class="n">3</td><td class="what">Applicant details are duplicated</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Not the same cause as E022 - this handler writes nothing. Two fields are bound to the same value; hide one.</td></tr>
 <tr data-st="config" data-hay="emirates id search should follow the format; browse not required placeholder + regex; ftype search. e019 transport of used oil cjsmig-700"><td class="n">4</td><td class="what">Emirates ID search should follow the format; Browse not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">PLACEHOLDER + REGEX; FTYPE SEARCH.</td></tr>
@@ -567,7 +653,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="EPDA" data-code="E020">
 <div class="jhead">
 <h2><span class="jcode">E020</span> Batteries / Scrap Handling</h2>
-<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-701</span><span>SIT</span><span>Hasan Fraz</span></p>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-701</span><span>SIT</span><span>Hasan Fraz</span><span title="blocks the delivery ticket">&#8594; CJSMIG-549</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg done" style="width:7.14%"></span>
@@ -577,8 +663,16 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>1</b> of 14 closed</p></div>
 <p class="note">Config-heavy. &#x27;Vehicle details not saving in backend&#x27; is worth reading as a column-order fault first: a backend table&#x27;s cells are positional at both ends and the order comes from LIST_SEQUENCE in /QNV/SB_UI_DEFIN, not from the CJS spec.</p>
+<p class="shots" title="image-20260903-065249.png
+image-20260904-074855.png
+image-20260904-075149.png
+image-20260904-075208.png
+image-20260904-075228.png
+image-20260904-075427.png
+image-20260904-075845.png
+image-20260904-080013.png">8 screenshots attached to CJSMIG-701 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
-<tr data-st="check" data-hay="initial page loads with error messages send the screenshot text. e020 batteries / scrap handling cjsmig-701"><td class="n">1</td><td class="what">Initial page loads with error messages</td><td><span class="chip chk">Needs a look</span></td><td class="how">Send the screenshot text.</td></tr>
+<tr data-st="check" data-hay="initial page loads with error messages the screenshot is on the ticket; paste it here - jira is not reachable from where this register is built. e020 batteries / scrap handling cjsmig-701"><td class="n">1</td><td class="what">Initial page loads with error messages</td><td><span class="chip chk">Needs a look</span></td><td class="how">The screenshot is on the ticket; paste it here - Jira is not reachable from where this register is built.</td></tr>
 <tr data-st="config" data-hay="applicant details not aligned - should be row wise design tab. e020 batteries / scrap handling cjsmig-701"><td class="n">2</td><td class="what">Applicant details not aligned - should be row wise</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Design tab.</td></tr>
 <tr data-st="config" data-hay="applicant details are duplicated two fields bound to the same value; hide one. e020 batteries / scrap handling cjsmig-701"><td class="n">3</td><td class="what">Applicant details are duplicated</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Two fields bound to the same value; hide one.</td></tr>
 <tr data-st="config" data-hay="emirates id search should follow the format; browse not required placeholder + regex; ftype search. e020 batteries / scrap handling cjsmig-701"><td class="n">4</td><td class="what">Emirates ID search should follow the format; Browse not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">PLACEHOLDER + REGEX; FTYPE SEARCH.</td></tr>
@@ -597,7 +691,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="EPDA" data-code="E023">
 <div class="jhead">
 <h2><span class="jcode">E023</span> Dewatering Approval</h2>
-<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-702</span><span>SIT</span><span>anand babu</span></p>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-702</span><span>SIT</span><span>anand babu</span><span title="blocks the delivery ticket">&#8594; CJSMIG-558</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg cfg" style="width:100.00%"></span>
@@ -611,7 +705,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="EPDA" data-code="E025">
 <div class="jhead">
 <h2><span class="jcode">E025</span> Beekeeping Activity</h2>
-<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-703</span><span>SIT</span><span>anand babu</span></p>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-703</span><span>SIT</span><span>anand babu</span><span title="blocks the delivery ticket">&#8594; CJSMIG-567</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg done" style="width:16.67%"></span>
@@ -620,6 +714,10 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>1</b> of 6 closed</p></div>
 <p class="note">The applicant BP fault is fixed. It was a one-word defect: the class called the applicant field &#x27;OWNER_BP&#x27;, which on this journey is the owner SEARCH BOX - so ON_INIT typed the applicant&#x27;s partner number into the search field and blanked it again sixteen lines later.</p>
+<p class="shots" title="image-20260904-104239.png
+image-20260904-104517.png
+image-20260904-104935.png
+image-20260904-113134.png">4 screenshots attached to CJSMIG-703 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="config" data-hay="emirates id search should follow the format; browse not required placeholder + regex; ftype search. e025 beekeeping activity cjsmig-703"><td class="n">1</td><td class="what">Emirates ID search should follow the format; Browse not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">PLACEHOLDER + REGEX; FTYPE SEARCH.</td></tr>
 <tr data-st="config" data-hay="number of apiaries max 2 digits; expected production max 6 max_len on both fields. e025 beekeeping activity cjsmig-703"><td class="n">2</td><td class="what">Number of Apiaries max 2 digits; Expected Production max 6</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">MAX_LEN on both fields.</td></tr>
@@ -632,7 +730,7 @@ footer p{margin:0 0 8px}
 <section class="jny" data-dept="EPDA" data-code="E026">
 <div class="jhead">
 <h2><span class="jcode">E026</span> Tree Removal / Relocation / Pruning</h2>
-<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-704</span><span>SIT</span><span>anand babu</span></p>
+<p class="meta"><span class="dept EPDA">EPDA</span><span>CJSMIG-704</span><span>SIT</span><span>anand babu</span><span title="blocks the delivery ticket">&#8594; CJSMIG-576</span></p>
 </div>
 <div class="prog"><div class="pbar">
 <span class="seg done" style="width:20.00%"></span>
@@ -641,6 +739,9 @@ footer p{margin:0 0 8px}
 </div>
 <p class="pnum"><b>1</b> of 5 closed</p></div>
 <p class="note">Same applicant-BP family as E025 and fixed the same way, additively. The four remaining lines are config and are shared with E025.</p>
+<p class="shots" title="image-20260904-104239.png
+image-20260904-104935.png
+image-20260904-113134.png">3 screenshots attached to CJSMIG-704 &#183; not reachable from here, paste one in if a line below needs it</p>
 <table class="obs"><thead><tr><th class="n">#</th><th>Observation</th><th>Status</th><th>What closes it</th></tr></thead><tbody>
 <tr data-st="config" data-hay="emirates id search should follow the format; browse not required placeholder + regex; ftype search. e026 tree removal / relocation / pruning cjsmig-704"><td class="n">1</td><td class="what">Emirates ID search should follow the format; Browse not required</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">PLACEHOLDER + REGEX; FTYPE SEARCH.</td></tr>
 <tr data-st="config" data-hay="mandatory attachments need the * tick required on each upload field. e026 tree removal / relocation / pruning cjsmig-704"><td class="n">2</td><td class="what">Mandatory attachments need the *</td><td><span class="chip cfg">CJS configuration</span></td><td class="how">Tick REQUIRED on each upload field.</td></tr>

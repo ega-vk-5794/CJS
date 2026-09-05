@@ -101,7 +101,7 @@ JOURNEYS = [
 OBS = [
 # ---------------- CJSMIG-683  E021 --------------------------------------
 ("CJSMIG-683",1,"E021","Initial page loads with error messages","check",
- "Send the screenshot text. Most likely the required-field messages firing before the citizen has typed anything, which is a rule/required config question, not the engine."),
+ "The screenshot is already on the ticket, but Jira is not reachable from where this register is built - paste the error text here. Most likely the required-field messages firing before the citizen has typed anything, which is a rule/required config question, not the engine."),
 ("CJSMIG-683",2,"E021","Applicant details not aligned - should be row wise","config",
  "Studio > Design tab. Place the applicant fields on one row of the 12-column grid (ZRAK_CJ_LAY)."),
 ("CJSMIG-683",3,"E021","EPDA permit no & applicant type data missing","check",
@@ -129,7 +129,8 @@ OBS = [
 ("CJSMIG-683",15,"E021","Arabic - service start button not showing","portal",
  "Service card / launchpad, not CJS."),
 # ---------------- CJSMIG-684  E022 --------------------------------------
-("CJSMIG-684",1,"E022","Initial page loads with error messages","check","Send the screenshot text."),
+("CJSMIG-684",1,"E022","Initial page loads with error messages","check",
+ "The screenshot is on the ticket; paste it here - Jira is not reachable from where this register is built."),
 ("CJSMIG-684",2,"E022","Applicant details not aligned - should be row wise","config","Design tab."),
 ("CJSMIG-684",3,"E022","Applicant details are duplicated","done_claude",
  "The handler was writing the applicant fields twice. Fixed in ZCL_EPDA_E022_DEV_PROJ_LOGIC."),
@@ -267,7 +268,8 @@ OBS = [
  "Run with &trace=x. PREPARE_PAYMENT( ) reports its exit and the keys the backend answered with, which separates 'no case' from 'no gateway address'."),
 ("CJSMIG-699",5,"D022","Cannot complete the case at the payment step","check","Blocker - same run as above."),
 # ---------------- CJSMIG-700  E019 --------------------------------------
-("CJSMIG-700",1,"E019","Initial page loads with error messages","check","Send the screenshot text."),
+("CJSMIG-700",1,"E019","Initial page loads with error messages","check",
+ "The screenshot is on the ticket; paste it here - Jira is not reachable from where this register is built."),
 ("CJSMIG-700",2,"E019","Applicant details not aligned - should be row wise","config","Design tab."),
 ("CJSMIG-700",3,"E019","Applicant details are duplicated","config",
  "Not the same cause as E022 - this handler writes nothing. Two fields are bound to the same value; hide one."),
@@ -292,7 +294,8 @@ OBS = [
 ("CJSMIG-700",22,"E019","Customer action","portal","Portal team."),
 ("CJSMIG-700",23,"E019","Arabic services cannot be submitted","portal","Framework side."),
 # ---------------- CJSMIG-701  E020 --------------------------------------
-("CJSMIG-701",1,"E020","Initial page loads with error messages","check","Send the screenshot text."),
+("CJSMIG-701",1,"E020","Initial page loads with error messages","check",
+ "The screenshot is on the ticket; paste it here - Jira is not reachable from where this register is built."),
 ("CJSMIG-701",2,"E020","Applicant details not aligned - should be row wise","config","Design tab."),
 ("CJSMIG-701",3,"E020","Applicant details are duplicated","config","Two fields bound to the same value; hide one."),
 ("CJSMIG-701",4,"E020","Emirates ID search should follow the format; Browse not required","config","PLACEHOLDER + REGEX; FTYPE SEARCH."),
@@ -346,3 +349,51 @@ PENDING_ACTIVATION = [
  ("ZRAK_CJ_FIXPACK","Report: applies 19 of the config points mechanically, per journey","682-697"),
  ("ZRAK_CJ_BACKUP","Report: full export / import of a journey's configuration","-"),
 ]
+
+# From the RAK_EGA Jira CSV export (all 19 tickets, 04-Sep-2026).
+# Each SIT ticket blocks that journey's delivery ticket.
+BLOCKS = {
+  "CJSMIG-683": "CJSMIG-468",
+  "CJSMIG-684": "CJSMIG-477",
+  "CJSMIG-685": "CJSMIG-351",
+  "CJSMIG-687": "CJSMIG-522",
+  "CJSMIG-688": "CJSMIG-252",
+  "CJSMIG-689": "CJSMIG-360",
+  "CJSMIG-690": "CJSMIG-369",
+  "CJSMIG-692": "CJSMIG-261",
+  "CJSMIG-693": "CJSMIG-396",
+  "CJSMIG-694": "CJSMIG-270",
+  "CJSMIG-696": "CJSMIG-297",
+  "CJSMIG-697": "CJSMIG-531",
+  "CJSMIG-698": "CJSMIG-288",
+  "CJSMIG-699": "CJSMIG-405",
+  "CJSMIG-700": "CJSMIG-540",
+  "CJSMIG-701": "CJSMIG-549",
+  "CJSMIG-702": "CJSMIG-558",
+  "CJSMIG-703": "CJSMIG-567",
+  "CJSMIG-704": "CJSMIG-576",
+}
+
+# Screenshot filenames the tester attached. Jira is not reachable from the
+# environment this register is built in, so these are named, not read.
+ATTACHMENTS = {
+  "CJSMIG-683": ['image-20260902-113807.png', 'image-20260902-114953.png', 'image-20260902-120122.png', 'image-20260902-122028.png', 'image-20260902-122606.png', 'image-20260902-122723.png', 'image-20260902-124215.png', 'image-20260902-124850.png'],
+  "CJSMIG-684": ['image-20260903-064001.png', 'image-20260903-064227.png', 'image-20260903-064350.png', 'image-20260903-064549.png', 'image-20260903-064940.png', 'image-20260903-065249.png', 'image-20260903-065637.png', 'image-20260903-065812.png'],
+  "CJSMIG-685": ['image-20260903-064402.png', 'image-20260903-064441.png', 'image-20260903-064506.png', 'image-20260903-064539.png', 'image-20260903-064621.png', 'image-20260903-064649.png', 'image-20260903-070527.png', 'image-20260903-070958.png'],
+  "CJSMIG-687": ['0df49494-9dd8-44c5-bbd4-199a05be8211.png', 'image-20260903-073034.png', 'image-20260903-074113.png', 'image-20260903-084439.png', 'image-20260903-084817.png', 'image-20260903-085047.png', 'image-20260903-090205.png'],
+  "CJSMIG-688": ['Issue 1 -20260903-065219.png', 'Issue 2-20260903-065513.png', 'Issue 3 -20260903-070016.png', 'Issue 6-20260903-071134.png', 'Issue 8 -20260903-073609.png', 'Issue 9-20260903-074144.png', 'issue 4-20260903-070148.png', 'issue 7 -20260903-073323.png'],
+  "CJSMIG-689": ['image-20260903-084323.png', 'image-20260903-084348.png', 'image-20260903-084418.png', 'image-20260903-084444.png', 'image-20260903-084513.png', 'image-20260903-084618.png', 'image-20260903-084643.png', 'image-20260903-084703.png'],
+  "CJSMIG-690": ['image-20260903-102424.png', 'image-20260903-102446.png', 'image-20260903-102507.png', 'image-20260903-102551.png', 'image-20260903-102646.png', 'image-20260903-102732.png'],
+  "CJSMIG-692": ['Issue 1 -20260903-103115.png', 'Issue 2-20260903-105745.png', 'Issue 3-20260903-103708.png'],
+  "CJSMIG-693": ['image-20260903-111346.png', 'image-20260903-111422.png', 'image-20260903-111506.png', 'image-20260903-111514.png'],
+  "CJSMIG-694": ['Issue 1-20260903-103708.png', 'image-20260904-080309.png'],
+  "CJSMIG-696": ['Issue 1-20260903-103708.png', 'image-20260904-075823.png', 'issue1-20260903-121242.png'],
+  "CJSMIG-697": ['0df49494-9dd8-44c5-bbd4-199a05be8211.png', 'image-20260903-073034.png', 'image-20260903-130651.png', 'image-20260903-131011.png', 'image-20260903-131532.png'],
+  "CJSMIG-698": ['Issue 1-20260903-103708.png', 'image-20260904-074828.png'],
+  "CJSMIG-699": ['image-20260904-054737.png', 'image-20260904-054749.png', 'image-20260904-054818.png', 'image-20260904-054855.png', 'image-20260904-054923.png', 'image-20260904-055001.png'],
+  "CJSMIG-700": ['image-20260903-064940.png', 'image-20260904-055423.png', 'image-20260904-071342.png', 'image-20260904-071842.png', 'image-20260904-072118.png', 'image-20260904-072355.png', 'image-20260904-072630.png'],
+  "CJSMIG-701": ['image-20260903-065249.png', 'image-20260904-074855.png', 'image-20260904-075149.png', 'image-20260904-075208.png', 'image-20260904-075228.png', 'image-20260904-075427.png', 'image-20260904-075845.png', 'image-20260904-080013.png'],
+  "CJSMIG-702": [],
+  "CJSMIG-703": ['image-20260904-104239.png', 'image-20260904-104517.png', 'image-20260904-104935.png', 'image-20260904-113134.png'],
+  "CJSMIG-704": ['image-20260904-104239.png', 'image-20260904-104935.png', 'image-20260904-113134.png'],
+}

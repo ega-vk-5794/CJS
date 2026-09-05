@@ -36,13 +36,13 @@ A code fix is not live until the object is pulled AND activated. In the pull dia
 
 ## E021 - Alternative Fuel
 
-EPDA · CJSMIG-683 · SIT · anand babu · **15 observations, 1 closed, 14 open**
+EPDA · CJSMIG-683 · SIT · anand babu · blocks CJSMIG-468 · 8 screenshots on the ticket · **15 observations, 1 closed, 14 open**
 
 Handler ZCL_EPDA_E021_ALTER_FUEL_LOGIC has no ON_INIT, so the applicant's name, ID, mobile, email and role are never seeded - that is the same root cause behind 'applicant details missing' and most of the owner-step noise. Adding one needs the journey's own field names from the Studio.
 
 | # | Observation | Status | What closes it |
 | ---: | --- | --- | --- |
-| 1 | Initial page loads with error messages | Needs a look | Send the screenshot text. Most likely the required-field messages firing before the citizen has typed anything, which is a rule/required config question, not the engine. |
+| 1 | Initial page loads with error messages | Needs a look | The screenshot is already on the ticket, but Jira is not reachable from where this register is built - paste the error text here. Most likely the required-field messages firing before the citizen has typed anything, which is a rule/required config question, not the engine. |
 | 2 | Applicant details not aligned - should be row wise | CJS configuration | Studio > Design tab. Place the applicant fields on one row of the 12-column grid (ZRAK_CJ_LAY). |
 | 3 | EPDA permit no & applicant type data missing | Needs a look | The handler has no ON_INIT, so nothing seeds these. Confirm the field names in ZRAK_T_JNY_FLD and an ON_INIT can be written in an hour. |
 | 4 | Permit / EID / trade licence order wrong, no search button | CJS configuration | Field order in the Design tab; the search button appears when the field's FTYPE is SEARCH. |
@@ -60,13 +60,13 @@ Handler ZCL_EPDA_E021_ALTER_FUEL_LOGIC has no ON_INIT, so the applicant's name, 
 
 ## E022 - Development Project
 
-EPDA · CJSMIG-684 · SIT · anand babu · **15 observations, 2 closed, 13 open**
+EPDA · CJSMIG-684 · SIT · anand babu · blocks CJSMIG-477 · 8 screenshots on the ticket · **15 observations, 2 closed, 13 open**
 
 The duplicate applicant write was fixed in the handler earlier; the applicant BP now also goes out as LOGIN_BP. Everything else on this ticket is step names, field order and two missing texts - all Studio work, and four of them are already coded into ZRAK_CJ_FIXPACK.
 
 | # | Observation | Status | What closes it |
 | ---: | --- | --- | --- |
-| 1 | Initial page loads with error messages | Needs a look | Send the screenshot text. |
+| 1 | Initial page loads with error messages | Needs a look | The screenshot is on the ticket; paste it here - Jira is not reachable from where this register is built. |
 | 2 | Applicant details not aligned - should be row wise | CJS configuration | Design tab. |
 | 3 | Applicant details are duplicated | Fixed in CJS code | The handler was writing the applicant fields twice. Fixed in ZCL_EPDA_E022_DEV_PROJ_LOGIC. |
 | 4 | Emirates ID search should follow the format; Browse not required | CJS configuration | PLACEHOLDER for the mask, REGEX for the format, FTYPE SEARCH instead of the browse control. |
@@ -84,7 +84,7 @@ The duplicate applicant write was fixed in the handler earlier; the applicant BP
 
 ## D012 - School Trips & Activities
 
-DOK · CJSMIG-685 · SIT · Jyoti Meena · **9 observations, 4 closed, 5 open**
+DOK · CJSMIG-685 · SIT · Jyoti Meena · blocks CJSMIG-351 · 8 screenshots on the ticket · **9 observations, 4 closed, 5 open**
 
 Three of the nine are closed by the developer. What is left is the portal side - Arabic cases, Customer Action, the Back button - plus one backend mapping fault where the selected school is not the school that reaches the case.
 
@@ -102,7 +102,7 @@ Three of the nine are closed by the developer. What is left is the portal side -
 
 ## E017 - Export Chemical Products
 
-EPDA · CJSMIG-687 · SIT · Jyoti Meena · **18 observations, 4 closed, 14 open**
+EPDA · CJSMIG-687 · SIT · Jyoti Meena · blocks CJSMIG-522 · 7 screenshots on the ticket · **18 observations, 4 closed, 14 open**
 
 The Add Chemical dialog was the bulk of this ticket and is fixed in code: all fourteen fields are now marked required AND enforced, the dialog shows its own messages instead of throwing them behind the modal, and it lays out in two columns. Search from History is a genuine gap - the legacy control reads ChemicalHistorySet and nothing in CJS calls it yet.
 
@@ -129,7 +129,7 @@ The Add Chemical dialog was the bulk of this ticket and is fixed in code: all fo
 
 ## D002 - Private School Licence - Apply
 
-DOK · CJSMIG-688 · SIT · Hasan Fraz · **11 observations, 6 closed, 5 open**
+DOK · CJSMIG-688 · SIT · Hasan Fraz · blocks CJSMIG-252 · 8 screenshots on the ticket · **11 observations, 6 closed, 5 open**
 
 Six of eleven closed by the developer. Arabic wording and the record-model access to Manager & School were handed to anand on the thread.
 
@@ -149,7 +149,7 @@ Six of eleven closed by the developer. Arabic wording and the record-model acces
 
 ## D013 - Staff Appointment Letters
 
-DOK · CJSMIG-689 · SIT · Jyoti Meena · **10 observations, 3 closed, 7 open**
+DOK · CJSMIG-689 · SIT · Jyoti Meena · blocks CJSMIG-360 · 8 screenshots on the ticket · **10 observations, 3 closed, 7 open**
 
 The developer answered every line. Four are framework/portal, one is backend mapping, three are done. The beneficiary not reaching the record model is the one that still stops a case completing.
 
@@ -168,7 +168,7 @@ The developer answered every line. Four are framework/portal, one is backend map
 
 ## D014 - Staff Experience Certificates
 
-DOK · CJSMIG-690 · SIT · Jyoti Meena · **11 observations, 0 closed, 11 open**
+DOK · CJSMIG-690 · SIT · Jyoti Meena · blocks CJSMIG-369 · 6 screenshots on the ticket · **11 observations, 0 closed, 11 open**
 
 Nothing on this ticket is CJS-side yet, and there is a repository hazard behind it: TWO handler classes claim D014 - ZCL_D014_STAFF_EXP_CERT_LOGIC and ZCL_D014_STAFF_GOLD_VISA_LOGIC. Confirm which one the journey row points at before chasing 'service not working' any further.
 
@@ -188,7 +188,7 @@ Nothing on this ticket is CJS-side yet, and there is a repository hazard behind 
 
 ## D003 - Private School Licence - Renew
 
-DOK · CJSMIG-692 · Backlog · anand babu · **5 observations, 0 closed, 5 open**
+DOK · CJSMIG-692 · Backlog · anand babu · blocks CJSMIG-261 · 3 screenshots on the ticket · **5 observations, 0 closed, 5 open**
 
 Five lines, all config or portal. The missing BP labels are a ZLABEL fill and are already listed in the fixpack worklist.
 
@@ -202,7 +202,7 @@ Five lines, all config or portal. The missing BP labels are a ZLABEL fill and ar
 
 ## D021 - School Fees (Amend or Increase)
 
-DOK · CJSMIG-693 · SIT · anand babu · **4 observations, 0 closed, 4 open**
+DOK · CJSMIG-693 · SIT · anand babu · blocks CJSMIG-396 · 4 screenshots on the ticket · **4 observations, 0 closed, 4 open**
 
 Small ticket, one hard blocker: transportation fees do not pick the distance up from the system, and the case cannot be submitted. That is a backend read plus a field rename, not an engine fault. The applicant BP now also goes out as LOGIN_BP on this journey.
 
@@ -215,7 +215,7 @@ Small ticket, one hard blocker: transportation fees do not pick the distance up 
 
 ## D016 - Private School Licence - Cancel
 
-DOK · CJSMIG-694 · Backlog · anand babu · **3 observations, 0 closed, 3 open**
+DOK · CJSMIG-694 · Backlog · anand babu · blocks CJSMIG-270 · 2 screenshots on the ticket · **3 observations, 0 closed, 3 open**
 
 Three lines, none of them CJS code. Reassigned to anand for the Arabic side.
 
@@ -227,7 +227,7 @@ Three lines, none of them CJS code. Reassigned to anand for the Arabic side.
 
 ## D006 - Amend - Manage Change
 
-DOK · CJSMIG-696 · Backlog · Hasan Fraz · **4 observations, 0 closed, 4 open**
+DOK · CJSMIG-696 · Backlog · Hasan Fraz · blocks CJSMIG-297 · 3 screenshots on the ticket · **4 observations, 0 closed, 4 open**
 
 Four lines. The new manager's details not appearing on the application form is a record-model question for the backend team.
 
@@ -240,7 +240,7 @@ Four lines. The new manager's details not appearing on the application form is a
 
 ## E018 - Transport of Chemical Products
 
-EPDA · CJSMIG-697 · SIT · Hasan Fraz · **10 observations, 4 closed, 6 open**
+EPDA · CJSMIG-697 · SIT · Hasan Fraz · blocks CJSMIG-531 · 5 screenshots on the ticket · **10 observations, 4 closed, 6 open**
 
 This journey's class had NO ACTIVE VERSION - a CONSTANTS ... TYPE string VALUE '' would not compile, so SAP kept running an older build and every fix looked like it had not been applied. That is fixed in git. Re-test the CX_SY_CONVERSION_NO_NUMBER post failure only after the class is activated; it may well go with it.
 
@@ -259,7 +259,7 @@ This journey's class had NO ACTIVE VERSION - a CONSTANTS ... TYPE string VALUE '
 
 ## D005 - Amend - Name Change
 
-DOK · CJSMIG-698 · Backlog · Hasan Fraz · **3 observations, 0 closed, 3 open**
+DOK · CJSMIG-698 · Backlog · Hasan Fraz · blocks CJSMIG-288 · 2 screenshots on the ticket · **3 observations, 0 closed, 3 open**
 
 Three lines, all of them shared with D003/D006/D016 - the Arabic start button, the attachment asterisk and the Customer Action redirect.
 
@@ -271,7 +271,7 @@ Three lines, all of them shared with D003/D006/D016 - the Arabic start button, t
 
 ## D022 - Pursuing of Study Certificate
 
-DOK · CJSMIG-699 · SIT · Hasan Fraz · **5 observations, 2 closed, 3 open**
+DOK · CJSMIG-699 · SIT · Hasan Fraz · blocks CJSMIG-405 · 6 screenshots on the ticket · **5 observations, 2 closed, 3 open**
 
 Two closed by the developer. The payment step is the blocker and needs a trace run: PREPARE_PAYMENT( ) now names its own exit (NOCASE / NOSCREEN / NOURL) under &trace=x, which is what separates a missing case from a missing gateway address.
 
@@ -285,13 +285,13 @@ Two closed by the developer. The payment step is the blocker and needs a trace r
 
 ## E019 - Transport of Used Oil
 
-EPDA · CJSMIG-700 · SIT · anand babu · **23 observations, 1 closed, 22 open**
+EPDA · CJSMIG-700 · SIT · anand babu · blocks CJSMIG-540 · 7 screenshots on the ticket · **23 observations, 1 closed, 22 open**
 
 The longest ticket in the round, and almost all of it is config. Same root cause as E021: ZCL_EPDA_E019_TRANS_USED_LOGIC has no ON_INIT, so no applicant details are seeded at all.
 
 | # | Observation | Status | What closes it |
 | ---: | --- | --- | --- |
-| 1 | Initial page loads with error messages | Needs a look | Send the screenshot text. |
+| 1 | Initial page loads with error messages | Needs a look | The screenshot is on the ticket; paste it here - Jira is not reachable from where this register is built. |
 | 2 | Applicant details not aligned - should be row wise | CJS configuration | Design tab. |
 | 3 | Applicant details are duplicated | CJS configuration | Not the same cause as E022 - this handler writes nothing. Two fields are bound to the same value; hide one. |
 | 4 | Emirates ID search should follow the format; Browse not required | CJS configuration | PLACEHOLDER + REGEX; FTYPE SEARCH. |
@@ -317,13 +317,13 @@ The longest ticket in the round, and almost all of it is config. Same root cause
 
 ## E020 - Batteries / Scrap Handling
 
-EPDA · CJSMIG-701 · SIT · Hasan Fraz · **14 observations, 1 closed, 13 open**
+EPDA · CJSMIG-701 · SIT · Hasan Fraz · blocks CJSMIG-549 · 8 screenshots on the ticket · **14 observations, 1 closed, 13 open**
 
 Config-heavy. 'Vehicle details not saving in backend' is worth reading as a column-order fault first: a backend table's cells are positional at both ends and the order comes from LIST_SEQUENCE in /QNV/SB_UI_DEFIN, not from the CJS spec.
 
 | # | Observation | Status | What closes it |
 | ---: | --- | --- | --- |
-| 1 | Initial page loads with error messages | Needs a look | Send the screenshot text. |
+| 1 | Initial page loads with error messages | Needs a look | The screenshot is on the ticket; paste it here - Jira is not reachable from where this register is built. |
 | 2 | Applicant details not aligned - should be row wise | CJS configuration | Design tab. |
 | 3 | Applicant details are duplicated | CJS configuration | Two fields bound to the same value; hide one. |
 | 4 | Emirates ID search should follow the format; Browse not required | CJS configuration | PLACEHOLDER + REGEX; FTYPE SEARCH. |
@@ -340,7 +340,7 @@ Config-heavy. 'Vehicle details not saving in backend' is worth reading as a colu
 
 ## E023 - Dewatering Approval
 
-EPDA · CJSMIG-702 · SIT · anand babu · **1 observations, 0 closed, 1 open**
+EPDA · CJSMIG-702 · SIT · anand babu · blocks CJSMIG-558 · 0 screenshots on the ticket · **1 observations, 0 closed, 1 open**
 
 One line: 'CJS service Not found'. The handler class exists and is complete, so this is the journey row or the launch link, not the code.
 
@@ -350,7 +350,7 @@ One line: 'CJS service Not found'. The handler class exists and is complete, so 
 
 ## E025 - Beekeeping Activity
 
-EPDA · CJSMIG-703 · SIT · anand babu · **6 observations, 1 closed, 5 open**
+EPDA · CJSMIG-703 · SIT · anand babu · blocks CJSMIG-567 · 4 screenshots on the ticket · **6 observations, 1 closed, 5 open**
 
 The applicant BP fault is fixed. It was a one-word defect: the class called the applicant field 'OWNER_BP', which on this journey is the owner SEARCH BOX - so ON_INIT typed the applicant's partner number into the search field and blanked it again sixteen lines later.
 
@@ -365,7 +365,7 @@ The applicant BP fault is fixed. It was a one-word defect: the class called the 
 
 ## E026 - Tree Removal / Relocation / Pruning
 
-EPDA · CJSMIG-704 · SIT · anand babu · **5 observations, 1 closed, 4 open**
+EPDA · CJSMIG-704 · SIT · anand babu · blocks CJSMIG-576 · 3 screenshots on the ticket · **5 observations, 1 closed, 4 open**
 
 Same applicant-BP family as E025 and fixed the same way, additively. The four remaining lines are config and are shared with E025.
 
