@@ -962,7 +962,18 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       This is the one change in this round that is NOT blank-is-today: every
 *       existing table gains a sticky header. It is visual only - no row, no
 *       value and no event changes - which is why it is worth taking.
+*       R13-2. POP-IN, and OPT-IN. Below a threshold a column stops being a
+*       column and becomes a labelled line inside its own row, which is the
+*       whole reason sap.m.Table is called the responsive table - without it
+*       a six-column result list on a phone is six columns, narrower.
+*
+*       NOT a blanket default, deliberately: turning it on everywhere would
+*       change what every existing journey looks like on a phone, which is
+*       the one thing this round was not allowed to do. AUTOPOPINMODE lets
+*       UI5 decide the order from column width, so an author gets it with
+*       one flag and no per-column work.
         DATA(lo_tab) = io_parent->table( sticky             = 'ColumnHeaders'
+                                         autopopinmode      = is_field-popin
                                          alternaterowcolors = abap_true
                                          mode               = COND string( WHEN lv_pick IS NOT INITIAL THEN 'SingleSelectMaster' ELSE 'None' )
                                          class              = 'sapUiSmallMarginBeginEnd' ).
@@ -2326,9 +2337,18 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       WHEN 'TEXTAREA'.
         req_label( io_form = io_form is_field = is_field ).
         io_form->text_area( value            = lv_bind
-                            rows             = '3'
+*                           R13-7. ROWS was the literal '3' for every
+*                           textarea on every journey - the free-text reason
+*                           for a whole application got the same three lines
+*                           as a one-line note. Blank TA_ROWS still means 3,
+*                           so an unset field is unchanged.
+                            rows             = COND string(
+                                                 WHEN is_field-ta_rows > 0
+                                                 THEN |{ is_field-ta_rows }|
+                                                 ELSE '3' )
 *                           R13-4, the third of the same omission.
                             placeholder      = is_field-placeholder
+                            tooltip          = is_field-tooltip
                             editable         = lv_edit
                             maxlength        = COND string( WHEN is_field-validation-max_len > 0 THEN |{ is_field-validation-max_len }| ELSE `0` )
                             showexceededtext = xsdbool( is_field-validation-max_len > 0 )
@@ -2351,6 +2371,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                         value          = lv_bind
                         type           = 'Number'
                         placeholder    = is_field-placeholder
+*                       R13-9 / R13-5. DESCRIPTION is the short unit a form
+*                       puts AFTER the value - days, AED, cm - and stays
+*                       visible beside what the citizen typed, unlike a
+*                       placeholder. TOOLTIP is the word of explanation a
+*                       placeholder cannot be, because it survives typing.
+*                       Both blank on every journey today.
+                        description    = is_field-descr
+                        tooltip        = is_field-tooltip
                         editable       = lv_edit
                         change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
                         maxlength      = COND string( WHEN is_field-validation-max_len > 0 THEN |{ is_field-validation-max_len }| ELSE `0` )
@@ -2424,6 +2452,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                         value          = lv_bind
                         type           = 'Email'
                         placeholder    = is_field-placeholder
+*                       R13-9 / R13-5. DESCRIPTION is the short unit a form
+*                       puts AFTER the value - days, AED, cm - and stays
+*                       visible beside what the citizen typed, unlike a
+*                       placeholder. TOOLTIP is the word of explanation a
+*                       placeholder cannot be, because it survives typing.
+*                       Both blank on every journey today.
+                        description    = is_field-descr
+                        tooltip        = is_field-tooltip
                         editable       = lv_edit
                         change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
                         valuestate     = lv_vs
@@ -2436,6 +2472,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                         value          = lv_bind
                         type           = 'Tel'
                         placeholder    = is_field-placeholder
+*                       R13-9 / R13-5. DESCRIPTION is the short unit a form
+*                       puts AFTER the value - days, AED, cm - and stays
+*                       visible beside what the citizen typed, unlike a
+*                       placeholder. TOOLTIP is the word of explanation a
+*                       placeholder cannot be, because it survives typing.
+*                       Both blank on every journey today.
+                        description    = is_field-descr
+                        tooltip        = is_field-tooltip
                         editable       = lv_edit
                         change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
                         valuestate     = lv_vs
@@ -2583,10 +2627,23 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       ceiling. TEXT: is accepted here too, so one convention covers both
 *       and a bilingual paragraph can use the @ form; without it, nothing
 *       about the old route changes.
+*       R13-9. TEXTALIGN, through the same CSS_ALIGN( ) the table column
+*       uses - one validator, so the two cannot drift into accepting
+*       different words. Blank is no TEXTALIGN, which is flush to the
+*       reading edge and what every DISPLAY draws today.
+*
+*       The cost of not having it was a handler taking a whole field over
+*       through RENDER_FIELD( ) and drawing twenty controls by hand,
+*       because a paragraph needed to be centred.
+        DATA(lv_dta) = zcl_rak_journey_util=>css_align( is_field-text_align ).
         IF is_field-default CP 'TEXT:*'.
-          io_form->text( text = long_text( is_field ) ).
+          io_form->text( text      = long_text( is_field )
+                         textalign = lv_dta
+                         tooltip   = is_field-tooltip ).
         ELSE.
-          io_form->text( text = lv_bind ).
+          io_form->text( text      = lv_bind
+                         textalign = lv_dta
+                         tooltip   = is_field-tooltip ).
         ENDIF.
 
       WHEN 'RESULT'.

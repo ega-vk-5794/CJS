@@ -60,6 +60,30 @@ CLASS zcl_rak_cjs DEFINITION
         shlp         TYPE string,
         domname      TYPE string,
         tech_name    TYPE string,
+
+*       ---- COLUMNS THE STUDIO USED TO SILENTLY DESTROY ------------------
+*       SAVE_JOURNEY( ) deletes every row of the six tables and re-inserts
+*       from THIS structure, so a column that is not here is not merely
+*       un-editable - it is BLANKED the next time anybody presses Save on
+*       that journey.
+*
+*       NO_BROWSE was already in that position and nobody had noticed: it
+*       shipped as a DDIC column, a TY_FIELD component and a renderer read,
+*       and was never added here - so a Studio save on any of the seven EPDA
+*       services that use it would have quietly turned the Browse button
+*       back on. Nothing reports it, because the save succeeds.
+*
+*       The six Round 13 columns would have joined it. All seven are here
+*       now, and the rule to take from it is: a new column on
+*       ZRAK_T_JNY_FLD is not finished at the renderer. It is finished when
+*       the Studio can round-trip it.
+        no_browse    TYPE abap_bool,
+        tooltip      TYPE string,
+        tooltip_ar   TYPE string,
+        text_align   TYPE string,
+        descr        TYPE string,
+        ta_rows      TYPE string,
+        popin        TYPE abap_bool,
       END OF ty_fld,
       tt_fld TYPE STANDARD TABLE OF ty_fld WITH EMPTY KEY.
     TYPES:
@@ -275,6 +299,14 @@ CLASS zcl_rak_cjs DEFINITION
     DATA fv_hidden   TYPE abap_bool.
     DATA fv_readonly TYPE abap_bool.
     DATA fv_closed   TYPE abap_bool.
+*   Round 13, plus NO_BROWSE which shipped without a Studio home at all.
+    DATA fv_nobrowse TYPE abap_bool.
+    DATA fv_popin    TYPE abap_bool.
+    DATA fv_tip      TYPE string.
+    DATA fv_tip_ar   TYPE string.
+    DATA fv_talign   TYPE string.
+    DATA fv_descr    TYPE string.
+    DATA fv_tarows   TYPE string.
     DATA fv_req      TYPE abap_bool.
     DATA fv_regex    TYPE string.
     DATA fv_minlen   TYPE string.
@@ -790,6 +822,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         fv_default = ls_dup-default_val. fv_group = ls_dup-fgroup. fv_sect = ls_dup-section. fv_sect_ar = ls_dup-section_ar.
         fv_state = ls_dup-fstate. fv_width = ls_dup-width.
         fv_hidden = ls_dup-hidden. fv_readonly = ls_dup-readonly. fv_closed = ls_dup-closed_list. fv_req = ls_dup-required.
+        fv_nobrowse = ls_dup-no_browse. fv_popin = ls_dup-popin.
+        fv_tip = ls_dup-tooltip. fv_tip_ar = ls_dup-tooltip_ar.
+        fv_talign = ls_dup-text_align. fv_descr = ls_dup-descr. fv_tarows = ls_dup-ta_rows.
         fv_regex = ls_dup-regex. fv_minlen = ls_dup-min_len. fv_maxlen = ls_dup-max_len.
         fv_minval = ls_dup-min_val. fv_maxval = ls_dup-max_val. fv_msg = ls_dup-msg. fv_msg_ar = ls_dup-msg_ar.
         fv_tech = ls_dup-tech_name. fv_roll = ls_dup-rollname. fv_shlp = ls_dup-shlp. fv_dom = ls_dup-domname.
@@ -821,6 +856,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         fv_default = ls_ef-default_val. fv_group = ls_ef-fgroup. fv_sect = ls_ef-section. fv_sect_ar = ls_ef-section_ar.
         fv_state = ls_ef-fstate. fv_width = ls_ef-width.
         fv_hidden = ls_ef-hidden. fv_readonly = ls_ef-readonly. fv_closed = ls_ef-closed_list. fv_req = ls_ef-required.
+        fv_nobrowse = ls_ef-no_browse. fv_popin = ls_ef-popin.
+        fv_tip = ls_ef-tooltip. fv_tip_ar = ls_ef-tooltip_ar.
+        fv_talign = ls_ef-text_align. fv_descr = ls_ef-descr. fv_tarows = ls_ef-ta_rows.
         fv_regex = ls_ef-regex. fv_minlen = ls_ef-min_len. fv_maxlen = ls_ef-max_len.
         fv_minval = ls_ef-min_val. fv_maxval = ls_ef-max_val. fv_msg = ls_ef-msg. fv_msg_ar = ls_ef-msg_ar.
         fv_tech = ls_ef-tech_name. fv_roll = ls_ef-rollname. fv_shlp = ls_ef-shlp. fv_dom = ls_ef-domname.
@@ -1151,7 +1189,23 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                              min_val = fv_minval max_val = fv_maxval msg = fv_msg msg_ar = fv_msg_ar
                              has_attach = fv_hasatt attach_label = fv_attlabel att_types = fv_atttypes
                              att_maxmb = fv_attmb att_multi = fv_attmulti
-                             rollname = to_upper( fv_roll ) shlp = to_upper( fv_shlp ) domname = to_upper( fv_dom ) tech_name = fv_tech ).
+                             rollname = to_upper( fv_roll ) shlp = to_upper( fv_shlp ) domname = to_upper( fv_dom ) tech_name = fv_tech
+*                            THIS IS A FULL OVERWRITE, so a component left out
+*                            here is CLEARED on Add / update - not merely left
+*                            alone. CLOSED_LIST was in that position and had
+*                            been since it shipped: the Studio drew the
+*                            checkbox, bound it to FV_CLOSED, and then dropped
+*                            the value on the floor the moment the author
+*                            pressed the button. NO_BROWSE never reached the
+*                            structure at all.
+                             closed_list = fv_closed
+                             no_browse   = fv_nobrowse
+                             popin       = fv_popin
+                             tooltip     = fv_tip
+                             tooltip_ar  = fv_tip_ar
+                             text_align  = fv_talign
+                             descr       = fv_descr
+                             ta_rows     = fv_tarows ).
               resort( ).
               clear_field_form( ).
               CLEAR: mv_roll_term, mt_roll_hits, mt_roll_preview, mv_shlp_term, mt_shlp_hits.
@@ -1315,7 +1369,14 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                       msg = f-msg msg_ar = f-msg_ar
                       has_attach = xsdbool( f-has_attach = 'X' ) attach_label = f-attach_label att_types = f-attach_types
                       att_maxmb = |{ f-attach_maxmb }| att_multi = xsdbool( f-attach_multi = 'X' )
-                      rollname = f-rollname shlp = f-shlp domname = f-domname tech_name = f-tech_name ) TO mt_fields.
+                      rollname = f-rollname shlp = f-shlp domname = f-domname tech_name = f-tech_name
+*                     Loaded as well as saved. Loading without saving would
+*                     be worse than neither: the editor would show a value
+*                     it then destroys.
+                      no_browse = xsdbool( f-no_browse = 'X' ) popin = xsdbool( f-popin = 'X' )
+                      tooltip = f-tooltip tooltip_ar = f-tooltip_ar
+                      text_align = f-text_align descr = f-descr
+                      ta_rows = COND string( WHEN f-ta_rows > 0 THEN |{ f-ta_rows }| ) ) TO mt_fields.
     ENDLOOP.
     SELECT * FROM zrak_t_jny_opt INTO TABLE @DATA(lo) WHERE journey_id = @mv_sel ORDER BY step_id, field_name, seqnr.
     LOOP AT lo INTO DATA(o).
@@ -1518,7 +1579,13 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         has_attach = COND string( WHEN f-has_attach = abap_true THEN 'X' ELSE ' ' )
         attach_label = f-attach_label attach_types = f-att_types attach_maxmb = to_int( f-att_maxmb )
         attach_multi = COND string( WHEN f-att_multi = abap_true THEN 'X' ELSE ' ' )
-        rollname = f-rollname shlp = f-shlp domname = f-domname tech_name = f-tech_name ) ).
+        rollname = f-rollname shlp = f-shlp domname = f-domname tech_name = f-tech_name
+*       The seven that used to be dropped here. See the note on TY_FLD.
+        no_browse   = COND string( WHEN f-no_browse = abap_true THEN 'X' ELSE ' ' )
+        popin       = COND string( WHEN f-popin     = abap_true THEN 'X' ELSE ' ' )
+        tooltip     = f-tooltip    tooltip_ar = f-tooltip_ar
+        text_align  = f-text_align descr      = f-descr
+        ta_rows     = to_int( f-ta_rows ) ) ).
       IF sy-subrc <> 0.
         lv_err = abap_true.
         EXIT.
@@ -2284,6 +2351,17 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     f->label( 'Hidden by default' ). f->checkbox( selected = mo_client->_bind_edit( fv_hidden ) ).
     f->label( 'Read only' ).  f->checkbox( selected = mo_client->_bind_edit( fv_readonly ) ).
     f->label( 'Closed list (SELECT only - no free typing)' ). f->checkbox( selected = mo_client->_bind_edit( fv_closed ) ).
+    f->label( 'No Browse button (SEARCH only)' ). f->checkbox( selected = mo_client->_bind_edit( fv_nobrowse ) ).
+    f->label( 'Pop-in on phones (TABLE / EDITABLE_TABLE)' ). f->checkbox( selected = mo_client->_bind_edit( fv_popin ) ).
+    f->label( 'Tooltip' ).    f->input( value = mo_client->_bind_edit( fv_tip )
+                                        placeholder = 'hover text - survives typing, unlike a placeholder' ).
+    f->label( 'Tooltip (AR)' ). f->input( value = mo_client->_bind_edit( fv_tip_ar ) ).
+    f->label( 'Text align' ). f->input( value = mo_client->_bind_edit( fv_talign )
+                                        placeholder = 'DISPLAY only - Begin / End / Center / Left / Right / Initial' ).
+    f->label( 'Unit suffix' ). f->input( value = mo_client->_bind_edit( fv_descr )
+                                         placeholder = 'INPUT only - days, AED, cm' ).
+    f->label( 'Textarea rows' ). f->input( value = mo_client->_bind_edit( fv_tarows )
+                                           placeholder = 'TEXTAREA only - blank is 3' ).
 
     f->title( ns = 'core' text = 'Validation' ).
     f->label( 'Required' ).   f->checkbox( selected = mo_client->_bind_edit( fv_req ) ).
@@ -2963,7 +3041,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     CLEAR: fv_seq, fv_field, fv_type, fv_label, fv_label_ar, fv_place, fv_place_ar, fv_default,
            fv_group, fv_sect, fv_sect_ar, fv_state, fv_width, fv_hidden, fv_readonly, fv_closed, fv_req, fv_regex,
            fv_minlen, fv_maxlen, fv_minval, fv_maxval, fv_msg, fv_msg_ar, fv_tech, fv_roll, fv_shlp, fv_dom,
-           fv_hasatt, fv_attlabel, fv_atttypes, fv_attmb, fv_attmulti.
+           fv_hasatt, fv_attlabel, fv_atttypes, fv_attmb, fv_attmulti,
+           fv_nobrowse, fv_popin, fv_tip, fv_tip_ar, fv_talign, fv_descr, fv_tarows.
   ENDMETHOD.
 
 

@@ -54,6 +54,44 @@ INTERFACE zif_rak_journey
 *     formatted Emirates ID and the browse dialog is not part of the
 *     service; other journeys rely on it and keep it.
       no_browse    TYPE abap_bool,
+
+*     ---- ROUND 13, the four that needed a column -----------------------
+*     Every one of these is blank on every journey that exists, and every
+*     branch that reads one falls through to exactly what it drew before.
+*
+*     A word of explanation on a control the citizen can hover or focus.
+*     PLACEHOLDER is NOT this: it lives inside the field, it disappears the
+*     moment anything is typed, and a DISPLAY, a checkbox and a SELECT
+*     cannot carry one at all. Resolved EN/AR by PICK( ) like every other
+*     bilingual pair, so OTR: and @nnn work here too.
+      tooltip      TYPE string,
+
+*     TEXTALIGN on a DISPLAY paragraph. Begin / End / Center / Left /
+*     Right / Initial, validated by CSS_ALIGN( ) - the same validator the
+*     table column uses, so the two cannot drift into accepting different
+*     words. A DISPLAY is otherwise always flush to the reading edge,
+*     which is right for a note and wrong for anything a document centres.
+      text_align   TYPE string,
+
+*     The short unit a form puts AFTER an input - "days", "AED", "cm".
+*     sap.m.Input's own DESCRIPTION property. Not a label and not a
+*     placeholder: it stays visible beside the value the citizen typed.
+      descr        TYPE string,
+
+*     Rows on a TEXTAREA. Blank means 3, which is what the branch has
+*     always hardcoded, so an unset field is unchanged. Above 3 the box
+*     starts bigger; the control still scrolls beyond it.
+      ta_rows      TYPE i,
+
+*     Pop-in for the table this field draws - the responsive table's answer
+*     to a narrow screen, where a column becomes a labelled line inside its
+*     own row rather than a squeezed column.
+*
+*     OPT-IN, and that is deliberate rather than timid: turning pop-in on
+*     for every table would change what every existing journey looks like
+*     on a phone, which is the one thing this round was not allowed to do.
+*     The consumer said the same and did not ask for it as a default.
+      popin        TYPE abap_bool,
       " An explicit control width for THIS field, overriding the per-type
       " default in ZCL_RAK_JOURNEY_UTIL=>CTRL_WIDTH( ). Blank falls through to
       " that CASE, so a journey authored before this was read renders

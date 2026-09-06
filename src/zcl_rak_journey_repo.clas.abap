@@ -162,6 +162,15 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
           readonly     = bool( ls_f-readonly )
           closed_list  = bool( ls_f-closed_list )
           no_browse    = bool( ls_f-no_browse )
+*         Round 13. TOOLTIP through PICK( ) like every other bilingual pair,
+*         so OTR:<alias> and @nnn resolve here too and a tooltip can be
+*         reworded without a reseed. The other three are single-language by
+*         nature - an alignment, a unit and a row count.
+          tooltip      = pick( iv_en = ls_f-tooltip iv_ar = ls_f-tooltip_ar iv_lang = iv_lang )
+          text_align   = ls_f-text_align
+          descr        = ls_f-descr
+          ta_rows      = ls_f-ta_rows
+          popin        = bool( ls_f-popin )
 *         ZRAK_T_JNY_FLD-WIDTH, which the Studio has always stored and
 *         nothing has ever read. Named CTRL_WIDTH on TY_FIELD after the
 *         method that consumes it, and to keep it apart from the CELL

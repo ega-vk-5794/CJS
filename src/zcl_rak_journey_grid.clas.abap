@@ -982,8 +982,13 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *   ZCL_RAK_JOURNEY_RENDER. An editable grid is the case that needs it more:
 *   the citizen is typing into row twelve and the column it belongs to has
 *   scrolled off the top.
+*   R13-2 here too, and the editable grid is the case that needs it more:
+*   eight editable columns squeezed onto a phone is not a mild version of
+*   the read-only table's problem. Opt-in for the same reason - see the note
+*   at the TABLE branch in ZCL_RAK_JOURNEY_RENDER.
     DATA(lo_tab) = lo_box->table( items              = mo_e->mo_client->_bind_edit( <tab> )
                                   sticky             = 'ColumnHeaders'
+                                  autopopinmode      = is_field-popin
                                   alternaterowcolors = abap_true
                                   class              = 'sapUiSmallMarginTop'
                                   footertext         = lv_footer ).
