@@ -189,13 +189,23 @@ ACCOM BOATS
 **An ftype has to be registered in FOUR places**, and each miss fails
 differently:
 
-1. the renderer's branch — or the field draws as a plain input
-2. `IS_BLOCK( )`, if it is a panel rather than one control — or it reaches
-   `RENDER_ONE( )` and draws only its first element
-3. `KNOWN_TYPE( )` — or the page reports *"unsupported type — rendered as a
-   plain input"* **while rendering correctly**, which reads as the control
-   having failed
-4. both Studio type lists — or an author cannot pick it
+1. **the renderer's branch** — or the field draws as a plain input. A composite
+   also needs its own condition inside that branch, so the card list is drawn
+   instead of a dropdown
+2. **`IS_BLOCK( )`**, if it is a panel rather than one control — or it reaches
+   `RENDER_ONE( )` instead of `RENDER_BLOCK( )` and draws only its first element
+3. **`KNOWN_TYPE( )`** — or `CHECK_TYPES( )` reports *"unsupported type —
+   rendered as a plain input"* **while the control renders perfectly**. The
+   warning is wrong, the render is right, and the two together read as the
+   control having failed
+4. **`ZCL_RAK_CJS=>TYPE_LIST( )`** — or a Studio author cannot pick it
+
+`TYPE_LIST( )` deliberately omits `COUNT` and every composite (`PARCEL`,
+`PARCELS`, `PROPERTY`, `TITLEDEED`, `FLOORUNIT`, `CONTRACT`, `BUILDINGS`,
+`SIGN`, `CHEMICALS`, `ACCOM`, `BOATS`). Those are assigned by
+`ZCL_RAK_MIGRATOR->CLASSIFY( )` from a legacy control, not chosen by hand, and
+each needs an `API:` binding a Studio author has no way to supply from the type
+dropdown.
 
 Blocks, per `IS_BLOCK( )`: `SEARCH` `TABLE` `UPLOAD` `PAYFEE` `EDITABLE_TABLE`
 `RECORDCARD` `REQPANEL` `PDF` `CAPTCHA`.

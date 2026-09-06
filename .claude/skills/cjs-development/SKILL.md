@@ -71,7 +71,7 @@ Read the one that matches the task. They are short.
 | File | When |
 |---|---|
 | `reference/abap-traps.md` | **Always.** Dialect traps that produce misleading compile errors, plus the inheritance, RTTI, DDIC-`SELECT` and z2ui5 view-building ones. Every one was hit for real. |
-| `reference/config-tables.md` | Adding fields, steps, rules, grid columns, layout. Also the 23-character field-name ceiling, the `API:` option source, the parcel composites and `EDITABLE_TABLE` vs `TABLE` |
+| `reference/config-tables.md` | **All 27 tables, every column, read from the DDIC.** Adding fields, steps, rules, grid columns, layout; the 47 valid ftypes and the four places each must be registered; the 23-character field-name ceiling; the five jobs `DEFAULT_VAL` does; the `API:` option source; the parcel composites; `EDITABLE_TABLE` vs `TABLE` and why they hide a column differently; the eight rule operators and eight actions; and which DDIC changes are in git but not yet in SAP |
 | `reference/seed-reports.md` | Writing a seed report, or migrating a journey from a /QNV export. **Carries the Municipality (M0xx) section — read all of it before any MML / DML / GRANTS / TEN feeder** |
 | `reference/grids.md` | `EDITABLE_TABLE`, `TABLE`, column specs, hidden columns, fixed rows |
 | `reference/hooks.md` | Handler hooks and the `ZIF_RAK_JOURNEY` context API |
@@ -137,13 +137,20 @@ Read the one that matches the task. They are short.
    this, not a rendering bug**: the binding is two-way and local, so the box
    ticks in the browser and the round trip comes back with the field still
    empty.
-13. **An ftype has to be named in THREE places, and the third only affects a
-   warning.** The renderer's `SELECT` branch (so the field draws at all), the
-   control's own condition (so the card list is drawn instead of a dropdown),
-   and `ZCL_RAK_JOURNEY_UTIL=>KNOWN_TYPE( )`, which drives `CHECK_TYPES( )`.
-   Miss the third and the control renders perfectly while the page also reports
-   "unsupported type 'X' — rendered as a plain input". The warning is wrong, the
-   render is right, and the two together read as the control having failed.
+13. **An ftype has to be named in FOUR places, and each miss fails
+   differently.** The renderer's branch, so the field draws at all — a composite
+   also needs its own condition inside it, so the card list is drawn instead of
+   a dropdown. `ZCL_RAK_JOURNEY_UTIL=>IS_BLOCK( )` if it is a panel rather than
+   one control, or it reaches `RENDER_ONE( )` instead of `RENDER_BLOCK( )` and
+   draws only its first element. `ZCL_RAK_JOURNEY_UTIL=>KNOWN_TYPE( )`, which
+   drives `CHECK_TYPES( )` and only affects a warning. And
+   `ZCL_RAK_CJS=>TYPE_LIST( )`, or a Studio author cannot pick it.
+   Miss `KNOWN_TYPE( )` and the control renders perfectly while the page also
+   reports "unsupported type 'X' — rendered as a plain input". The warning is
+   wrong, the render is right, and the two together read as the control having
+   failed. **`PDF` is in that state right now** — registered in `IS_BLOCK( )`
+   and `TYPE_LIST( )`, missing from `KNOWN_TYPE( )`. Full table of what each
+   place does: `reference/config-tables.md`.
 
 ## Trusting a backend's metadata
 
