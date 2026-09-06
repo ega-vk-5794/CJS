@@ -112,9 +112,8 @@ CLASS zcl_rak_cj_log DEFINITION
 
   PRIVATE SECTION.
 
-*   The handle ZCL_APPL_LOG hands back, kept as a generic reference because
-*   its type is not visible from here either.
-    CLASS-DATA go_log     TYPE REF TO object.
+*   Set once BAL_LOG_CREATE has returned a handle, so a failure before the
+*   log existed can be told from one after it.
     CLASS-DATA gv_open    TYPE abap_bool.
 
 *   THE BUFFER, and what makes this cheap. ADD( ) appends here and does
@@ -127,13 +126,8 @@ CLASS zcl_rak_cj_log DEFINITION
     CLASS-DATA gv_journey TYPE string.
     CLASS-DATA gv_extno   TYPE string.
 
-*   RTTI ONCE PER SESSION, not once per line. DESCRIBE_BY_NAME walks the
-*   whole class description and there is no reason to do it twice for an
-*   answer that cannot change while the system is up.
-    CLASS-DATA gv_p_inst  TYPE abap_parmname.
-    CLASS-DATA gv_p_msg   TYPE abap_parmname.
-*   Set when the dynamic call fails once, so a system without ZCL_APPL_LOG
-*   is not asked again on every line of every round trip.
+*   Set when a BAL call has returned a bad SY-SUBRC, so it is not retried on
+*   every line of the buffer.
     CLASS-DATA gv_dead    TYPE abap_bool.
 *   Why it died, verbatim from the exception, and which call was being made
 *   when it did. Reported by STATUS( ) on the trace.
@@ -146,31 +140,8 @@ CLASS zcl_rak_cj_log DEFINITION
 *   them.
     CLASS-DATA gv_wrote   TYPE i.
 
-*   ASK THE CLASS WHAT ITS PARAMETERS ARE CALLED, rather than guessing.
-*
-*   The first version of this class hardcoded RO_INSTANCE and IT_MESSAGE,
-*   inferred from how ZCL_EGA_CJ_FW_RO_ABS_V1 calls ZCL_APPL_LOG - and the
-*   trace answered: "The formal parameter RO_INSTANCE does not exist." A
-*   second guess would have been the same mistake with different spelling.
-*
-*   CL_ABAP_CLASSDESCR knows. This is the shape ZCL_RAK_CJ_REQ_CTX already
-*   uses for /IWBEP/CL_MGW_REQUEST - read the signature the system actually
-*   declares, build a PARAMETER-TABLE from it, and call dynamically - and it
-*   is in CLAUDE.md as the answer to "never hand-write the shape of a
-*   standard object you cannot open from here".
-*
-*   IV_KIND takes CL_ABAP_OBJECTDESCR=>RETURNING or =>IMPORTING. Blank back
-*   means no such method, or no parameter of that kind, and the caller
-*   treats that the same as any other failure.
-    CLASS-METHODS parm_of
-      IMPORTING iv_class  TYPE string
-                iv_method TYPE string
-                iv_kind   TYPE abap_parmkind
-      RETURNING VALUE(rv) TYPE abap_parmname.
-
-*   The only place ZCL_APPL_LOG is touched: resolve, create, write the whole
-*   buffer in one MESSAGE_ADD, save. Reached from SAVE( ) and only with
-*   something to write.
+*   Create the log, write the buffer, save. Reached from SAVE( ) and only
+*   with something to write.
     CLASS-METHODS flush.
 
 ENDCLASS.
@@ -192,108 +163,109 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
 
 
   METHOD flush.
-*   THE ONLY PLACE ZCL_APPL_LOG IS TOUCHED. Reached from SAVE( ) and only
-*   with a non-empty buffer.
-    TRY.
-        DATA lo_log TYPE REF TO object.
+*   STANDARD BAL, NOT ZCL_APPL_LOG - and this is the third attempt at this
+*   method, which is the reason for the change rather than a preference.
+*
+*   ZCL_APPL_LOG is not in this repository. Its shape was inferred from how
+*   the BAdI calls it, and the inference was wrong twice: RO_INSTANCE does
+*   not exist, and after RTTI found the real names the flush still wrote
+*   nothing. Each attempt cost a round trip to discover, because a dynamic
+*   call that raises is caught and swallowed by design.
+*
+*   BAL_LOG_CREATE / BAL_LOG_MSG_ADD / BAL_DB_SAVE are the function modules
+*   ZCL_APPL_LOG is itself a wrapper over. They are standard, their
+*   signatures have not moved in twenty years, and - the property that
+*   matters most here - a STATIC CALL FUNCTION with a wrong parameter is an
+*   ACTIVATION error, named and precise, not a silent runtime catch. Getting
+*   it wrong now costs one activation message instead of one journey.
+*
+*   Same SLG1 object and subobject, so the BAdI's lines and CJS's still
+*   interleave in one log read in date order.
+    DATA ls_log    TYPE bal_s_log.
+    DATA lv_handle TYPE balloghndl.
+    DATA lt_handle TYPE bal_t_logh.
 
-*       THE RETURNING PARAMETER, BY NAME THE SYSTEM GIVES. Hardcoding
-*       RO_INSTANCE is what the first version did and the trace refused it.
-*       Resolved once per session and remembered - DESCRIBE_BY_NAME walks
-*       the whole class description and the answer cannot change while the
-*       system is up.
-        IF gv_p_inst IS INITIAL.
-          gv_p_inst = parm_of( iv_class  = 'ZCL_APPL_LOG'
-                               iv_method = 'GET_INSTANCE'
-                               iv_kind   = cl_abap_objectdescr=>returning ).
-        ENDIF.
-        IF gv_p_inst IS INITIAL.
-          gv_where = 'GET_INSTANCE'.
-          gv_err   = 'no returning parameter found by RTTI'.
-          gv_dead  = abap_true.
-          RETURN.
-        ENDIF.
+    ls_log-object     = c_object.
+    ls_log-subobject  = c_subobject.
+    ls_log-extnumber  = gv_extno.
+    ls_log-aldate     = sy-datum.
+    ls_log-altime     = sy-uzeit.
+    ls_log-aluser     = sy-uname.
+    ls_log-alprog     = sy-repid.
 
-        DATA lt_p TYPE abap_parmbind_tab.
-*       RECEIVING is the kind a returning parameter takes in a
-*       PARAMETER-TABLE - the caller receives what the method returns.
-        lt_p = VALUE #( ( name  = gv_p_inst
-                          kind  = cl_abap_objectdescr=>receiving
-                          value = REF #( lo_log ) ) ).
-        CALL METHOD ('ZCL_APPL_LOG')=>('GET_INSTANCE')
-          PARAMETER-TABLE lt_p.
+    CALL FUNCTION 'BAL_LOG_CREATE'
+      EXPORTING
+        i_s_log                 = ls_log
+      IMPORTING
+        e_log_handle            = lv_handle
+      EXCEPTIONS
+        log_header_inconsistent = 1
+        OTHERS                  = 2.
+    IF sy-subrc <> 0.
+      gv_where = 'BAL_LOG_CREATE'.
+      gv_err   = |sy-subrc { sy-subrc }|.
+      gv_dead  = abap_true.
+      RETURN.
+    ENDIF.
 
-        IF lo_log IS NOT BOUND.
-          gv_where = 'GET_INSTANCE'.
-          gv_err   = 'returned an unbound reference'.
-          gv_dead  = abap_true.
-          RETURN.
-        ENDIF.
+    gv_open = abap_true.
 
-*       LOG_CREATE's three names came from the BAdI's own call site, which
-*       names them, so these are read rather than inferred and stay static.
-        CALL METHOD lo_log->('LOG_CREATE')
-          EXPORTING
-            iv_object    = CONV balobj_d( c_object )
-            iv_subobject = CONV balsubobj( c_subobject )
-            iv_extno     = CONV balnrext( gv_extno ).
+*   The header line, written here rather than in OPEN( ) - it belongs to a
+*   log that exists, and until this method ran none did.
+    INSERT VALUE #( msgid = c_msgid
+                    msgty = 'I'
+                    msgno = c_msgno
+                    msgv1 = CONV symsgv( |CJS { gv_journey } { sy-sysid }{ sy-mandt }| )
+                    msgv2 = CONV symsgv( |user { sy-uname }| ) )
+           INTO gt_buf INDEX 1.
 
-        go_log  = lo_log.
-        gv_open = abap_true.
+    DATA ls_msg TYPE bal_s_msg.
+    LOOP AT gt_buf INTO DATA(ls_b).
+      CLEAR ls_msg.
+      ls_msg-msgty = ls_b-msgty.
+      ls_msg-msgid = ls_b-msgid.
+      ls_msg-msgno = ls_b-msgno.
+      ls_msg-msgv1 = ls_b-msgv1.
+      ls_msg-msgv2 = ls_b-msgv2.
+      ls_msg-msgv3 = ls_b-msgv3.
+      ls_msg-msgv4 = ls_b-msgv4.
 
-*       The header line, written here rather than in OPEN( ) - it belongs to
-*       a log that exists, and until now none did.
-        INSERT VALUE #( msgid = c_msgid
-                        msgty = 'I'
-                        msgno = c_msgno
-                        msgv1 = CONV symsgv( |CJS { gv_journey } { sy-sysid }{ sy-mandt }| )
-                        msgv2 = CONV symsgv( |user { sy-uname }| ) )
-               INTO gt_buf INDEX 1.
+      CALL FUNCTION 'BAL_LOG_MSG_ADD'
+        EXPORTING
+          i_log_handle     = lv_handle
+          i_s_msg          = ls_msg
+        EXCEPTIONS
+          log_not_found    = 1
+          msg_inconsistent = 2
+          log_is_full      = 3
+          OTHERS           = 4.
+      IF sy-subrc <> 0.
+        gv_where = 'BAL_LOG_MSG_ADD'.
+        gv_err   = |sy-subrc { sy-subrc }|.
+        gv_dead  = abap_true.
+        RETURN.
+      ENDIF.
+    ENDLOOP.
 
-*       MESSAGE_ADD's name, same discipline and same cache. The BAdI calls
-*       it positionally, so its call site never revealed one.
-        IF gv_p_msg IS INITIAL.
-          gv_p_msg = parm_of( iv_class  = 'ZCL_APPL_LOG'
-                              iv_method = 'MESSAGE_ADD'
-                              iv_kind   = cl_abap_objectdescr=>importing ).
-        ENDIF.
-        IF gv_p_msg IS INITIAL.
-          gv_where = 'MESSAGE_ADD'.
-          gv_err   = 'no importing parameter found by RTTI'.
-          gv_dead  = abap_true.
-          RETURN.
-        ENDIF.
+    APPEND lv_handle TO lt_handle.
+    CALL FUNCTION 'BAL_DB_SAVE'
+      EXPORTING
+        i_t_log_handle   = lt_handle
+      EXCEPTIONS
+        log_not_found    = 1
+        save_not_allowed = 2
+        numbering_error  = 3
+        OTHERS           = 4.
+    IF sy-subrc <> 0.
+      gv_where = 'BAL_DB_SAVE'.
+      gv_err   = |sy-subrc { sy-subrc }|.
+      gv_dead  = abap_true.
+      RETURN.
+    ENDIF.
 
-*       ONE CALL FOR THE WHOLE BUFFER. MESSAGE_ADD takes a table, so there
-*       is no reason to call it per line - and the first version did,
-*       through ADD( ), once per message.
-        DATA lt_ap TYPE abap_parmbind_tab.
-*       EXPORTING is the kind an IMPORTING parameter takes here - the caller
-*       exports into it.
-        lt_ap = VALUE #( ( name  = gv_p_msg
-                           kind  = cl_abap_objectdescr=>exporting
-                           value = REF #( gt_buf ) ) ).
-        CALL METHOD go_log->('MESSAGE_ADD')
-          PARAMETER-TABLE lt_ap.
-
-        CALL METHOD go_log->('LOG_SAVE').
-
-*       Counted only once LOG_SAVE has returned without raising, so this is
-*       what was committed rather than what was attempted.
-        gv_wrote = lines( gt_buf ).
-
-      CATCH cx_root INTO DATA(lx_flush).
-        IF gv_err IS INITIAL.
-          gv_err   = lx_flush->get_text( ).
-          gv_where = COND string( WHEN gv_open = abap_true THEN 'MESSAGE_ADD / LOG_SAVE'
-                                  ELSE 'GET_INSTANCE / LOG_CREATE' ).
-        ENDIF.
-*       The logger is not here, or does not look the way the BAdI's calls
-*       suggested. Give up permanently rather than throwing on every line,
-*       and never let it reach the citizen.
-        gv_dead = abap_true.
-        CLEAR go_log.
-    ENDTRY.
+*   Counted only once BAL_DB_SAVE has returned clean, so this is what was
+*   committed rather than what was attempted.
+    gv_wrote = lines( gt_buf ).
   ENDMETHOD.
 
 
@@ -355,39 +327,9 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
 *   Closed either way, and the buffer emptied whether the write worked or
 *   not - a line that could not be written must not be carried into the next
 *   round trip and written twice.
-    CLEAR: gv_open, go_log, gt_buf.
+    CLEAR: gv_open, gt_buf.
   ENDMETHOD.
 
-
-  METHOD parm_of.
-    TRY.
-        DATA(lo_cd) = CAST cl_abap_classdescr(
-                        cl_abap_typedescr=>describe_by_name( iv_class ) ).
-
-*       Method names are upper case in the descriptor.
-        READ TABLE lo_cd->methods INTO DATA(ls_m)
-             WITH KEY name = to_upper( iv_method ).
-        IF sy-subrc <> 0.
-          RETURN.
-        ENDIF.
-
-*       THE FIRST PARAMETER OF THAT KIND. A returning parameter is unique by
-*       definition; MESSAGE_ADD is called by the BAdI with one unnamed
-*       argument, so it has exactly one importing parameter and there is
-*       nothing to choose between. If a future signature adds a second, the
-*       call fails on the missing mandatory one and the trace says so, which
-*       is the honest outcome rather than binding to whichever came first.
-        LOOP AT ls_m-parameters INTO DATA(ls_p) WHERE parm_kind = iv_kind.
-          rv = ls_p-name.
-          RETURN.
-        ENDLOOP.
-
-      CATCH cx_root.
-*       No such class, or the descriptor is not a class descriptor. Blank
-*       back; the caller reports it like any other failure.
-        CLEAR rv.
-    ENDTRY.
-  ENDMETHOD.
 
 
   METHOD status.
