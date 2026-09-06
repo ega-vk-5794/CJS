@@ -110,6 +110,28 @@ CLASS zcl_rak_cj_log DEFINITION
     CLASS-DATA gv_err     TYPE string.
     CLASS-DATA gv_where   TYPE string.
 
+*   ASK THE CLASS WHAT ITS PARAMETERS ARE CALLED, rather than guessing.
+*
+*   The first version of this class hardcoded RO_INSTANCE and IT_MESSAGE,
+*   inferred from how ZCL_EGA_CJ_FW_RO_ABS_V1 calls ZCL_APPL_LOG - and the
+*   trace answered: "The formal parameter RO_INSTANCE does not exist." A
+*   second guess would have been the same mistake with different spelling.
+*
+*   CL_ABAP_CLASSDESCR knows. This is the shape ZCL_RAK_CJ_REQ_CTX already
+*   uses for /IWBEP/CL_MGW_REQUEST - read the signature the system actually
+*   declares, build a PARAMETER-TABLE from it, and call dynamically - and it
+*   is in CLAUDE.md as the answer to "never hand-write the shape of a
+*   standard object you cannot open from here".
+*
+*   IV_KIND takes CL_ABAP_OBJECTDESCR=>RETURNING or =>IMPORTING. Blank back
+*   means no such method, or no parameter of that kind, and the caller
+*   treats that the same as any other failure.
+    CLASS-METHODS parm_of
+      IMPORTING iv_class  TYPE string
+                iv_method TYPE string
+                iv_kind   TYPE abap_parmkind
+      RETURNING VALUE(rv) TYPE abap_parmname.
+
 ENDCLASS.
 
 
@@ -123,15 +145,37 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
 
     TRY.
         DATA lo_log TYPE REF TO object.
-        CALL METHOD ('ZCL_APPL_LOG')=>('GET_INSTANCE')
-          RECEIVING
-            ro_instance = lo_log.
 
-        IF lo_log IS NOT BOUND.
-          gv_dead = abap_true.
+*       THE RETURNING PARAMETER, BY NAME THE SYSTEM GIVES. Hardcoding
+*       RO_INSTANCE is what the first version did and the trace refused it.
+        DATA(lv_ret) = parm_of( iv_class  = 'ZCL_APPL_LOG'
+                                iv_method = 'GET_INSTANCE'
+                                iv_kind   = cl_abap_objectdescr=>returning ).
+        IF lv_ret IS INITIAL.
+          gv_where = 'GET_INSTANCE'.
+          gv_err   = 'no returning parameter found by RTTI'.
+          gv_dead  = abap_true.
           RETURN.
         ENDIF.
 
+        DATA lt_p TYPE abap_parmbind_tab.
+*       RECEIVING is the kind a returning parameter takes in a
+*       PARAMETER-TABLE - the caller receives what the method returns.
+        lt_p = VALUE #( ( name  = lv_ret
+                          kind  = cl_abap_objectdescr=>receiving
+                          value = REF #( lo_log ) ) ).
+        CALL METHOD ('ZCL_APPL_LOG')=>('GET_INSTANCE')
+          PARAMETER-TABLE lt_p.
+
+        IF lo_log IS NOT BOUND.
+          gv_where = 'GET_INSTANCE'.
+          gv_err   = 'returned an unbound reference'.
+          gv_dead  = abap_true.
+          RETURN.
+        ENDIF.
+
+*       LOG_CREATE's three names came from the BAdI's own call site, which
+*       names them, so these are read rather than inferred and stay static.
         CALL METHOD lo_log->('LOG_CREATE')
           EXPORTING
             iv_object    = CONV balobj_d( c_object )
@@ -192,9 +236,27 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
                             msgv3 = lv_v3
                             msgv4 = lv_v4 ) ).
 
+*       Same discipline as GET_INSTANCE: the BAdI calls MESSAGE_ADD
+*       positionally, so its call site never revealed the parameter name and
+*       IT_MESSAGE was a guess. Ask instead.
+        DATA(lv_imp) = parm_of( iv_class  = 'ZCL_APPL_LOG'
+                                iv_method = 'MESSAGE_ADD'
+                                iv_kind   = cl_abap_objectdescr=>importing ).
+        IF lv_imp IS INITIAL.
+          gv_where = 'MESSAGE_ADD'.
+          gv_err   = 'no importing parameter found by RTTI'.
+          gv_dead  = abap_true.
+          RETURN.
+        ENDIF.
+
+        DATA lt_ap TYPE abap_parmbind_tab.
+*       EXPORTING is the kind an IMPORTING parameter takes here - the caller
+*       exports into it.
+        lt_ap = VALUE #( ( name  = lv_imp
+                           kind  = cl_abap_objectdescr=>exporting
+                           value = REF #( lt_msg ) ) ).
         CALL METHOD go_log->('MESSAGE_ADD')
-          EXPORTING
-            it_message = lt_msg.
+          PARAMETER-TABLE lt_ap.
 
       CATCH cx_root INTO DATA(lx_add).
         IF gv_err IS INITIAL.
@@ -225,6 +287,37 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
 *   entry is one journey interaction rather than everything a work process
 *   happened to serve.
     CLEAR: gv_open, go_log.
+  ENDMETHOD.
+
+
+  METHOD parm_of.
+    TRY.
+        DATA(lo_cd) = CAST cl_abap_classdescr(
+                        cl_abap_typedescr=>describe_by_name( iv_class ) ).
+
+*       Method names are upper case in the descriptor.
+        READ TABLE lo_cd->methods INTO DATA(ls_m)
+             WITH KEY name = to_upper( iv_method ).
+        IF sy-subrc <> 0.
+          RETURN.
+        ENDIF.
+
+*       THE FIRST PARAMETER OF THAT KIND. A returning parameter is unique by
+*       definition; MESSAGE_ADD is called by the BAdI with one unnamed
+*       argument, so it has exactly one importing parameter and there is
+*       nothing to choose between. If a future signature adds a second, the
+*       call fails on the missing mandatory one and the trace says so, which
+*       is the honest outcome rather than binding to whichever came first.
+        LOOP AT ls_m-parameters INTO DATA(ls_p) WHERE parm_kind = iv_kind.
+          rv = ls_p-name.
+          RETURN.
+        ENDLOOP.
+
+      CATCH cx_root.
+*       No such class, or the descriptor is not a class descriptor. Blank
+*       back; the caller reports it like any other failure.
+        CLEAR rv.
+    ENDTRY.
   ENDMETHOD.
 
 
