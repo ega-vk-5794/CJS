@@ -83,6 +83,19 @@ CLASS zcl_rak_cj_log DEFINITION
 *   Nothing is visible in SLG1 until this runs.
     CLASS-METHODS save.
 
+*   WHAT THIS CLASS IS ACTUALLY DOING, for the &trace=x line.
+*
+*   The silent failure is deliberate - a log must never be why a journey
+*   stops - but it means "the logger is broken" and "there was nothing to
+*   log" look identical from the outside, and that cost a round already:
+*   SLG1 showed four entries, all of them the BAdI's, and nothing said
+*   whether CJS had even tried.
+*
+*   So the exception text is kept and reported here. One launch with
+*   &trace=x now names the method and parameter that did not match, which
+*   is the difference between reading it and guessing at it.
+    CLASS-METHODS status RETURNING VALUE(rv) TYPE string.
+
   PRIVATE SECTION.
 
 *   The handle ZCL_APPL_LOG hands back, kept as a generic reference because
@@ -92,6 +105,10 @@ CLASS zcl_rak_cj_log DEFINITION
 *   Set when the dynamic call fails once, so a system without ZCL_APPL_LOG
 *   is not asked again on every line of every round trip.
     CLASS-DATA gv_dead    TYPE abap_bool.
+*   Why it died, verbatim from the exception, and which call was being made
+*   when it did. Reported by STATUS( ) on the trace.
+    CLASS-DATA gv_err     TYPE string.
+    CLASS-DATA gv_where   TYPE string.
 
 ENDCLASS.
 
@@ -124,7 +141,9 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
         go_log  = lo_log.
         gv_open = abap_true.
 
-      CATCH cx_root.
+      CATCH cx_root INTO DATA(lx_open).
+        gv_err   = lx_open->get_text( ).
+        gv_where = 'GET_INSTANCE / LOG_CREATE'.
 *       The logger is not here, or does not look the way the BAdI's calls
 *       suggested. Give up permanently rather than throwing on every line,
 *       and never let it reach the citizen.
@@ -177,7 +196,11 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
           EXPORTING
             it_message = lt_msg.
 
-      CATCH cx_root.
+      CATCH cx_root INTO DATA(lx_add).
+        IF gv_err IS INITIAL.
+          gv_err   = lx_add->get_text( ).
+          gv_where = 'MESSAGE_ADD'.
+        ENDIF.
         gv_dead = abap_true.
     ENDTRY.
   ENDMETHOD.
@@ -190,7 +213,11 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
 
     TRY.
         CALL METHOD go_log->('LOG_SAVE').
-      CATCH cx_root.
+      CATCH cx_root INTO DATA(lx_save).
+        IF gv_err IS INITIAL.
+          gv_err   = lx_save->get_text( ).
+          gv_where = 'LOG_SAVE'.
+        ENDIF.
         gv_dead = abap_true.
     ENDTRY.
 
@@ -198,6 +225,21 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
 *   entry is one journey interaction rather than everything a work process
 *   happened to serve.
     CLEAR: gv_open, go_log.
+  ENDMETHOD.
+
+
+  METHOD status.
+    IF gv_dead = abap_true.
+      rv = |not writing · { COND string( WHEN gv_where IS NOT INITIAL THEN gv_where ELSE 'unknown call' ) }| &&
+           | failed · { COND string( WHEN gv_err IS NOT INITIAL THEN gv_err ELSE 'no exception text' ) }| &&
+           | · SLG1 object { c_object }/{ c_subobject } will show the BAdI's lines only|.
+      RETURN.
+    ENDIF.
+    IF gv_open = abap_true.
+      rv = |writing to SLG1 object { c_object }/{ c_subobject }|.
+      RETURN.
+    ENDIF.
+    rv = |not opened on this round trip|.
   ENDMETHOD.
 
 

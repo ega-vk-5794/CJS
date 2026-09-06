@@ -537,6 +537,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     zcl_rak_cj_log=>open( iv_journey = mv_journey
                           iv_extno   = mv_intreno ).
 
+*   AND SAY WHETHER IT WORKED. The log fails silently by design - it must
+*   never be the reason a journey stops - but that makes "broken" and
+*   "nothing to log" identical from outside, which already cost a round:
+*   SLG1 showed four entries, every one of them the BAdI's, and nothing
+*   said whether CJS had even tried. STATUS( ) names the call and the
+*   exception, so one launch settles it instead of a guess at a parameter.
+    trace( |LOG     { zcl_rak_cj_log=>status( ) }| ).
+
     IF lv_first = abap_true.
       DATA(lv_resumed) = xsdbool(
         zif_rak_journey~get_param( 'caseid' )  IS NOT INITIAL OR
