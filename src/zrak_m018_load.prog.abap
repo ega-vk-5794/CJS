@@ -193,7 +193,10 @@ START-OF-SELECTION.
 *   them a second time.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 10
       field_name = 'RB3' ftype = 'RADIO' required = 'X'
-      tech_name = 'GTYPE_N'
+*     NO TECH_NAME. This control is the UI for a group the backend
+*     reads as separate boolean items; it posted one item whose value
+*     was an OPT_KEY the backend never tests for. The carriers do the
+*     posting now - CY_GTYPE_N / _G / _P - written by ON_CHANGE( ).
       zsection = 'Grant Type' zsection_ar = 'نوع المنحة'
       zlabel = 'Select a Grant Type' zlabel_ar = 'اختر نوع المنحة'
       msg = 'Choose a grant type' msg_ar = 'يرجى اختيار نوع المنحة' )
@@ -203,7 +206,10 @@ START-OF-SELECTION.
 *   loan toggle uses on step 3.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 20
       field_name = 'RB1' ftype = 'SEGMENTED' required = 'X'
-      tech_name = 'I_BENEFICIARY'
+*     NO TECH_NAME. This control is the UI for a group the backend
+*     reads as separate boolean items; it posted one item whose value
+*     was an OPT_KEY the backend never tests for. The carriers do the
+*     posting now - CY_BENEF_I / _S - written by ON_CHANGE( ).
       zlabel = 'Choose Grant beneficiary' zlabel_ar = 'اختر المستفيد من المنحة'
       msg = 'Choose whether the grant is individual or shared'
       msg_ar = 'يرجى اختيار ما إذا كانت المنحة فردية أو مشتركة' )
@@ -310,7 +316,10 @@ START-OF-SELECTION.
 *   below are shown one per wife declared, by rule.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
       field_name = 'RB0' ftype = 'RADIO' required = 'X'
-      tech_name = 'WIFE0'
+*     NO TECH_NAME. This control is the UI for a group the backend
+*     reads as separate boolean items; it posted one item whose value
+*     was an OPT_KEY the backend never tests for. The carriers do the
+*     posting now - CY_WIFE0..CY_WIFE4 - written by ON_CHANGE( ).
       zsection = 'Family Details' zsection_ar = 'بيانات الأسرة'
       zlabel = 'Number of Wives' zlabel_ar = 'عدد الزوجات'
       msg = 'Please state the number of wives'
@@ -387,7 +396,10 @@ START-OF-SELECTION.
 *   the SEED_CTRL note in CLAUDE.md), so the configured flags stand
 *   and the rules below do the hiding the backend would have done.
       field_name = 'RB1_LOAN' ftype = 'SEGMENTED' required = 'X'
-      tech_name = 'WITH_LOAN'
+*     NO TECH_NAME. This control is the UI for a group the backend
+*     reads as separate boolean items; it posted one item whose value
+*     was an OPT_KEY the backend never tests for. The carriers do the
+*     posting now - CY_WITH_LOAN / CY_NO_LOAN - written by ON_CHANGE( ).
       zlabel = 'Loan Status' zlabel_ar = 'حالة القرض'
       msg = 'Choose whether the grant carries a loan'
       msg_ar = 'يرجى اختيار ما إذا كانت المنحة بقرض' )
@@ -539,6 +551,79 @@ START-OF-SELECTION.
 * would have compared against something the field can never hold, and
 * the rule would simply never have fired: the shared block and the loan
 * dates would have stayed hidden with no error anywhere.
+
+* ---------------------------------------------------------------------
+* THE RADIO CARRIERS. A LEGACY RADIO GROUP IS N BOOLEAN ITEMS, NOT ONE.
+*
+* /QNV/SB_UI_DEFIN gives every button its OWN row with its OWN
+* TECHNICAL_NAME - OG_1_1/RB4 is TECHNICAL_NAME GTYPE_G, LABEL_CON
+* OG_HOUSING - and ZCL_EGA_CJ_FW_RO_GRANT_ABS_V1 reads them that way:
+*
+*     tpl_no_wives = COND #( WHEN WIFE1 = 'X' THEN '1' ... WHEN WIFE0 = 'X' THEN '0' ).
+*     IF tpl_no_wives IS NOT INITIAL. ... ELSE. -> msg 027, RETURN.
+*
+*     IF GTYPE_G IS INITIAL AND GTYPE_N IS INITIAL AND GTYPE_P IS INITIAL. -> msg 016
+*     IF I_BENEFICIARY IS INITIAL AND S_BENEFICIARY IS INITIAL.            -> msg 015
+*     IF WITH_LOAN IS INITIAL AND NO_LOAN IS INITIAL.                      -> msg 035
+*
+* In CJS one RADIO field carries the whole group and posts the chosen
+* OPT_KEY - 'RB2', not 'X'. So a single TECH_NAME on the control sends
+* one item with a value the backend never tests for, and the other
+* names never arrive at all.
+*
+* THE CONTROL KEEPS THE UI, THE CARRIERS DO THE POSTING. Each carrier is
+* a hidden readonly field whose only job is its TECH_NAME;
+* ZCL_M018_OG_LOGIC->ON_CHANGE( ) sets exactly one per group to 'X' and
+* clears its siblings. Same shape as the PAY_SCREEN carriers, and the
+* reason the controls above no longer carry a TECH_NAME of their own.
+*
+* EACH CARRIER SITS ON ITS CONTROL'S OWN STEP. FLATTEN_KV( IV_STEP )
+* flattens ONE step per post, so a carrier parked on the wrong step is
+* simply not in the payload when its group is answered.
+* ---------------------------------------------------------------------
+  INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
+*   STP1 - grant type (RB3/RB4/RB5) and beneficiary (RB1/RB2)
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 11
+      field_name = 'CY_GTYPE_N' ftype = 'INPUT' hidden = 'X' readonly = 'X'
+      tech_name = 'GTYPE_N' zlabel = 'Grant type - normal' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 12
+      field_name = 'CY_GTYPE_G' ftype = 'INPUT' hidden = 'X' readonly = 'X'
+      tech_name = 'GTYPE_G' zlabel = 'Grant type - housing' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 13
+      field_name = 'CY_GTYPE_P' ftype = 'INPUT' hidden = 'X' readonly = 'X'
+      tech_name = 'GTYPE_P' zlabel = 'Grant type - program' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 14
+      field_name = 'CY_BENEF_I' ftype = 'INPUT' hidden = 'X' readonly = 'X'
+      tech_name = 'I_BENEFICIARY' zlabel = 'Beneficiary - individual' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 15
+      field_name = 'CY_BENEF_S' ftype = 'INPUT' hidden = 'X' readonly = 'X'
+      tech_name = 'S_BENEFICIARY' zlabel = 'Beneficiary - shared' )
+
+*   STP2 - number of wives (RB0..RB4 on field RB0)
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 21
+      field_name = 'CY_WIFE0' ftype = 'INPUT' hidden = 'X' readonly = 'X'
+      tech_name = 'WIFE0' zlabel = 'Wives - none' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 22
+      field_name = 'CY_WIFE1' ftype = 'INPUT' hidden = 'X' readonly = 'X'
+      tech_name = 'WIFE1' zlabel = 'Wives - one' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 23
+      field_name = 'CY_WIFE2' ftype = 'INPUT' hidden = 'X' readonly = 'X'
+      tech_name = 'WIFE2' zlabel = 'Wives - two' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 24
+      field_name = 'CY_WIFE3' ftype = 'INPUT' hidden = 'X' readonly = 'X'
+      tech_name = 'WIFE3' zlabel = 'Wives - three' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 25
+      field_name = 'CY_WIFE4' ftype = 'INPUT' hidden = 'X' readonly = 'X'
+      tech_name = 'WIFE4' zlabel = 'Wives - four' )
+
+*   STP3 - loan status (RB1/RB2 on field RB1_LOAN)
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 31
+      field_name = 'CY_WITH_LOAN' ftype = 'INPUT' hidden = 'X' readonly = 'X'
+      tech_name = 'WITH_LOAN' zlabel = 'Loan - with' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 32
+      field_name = 'CY_NO_LOAN' ftype = 'INPUT' hidden = 'X' readonly = 'X'
+      tech_name = 'NO_LOAN' zlabel = 'Loan - without' ) ) ).
+
   INSERT zrak_t_jny_opt FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1'
       field_name = 'RB3' opt_key = 'RB3' seqnr = 10

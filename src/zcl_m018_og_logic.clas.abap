@@ -88,7 +88,42 @@ CLASS zcl_m018_og_logic DEFINITION
 
     METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
 
+*   WRITES THE RADIO CARRIERS. A legacy radio group is N boolean items,
+*   one per button, and the backend tests each for 'X':
+*
+*       tpl_no_wives = COND #( WHEN WIFE1 = 'X' THEN '1' ... ).
+*       IF GTYPE_G IS INITIAL AND GTYPE_N IS INITIAL AND GTYPE_P IS INITIAL.
+*
+*   CJS draws one RADIO per group and posts the chosen OPT_KEY - 'RB2',
+*   never 'X' - so the controls carry no TECH_NAME and the hidden CY_*
+*   fields carry the names instead. This sets exactly one per group and
+*   clears its siblings, on every change, so a citizen who changes their
+*   mind does not leave two of them set.
+    METHODS zif_rak_journey_logic~on_change REDEFINITION.
+
+*   THE MIRROR OF ON_CHANGE( ), AND IT IS NOT OPTIONAL. Taking the
+*   TECH_NAME off the four controls stops them posting a wrongly shaped
+*   item - and also stops them being FILLED on the way back in, because
+*   BACKEND_READ( ) matches a definition to a field by TECH_NAME. Only
+*   the carriers come back now, so a resumed draft would redraw every
+*   radio blank while the backend still held the answer. This reads the
+*   carriers and puts the control back on the option they imply.
+    METHODS zif_rak_journey_logic~on_after_read REDEFINITION.
+
   PROTECTED SECTION.
+
+*   One group: clear every carrier, then set the one the chosen key maps
+*   to. IT_MAP is key -> carrier field name.
+    METHODS carry
+      IMPORTING io_ctx  TYPE REF TO zif_rak_journey
+                iv_pick TYPE string
+                it_map  TYPE zif_rak_journey=>tt_kv.
+
+*   The reverse: whichever carrier holds 'X' decides the control's value.
+    METHODS uncarry
+      IMPORTING io_ctx TYPE REF TO zif_rak_journey
+                iv_ctl TYPE string
+                it_map TYPE zif_rak_journey=>tt_kv.
 
 *   How many partners the citizen has actually added. Zero for a journey
 *   with no grid, which is why the caller checks the beneficiary toggle
@@ -200,5 +235,114 @@ CLASS zcl_m018_og_logic IMPLEMENTATION.
 
   ENDMETHOD.
 
+
+
+  METHOD carry.
+*   CLEAR EVERY SIBLING FIRST, then set the one that was picked. Without
+*   the clear a citizen who answers, goes back and answers differently
+*   leaves both carriers set, and the backend's COND takes whichever it
+*   tests first - which is not the one on screen.
+    LOOP AT it_map INTO DATA(ls_m).
+      io_ctx->set_val( iv_name = ls_m-value iv_value = `` ).
+    ENDLOOP.
+
+    IF iv_pick IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    READ TABLE it_map INTO DATA(ls_hit) WITH KEY key = iv_pick.
+    IF sy-subrc = 0.
+      io_ctx->set_val( iv_name = ls_hit-value iv_value = 'X' ).
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_change.
+*   SUPER FIRST. The base body is empty today, but ZCL_RAK_MUN_LOGIC and
+*   ZCL_RAK_GRANT_LOGIC sit between this class and it, and a rule added
+*   to either later would be silently dropped by an unchained
+*   redefinition - which is exactly how E128 lost its PAID gate twice.
+    super->zif_rak_journey_logic~on_change( io_ctx = io_ctx iv_field = iv_field ).
+
+    DATA lt_map TYPE zif_rak_journey=>tt_kv.
+    DATA(lv_f) = to_upper( iv_field ).
+
+    CASE lv_f.
+*     Grant type. RB3/RB4/RB5 are the export's own field names for the
+*     three buttons and GTYPE_N/_G/_P their TECHNICAL_NAMEs -
+*     OG_1_1/RB4 reads TECHNICAL_NAME GTYPE_G, LABEL_CON OG_HOUSING,
+*     which is what settles Housing as G rather than P.
+      WHEN c_fld_grant_type.
+        lt_map = VALUE #( ( key = 'RB3' value = 'CY_GTYPE_N' )
+                          ( key = 'RB4' value = 'CY_GTYPE_G' )
+                          ( key = 'RB5' value = 'CY_GTYPE_P' ) ).
+
+*     Beneficiary. RB1 individual, RB2 shared - C_BENEF_SHARED already
+*     names the second one and is used by the grantee-count rule.
+      WHEN c_fld_benef.
+        lt_map = VALUE #( ( key = 'RB1' value = 'CY_BENEF_I' )
+                          ( key = c_benef_shared value = 'CY_BENEF_S' ) ).
+
+*     Number of wives. The option TEXTS are literally 0,1,2,3,4, so the
+*     key order is the count and there is nothing to infer.
+      WHEN c_fld_wives.
+        lt_map = VALUE #( ( key = 'RB0' value = 'CY_WIFE0' )
+                          ( key = 'RB1' value = 'CY_WIFE1' )
+                          ( key = 'RB2' value = 'CY_WIFE2' )
+                          ( key = 'RB3' value = 'CY_WIFE3' )
+                          ( key = 'RB4' value = 'CY_WIFE4' ) ).
+
+*     Loan status. RB1 with a loan, RB2 without.
+      WHEN c_fld_loan_stat.
+        lt_map = VALUE #( ( key = 'RB1' value = 'CY_WITH_LOAN' )
+                          ( key = 'RB2' value = 'CY_NO_LOAN' ) ).
+
+      WHEN OTHERS.
+        RETURN.
+    ENDCASE.
+
+    carry( io_ctx  = io_ctx
+           iv_pick = to_upper( io_ctx->get_val( lv_f ) )
+           it_map  = lt_map ).
+  ENDMETHOD.
+
+
+  METHOD uncarry.
+*   FIRST CARRIER HOLDING 'X' WINS. CARRY( ) clears the siblings before
+*   it sets one, so exactly one can be set - but a case created before
+*   this handler existed, or touched by the back office, can hold more
+*   than one, and picking the first is at least deterministic.
+    LOOP AT it_map INTO DATA(ls_m).
+      IF to_upper( condense( io_ctx->get_val( ls_m-value ) ) ) = 'X'.
+        io_ctx->set_val( iv_name = iv_ctl iv_value = ls_m-key ).
+        RETURN.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_after_read.
+    super->zif_rak_journey_logic~on_after_read( io_ctx ).
+
+    uncarry( io_ctx = io_ctx iv_ctl = c_fld_grant_type
+             it_map = VALUE #( ( key = 'RB3' value = 'CY_GTYPE_N' )
+                               ( key = 'RB4' value = 'CY_GTYPE_G' )
+                               ( key = 'RB5' value = 'CY_GTYPE_P' ) ) ).
+
+    uncarry( io_ctx = io_ctx iv_ctl = c_fld_benef
+             it_map = VALUE #( ( key = 'RB1'           value = 'CY_BENEF_I' )
+                               ( key = c_benef_shared  value = 'CY_BENEF_S' ) ) ).
+
+    uncarry( io_ctx = io_ctx iv_ctl = c_fld_wives
+             it_map = VALUE #( ( key = 'RB0' value = 'CY_WIFE0' )
+                               ( key = 'RB1' value = 'CY_WIFE1' )
+                               ( key = 'RB2' value = 'CY_WIFE2' )
+                               ( key = 'RB3' value = 'CY_WIFE3' )
+                               ( key = 'RB4' value = 'CY_WIFE4' ) ) ).
+
+    uncarry( io_ctx = io_ctx iv_ctl = c_fld_loan_stat
+             it_map = VALUE #( ( key = 'RB1' value = 'CY_WITH_LOAN' )
+                               ( key = 'RB2' value = 'CY_NO_LOAN' ) ) ).
+  ENDMETHOD.
 
 ENDCLASS.
