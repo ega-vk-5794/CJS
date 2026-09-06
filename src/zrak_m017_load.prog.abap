@@ -228,17 +228,32 @@ START-OF-SELECTION.
 *   CI_ENTITY_CODE - it is the entity the open-case check keys on, joined
 *   to characteristic CJ07.
 *
-*   REVIEW-BE: the OPTION LIST is still not seeded, and the export does
-*   not close this one. It names the field and its type but gives NO
-*   search help for CI_ENTITY_SELECT, unlike M018/M019 where it names
-*   ZSH_CJ_GRANTS_CHILDREN and ZSH_CJ_GRANT_PGM_TYPE. So the list is
-*   built somewhere the definition table does not reach - most likely
-*   the legacy control filling it from a read. Left with no
-*   ZRAK_T_JNY_OPT rows on purpose: a hand-typed list that drifts from
-*   the backend's own is worse than an empty dropdown, because the
-*   citizen can pick a code the case cannot accept. Fill ROLLNAME,
-*   DOMNAME or SHLP once the source is known - see config-tables.md on
-*   the four option sources.
+*   THE OPTION LIST IS THE DOMAIN ZDE_EGA_ENTITY ("LD24 Entity Values"),
+*   and this row used to carry no list at all. The export names the field
+*   and its type but gives NO search help for CI_ENTITY_SELECT, unlike
+*   M018/M019 where it names ZSH_CJ_GRANTS_CHILDREN and
+*   ZSH_CJ_GRANT_PGM_TYPE - so the previous note said the source was
+*   unknown and left the dropdown empty on purpose, reasoning that a
+*   hand-typed list which drifts from the backend's own is worse than no
+*   list, because the citizen can pick a code the case cannot accept.
+*
+*   That reasoning still holds and is exactly why DOMNAME is the right
+*   answer rather than seeded ZRAK_T_JNY_OPT rows: the fixed values live
+*   in the domain, the engine's F4 resolver reads them at render time, and
+*   a value added or reworded in SE11 reaches the journey with no reseed.
+*   Nothing here can drift from the department's own list because nothing
+*   here is a copy of it.
+*
+*   Twenty-nine values, 01..29 with gaps - The Diwan of His Highness the
+*   Crown Prince of Abu Dhabi, Ministry of Community Development, Armed
+*   forces, Civil Defense, Zakat Fund, and so on.
+*
+*   DEFAULT_VAL = '24' IS "To whom it concerns", which is what the legacy
+*   screen opens on. It was being faked with a PLACEHOLDER carrying that
+*   wording, which is the worse half of both worlds: it looked like an
+*   answer without being one, so a citizen who accepted it posted a blank
+*   entity - and REQUIRED then refused a step that appeared filled in. The
+*   placeholder is gone; the value is a real default now.
 *   TECH_NAME IS CI_ENTITY_CODE, AND WITHOUT IT THIS FIELD POSTS NOTHING.
 *   The field renders, the citizen must answer it, and the value went
 *   nowhere - TECH_NAME is what puts a value in CT_ITEM_DATA, and this row
@@ -258,9 +273,9 @@ START-OF-SELECTION.
       field_name = 'CI_ENTITY_SELECT' ftype = 'SELECT' required = 'X'
       tech_name = 'CI_ENTITY_CODE'
       closed_list = 'X'
+      domname = 'ZDE_EGA_ENTITY'
+      default_val = '24'
       zlabel = 'Entity' zlabel_ar = 'الجهة'
-      placeholder = 'To whom it concerns'
-      placeholder_ar = 'إلى من يهمه الأمر'
       msg = 'Choose the entity this investigation is for'
       msg_ar = 'يرجى اختيار الجهة المعنية بالتحقيق' )
 
