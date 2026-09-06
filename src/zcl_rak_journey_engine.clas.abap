@@ -553,6 +553,16 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *     this block runs once.
       mv_resumed = lv_resumed.
 
+*     THE LAUNCH LINE, and only here - this block runs once per session.
+*     ZCL_RAK_CJ_LOG buffers it and writes nothing until SAVE( ) finds a
+*     non-empty buffer, so this is what makes a launch produce one SLG1
+*     entry rather than one per round trip.
+      zcl_rak_cj_log=>add(
+        iv_type = 'I'
+        iv_text = |{ COND string( WHEN lv_resumed = abap_true THEN 'RESUME' ELSE 'LAUNCH' ) }| &&
+                  | { mv_journey } · bp { mv_loginbp } · key | &&
+                  |{ COND string( WHEN mv_intreno IS NOT INITIAL THEN mv_intreno ELSE '(new)' ) }| ).
+
       zcl_rak_cj_evt=>add(
         iv_type   = COND #( WHEN lv_resumed = abap_true
                             THEN zcl_rak_cj_evt=>c_type-resume

@@ -64,23 +64,37 @@ CLASS zcl_rak_cj_log DEFINITION
     CONSTANTS c_msgid TYPE symsgid VALUE 'ZMSG_EGA_CJ'.
     CONSTANTS c_msgno TYPE symsgno VALUE '000'.
 
-*   START A LOG FOR ONE JOURNEY INTERACTION. Safe to call more than once -
-*   the second call is a no-op, so the engine need not track whether it has
-*   opened one. IV_EXTNO is the external number SLG1 shows in its list and
-*   is what makes a log findable: the journey key, once there is one.
+*   NAME THE INTERACTION. Records the journey and the key for the header
+*   line; it does NOT touch ZCL_APPL_LOG, open anything or write anything.
+*
+*   THAT IS THE WHOLE POINT, and it was wrong in the first version. OPEN( )
+*   used to create an SLG1 log and write a launch line on EVERY round trip,
+*   so a citizen picking a dropdown value produced a log, a message and a
+*   database save. The trace measured it: 2510 ms against 82 ms before.
+*   Nothing in a plain render round trip is worth an SLG1 row, which the
+*   header of this class already said and the wiring then ignored.
+*
+*   Everything is deferred to SAVE( ), which does nothing at all unless a
+*   line was actually buffered. See there.
     CLASS-METHODS open
       IMPORTING iv_journey TYPE string
                 iv_extno   TYPE string OPTIONAL.
 
-*   ONE LINE. IV_TYPE is a BAPI message type - 'I', 'W', 'E', 'S'. The text
-*   is split across the four message variables because 000 takes 50
-*   characters each and a truncated log line is worse than a wrapped one.
+*   BUFFER ONE LINE. IV_TYPE is a BAPI message type - 'I', 'W', 'E', 'S'.
+*   Costs an APPEND and nothing else; no RTTI, no ZCL_APPL_LOG, no database.
     CLASS-METHODS add
       IMPORTING iv_type TYPE symsgty DEFAULT 'I'
                 iv_text TYPE string.
 
-*   FLUSH TO THE DATABASE. Called by the engine at the end of a round trip.
-*   Nothing is visible in SLG1 until this runs.
+*   FLUSH, AND DO NOTHING WHEN THERE IS NOTHING. Called by the engine at the
+*   end of every round trip, and on most of them it returns on its first
+*   line because the buffer is empty.
+*
+*   Only when a line was buffered does it resolve the parameter names,
+*   create the log, write the lines and save - so the cost lands on the
+*   round trips that produced something worth reading, which is what the
+*   header of this class always claimed and what the first version did not
+*   do.
     CLASS-METHODS save.
 
 *   WHAT THIS CLASS IS ACTUALLY DOING, for the &trace=x line.
@@ -102,6 +116,22 @@ CLASS zcl_rak_cj_log DEFINITION
 *   its type is not visible from here either.
     CLASS-DATA go_log     TYPE REF TO object.
     CLASS-DATA gv_open    TYPE abap_bool.
+
+*   THE BUFFER, and what makes this cheap. ADD( ) appends here and does
+*   nothing else; SAVE( ) returns immediately when it is empty, so a render
+*   round trip pays one IS INITIAL test for the whole mechanism.
+    CLASS-DATA gt_buf     TYPE bal_t_msg.
+
+*   Named by OPEN( ), used by SAVE( ) for the header line and the external
+*   number. Not the log itself - nothing is created until there is content.
+    CLASS-DATA gv_journey TYPE string.
+    CLASS-DATA gv_extno   TYPE string.
+
+*   RTTI ONCE PER SESSION, not once per line. DESCRIBE_BY_NAME walks the
+*   whole class description and there is no reason to do it twice for an
+*   answer that cannot change while the system is up.
+    CLASS-DATA gv_p_inst  TYPE abap_parmname.
+    CLASS-DATA gv_p_msg   TYPE abap_parmname.
 *   Set when the dynamic call fails once, so a system without ZCL_APPL_LOG
 *   is not asked again on every line of every round trip.
     CLASS-DATA gv_dead    TYPE abap_bool.
@@ -132,6 +162,11 @@ CLASS zcl_rak_cj_log DEFINITION
                 iv_kind   TYPE abap_parmkind
       RETURNING VALUE(rv) TYPE abap_parmname.
 
+*   The only place ZCL_APPL_LOG is touched: resolve, create, write the whole
+*   buffer in one MESSAGE_ADD, save. Reached from SAVE( ) and only with
+*   something to write.
+    CLASS-METHODS flush.
+
 ENDCLASS.
 
 
@@ -139,19 +174,34 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
 
 
   METHOD open.
-    IF gv_open = abap_true OR gv_dead = abap_true.
-      RETURN.
+*   NOTE WHO WE ARE AND RETURN. No RTTI, no ZCL_APPL_LOG, no log, no
+*   database - all of that is SAVE( )'s job and only when something was
+*   buffered. This method is called on every round trip and must cost
+*   nothing on the ones that have nothing to say.
+    gv_journey = iv_journey.
+    IF iv_extno IS NOT INITIAL.
+      gv_extno = iv_extno.
     ENDIF.
+  ENDMETHOD.
 
+
+  METHOD flush.
+*   THE ONLY PLACE ZCL_APPL_LOG IS TOUCHED. Reached from SAVE( ) and only
+*   with a non-empty buffer.
     TRY.
         DATA lo_log TYPE REF TO object.
 
 *       THE RETURNING PARAMETER, BY NAME THE SYSTEM GIVES. Hardcoding
 *       RO_INSTANCE is what the first version did and the trace refused it.
-        DATA(lv_ret) = parm_of( iv_class  = 'ZCL_APPL_LOG'
-                                iv_method = 'GET_INSTANCE'
-                                iv_kind   = cl_abap_objectdescr=>returning ).
-        IF lv_ret IS INITIAL.
+*       Resolved once per session and remembered - DESCRIBE_BY_NAME walks
+*       the whole class description and the answer cannot change while the
+*       system is up.
+        IF gv_p_inst IS INITIAL.
+          gv_p_inst = parm_of( iv_class  = 'ZCL_APPL_LOG'
+                               iv_method = 'GET_INSTANCE'
+                               iv_kind   = cl_abap_objectdescr=>returning ).
+        ENDIF.
+        IF gv_p_inst IS INITIAL.
           gv_where = 'GET_INSTANCE'.
           gv_err   = 'no returning parameter found by RTTI'.
           gv_dead  = abap_true.
@@ -161,7 +211,7 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
         DATA lt_p TYPE abap_parmbind_tab.
 *       RECEIVING is the kind a returning parameter takes in a
 *       PARAMETER-TABLE - the caller receives what the method returns.
-        lt_p = VALUE #( ( name  = lv_ret
+        lt_p = VALUE #( ( name  = gv_p_inst
                           kind  = cl_abap_objectdescr=>receiving
                           value = REF #( lo_log ) ) ).
         CALL METHOD ('ZCL_APPL_LOG')=>('GET_INSTANCE')
@@ -180,113 +230,122 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
           EXPORTING
             iv_object    = CONV balobj_d( c_object )
             iv_subobject = CONV balsubobj( c_subobject )
-            iv_extno     = CONV balnrext( iv_extno ).
+            iv_extno     = CONV balnrext( gv_extno ).
 
         go_log  = lo_log.
         gv_open = abap_true.
 
-      CATCH cx_root INTO DATA(lx_open).
-        gv_err   = lx_open->get_text( ).
-        gv_where = 'GET_INSTANCE / LOG_CREATE'.
-*       The logger is not here, or does not look the way the BAdI's calls
-*       suggested. Give up permanently rather than throwing on every line,
-*       and never let it reach the citizen.
-        gv_dead = abap_true.
-        CLEAR go_log.
-    ENDTRY.
+*       The header line, written here rather than in OPEN( ) - it belongs to
+*       a log that exists, and until now none did.
+        INSERT VALUE #( msgid = c_msgid
+                        msgty = 'I'
+                        msgno = c_msgno
+                        msgv1 = CONV symsgv( |CJS { gv_journey } { sy-sysid }{ sy-mandt }| )
+                        msgv2 = CONV symsgv( |user { sy-uname }| ) )
+               INTO gt_buf INDEX 1.
 
-    IF gv_open = abap_true.
-      add( iv_type = 'I' iv_text = |CJS journey { iv_journey } · { sy-sysid }{ sy-mandt } · user { sy-uname }| ).
-    ENDIF.
-  ENDMETHOD.
-
-
-  METHOD add.
-    IF gv_open = abap_false OR gv_dead = abap_true OR go_log IS NOT BOUND.
-      RETURN.
-    ENDIF.
-
-    TRY.
-*       Four fifties. SPLIT would break mid-word and OFFSET/LENGTH on a
-*       string shorter than the offset raises, so each slice is taken only
-*       when the text is long enough to have one.
-        DATA(lv_t) = iv_text.
-        DATA(lv_l) = strlen( lv_t ).
-        DATA lv_v1 TYPE symsgv.
-        DATA lv_v2 TYPE symsgv.
-        DATA lv_v3 TYPE symsgv.
-        DATA lv_v4 TYPE symsgv.
-        lv_v1 = lv_t.
-        IF lv_l > 50.
-          lv_v2 = substring( val = lv_t off = 50 len = nmin( val1 = 50 val2 = lv_l - 50 ) ).
+*       MESSAGE_ADD's name, same discipline and same cache. The BAdI calls
+*       it positionally, so its call site never revealed one.
+        IF gv_p_msg IS INITIAL.
+          gv_p_msg = parm_of( iv_class  = 'ZCL_APPL_LOG'
+                              iv_method = 'MESSAGE_ADD'
+                              iv_kind   = cl_abap_objectdescr=>importing ).
         ENDIF.
-        IF lv_l > 100.
-          lv_v3 = substring( val = lv_t off = 100 len = nmin( val1 = 50 val2 = lv_l - 100 ) ).
-        ENDIF.
-        IF lv_l > 150.
-          lv_v4 = substring( val = lv_t off = 150 len = nmin( val1 = 50 val2 = lv_l - 150 ) ).
-        ENDIF.
-
-        DATA lt_msg TYPE bal_t_msg.
-        lt_msg = VALUE #( ( msgid = c_msgid
-                            msgty = iv_type
-                            msgno = c_msgno
-                            msgv1 = lv_v1
-                            msgv2 = lv_v2
-                            msgv3 = lv_v3
-                            msgv4 = lv_v4 ) ).
-
-*       Same discipline as GET_INSTANCE: the BAdI calls MESSAGE_ADD
-*       positionally, so its call site never revealed the parameter name and
-*       IT_MESSAGE was a guess. Ask instead.
-        DATA(lv_imp) = parm_of( iv_class  = 'ZCL_APPL_LOG'
-                                iv_method = 'MESSAGE_ADD'
-                                iv_kind   = cl_abap_objectdescr=>importing ).
-        IF lv_imp IS INITIAL.
+        IF gv_p_msg IS INITIAL.
           gv_where = 'MESSAGE_ADD'.
           gv_err   = 'no importing parameter found by RTTI'.
           gv_dead  = abap_true.
           RETURN.
         ENDIF.
 
+*       ONE CALL FOR THE WHOLE BUFFER. MESSAGE_ADD takes a table, so there
+*       is no reason to call it per line - and the first version did,
+*       through ADD( ), once per message.
         DATA lt_ap TYPE abap_parmbind_tab.
 *       EXPORTING is the kind an IMPORTING parameter takes here - the caller
 *       exports into it.
-        lt_ap = VALUE #( ( name  = lv_imp
+        lt_ap = VALUE #( ( name  = gv_p_msg
                            kind  = cl_abap_objectdescr=>exporting
-                           value = REF #( lt_msg ) ) ).
+                           value = REF #( gt_buf ) ) ).
         CALL METHOD go_log->('MESSAGE_ADD')
           PARAMETER-TABLE lt_ap.
 
-      CATCH cx_root INTO DATA(lx_add).
+        CALL METHOD go_log->('LOG_SAVE').
+
+      CATCH cx_root INTO DATA(lx_flush).
         IF gv_err IS INITIAL.
-          gv_err   = lx_add->get_text( ).
-          gv_where = 'MESSAGE_ADD'.
+          gv_err   = lx_flush->get_text( ).
+          gv_where = COND string( WHEN gv_open = abap_true THEN 'MESSAGE_ADD / LOG_SAVE'
+                                  ELSE 'GET_INSTANCE / LOG_CREATE' ).
         ENDIF.
+*       The logger is not here, or does not look the way the BAdI's calls
+*       suggested. Give up permanently rather than throwing on every line,
+*       and never let it reach the citizen.
         gv_dead = abap_true.
+        CLEAR go_log.
     ENDTRY.
   ENDMETHOD.
 
 
-  METHOD save.
-    IF gv_open = abap_false OR gv_dead = abap_true OR go_log IS NOT BOUND.
+  METHOD add.
+*   AN APPEND, AND NOTHING ELSE. No RTTI, no dynamic call, no database -
+*   this is what makes SAVE( )'s empty test worth having, and it means a
+*   handler may call ADD( ) freely without wondering what it costs.
+    IF gv_dead = abap_true.
       RETURN.
     ENDIF.
 
-    TRY.
-        CALL METHOD go_log->('LOG_SAVE').
-      CATCH cx_root INTO DATA(lx_save).
-        IF gv_err IS INITIAL.
-          gv_err   = lx_save->get_text( ).
-          gv_where = 'LOG_SAVE'.
-        ENDIF.
-        gv_dead = abap_true.
-    ENDTRY.
+*   Four fifties. SPLIT would break mid-word, and OFFSET/LENGTH on a string
+*   shorter than the offset RAISES rather than returning short - so each
+*   slice is taken only when the text is long enough to have one.
+    DATA(lv_l) = strlen( iv_text ).
+    DATA lv_v1 TYPE symsgv.
+    DATA lv_v2 TYPE symsgv.
+    DATA lv_v3 TYPE symsgv.
+    DATA lv_v4 TYPE symsgv.
+    lv_v1 = iv_text.
+    IF lv_l > 50.
+      lv_v2 = substring( val = iv_text off = 50 len = nmin( val1 = 50 val2 = lv_l - 50 ) ).
+    ENDIF.
+    IF lv_l > 100.
+      lv_v3 = substring( val = iv_text off = 100 len = nmin( val1 = 50 val2 = lv_l - 100 ) ).
+    ENDIF.
+    IF lv_l > 150.
+      lv_v4 = substring( val = iv_text off = 150 len = nmin( val1 = 50 val2 = lv_l - 150 ) ).
+    ENDIF.
 
-*   Closed either way. The next interaction opens its own log, so one SLG1
-*   entry is one journey interaction rather than everything a work process
-*   happened to serve.
-    CLEAR: gv_open, go_log.
+    APPEND VALUE #( msgid = c_msgid
+                    msgty = iv_type
+                    msgno = c_msgno
+                    msgv1 = lv_v1
+                    msgv2 = lv_v2
+                    msgv3 = lv_v3
+                    msgv4 = lv_v4 ) TO gt_buf.
+  ENDMETHOD.
+
+
+  METHOD save.
+*   THE GATE, AND THE WHOLE PERFORMANCE STORY IN ONE TEST. An empty buffer
+*   means this round trip had nothing worth an SLG1 row - which is most of
+*   them - and the method returns before touching RTTI, ZCL_APPL_LOG or the
+*   database.
+*
+*   The first version created a log, wrote a launch line and saved on EVERY
+*   round trip. It measured 2510 ms against 82 ms without, on a journey that
+*   had done nothing but render. Nothing about a citizen picking a dropdown
+*   value belongs in an application log, which this class's own header said
+*   from the start.
+    IF gt_buf IS INITIAL OR gv_dead = abap_true.
+      CLEAR gt_buf.
+      RETURN.
+    ENDIF.
+
+    flush( ).
+
+*   Closed either way, and the buffer emptied whether the write worked or
+*   not - a line that could not be written must not be carried into the next
+*   round trip and written twice.
+    CLEAR: gv_open, go_log, gt_buf.
   ENDMETHOD.
 
 
@@ -328,11 +387,18 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
            | · SLG1 object { c_object }/{ c_subobject } will show the BAdI's lines only|.
       RETURN.
     ENDIF.
-    IF gv_open = abap_true.
-      rv = |writing to SLG1 object { c_object }/{ c_subobject }|.
-      RETURN.
-    ENDIF.
-    rv = |not opened on this round trip|.
+*   READY, NOT WRITING. The trace line is drawn early in the round trip and
+*   nothing has been buffered yet, so "writing" would be a claim about a log
+*   that does not exist - and under the deferred design most round trips
+*   never create one at all. What the reader needs to know here is that the
+*   mechanism works and what would make it write.
+*
+*   GV_DEAD survives the round trip, so a failure discovered during last
+*   round trip's flush is reported on this one - which is when a reader can
+*   actually act on it.
+    rv = |ready · SLG1 object { c_object }/{ c_subobject } · writes only on a | &&
+         |round trip that has something to record (launch, submit, payment, | &&
+         |or an error the citizen was shown)|.
   ENDMETHOD.
 
 
