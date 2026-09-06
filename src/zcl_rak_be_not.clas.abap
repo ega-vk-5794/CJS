@@ -2465,7 +2465,20 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
     DATA(lv_abp) = COND string( WHEN field( it_fields = it_fields iv_name = 'applicantBusinessPartnerId' ) IS NOT INITIAL
                                 THEN field( it_fields = it_fields iv_name = 'applicantBusinessPartnerId' )
                                 WHEN mv_loginbp IS NOT INITIAL THEN mv_loginbp
-                                ELSE mc_dev_bp ).
+                                WHEN zcl_rak_journey_util=>dev_stubs_ok( ) = abap_true THEN mc_dev_bp
+                                ELSE space ).
+
+*   MC_DEV_BP IS A DEVELOPMENT STUB AND HAD NO GATE AT ALL. This class
+*   contained no sy-sysid check anywhere: when no applicant resolved -
+*   neither from the blueprint field nor from the session - it sent a
+*   hardcoded business partner to the live Notary REST backend, on every
+*   system including production. A real request filed against a partner
+*   nobody chose, and nothing on screen to say so.
+*
+*   Blank outside development rather than a stand-in. That is deliberately
+*   the LOUDER failure: the backend refuses a request with no applicant
+*   and the citizen is told, where the stub produced a request that looked
+*   successful and belonged to someone else. See DEV_STUBS_OK( ).
 
 *   requestDate / requestStartDate are dates in the collection, not
 *   timestamps. A timestamp where a date is expected is the kind of thing
@@ -2998,9 +3011,15 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 *         Default the payer to the applicant rather than posting a blank
 *         owner: the billing document has to belong to somebody before
 *         the payment can be calculated.
+*         AND THE STUB IS DEVELOPMENT-ONLY. This is the billing partner:
+*         outside development, a hardcoded MC_DEV_BP here does not just
+*         mislabel a request, it addresses an invoice to a partner who
+*         never applied for anything. Blank makes the billing call fail,
+*         which is the answer that can be seen and fixed.
           lv_owner = COND string( WHEN cs_handle-applicant IS NOT INITIAL THEN cs_handle-applicant
                                   WHEN mv_loginbp IS NOT INITIAL THEN mv_loginbp
-                                  ELSE mc_dev_bp ).
+                                  WHEN zcl_rak_journey_util=>dev_stubs_ok( ) = abap_true THEN mc_dev_bp
+                                  ELSE space ).
         ENDIF.
 
         TYPES: BEGIN OF ty_bill, business_partner_id TYPE string, END OF ty_bill.

@@ -527,6 +527,16 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                            iv_channel = zif_rak_journey~get_param( 'channel' )
                            iv_device  = zif_rak_journey~get_param( 'device' ) ).
 
+*   THE SLG1 LOG, alongside the telemetry event above and not instead of it.
+*   ZCL_RAK_CJ_EVT counts journeys and measures durations; this is what
+*   support opens when one citizen rings up about one request. OPEN( ) is a
+*   no-op after the first call, so it can sit on every round trip.
+*
+*   Keyed on the journey key once there is one, because the external number
+*   is what makes a log findable in SLG1's own selection screen.
+    zcl_rak_cj_log=>open( iv_journey = mv_journey
+                          iv_extno   = mv_intreno ).
+
     IF lv_first = abap_true.
       DATA(lv_resumed) = xsdbool(
         zif_rak_journey~get_param( 'caseid' )  IS NOT INITIAL OR
@@ -1028,6 +1038,25 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     zcl_rak_cj_evt=>flush( ).
 
+*   EVERY ERROR AND WARNING THE CITIZEN WAS SHOWN, INTO SLG1 - written here,
+*   at the one point every round trip passes through, rather than at each
+*   of the several dozen places that append to MT_MSG. Support's first
+*   question is "what did they actually see", and this answers it without
+*   the citizen having to remember.
+*
+*   Errors and warnings only. An informational strip is usually the journey
+*   working, and logging those would bury the lines that matter.
+    LOOP AT mt_msg INTO DATA(ls_lmsg) WHERE type = 'Error' OR type = 'Warning'.
+      zcl_rak_cj_log=>add(
+        iv_type = COND symsgty( WHEN ls_lmsg-type = 'Error' THEN 'E' ELSE 'W' )
+        iv_text = |step { mv_step } · { ls_lmsg-text }| ).
+    ENDLOOP.
+
+*   FLUSH. Nothing reaches SLG1 until this runs, and the next interaction
+*   opens its own log - so one SLG1 entry is one journey interaction rather
+*   than whatever a work process happened to serve.
+    zcl_rak_cj_log=>save( ).
+
     CLEAR ms_config.
     CLEAR: mo_css, mo_grid, mo_render, mo_be, mo_rules, mo_pcl.
     CLEAR ms_handle-token.
@@ -1072,8 +1101,18 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   and the CREATE - and not one word about the partner, which is the
 *   thing that was wrong. The blocker had to reconstruct it from what was
 *   sent rather than reading what was resolved.
+*   AND THE TRACE IS DEVELOPMENT AND QUALITY ONLY. It prints partner
+*   numbers, case ids, what went to the backend and the BAdI's own
+*   messages - on production that is a citizen's screen, reachable by
+*   anyone who appends &trace=x to their own address bar.
+*
+*   The refusal is SILENT on purpose. A "tracing is not available on this
+*   system" strip would confirm the parameter exists to somebody who was
+*   guessing; MV_TRACE simply stays false and TRACE( ) drops everything,
+*   which is what it already does when nobody asked.
     DATA(lv_tp0) = to_upper( zif_rak_journey~get_param( 'trace' ) ).
-    mv_trace = xsdbool( lv_tp0 = 'X' OR lv_tp0 = '1' OR lv_tp0 = 'TRUE' ).
+    mv_trace = xsdbool( ( lv_tp0 = 'X' OR lv_tp0 = '1' OR lv_tp0 = 'TRUE' )
+                        AND zcl_rak_journey_util=>trace_ok( ) = abap_true ).
 
     resolve_identity( ).
 
@@ -1770,6 +1809,16 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
           ev_case        = DATA(lv_case_sub)
           et_msg         = DATA(lt_ret) ).
       take_case( lv_case_sub ).
+
+*     THE SUBMIT, LOGGED WITH BOTH KEYS. The journey key and the case are
+*     different values on Municipality, and support needs the pair: the
+*     citizen quotes one, the backend was searched on the other. This is
+*     the single most useful line in the whole log.
+      zcl_rak_cj_log=>add(
+        iv_type = COND symsgty( WHEN line_exists( lt_ret[ type = 'Error' ] ) THEN 'E' ELSE 'S' )
+        iv_text = |SUBMIT { mv_journey } · key { mv_intreno } · case | &&
+                  |{ COND string( WHEN lv_case_sub IS NOT INITIAL THEN lv_case_sub ELSE '(none returned)' ) }| ).
+
       READ TABLE lt_ret WITH KEY type = 'Error' TRANSPORTING NO FIELDS.
       IF sy-subrc = 0.
         mt_msg = lt_ret.
@@ -3151,7 +3200,12 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    IF mv_loginbp IS INITIAL AND sy-sysid <> 'E30'.
+*   &loginbp= ON THE URL IS A DEVELOPMENT STUB, and the guard used to be
+*   `sy-sysid <> 'E30'` - which let anyone who could reach the quality
+*   system name themselves as any partner by editing the address bar, and
+*   then file a request as that person. Development only now, through the
+*   one place that answers the question.
+    IF mv_loginbp IS INITIAL AND zcl_rak_journey_util=>dev_stubs_ok( ) = abap_true.
       mv_loginbp = bp_of( VALUE #( mt_param[ key = 'LOGINBP' ]-value OPTIONAL ) ).
     ENDIF.
 

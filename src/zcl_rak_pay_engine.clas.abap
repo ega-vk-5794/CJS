@@ -174,7 +174,10 @@ CLASS zcl_rak_pay_engine DEFINITION
   PRIVATE SECTION.
 
     CONSTANTS c_autopay_tvarv TYPE string  VALUE 'ZRAK_CJ_PAY_AUTOSUCCESS'.
-    CONSTANTS c_dev_sysid     TYPE sy-sysid VALUE 'E10'.
+*   C_DEV_SYSID is gone: this class no longer decides for itself which
+*   system it is on. ZCL_RAK_JOURNEY_UTIL=>DEV_STUBS_OK( ) answers that
+*   for every caller, and a private constant left behind here would
+*   suggest otherwise to the next reader.
 
     CONSTANTS c_wait_ticks   TYPE i      VALUE 300.
     CONSTANTS c_wait_max_sec TYPE i      VALUE 60.
@@ -388,7 +391,13 @@ CLASS ZCL_RAK_PAY_ENGINE IMPLEMENTATION.
 * single most expensive thing this class can do, so the ability to produce one must
 * not be reachable from a table anybody can maintain.
 *---------------------------------------------------------------------------------------*
-    IF sy-sysid <> c_dev_sysid.
+*   Through the one place that answers "may a development stub run here",
+*   rather than a fourth private spelling of sy-sysid. Still ABAP and still
+*   not reachable from a table, which is the property this gate needs - see
+*   the note above. DEV_STUBS_OK( ) treats an unrecognised system as
+*   production, so this is if anything stricter than the comparison it
+*   replaces.
+    IF zcl_rak_journey_util=>dev_stubs_ok( ) = abap_false.
       RETURN.
     ENDIF.
 

@@ -217,7 +217,81 @@ CLASS zcl_rak_journey_util DEFINITION
       IMPORTING it_cols   TYPE zif_rak_journey=>tt_string
       RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_string.
 
+*   ==== WHICH SYSTEM IS THIS, AND WHAT MAY IT DO =========================
+*   ONE PLACE TO ASK, because four places asking it four ways is how the
+*   answers drifted. Before this, the same question was written as
+*   `= 'E10'`, `<> 'E30'`, `<> c_dev_sysid` and `= 'E10' AND mandt = '200'`
+*   in five different classes - and two of those spellings quietly let a
+*   development stub run in staging.
+*
+*   The system ids are RAK's: E10 development, E20 quality, E30
+*   production. A system this does not recognise is treated as
+*   PRODUCTION, which is the safe direction to be wrong in: a new or
+*   renamed system gets the strictest behaviour until somebody adds it
+*   here deliberately, rather than inheriting a developer's conveniences
+*   by accident.
+    CLASS-METHODS is_dev  RETURNING VALUE(rv) TYPE abap_bool.
+    CLASS-METHODS is_qa   RETURNING VALUE(rv) TYPE abap_bool.
+    CLASS-METHODS is_prod RETURNING VALUE(rv) TYPE abap_bool.
+
+*   MAY A DEVELOPMENT STUB STAND IN FOR A REAL VALUE. Development only,
+*   and this is the one that matters most.
+*
+*   A stub is anything that invents an identity the citizen did not supply:
+*   the simulated HISHAM.M session, the &loginbp= URL override, the dev BP
+*   the bridge puts in PARAM3, ZCL_RAK_BE_NOT's MC_DEV_BP. Every one of
+*   them exists so a developer can walk a journey without a portal login,
+*   and every one of them files a real request under a partner nobody
+*   chose if it runs anywhere else.
+*
+*   It is NOT about ZRAK_T_JNY_FLD-DEFAULT_VAL. A business default - the
+*   Entity a form opens on, a consent paragraph, the three payment
+*   carriers - is configuration the department authored and must apply on
+*   every system. Suppressing those in production would break payment
+*   routing on the system where it matters most. The distinction is
+*   "invented identity" versus "authored value", and only the first is
+*   gated here.
+*
+*   WHEN THIS RETURNS FALSE, THE CALLER MUST FAIL LOUDLY. Refusing a stub
+*   and then carrying on with a blank partner is worse than the stub was:
+*   it posts an anonymous request instead of a mislabelled one. Say the
+*   citizen could not be identified and stop.
+    CLASS-METHODS dev_stubs_ok RETURNING VALUE(rv) TYPE abap_bool.
+
+*   MAY &trace=x PRINT. Development and quality only. The trace carries
+*   partner numbers, case ids, backend payloads and the BAdI's own
+*   messages, and on production that is a citizen's screen.
+*
+*   The refusal is SILENT by design - no "trace is not available here",
+*   which would confirm the parameter exists to anyone who guessed it.
+    CLASS-METHODS trace_ok RETURNING VALUE(rv) TYPE abap_bool.
+
+*   WHAT THE JOURNEY STUDIO MAY DO HERE. 'EDIT' on development, 'READ' on
+*   quality, 'NONE' anywhere else.
+*
+*   Configuration reaches other systems by transport, never by editing
+*   against their data - so authoring is development-only. Quality gets
+*   read access because being able to SEE what a journey is configured to
+*   do, on the system where it is being tested, answers most of the
+*   questions that would otherwise become a call to a developer.
+*
+*   'NONE' means the Studio does not open at all. The caller must enforce
+*   'READ' server-side on every write path - Save, Delete, Activate, the
+*   feeders, PERSIST( ) - and not merely hide the buttons, because a
+*   hidden button is not an unreachable event.
+    CLASS-METHODS studio_mode RETURNING VALUE(rv) TYPE string.
+
+    CONSTANTS c_studio_edit TYPE string VALUE 'EDIT'.
+    CONSTANTS c_studio_read TYPE string VALUE 'READ'.
+    CONSTANTS c_studio_none TYPE string VALUE 'NONE'.
+
   PRIVATE SECTION.
+
+*   The three RAK systems. Private: everything outside this class asks a
+*   question about capability, never about which system it is on.
+    CONSTANTS c_sys_dev  TYPE sy-sysid VALUE 'E10'.
+    CONSTANTS c_sys_qa   TYPE sy-sysid VALUE 'E20'.
+    CONSTANTS c_sys_prod TYPE sy-sysid VALUE 'E30'.
 
 *   The recognised per-check keys of a keyed MSG. See MSG_FOR( ).
     CLASS-METHODS msg_key
@@ -237,6 +311,42 @@ ENDCLASS.
 
 
 CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
+
+
+  METHOD is_dev.
+    rv = xsdbool( sy-sysid = c_sys_dev ).
+  ENDMETHOD.
+
+
+  METHOD is_qa.
+    rv = xsdbool( sy-sysid = c_sys_qa ).
+  ENDMETHOD.
+
+
+  METHOD is_prod.
+*   NOT xsdbool( sy-sysid = c_sys_prod ). An unrecognised system - a
+*   sandbox, a copy, a system renamed after this was written - counts as
+*   production here. Anything else means a new system inherits a
+*   developer's stubs on its first day.
+    rv = xsdbool( sy-sysid <> c_sys_dev AND sy-sysid <> c_sys_qa ).
+  ENDMETHOD.
+
+
+  METHOD dev_stubs_ok.
+    rv = is_dev( ).
+  ENDMETHOD.
+
+
+  METHOD trace_ok.
+    rv = xsdbool( is_dev( ) = abap_true OR is_qa( ) = abap_true ).
+  ENDMETHOD.
+
+
+  METHOD studio_mode.
+    rv = COND string( WHEN is_dev( ) = abap_true THEN c_studio_edit
+                      WHEN is_qa( )  = abap_true THEN c_studio_read
+                      ELSE c_studio_none ).
+  ENDMETHOD.
 
 
   METHOD att_url.

@@ -486,6 +486,24 @@ CLASS zcl_rak_cjs DEFINITION
     METHODS render_audit IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS new_journey.
     METHODS save_journey.
+
+*   ---- READ-ONLY STUDIO -------------------------------------------------
+*   Set once in the entry gate from ZCL_RAK_JOURNEY_UTIL=>STUDIO_MODE( ):
+*   true on quality, where the Studio opens so a tester can SEE what a
+*   journey is configured to do but may change nothing.
+    DATA mv_readonly TYPE abap_bool.
+
+*   THE SERVER-SIDE HALF, and the half that matters. Every method that
+*   writes calls this first and returns when it answers false. Disabling
+*   the buttons is the courtesy; this is the enforcement, because an event
+*   can be raised without the button that normally raises it - which is a
+*   lesson this codebase has already paid for once in HANDLE_SAVE( ),
+*   where an OFF draft mode had to be refused rather than merely hidden.
+*
+*   It sets the message strip itself, so a caller is one CHECK and needs no
+*   wording of its own.
+    METHODS can_write RETURNING VALUE(rv) TYPE abap_bool.
+
     METHODS copy_journey       IMPORTING iv_strip_handler TYPE abap_bool DEFAULT abap_false.
     METHODS free_id            IMPORTING iv_base TYPE string RETURNING VALUE(rv) TYPE string.
     METHODS deactivate_journey.
@@ -657,13 +675,25 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   ZCL_RAK_JOURNEY_ENGINE - what a citizen actually opens to use a live
 *   service - is deliberately NOT gated this way. This check belongs only
 *   to the authoring tool.
-    IF sy-sysid <> 'E10'.
+*   THREE STATES, NOT TWO. This used to be a hard stop on anything that is
+*   not E10, which closed the Studio on quality as well - and being able to
+*   SEE what a journey is configured to do, on the system where it is being
+*   tested, answers most of the questions that otherwise become a call to a
+*   developer. So quality gets READ, production gets nothing, and only
+*   development may write.
+*
+*   MV_READONLY is set here, once, before anything else runs. Every write
+*   path checks it server-side - see CAN_WRITE( ). Hiding the buttons is
+*   not enough: a hidden button is not an unreachable event.
+    mv_readonly = xsdbool( zcl_rak_journey_util=>studio_mode( ) = zcl_rak_journey_util=>c_studio_read ).
+
+    IF zcl_rak_journey_util=>studio_mode( ) = zcl_rak_journey_util=>c_studio_none.
       mo_client->view_display(
         z2ui5_cl_xml_view=>factory(
           )->message_page( text        = |This system is { sy-sysid }.|
-                           description = 'The Journey Studio only opens on E10. Author journeys ' &&
-                                         'there and let them reach this system by transport, not ' &&
-                                         'by editing here directly.'
+                           description = 'The Journey Studio does not open here. Author journeys ' &&
+                                         'on development and let them reach this system by ' &&
+                                         'transport, never by editing against its data.'
                            icon        = 'sap-icon://locked'
           )->stringify( ) ).
       RETURN.
@@ -1192,6 +1222,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
 
   METHOD deactivate_journey.
+    IF can_write( ) = abap_false.
+      RETURN.
+    ENDIF.
     IF auth_ok( '02' ) = abap_false.
       RETURN.
     ENDIF.
@@ -1359,7 +1392,20 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD can_write.
+    rv = xsdbool( mv_readonly = abap_false ).
+    IF rv = abap_false.
+      mv_msg   = |This system is { sy-sysid } and the Studio is read-only here. | &&
+                 |Author on development and let the change arrive by transport.|.
+      mv_mtype = 'Error'.
+    ENDIF.
+  ENDMETHOD.
+
+
   METHOD save_journey.
+    IF can_write( ) = abap_false.
+      RETURN.
+    ENDIF.
     IF auth_ok( '02' ) = abap_false.
       RETURN.
     ENDIF.
@@ -1551,6 +1597,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
 
   METHOD copy_journey.
+    IF can_write( ) = abap_false.
+      RETURN.
+    ENDIF.
     IF auth_ok( '02' ) = abap_false.
       RETURN.
     ENDIF.
@@ -2844,12 +2893,20 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   activates as-is: open to developers in DEV/QA, closed in PRD. For a dedicated
 *   role, create Z_RAK_CJS in SU21 with field ACTVT (02 change / 03 display /
 *   06 delete) and swap the object name below.
-*   ---- TEMPORARY BYPASS - REVERT BEFORE ANY TRANSPORT PAST DEV ----------
-*   Set LV_BYPASS to ABAP_FALSE to put the authority check back. Left as a
-*   flag rather than deleting the check so restoring it is one character.
+*   ---- THE BYPASS IS OFF, AND IT IS NOW DEVELOPMENT-ONLY ----------------
+*   This used to be `lv_bypass = abap_true` unconditionally, so AUTH_OK( )
+*   returned true to everybody and the authority check below never ran.
+*   Anyone who could start the Studio could save or delete a live journey.
+*   With that standing, "read-only on quality" would have been decoration.
+*
+*   Left as a flag rather than deleted, because it is genuinely useful on a
+*   fresh development client where nobody has the object yet - but bounded
+*   by DEV_STUBS_OK( ), so it cannot travel. The AND is the point: setting
+*   it back to ABAP_TRUE re-opens development and changes nothing anywhere
+*   else.
     DATA lv_bypass TYPE abap_bool.
-    lv_bypass = abap_true.
-    IF lv_bypass = abap_true.
+    lv_bypass = abap_false.
+    IF lv_bypass = abap_true AND zcl_rak_journey_util=>dev_stubs_ok( ) = abap_true.
       rv = abap_true.
       RETURN.
     ENDIF.

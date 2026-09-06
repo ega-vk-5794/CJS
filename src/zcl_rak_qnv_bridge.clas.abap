@@ -297,9 +297,13 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
 *   dev `&loginbp=` override second. Computed HERE rather than inside the
 *   BP-item guard below, because both that item and the parameter need it
 *   and the guard may not run.
+*   DEVELOPMENT STUB, gated. LV_PARTNER feeds both the BP item and PARAM3
+*   below, so this one COND decides who the whole post says is applying.
     DATA(lv_partner) = COND string( WHEN iv_loginbp IS NOT INITIAL
                                     THEN iv_loginbp
-                                    ELSE ms_config-backend-loginbp_dev ).
+                                    WHEN zcl_rak_journey_util=>dev_stubs_ok( ) = abap_true
+                                    THEN ms_config-backend-loginbp_dev
+                                    ELSE space ).
 
     CONSTANTS c_caller_fld TYPE string VALUE 'ZCJS_CALLER'.
     CONSTANTS c_caller_id  TYPE string VALUE 'CJS'.
@@ -310,8 +314,12 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
     APPEND VALUE #( fieldname = c_caller_fld technicalname = c_caller_fld
                         value = c_caller_id ) TO lt_item.
 
+*   The item is named LOGINBP_DEV and is exactly what it says. Gated with
+*   the rest: a stub that reaches the BAdI as an item is no different from
+*   one that reaches it as a header parameter.
     IF ms_config-backend-userdata IS INITIAL
-       AND ms_config-backend-loginbp_dev IS NOT INITIAL.
+       AND ms_config-backend-loginbp_dev IS NOT INITIAL
+       AND zcl_rak_journey_util=>dev_stubs_ok( ) = abap_true.
       APPEND VALUE #( fieldname = 'LOGINBP_DEV' technicalname = 'LOGINBP_DEV'
                       value = ms_config-backend-loginbp_dev ) TO lt_item.
     ENDIF.
@@ -738,10 +746,16 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
 *   journey comes back empty and nothing is reported. Hence EV_GUID / EV_CASE below.
     ls_hdr-param1       = iv_guid.
     ls_hdr-param2       = ms_config-backend-journey.
-*   PARAM3 is the partner. Falls back to the dev BP override so a direct launch
-*   without a portal session still resolves an applicant on E10 / E20.
+*   PARAM3 is the partner, and the fallback below is a DEVELOPMENT STUB.
+*   This comment used to say it resolves an applicant "on E10 / E20", and
+*   it did - nothing gated it, so a direct launch without a portal session
+*   posted the dev BP as the applicant on quality as well. The BAdI reads
+*   PARAM3 as the person applying, so that is a real request filed under a
+*   partner nobody chose.
     ls_hdr-param3       = COND #( WHEN iv_loginbp IS NOT INITIAL THEN iv_loginbp
-                                  ELSE ms_config-backend-loginbp_dev ).
+                                  WHEN zcl_rak_journey_util=>dev_stubs_ok( ) = abap_true
+                                  THEN ms_config-backend-loginbp_dev
+                                  ELSE space ).
     ls_hdr-param4       = ms_config-backend-rolebp.
     ls_hdr-screenname   = iv_screen.
     ls_hdr-categoryname = ms_config-backend-category.
