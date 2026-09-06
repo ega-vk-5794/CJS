@@ -263,6 +263,19 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   AND COMMIT, which is the part I left out of the first BAL version.
+*   BAL_DB_SAVE registers the write; it does not close the LUW. Without a
+*   COMMIT the rows never reach BALHDR and SLG1 shows nothing - which looks
+*   identical to a log that was never written, and is very likely what the
+*   empty SLG1 selection was actually showing.
+*
+*   Safe HERE and only here. This runs at the very end of MAIN( ), after the
+*   view has gone out and after every backend call has already committed
+*   through its own BAPI_TRANSACTION_COMMIT - so there is no half-finished
+*   business transaction for this to close prematurely. Do not move this
+*   method earlier in the round trip without revisiting that.
+    COMMIT WORK.
+
 *   Counted only once BAL_DB_SAVE has returned clean, so this is what was
 *   committed rather than what was attempted.
     gv_wrote = lines( gt_buf ).
