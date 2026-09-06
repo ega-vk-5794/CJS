@@ -139,6 +139,12 @@ CLASS zcl_rak_cj_log DEFINITION
 *   when it did. Reported by STATUS( ) on the trace.
     CLASS-DATA gv_err     TYPE string.
     CLASS-DATA gv_where   TYPE string.
+*   How many lines the last flush actually committed. STATUS( ) had only two
+*   answers - dead, or "ready" - and "ready" was returned both when nothing
+*   had been attempted AND after a flush that worked, so a working log and a
+*   silent one read identically. A count is the only answer that separates
+*   them.
+    CLASS-DATA gv_wrote   TYPE i.
 
 *   ASK THE CLASS WHAT ITS PARAMETERS ARE CALLED, rather than guessing.
 *
@@ -272,6 +278,10 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
 
         CALL METHOD go_log->('LOG_SAVE').
 
+*       Counted only once LOG_SAVE has returned without raising, so this is
+*       what was committed rather than what was attempted.
+        gv_wrote = lines( gt_buf ).
+
       CATCH cx_root INTO DATA(lx_flush).
         IF gv_err IS INITIAL.
           gv_err   = lx_flush->get_text( ).
@@ -396,9 +406,14 @@ CLASS zcl_rak_cj_log IMPLEMENTATION.
 *   GV_DEAD survives the round trip, so a failure discovered during last
 *   round trip's flush is reported on this one - which is when a reader can
 *   actually act on it.
-    rv = |ready · SLG1 object { c_object }/{ c_subobject } · writes only on a | &&
-         |round trip that has something to record (launch, submit, payment, | &&
-         |or an error the citizen was shown)|.
+    IF gv_wrote > 0.
+      rv = |wrote { gv_wrote } line(s) to SLG1 object { c_object }/{ c_subobject }|.
+      RETURN.
+    ENDIF.
+
+    rv = |ready, nothing written yet · SLG1 object { c_object }/{ c_subobject } · | &&
+         |writes only on a round trip that has something to record (launch, | &&
+         |submit, payment, or an error the citizen was shown)|.
   ENDMETHOD.
 
 

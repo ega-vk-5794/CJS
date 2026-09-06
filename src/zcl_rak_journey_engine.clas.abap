@@ -24,6 +24,22 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mt_ovr TYPE tt_ovr .
     DATA mv_ref_ovr TYPE string .
     DATA mv_trace TYPE abap_bool .
+
+*   WHAT THE SLG1 LOG DID ON THE PREVIOUS ROUND TRIP, carried on the engine
+*   because ZCL_RAK_CJ_LOG cannot carry it itself.
+*
+*   Its state is CLASS-DATA, and class data does not survive an HTTP request
+*   - so a flush that failed at the end of one request was already forgotten
+*   by the time the next one drew its trace. Worse, the flush happens at the
+*   very end of MAIN( ), after the view has been rendered, so a trace written
+*   there reaches nobody either.
+*
+*   The result was a class that reported "ready" on every single round trip
+*   while writing nothing on any of them - which is the exact failure STATUS( )
+*   was added to prevent, moved one step further out of sight. The engine
+*   instance IS serialized between round trips, so parking the answer here is
+*   what makes it visible on the next one.
+    DATA mv_log_last TYPE string .
     DATA mv_sess  TYPE string .
     DATA mt_evt_seen TYPE string_table .
 
@@ -543,7 +559,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   SLG1 showed four entries, every one of them the BAdI's, and nothing
 *   said whether CJS had even tried. STATUS( ) names the call and the
 *   exception, so one launch settles it instead of a guess at a parameter.
-    trace( |LOG     { zcl_rak_cj_log=>status( ) }| ).
+*   THE PREVIOUS ROUND TRIP'S OUTCOME WHERE THERE IS ONE, because this round
+*   trip's has not happened yet - the flush is the last thing MAIN( ) does.
+*   Reporting the fresh state here is what made the log look healthy while it
+*   wrote nothing: STATUS( ) can only ever say "ready" at this point, on every
+*   request, for ever.
+    trace( |LOG     { COND string( WHEN mv_log_last IS NOT INITIAL
+                                   THEN mv_log_last && ` (last round trip)`
+                                   ELSE zcl_rak_cj_log=>status( ) ) }| ).
 
     IF lv_first = abap_true.
       DATA(lv_resumed) = xsdbool(
@@ -1074,6 +1097,13 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   opens its own log - so one SLG1 entry is one journey interaction rather
 *   than whatever a work process happened to serve.
     zcl_rak_cj_log=>save( ).
+
+*   AND KEEP WHAT IT DID. Read AFTER the flush, so this is the outcome and
+*   not a prediction, and parked on the engine so the next round trip's trace
+*   can report it - see MV_LOG_LAST. Nothing here renders: the view has
+*   already gone out by this point, which is half the reason the failure was
+*   invisible.
+    mv_log_last = zcl_rak_cj_log=>status( ).
 
     CLEAR ms_config.
     CLEAR: mo_css, mo_grid, mo_render, mo_be, mo_rules, mo_pcl.
