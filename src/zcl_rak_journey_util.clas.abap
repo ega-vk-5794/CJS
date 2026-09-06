@@ -44,6 +44,51 @@ CLASS zcl_rak_journey_util DEFINITION
     CLASS-METHODS css_width IMPORTING iv_value  TYPE string
                        RETURNING VALUE(rv) TYPE string.
 
+*   The one alignment validator, and the twin of CSS_WIDTH( ) above - same
+*   rule, same reason. sap.m.Column's HALIGN takes Begin, End, Center, Left,
+*   Right and Initial; anything else the browser drops without a word, and a
+*   value that vanishes silently looks exactly like one that never arrived.
+*   Blank out means no HALIGN, which is what every table renders today.
+    CLASS-METHODS css_align IMPORTING iv_value  TYPE string
+                       RETURNING VALUE(rv) TYPE string.
+
+*   A DATE BOUND FOR sap.m.DatePicker's MINDATE / MAXDATE, from what an
+*   author wrote in MIN_VAL or MAX_VAL.
+*
+*   Those two columns are CHAR(20) on ZRAK_T_JNY_FLD and are read for NUMBER
+*   ranges today. On a DATE field they are blank on every journey, so reading
+*   them as a date bound is additive by construction - nothing that exists
+*   moves.
+*
+*   WHAT IT ACCEPTS
+*       20270101        a literal, yyyymmdd
+*       2027-01-01      a literal, already in the picker's own format
+*       TODAY           the relative case that actually recurs
+*       TODAY-18Y       an age floor
+*       TODAY+30D       a window that closes
+*       TODAY-1Y
+*
+*   Only D and Y follow the sign. Months are deliberately NOT supported:
+*   "one month before the 31st" has no single right answer and a bound that
+*   is quietly wrong on five days of the month is worse than one an author
+*   has to write as days. An unrecognised value is REFUSED - blank out, no
+*   MINDATE, which is exactly how every date field renders today. Same
+*   discipline as CSS_WIDTH( ) and CSS_ALIGN( ): a value the control would
+*   drop silently must not be emitted, because a bound that vanishes looks
+*   identical to one that never arrived.
+*
+*   RETURNS yyyy-MM-dd, matching the VALUEFORMAT the DATE branch already
+*   passes. The two must agree or the picker parses the bound in one format
+*   and the value in another.
+*
+*   IT IS A CONVENIENCE, NOT A CONTROL. A greyed-out calendar day stops the
+*   click; it does not stop a value arriving by any other route, so the
+*   handler's own check stays the thing that actually refuses. This exists so
+*   the citizen is not offered a date that will be rejected after they have
+*   filled in the rest of the step.
+    CLASS-METHODS date_bound IMPORTING iv_value  TYPE string
+                       RETURNING VALUE(rv) TYPE string.
+
 *   THE ROW-PICK SPEC, and the ONE place DEFAULT_VAL is split for it.
 *   'SEL_GUID', 'SEL_GUID|View' and 'SEL_GUID|View|<ar>' all answer target
 *   SEL_GUID; the second and third also answer the button's own caption.
@@ -69,7 +114,20 @@ CLASS zcl_rak_journey_util DEFINITION
 *   DEFAULT_VAL already has four readings and this would have been a fifth.
     CLASS-METHODS col_spec IMPORTING iv_col   TYPE string
                        EXPORTING ev_text  TYPE string
-                                 ev_width TYPE string.
+                                 ev_width TYPE string
+*                                A THIRD PART ON THE SAME SEPARATOR:
+*                                'Judgment Date|13%|End'. A sap.m.Column is
+*                                flush left when nobody says otherwise, so a
+*                                column of dates does not share an edge and a
+*                                count of days reads as prose.
+*
+*                                Validated like the width and for the same
+*                                reason - sap.m.Column takes Begin, End,
+*                                Center, Left, Right and Initial, and anything
+*                                else the browser drops without a word, which
+*                                looks exactly like the alignment never
+*                                arriving. See CSS_ALIGN( ).
+                                 ev_align TYPE string.
 
 *   Language fallback (Arabic when IV_LANG = 'A' and the Arabic text is
 *   filled, English otherwise) plus OTR:<alias> resolution, lifted out of
@@ -358,12 +416,115 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
 
   METHOD col_spec.
     DATA lv_w TYPE string.
-    CLEAR: ev_text, ev_width.
-    SPLIT iv_col AT '|' INTO ev_text lv_w.
+    DATA lv_a TYPE string.
+    CLEAR: ev_text, ev_width, ev_align.
+*   THREE PARTS NOW, and SPLIT into three targets rather than two. A spec
+*   with only two parts leaves LV_A blank, which CSS_ALIGN( ) refuses, so
+*   every column authored before this renders exactly as it did.
+    SPLIT iv_col AT '|' INTO ev_text lv_w lv_a.
 *   The width is validated, never passed through. A refused value leaves the
 *   column exactly as it renders today rather than emitting a length the
 *   browser discards silently - which would look like the width never arrived.
     ev_width = css_width( lv_w ).
+    ev_align = css_align( lv_a ).
+  ENDMETHOD.
+
+
+  METHOD date_bound.
+    DATA lv_d TYPE d.
+    DATA lv_n TYPE i.
+
+    DATA(lv_v) = to_upper( condense( iv_value ) ).
+    IF lv_v IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   STRLEN BEFORE THE OFFSET. An offset on a STRING is an offset, and
+*   lv_v(5) on '2027' raises CX_SY_RANGE_OUT_OF_BOUNDS rather than simply
+*   not matching - the same trap that dumped an E016 popup on iv_event(8).
+*   A literal shorter than five characters is not a TODAY token and must
+*   reach the literal branch below, not throw on the way there.
+    IF strlen( lv_v ) >= 5 AND lv_v(5) = 'TODAY'.
+      lv_d = sy-datum.
+      DATA(lv_rest) = substring( val = lv_v off = 5 ).
+      IF lv_rest IS NOT INITIAL.
+*       +nD / -nY. The sign, the digits and the unit, and every part has to
+*       be there - a half-written token is refused rather than guessed at.
+*
+*       Three characters minimum: sign, at least one digit, unit. Below that
+*       the LEN below computes negative and SUBSTRING raises, so the length
+*       is checked before any offset arithmetic rather than after.
+        IF strlen( lv_rest ) < 3.
+          RETURN.
+        ENDIF.
+        DATA(lv_sign) = lv_rest(1).
+        DATA(lv_unit) = substring( val = lv_rest off = strlen( lv_rest ) - 1 ).
+        DATA(lv_num)  = substring( val = lv_rest off = 1 len = strlen( lv_rest ) - 2 ).
+        IF ( lv_sign <> '+' AND lv_sign <> '-' )
+           OR lv_num IS INITIAL OR lv_num CN '0123456789'.
+          RETURN.
+        ENDIF.
+        lv_n = CONV i( lv_num ).
+        IF lv_sign = '-'.
+          lv_n = lv_n * -1.
+        ENDIF.
+        CASE lv_unit.
+          WHEN 'D'.
+            lv_d = lv_d + lv_n.
+          WHEN 'Y'.
+*           Year arithmetic on the DATS text. 29 February minus a whole
+*           number of years lands on a date that does not exist in the
+*           target year; ABAP normalises it to 1 March, which is the
+*           conventional answer for an age floor and the one every other
+*           system in this landscape gives.
+*           WIDTH/PAD only. ALPHA = OUT is for a character field with
+*           leading zeros and does not combine with an integer.
+            DATA(lv_yr) = CONV i( lv_d(4) ) + lv_n.
+            IF lv_yr < 1000 OR lv_yr > 9999.
+              RETURN.
+            ENDIF.
+            lv_d = |{ lv_yr WIDTH = 4 PAD = '0' }{ lv_d+4(4) }|.
+          WHEN OTHERS.
+            RETURN.
+        ENDCASE.
+      ENDIF.
+      rv = |{ lv_d(4) }-{ lv_d+4(2) }-{ lv_d+6(2) }|.
+      RETURN.
+    ENDIF.
+
+*   Not a token, so a literal. TO_DATS( ) is the parser the DATE range check
+*   already uses, so a bound and a typed value are read by one thing - and a
+*   value it refuses comes back blank, which is the refusal this method wants
+*   anyway.
+    DATA(lv_dats) = to_dats( lv_v ).
+    IF strlen( lv_dats ) <> 8 OR lv_dats CN '0123456789'.
+      RETURN.
+    ENDIF.
+    rv = |{ lv_dats(4) }-{ lv_dats+4(2) }-{ lv_dats+6(2) }|.
+  ENDMETHOD.
+
+
+  METHOD css_align.
+*   THE ONE ALIGNMENT VALIDATOR, the same discipline CSS_WIDTH( ) is under
+*   and written as a method before it has a second caller rather than after
+*   - which is the lesson R12-2 cost, when a split written at one call site
+*   left the other reading the whole string.
+*
+*   sap.m.Column's HALIGN takes exactly these six. Anything else is dropped
+*   by the browser silently, and a value that vanishes without a word looks
+*   identical to one that never arrived - so a refused value falls through
+*   to no HALIGN at all, which is today's rendering.
+*
+*   Case-folded because an author typing 'end' has said what they meant.
+    DATA(lv_a) = to_upper( condense( iv_value ) ).
+    rv = SWITCH string( lv_a
+           WHEN 'BEGIN'   THEN 'Begin'
+           WHEN 'END'     THEN 'End'
+           WHEN 'CENTER'  THEN 'Center'
+           WHEN 'LEFT'    THEN 'Left'
+           WHEN 'RIGHT'   THEN 'Right'
+           WHEN 'INITIAL' THEN 'Initial'
+           ELSE space ).
   ENDMETHOD.
 
 

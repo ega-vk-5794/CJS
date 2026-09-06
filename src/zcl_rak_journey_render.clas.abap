@@ -953,7 +953,17 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                                 iv_lang = zcl_rak_text=>lang( ) )
           ELSE zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-select iv_default = 'Select' ) ).
 
-        DATA(lo_tab) = io_parent->table( alternaterowcolors = abap_true
+*       STICKY COLUMN HEADERS, and no configuration behind it on purpose.
+*       On a list longer than the viewport the header scrolls out of sight and
+*       the columns stop being identifiable - there is no reading of a result
+*       list where that is what the author wanted. So it is a default rather
+*       than a column somebody has to find and tick.
+*
+*       This is the one change in this round that is NOT blank-is-today: every
+*       existing table gains a sticky header. It is visual only - no row, no
+*       value and no event changes - which is why it is worth taking.
+        DATA(lo_tab) = io_parent->table( sticky             = 'ColumnHeaders'
+                                         alternaterowcolors = abap_true
                                          mode               = COND string( WHEN lv_pick IS NOT INITIAL THEN 'SingleSelectMaster' ELSE 'None' )
                                          class              = 'sapUiSmallMarginBeginEnd' ).
 
@@ -972,12 +982,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             DATA(lv_thx) = sy-tabix.
             DATA lv_thtxt TYPE string.
             DATA lv_thw   TYPE string.
+            DATA lv_tha   TYPE string.
 *           Through COL_SPEC( ) so the hide test judges the HEADER TEXT and not
-*           the width token behind it - '-|14rem' is still a hidden column, and
-*           a header that is blank apart from a width still hides.
+*           the width or alignment tokens behind it - '-|14rem|End' is still a
+*           hidden column, and a header blank apart from them still hides.
             zcl_rak_journey_util=>col_spec( EXPORTING iv_col   = lv_thdr
                                             IMPORTING ev_text  = lv_thtxt
-                                                      ev_width = lv_thw ).
+                                                      ev_width = lv_thw
+                                                      ev_align = lv_tha ).
             DATA(lv_tht) = condense( lv_thtxt ).
             IF lv_tht IS INITIAL OR lv_tht = '-'.
               APPEND lv_thx TO lt_thide.
@@ -1022,10 +1034,18 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           ENDIF.
           DATA lv_colt TYPE string.
           DATA lv_colw TYPE string.
+          DATA lv_cola TYPE string.
           zcl_rak_journey_util=>col_spec( EXPORTING iv_col   = lv_col
                                           IMPORTING ev_text  = lv_colt
-                                                    ev_width = lv_colw ).
-          lo_cols->column( width = lv_colw )->text( zcl_rak_journey_util=>esc( lv_colt ) ).
+                                                    ev_width = lv_colw
+                                                    ev_align = lv_cola ).
+*         HALIGN, and note the line two below: this same branch has always
+*         passed it for the pick button's column. It was only ever absent on
+*         a DATA column, which is why a list of dates does not share an edge
+*         and a count of days reads as prose. Blank leaves it off, so every
+*         table authored before this renders identically.
+          lo_cols->column( width  = lv_colw
+                           halign = lv_cola )->text( zcl_rak_journey_util=>esc( lv_colt ) ).
         ENDLOOP.
         IF lv_pick IS NOT INITIAL.
           lo_cols->column( halign = 'End' )->text( '' ).
@@ -1930,12 +1950,48 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                           valuestatetext = lv_vst
                                           width          = lv_w
                                           class          = mo_e->mo_css->cls( 'COMBO' ) ).
+
+*         R13-8. A WAY BACK TO BLANK, ON AN OPTIONAL DROPDOWN ONLY.
+*
+*         FORCESELECTION = ABAP_FALSE means the box starts empty and an
+*         untouched dropdown reads as untouched, which is right. But the item
+*         list is exactly the options, so once the citizen has chosen there is
+*         nothing to choose instead - a mis-click on a field they did not have
+*         to answer is permanent for the rest of the session, and a journey
+*         cannot add an option to a domain-driven list without polluting the
+*         domain for everything else that reads it.
+*
+*         REQUIRED SELECTS MUST NOT GET IT. A blank item on a required field
+*         is a value the citizen can pick that then fails validation - worse
+*         than not offering it. Required renders exactly as it does today, and
+*         so does every dropdown drawn read-only.
+*
+*         Its text is the field's own PLACEHOLDER where one is authored, which
+*         is also the ONLY way a placeholder can mean anything on a
+*         sap.m.Select: the control has no placeholder property at all, so
+*         R13-4 and this are one change on this branch rather than two.
+          IF is_field-validation-required = abap_false AND lv_edit = abap_true.
+            lo_sel->item(
+              key  = ``
+              text = COND string(
+                       WHEN is_field-placeholder IS NOT INITIAL
+                       THEN zcl_rak_journey_util=>esc( is_field-placeholder )
+                       ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-opt_none
+                                               iv_default = '(none)' ) ) ).
+          ENDIF.
+
           LOOP AT lt_opt INTO DATA(ls_os).
             lo_sel->item( key = ls_os-key text = zcl_rak_journey_util=>opt_text( iv_key = ls_os-key iv_text = ls_os-text ) ).
           ENDLOOP.
         ELSE.
           DATA(lo_cb) = io_form->combobox( selectedkey    = lv_bind
                                            editable       = lv_edit
+*                                          R13-4. PLACEHOLDER is a configured,
+*                                          bilingual column the Studio offers on
+*                                          every field, and it was read into
+*                                          TY_FIELD and then never passed to
+*                                          this control. Blank is today.
+                                           placeholder    = is_field-placeholder
                                            change         = mo_e->opt_evt( is_field-name )
                                            valuestate     = lv_vs
                                            valuestatetext = lv_vst
@@ -2185,6 +2241,8 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         req_label( io_form = io_form is_field = is_field ).
         io_form->date_picker( value          = lv_bind
                               editable       = lv_edit
+*                             R13-4, the same omission as the ComboBox above.
+                              placeholder    = is_field-placeholder
                               valuestate     = lv_vs
                               valuestatetext = lv_vst
                               width          = lv_w
@@ -2197,6 +2255,26 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *                             rendered with slashes therefore displayed in one
 *                             format and parsed in another.
                               valueformat    = 'yyyy-MM-dd'
+*                             R13-6. MIN_VAL / MAX_VAL are CHAR(20) on
+*                             ZRAK_T_JNY_FLD, read for NUMBER ranges today and
+*                             blank on every DATE field - so reading them here
+*                             is additive by construction.
+*
+*                             DATE_BOUND( ) takes a literal or a TODAY token
+*                             and returns yyyy-MM-dd, matching the VALUEFORMAT
+*                             two lines up; the two have to agree or the picker
+*                             parses the bound in one format and the value in
+*                             another. A value it refuses comes back blank,
+*                             which is no bound at all.
+*
+*                             The calendar greys out what is not allowed, so
+*                             the citizen is not offered a date that would be
+*                             refused on Next after they had filled the rest of
+*                             the step. It does NOT replace the handler's own
+*                             check - a greyed day stops the click, not a value
+*                             arriving by another route.
+                              mindate        = zcl_rak_journey_util=>date_bound( is_field-validation-min_val )
+                              maxdate        = zcl_rak_journey_util=>date_bound( is_field-validation-max_val )
                               displayformat  = 'dd.MM.yyyy' ).
 
       WHEN 'TIME'.
@@ -2240,6 +2318,8 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         req_label( io_form = io_form is_field = is_field ).
         io_form->text_area( value            = lv_bind
                             rows             = '3'
+*                           R13-4, the third of the same omission.
+                            placeholder      = is_field-placeholder
                             editable         = lv_edit
                             maxlength        = COND string( WHEN is_field-validation-max_len > 0 THEN |{ is_field-validation-max_len }| ELSE `0` )
                             showexceededtext = xsdbool( is_field-validation-max_len > 0 )

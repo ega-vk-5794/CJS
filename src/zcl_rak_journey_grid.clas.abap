@@ -978,7 +978,12 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       ENDLOOP.
     ENDLOOP.
 
+*   Sticky headers here too - see the note at the TABLE branch in
+*   ZCL_RAK_JOURNEY_RENDER. An editable grid is the case that needs it more:
+*   the citizen is typing into row twelve and the column it belongs to has
+*   scrolled off the top.
     DATA(lo_tab) = lo_box->table( items              = mo_e->mo_client->_bind_edit( <tab> )
+                                  sticky             = 'ColumnHeaders'
                                   alternaterowcolors = abap_true
                                   class              = 'sapUiSmallMarginTop'
                                   footertext         = lv_footer ).

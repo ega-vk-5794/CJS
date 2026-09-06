@@ -227,6 +227,11 @@ CLASS zcl_rak_text DEFINITION
         cap_ph              TYPE symsgno VALUE '135',
         cap_refresh         TYPE symsgno VALUE '136',
         cap_wrong           TYPE symsgno VALUE '137',
+*       The leading blank item on an OPTIONAL closed-list dropdown - the way
+*       back to "not answered" after a mis-click. Shown only where the field
+*       has no PLACEHOLDER of its own to use instead. See R13-8 in
+*       ZCL_RAK_JOURNEY_RENDER's SELECT branch.
+        opt_none            TYPE symsgno VALUE '138',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -555,7 +560,10 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
         ar = `عرض رمز آخر` )
       ( msgno = c_no-cap_wrong
         en = `The verification code does not match. A new code is shown - please try again.`
-        ar = `رمز التحقق غير مطابق. تم عرض رمز جديد - يرجى المحاولة مرة أخرى.` ) ).
+        ar = `رمز التحقق غير مطابق. تم عرض رمز جديد - يرجى المحاولة مرة أخرى.` )
+      ( msgno = c_no-opt_none
+        en = `(none)`
+        ar = `(بدون)` ) ).
   ENDMETHOD.
 
 
