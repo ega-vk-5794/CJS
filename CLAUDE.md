@@ -403,6 +403,27 @@ These raise nothing and render nothing. They account for most of the bugs found 
   structure is legacy and must not be widened. Long text belongs on a scalar field bound
   to the `GS_DATA` component that holds the whole string, the way EC05's `DESCRIPTION_1`
   binds `GS_DATA-COMPLAINT_DESC`, with the table column left as a summary.
+- **A column two things read is a column two things must read the SAME WAY.** `DEFAULT_VAL`
+  on a TABLE gained a row-pick caption behind a `|` — `SEL_GUID|View|<ar>` — and the split
+  was written in `RENDER_BLOCK( )` only. The engine's `ROWPICK_` branch went on taking the
+  whole string as the target field name, so the button drew as "View", the press fired, and
+  `VAL_SET( )` wrote the row key into a field called `SEL_GUID|View|<ar>`. **`VAL_SET( )` to
+  a name the model does not have is silent**, `ON_CHANGE( )` was dispatched for a field no
+  handler matches, and the journey sat exactly where it was: rendered perfectly, did nothing,
+  no message and no trace. `ZCL_RAK_JOURNEY_UTIL=>PICK_SPEC( )` is now the one split and both
+  callers come through it; `COL_SPEC( )` is the same discipline for the table column width
+  (`'Case No.|14rem'`), written as one method before it had two readers rather than after.
+  The engine also `TRACE_GATE( )`s a pick target that is not a field on the journey, which
+  is the general form of this — and catches the older shape, a `DEFAULT_VAL` still naming a
+  field somebody renamed.
+- **`SECTION` used to work on one render path and not the other.** The unlaid path opens a
+  panel per `ZRAK_T_JNY_FLD-SECTION`; `RENDER_BLOCK_LAID_OUT( )` opened exactly one card and
+  planned every field into it, so on a step drawn in the Design tab the column saved and did
+  nothing. Both paths honour it now, and a laid-out step starts a new card when the section
+  of a planned row differs from the row before it. The general lesson is the one that cost
+  the round: **two render paths that do not honour the same settings need to say which one
+  ran** — `RENDER_STEP( )` now traces `LAID OUT` under `&trace=x`, because a setting that
+  works on one step and not the next reads as the setting being broken.
 - **A grid row written by hand is positional against the *configured* columns.**
   `SET_GRID_DATA( )` maps by name, but the `COLUMNS` a handler passes came straight back from
   `GET_GRID_DATA( )`, so the map is an identity map and cell N lands in configured column N.

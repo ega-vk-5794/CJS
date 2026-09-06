@@ -2210,7 +2210,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                width = '12rem' ).
     f->label( 'Group' ).      f->input( value = mo_client->_bind_edit( fv_group )
     placeholder = 'container heading, OR ROW:name to share a row with the neighbouring ROW:name fields' ).
-    f->label( 'Section' ).    f->input( value = mo_client->_bind_edit( fv_sect ) ).
+*   SECTION now works on BOTH render paths. It used to open a panel only on
+*   the unlaid one, so on a step drawn in the Design tab it was a value that
+*   saved and did nothing - and nothing on screen said which path a step took.
+    f->label( 'Section' ).    f->input( value = mo_client->_bind_edit( fv_sect )
+    placeholder = 'card heading - starts a new card here, on a laid-out step too' ).
     f->label( 'Section (AR)' ). f->input( value = mo_client->_bind_edit( fv_sect_ar ) ).
 *   ZRAK_T_JNY_FLD-WIDTH, and it IS applied now - CTRL_WIDTH( ) returns it
 *   ahead of the per-type default, and a laid-out cell's 100% no longer

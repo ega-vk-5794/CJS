@@ -623,10 +623,45 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         READ TABLE ls_rps-fields INTO DATA(ls_rpf) WITH KEY name = lv_rpf.
         IF sy-subrc = 0.
           DATA lv_rptgt TYPE string.
-          lv_rptgt = COND #( WHEN ls_rpf-default IS NOT INITIAL THEN ls_rpf-default
-                             WHEN to_upper( ls_rpf-type ) = 'RECORDCARD' THEN ls_rpf-name
-                             ELSE '' ).
+*         The caption parts are the renderer's business, not the engine's -
+*         two separate sinks because one variable bound to both would be the
+*         same memory written twice by one SPLIT.
+          DATA lv_rpc1  TYPE string.
+          DATA lv_rpc2  TYPE string.
+
+*         THE TARGET IS THE PART BEFORE THE FIRST '|', and it is read through
+*         the same PICK_SPEC( ) the renderer captions the button with. This
+*         line used to take DEFAULT_VAL whole, which was right until the
+*         caption was added to the tail of it and made the two readings
+*         disagree: the button drew as "View" and the press wrote the row key
+*         into a field called 'SEL_GUID|View|<ar>'. VAL_SET( ) to a name the
+*         model does not have says nothing, no handler CASE matched, and the
+*         journey sat exactly where it was. One column, two readers, one
+*         split - never two.
+          zcl_rak_journey_util=>pick_spec( EXPORTING iv_default = ls_rpf-default
+                                           IMPORTING ev_target  = lv_rptgt
+                                                     ev_text_en = lv_rpc1
+                                                     ev_text_ar = lv_rpc2 ).
+          IF lv_rptgt IS INITIAL AND to_upper( ls_rpf-type ) = 'RECORDCARD'.
+            lv_rptgt = ls_rpf-name.
+          ENDIF.
           IF lv_rptgt IS NOT INITIAL.
+
+*           AND SAY SO WHEN IT NAMES NOTHING. A pick target that is not a
+*           field on this journey is the quietest failure the engine has:
+*           VAL_SET( ) is a no-op on an unknown name, ON_CHANGE( ) is dispatched
+*           for a field nobody handles, and the citizen presses a button that
+*           does nothing with no message, no navigation and no trace. It cost
+*           a test round to find once. It also catches the older shape of the
+*           same thing - a DEFAULT_VAL still naming a field that was renamed.
+            DATA(ls_rptf) = safe_field( lv_rptgt ).
+            IF ls_rptf-name IS INITIAL.
+              trace_gate( |Table { ls_rpf-name }: the row-pick target { lv_rptgt } | &&
+                          |is not a field on this journey, so the press writes | &&
+                          |nowhere and nothing moves. Check DEFAULT_VAL on that | &&
+                          |field - the target is the part before the first pipe.| ).
+            ENDIF.
+
             val_set( iv_name = lv_rptgt iv_value = lv_rpk ).
             IF mo_logic IS BOUND.
               mo_logic->on_change( io_ctx = me iv_field = lv_rptgt ).

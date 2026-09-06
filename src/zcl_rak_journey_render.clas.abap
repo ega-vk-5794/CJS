@@ -926,10 +926,20 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       parts are dropped. A caption must therefore not contain a colon - one
 *       would turn the value into a column spec at the test above, which is
 *       reached first and knows nothing about captions.
+*
+*       THE SPLIT ITSELF LIVES IN PICK_SPEC( ), and it must. When it was
+*       written here alone, this method captioned the button from the tail
+*       while the engine's ROWPICK_ branch went on treating the whole string
+*       as the target field name - so the button drew as "View", the press
+*       fired, and VAL_SET( ) wrote the row key into a field called
+*       'SEL_GUID|View|<ar>' in silence. Rendered perfectly, did nothing.
         DATA lv_pick    TYPE string.
         DATA lv_pick_en TYPE string.
         DATA lv_pick_ar TYPE string.
-        SPLIT is_field-default AT '|' INTO lv_pick lv_pick_en lv_pick_ar.
+        zcl_rak_journey_util=>pick_spec( EXPORTING iv_default = is_field-default
+                                         IMPORTING ev_target  = lv_pick
+                                                   ev_text_en = lv_pick_en
+                                                   ev_text_ar = lv_pick_ar ).
         IF lv_chk = abap_true OR lv_csok = abap_true.
           CLEAR: lv_pick, lv_pick_en, lv_pick_ar.
         ENDIF.
@@ -960,7 +970,15 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
           LOOP AT ls_data-columns INTO DATA(lv_thdr).
             DATA(lv_thx) = sy-tabix.
-            DATA(lv_tht) = condense( lv_thdr ).
+            DATA lv_thtxt TYPE string.
+            DATA lv_thw   TYPE string.
+*           Through COL_SPEC( ) so the hide test judges the HEADER TEXT and not
+*           the width token behind it - '-|14rem' is still a hidden column, and
+*           a header that is blank apart from a width still hides.
+            zcl_rak_journey_util=>col_spec( EXPORTING iv_col   = lv_thdr
+                                            IMPORTING ev_text  = lv_thtxt
+                                                      ev_width = lv_thw ).
+            DATA(lv_tht) = condense( lv_thtxt ).
             IF lv_tht IS INITIAL OR lv_tht = '-'.
               APPEND lv_thx TO lt_thide.
             ENDIF.
@@ -979,12 +997,35 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         IF lv_chk = abap_true.
           lo_cols->column( width = '3rem' )->text( `` ).
         ENDIF.
+*       A COLUMN MAY CARRY ITS OWN WIDTH, after the header text and behind the
+*       same '|' the row-pick caption uses: 'Case No.|14rem'. Blank is every
+*       table that exists today.
+*
+*       It is here because sap.m.Table defaults FIXEDLAYOUT to true, which
+*       shares the width out evenly and ignores what is in the cells - so a
+*       six-column result list gives an always-empty date the same room as a
+*       case reference that then wraps onto two lines, and the row is half
+*       again as tall as it needs to be for the one value anybody reads.
+*       Widths are still shared out by the browser among the columns that
+*       DON'T name one, so widening the long column is enough and the rest
+*       need no attention.
+*
+*       Only GET_TABLE( ) can reach this. A table whose columns come from the
+*       KEY:Label:TYPE spec in DEFAULT_VAL cannot - '|' separates the COLUMNS
+*       there, so a header in that spec can never contain one - and that is
+*       deliberate rather than an oversight: DEFAULT_VAL has four readings
+*       already.
         LOOP AT ls_data-columns INTO DATA(lv_col).
           DATA(lv_tcx) = sy-tabix.
           IF line_exists( lt_thide[ table_line = lv_tcx ] ).
             CONTINUE.
           ENDIF.
-          lo_cols->column( )->text( zcl_rak_journey_util=>esc( lv_col ) ).
+          DATA lv_colt TYPE string.
+          DATA lv_colw TYPE string.
+          zcl_rak_journey_util=>col_spec( EXPORTING iv_col   = lv_col
+                                          IMPORTING ev_text  = lv_colt
+                                                    ev_width = lv_colw ).
+          lo_cols->column( width = lv_colw )->text( zcl_rak_journey_util=>esc( lv_colt ) ).
         ENDLOOP.
         IF lv_pick IS NOT INITIAL.
           lo_cols->column( halign = 'End' )->text( '' ).
@@ -1063,13 +1104,56 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *
 *   Invisible for as long as the page behind it was white. The ATTEST variant
 *   gives the page a grey, and the missing card became the first thing you see.
-    DATA(lo_card) = io_parent->vbox( class = mo_e->mo_css->cls( 'CARD' ) ).
+*
+*   ONE CARD PER SECTION, not one card per step. ZRAK_T_JNY_FLD-SECTION was
+*   read by the unlaid path and ignored here, so a configured column did
+*   something on one render path and nothing on the other, with nothing on
+*   screen to say which path a step had taken - a search step with criteria
+*   above and a result table below came out as one white card with a bold line
+*   in the middle of it.
+*
+*   A row's section is the section of the first field in it that names one.
+*   Every laid-out step that exists today has a blank SECTION on every field,
+*   so the section never changes, one card is opened and the render is
+*   identical - the same additive shape as NO_ACTION and CTRL_WIDTH.
+*
+*   A named section draws the PANEL the unlaid path draws, so the two agree on
+*   what a section looks like rather than inventing a second appearance for it.
+    DATA lv_sect     TYPE string.
+    DATA lv_sect_now TYPE string.
+    DATA lv_first    TYPE abap_bool.
+    DATA lo_card     TYPE REF TO z2ui5_cl_xml_view.
+    DATA lo_grid     TYPE REF TO z2ui5_cl_xml_view.
 
-    DATA(lo_grid) = lo_card->grid( default_span = 'XL12 L12 M12 S12'
-                                   hspacing     = '1'
-                                   vspacing     = '1' )->content( ns = 'layout' ).
+    lv_first = abap_true.
 
     LOOP AT lt_rows ASSIGNING FIELD-SYMBOL(<ls_row>).
+
+      CLEAR lv_sect_now.
+      LOOP AT <ls_row>-cells ASSIGNING FIELD-SYMBOL(<ls_sc>).
+        READ TABLE it_fields INTO DATA(ls_sfld)
+             WITH KEY name = CONV string( <ls_sc>-elem_id ).
+        IF sy-subrc = 0 AND ls_sfld-section IS NOT INITIAL.
+          lv_sect_now = ls_sfld-section.
+          EXIT.
+        ENDIF.
+      ENDLOOP.
+
+      IF lv_first = abap_true OR lv_sect_now <> lv_sect.
+        IF lv_sect_now IS INITIAL.
+          lo_card = io_parent->vbox( class = mo_e->mo_css->cls( 'CARD' ) ).
+        ELSE.
+          lo_card = io_parent->panel( headertext = zcl_rak_journey_util=>esc( lv_sect_now )
+                                      expandable = abap_true
+                                      expanded   = abap_true
+                                      class      = mo_e->mo_css->cls( 'CARD' ) ).
+        ENDIF.
+        lo_grid = lo_card->grid( default_span = 'XL12 L12 M12 S12'
+                                 hspacing     = '1'
+                                 vspacing     = '1' )->content( ns = 'layout' ).
+        lv_sect  = lv_sect_now.
+        lv_first = abap_false.
+      ENDIF.
 
       lv_break = abap_true.
 
@@ -2862,6 +2946,13 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
     IF zcl_rak_cj_lay=>get_instance( )->has_layout( iv_journey = lv_jid
                                                     iv_step    = lv_sid ) = abap_true.
+
+*     WHICH PATH THE STEP TOOK, on the trace. The two renderers do not honour
+*     the same settings and nothing on screen distinguishes them, so a setting
+*     that works on one step and not the next reads as the setting being
+*     broken. One line under &trace=x answers it before anyone re-derives it.
+      mo_e->trace( |step { is_step-id }: LAID OUT - ZRAK_CJ_LAYOUT rows decide | &&
+                   |position and cell width| ).
 
       render_block_laid_out( io_parent  = io_parent
                              iv_journey = lv_jid

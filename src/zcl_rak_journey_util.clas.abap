@@ -35,6 +35,42 @@ CLASS zcl_rak_journey_util DEFINITION
     CLASS-METHODS cfg_width  IMPORTING is_field  TYPE zif_rak_journey=>ty_field
                        RETURNING VALUE(rv) TYPE string.
 
+*   The one width validator. A CSS length CJS is willing to put in the markup,
+*   or blank - % and rem only, number required. A hard px width does not
+*   collapse on a phone and is the single way a config value can break the
+*   responsive layout, so it is refused wherever a width can be authored.
+*   CFG_WIDTH( ) and COL_SPEC( ) both come through here so the two cannot
+*   drift into accepting different things.
+    CLASS-METHODS css_width IMPORTING iv_value  TYPE string
+                       RETURNING VALUE(rv) TYPE string.
+
+*   THE ROW-PICK SPEC, and the ONE place DEFAULT_VAL is split for it.
+*   'SEL_GUID', 'SEL_GUID|View' and 'SEL_GUID|View|<ar>' all answer target
+*   SEL_GUID; the second and third also answer the button's own caption.
+*
+*   It exists because the split was written twice and only once: the renderer
+*   captioned the button from the tail and the engine's ROWPICK_ branch went
+*   on treating the WHOLE string as the target field name, so the pick wrote
+*   the row key into a field called 'SEL_GUID|View|<ar>' - VAL_SET( ) to a name
+*   the model does not have is silent, ON_CHANGE( ) matched nothing, and the
+*   button rendered perfectly and did nothing. Both callers come here now. Any
+*   third one must too.
+    CLASS-METHODS pick_spec IMPORTING iv_default TYPE string
+                       EXPORTING ev_target  TYPE string
+                                 ev_text_en TYPE string
+                                 ev_text_ar TYPE string.
+
+*   A TABLE column header, and the optional width after it: 'Case No.|14rem'.
+*   Same separator as PICK_SPEC( ) and the same rule - one place, both readers.
+*
+*   Only GET_TABLE( ) can reach it. A table whose columns come from the
+*   KEY:Label:TYPE spec in DEFAULT_VAL cannot: '|' separates the COLUMNS there,
+*   so a header in that spec can never contain one. That is deliberate -
+*   DEFAULT_VAL already has four readings and this would have been a fifth.
+    CLASS-METHODS col_spec IMPORTING iv_col   TYPE string
+                       EXPORTING ev_text  TYPE string
+                                 ev_width TYPE string.
+
 *   Language fallback (Arabic when IV_LANG = 'A' and the Arabic text is
 *   filled, English otherwise) plus OTR:<alias> resolution, lifted out of
 *   ZCL_RAK_JOURNEY_REPO~PICK( ) so a bilingual pair that never passes
@@ -210,19 +246,30 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD cfg_width.
-*   Only % and rem are accepted, and that is the whole point of this method
-*   rather than reading the column. A hard px width does not collapse on a
-*   phone, so it is the one way a config value can break the responsive
-*   layout - and a config value that breaks a layout is worse than no config
-*   value at all, because nothing on the screen says where the width came
-*   from. Anything else - px, em, vw, a bare number, a typo - answers blank
-*   and the field renders exactly as it did before the column existed.
-*
-*   The number is checked as well as the unit. '%' or 'rem' on its own is not
-*   a width, and z2ui5 would put it in the markup unchanged for the browser
-*   to discard silently.
-    DATA(lv) = to_lower( condense( is_field-ctrl_width ) ).
+  METHOD col_spec.
+    DATA lv_w TYPE string.
+    CLEAR: ev_text, ev_width.
+    SPLIT iv_col AT '|' INTO ev_text lv_w.
+*   The width is validated, never passed through. A refused value leaves the
+*   column exactly as it renders today rather than emitting a length the
+*   browser discards silently - which would look like the width never arrived.
+    ev_width = css_width( lv_w ).
+  ENDMETHOD.
+
+
+  METHOD pick_spec.
+    CLEAR: ev_target, ev_text_en, ev_text_ar.
+    SPLIT iv_default AT '|' INTO ev_target ev_text_en ev_text_ar.
+  ENDMETHOD.
+
+
+  METHOD css_width.
+*   Only % and rem are accepted. Anything else - px, em, vw, a bare number, a
+*   typo - answers blank, and every caller reads blank as "nothing was
+*   authored" and renders as it did before. The number is checked as well as
+*   the unit: '%' or 'rem' on its own is not a width, and z2ui5 would put it in
+*   the markup unchanged for the browser to drop without a word.
+    DATA(lv) = to_lower( condense( iv_value ) ).
     IF lv IS INITIAL.
       RETURN.
     ENDIF.
@@ -230,6 +277,17 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
     IF sy-subrc = 0.
       rv = lv.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD cfg_width.
+*   The authored per-field width, or blank - both when the field carries none
+*   and when what it carries is refused. A config value that breaks a layout
+*   is worse than no config value at all, because nothing on the screen says
+*   where the width came from, so a rejected one renders exactly as the field
+*   did before the column was read. CSS_WIDTH( ) is the rule, shared with the
+*   table column width.
+    rv = css_width( is_field-ctrl_width ).
   ENDMETHOD.
 
 
