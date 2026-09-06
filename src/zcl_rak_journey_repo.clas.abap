@@ -162,11 +162,8 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
           readonly     = bool( ls_f-readonly )
           closed_list  = bool( ls_f-closed_list )
           no_browse    = bool( ls_f-no_browse )
-*         Round 13. TOOLTIP through PICK( ) like every other bilingual pair,
-*         so OTR:<alias> and @nnn resolve here too and a tooltip can be
-*         reworded without a reseed. The other three are single-language by
-*         nature - an alignment, a unit and a row count.
-          tooltip      = pick( iv_en = ls_f-tooltip iv_ar = ls_f-tooltip_ar iv_lang = iv_lang )
+*         Round 13. Single-language by nature - an alignment, a unit, a row
+*         count and a flag.
           text_align   = ls_f-text_align
           descr        = ls_f-descr
           ta_rows      = ls_f-ta_rows

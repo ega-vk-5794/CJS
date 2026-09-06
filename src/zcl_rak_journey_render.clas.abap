@@ -2348,7 +2348,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                                  ELSE '3' )
 *                           R13-4, the third of the same omission.
                             placeholder      = is_field-placeholder
-                            tooltip          = is_field-tooltip
                             editable         = lv_edit
                             maxlength        = COND string( WHEN is_field-validation-max_len > 0 THEN |{ is_field-validation-max_len }| ELSE `0` )
                             showexceededtext = xsdbool( is_field-validation-max_len > 0 )
@@ -2374,11 +2373,8 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *                       R13-9 / R13-5. DESCRIPTION is the short unit a form
 *                       puts AFTER the value - days, AED, cm - and stays
 *                       visible beside what the citizen typed, unlike a
-*                       placeholder. TOOLTIP is the word of explanation a
-*                       placeholder cannot be, because it survives typing.
-*                       Both blank on every journey today.
+*                       placeholder. Blank on every journey today.
                         description    = is_field-descr
-                        tooltip        = is_field-tooltip
                         editable       = lv_edit
                         change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
                         maxlength      = COND string( WHEN is_field-validation-max_len > 0 THEN |{ is_field-validation-max_len }| ELSE `0` )
@@ -2455,11 +2451,8 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *                       R13-9 / R13-5. DESCRIPTION is the short unit a form
 *                       puts AFTER the value - days, AED, cm - and stays
 *                       visible beside what the citizen typed, unlike a
-*                       placeholder. TOOLTIP is the word of explanation a
-*                       placeholder cannot be, because it survives typing.
-*                       Both blank on every journey today.
+*                       placeholder. Blank on every journey today.
                         description    = is_field-descr
-                        tooltip        = is_field-tooltip
                         editable       = lv_edit
                         change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
                         valuestate     = lv_vs
@@ -2475,11 +2468,8 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *                       R13-9 / R13-5. DESCRIPTION is the short unit a form
 *                       puts AFTER the value - days, AED, cm - and stays
 *                       visible beside what the citizen typed, unlike a
-*                       placeholder. TOOLTIP is the word of explanation a
-*                       placeholder cannot be, because it survives typing.
-*                       Both blank on every journey today.
+*                       placeholder. Blank on every journey today.
                         description    = is_field-descr
-                        tooltip        = is_field-tooltip
                         editable       = lv_edit
                         change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
                         valuestate     = lv_vs
@@ -2638,12 +2628,10 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         DATA(lv_dta) = zcl_rak_journey_util=>css_align( is_field-text_align ).
         IF is_field-default CP 'TEXT:*'.
           io_form->text( text      = long_text( is_field )
-                         textalign = lv_dta
-                         tooltip   = is_field-tooltip ).
+                         textalign = lv_dta ).
         ELSE.
           io_form->text( text      = lv_bind
-                         textalign = lv_dta
-                         tooltip   = is_field-tooltip ).
+                         textalign = lv_dta ).
         ENDIF.
 
       WHEN 'RESULT'.

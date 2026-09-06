@@ -78,8 +78,6 @@ CLASS zcl_rak_cjs DEFINITION
 *       ZRAK_T_JNY_FLD is not finished at the renderer. It is finished when
 *       the Studio can round-trip it.
         no_browse    TYPE abap_bool,
-        tooltip      TYPE string,
-        tooltip_ar   TYPE string,
         text_align   TYPE string,
         descr        TYPE string,
         ta_rows      TYPE string,
@@ -302,8 +300,6 @@ CLASS zcl_rak_cjs DEFINITION
 *   Round 13, plus NO_BROWSE which shipped without a Studio home at all.
     DATA fv_nobrowse TYPE abap_bool.
     DATA fv_popin    TYPE abap_bool.
-    DATA fv_tip      TYPE string.
-    DATA fv_tip_ar   TYPE string.
     DATA fv_talign   TYPE string.
     DATA fv_descr    TYPE string.
     DATA fv_tarows   TYPE string.
@@ -823,7 +819,6 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         fv_state = ls_dup-fstate. fv_width = ls_dup-width.
         fv_hidden = ls_dup-hidden. fv_readonly = ls_dup-readonly. fv_closed = ls_dup-closed_list. fv_req = ls_dup-required.
         fv_nobrowse = ls_dup-no_browse. fv_popin = ls_dup-popin.
-        fv_tip = ls_dup-tooltip. fv_tip_ar = ls_dup-tooltip_ar.
         fv_talign = ls_dup-text_align. fv_descr = ls_dup-descr. fv_tarows = ls_dup-ta_rows.
         fv_regex = ls_dup-regex. fv_minlen = ls_dup-min_len. fv_maxlen = ls_dup-max_len.
         fv_minval = ls_dup-min_val. fv_maxval = ls_dup-max_val. fv_msg = ls_dup-msg. fv_msg_ar = ls_dup-msg_ar.
@@ -857,7 +852,6 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         fv_state = ls_ef-fstate. fv_width = ls_ef-width.
         fv_hidden = ls_ef-hidden. fv_readonly = ls_ef-readonly. fv_closed = ls_ef-closed_list. fv_req = ls_ef-required.
         fv_nobrowse = ls_ef-no_browse. fv_popin = ls_ef-popin.
-        fv_tip = ls_ef-tooltip. fv_tip_ar = ls_ef-tooltip_ar.
         fv_talign = ls_ef-text_align. fv_descr = ls_ef-descr. fv_tarows = ls_ef-ta_rows.
         fv_regex = ls_ef-regex. fv_minlen = ls_ef-min_len. fv_maxlen = ls_ef-max_len.
         fv_minval = ls_ef-min_val. fv_maxval = ls_ef-max_val. fv_msg = ls_ef-msg. fv_msg_ar = ls_ef-msg_ar.
@@ -1201,8 +1195,6 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                              closed_list = fv_closed
                              no_browse   = fv_nobrowse
                              popin       = fv_popin
-                             tooltip     = fv_tip
-                             tooltip_ar  = fv_tip_ar
                              text_align  = fv_talign
                              descr       = fv_descr
                              ta_rows     = fv_tarows ).
@@ -1374,7 +1366,6 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *                     be worse than neither: the editor would show a value
 *                     it then destroys.
                       no_browse = xsdbool( f-no_browse = 'X' ) popin = xsdbool( f-popin = 'X' )
-                      tooltip = f-tooltip tooltip_ar = f-tooltip_ar
                       text_align = f-text_align descr = f-descr
                       ta_rows = COND string( WHEN f-ta_rows > 0 THEN |{ f-ta_rows }| ) ) TO mt_fields.
     ENDLOOP.
@@ -1583,7 +1574,6 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *       The seven that used to be dropped here. See the note on TY_FLD.
         no_browse   = COND string( WHEN f-no_browse = abap_true THEN 'X' ELSE ' ' )
         popin       = COND string( WHEN f-popin     = abap_true THEN 'X' ELSE ' ' )
-        tooltip     = f-tooltip    tooltip_ar = f-tooltip_ar
         text_align  = f-text_align descr      = f-descr
         ta_rows     = to_int( f-ta_rows ) ) ).
       IF sy-subrc <> 0.
@@ -2353,9 +2343,6 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     f->label( 'Closed list (SELECT only - no free typing)' ). f->checkbox( selected = mo_client->_bind_edit( fv_closed ) ).
     f->label( 'No Browse button (SEARCH only)' ). f->checkbox( selected = mo_client->_bind_edit( fv_nobrowse ) ).
     f->label( 'Pop-in on phones (TABLE / EDITABLE_TABLE)' ). f->checkbox( selected = mo_client->_bind_edit( fv_popin ) ).
-    f->label( 'Tooltip' ).    f->input( value = mo_client->_bind_edit( fv_tip )
-                                        placeholder = 'hover text - survives typing, unlike a placeholder' ).
-    f->label( 'Tooltip (AR)' ). f->input( value = mo_client->_bind_edit( fv_tip_ar ) ).
     f->label( 'Text align' ). f->input( value = mo_client->_bind_edit( fv_talign )
                                         placeholder = 'DISPLAY only - Begin / End / Center / Left / Right / Initial' ).
     f->label( 'Unit suffix' ). f->input( value = mo_client->_bind_edit( fv_descr )
@@ -3042,7 +3029,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
            fv_group, fv_sect, fv_sect_ar, fv_state, fv_width, fv_hidden, fv_readonly, fv_closed, fv_req, fv_regex,
            fv_minlen, fv_maxlen, fv_minval, fv_maxval, fv_msg, fv_msg_ar, fv_tech, fv_roll, fv_shlp, fv_dom,
            fv_hasatt, fv_attlabel, fv_atttypes, fv_attmb, fv_attmulti,
-           fv_nobrowse, fv_popin, fv_tip, fv_tip_ar, fv_talign, fv_descr, fv_tarows.
+           fv_nobrowse, fv_popin, fv_talign, fv_descr, fv_tarows.
   ENDMETHOD.
 
 

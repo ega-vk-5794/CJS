@@ -59,13 +59,6 @@ INTERFACE zif_rak_journey
 *     Every one of these is blank on every journey that exists, and every
 *     branch that reads one falls through to exactly what it drew before.
 *
-*     A word of explanation on a control the citizen can hover or focus.
-*     PLACEHOLDER is NOT this: it lives inside the field, it disappears the
-*     moment anything is typed, and a DISPLAY, a checkbox and a SELECT
-*     cannot carry one at all. Resolved EN/AR by PICK( ) like every other
-*     bilingual pair, so OTR: and @nnn work here too.
-      tooltip      TYPE string,
-
 *     TEXTALIGN on a DISPLAY paragraph. Begin / End / Center / Left /
 *     Right / Initial, validated by CSS_ALIGN( ) - the same validator the
 *     table column uses, so the two cannot drift into accepting different
