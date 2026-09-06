@@ -184,14 +184,28 @@ START-OF-SELECTION.
 
 * --------------------------------------------------- STP1 General info
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
-*   A heading, not a field. The spec's "Please enter the details below"
-*   sits above the three controls and is a DISPLAY row in the legacy
-*   screen, which is what ZSECTION reproduces without drawing a control.
+*   A heading, not a field - AND NOT A ZSECTION EITHER. That is what this
+*   row used to say, and it was wrong on screen: ZSECTION does not print a
+*   caption, it opens a panel. RENDER_BLOCK( ) draws it as
+*   panel( headertext = ... expandable = abap_true ), so the citizen got a
+*   collapsible box with a chevron where the legacy screen has one line of
+*   bold text - and because this field carried a blank ZLABEL and a blank
+*   DEFAULT_VAL, the control inside the panel drew nothing, so the box was
+*   also empty. An empty expandable panel above the first question.
+*
+*   ZSECTION IS RIGHT WHEREVER IT GROUPS CONTROLS - M018 and M019 use it
+*   correctly for Grant Type, Family Details, Documents and the rest, and
+*   those panels have fields inside them. It is wrong for a standalone
+*   caption, which is what this one is.
+*
+*   The text goes in ZLABEL, not DEFAULT_VAL: a DISPLAY row takes its
+*   paragraph from DEFAULT_VAL, but DEFAULT_VAL has no _AR twin, so an
+*   Arabic reader would get the English. ZLABEL has ZLABEL_AR and the
+*   sentence is 30 characters, nowhere near the 150 ceiling.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 10
       field_name = 'CI_HEAD' ftype = 'DISPLAY' readonly = 'X'
-      zsection = 'Please enter the details below'
-      zsection_ar = 'يرجى إدخال التفاصيل أدناه'
-      zlabel = '' zlabel_ar = '' )
+      zlabel = 'Please enter the details below'
+      zlabel_ar = 'يرجى إدخال التفاصيل أدناه' )
 
 *   UPLOADER, CONFIRMED FROM THE EXPORT for NCI_1_1 - the single
 *   uploader on this screen, carrying no DATA2, so no DTYPE: default
