@@ -447,7 +447,7 @@ These raise nothing and render nothing. They account for most of the bugs found 
   rule-hidden field on a BAdI-answering screen un-hides.
 - **A migrated layout is DERIVED, not designed.** `ZCL_RAK_MIGRATOR` pairs a legacy caption
   row with the control it captions and drops the two into two cells of the twelve-column
-  `ZRAK_CJ_LAY` grid, because that is the shape of the `/QNV/` definition. Right for an input
+  `ZRAK_CJ_LAYOUT` grid, because that is the shape of the `/QNV/` definition. Right for an input
   and its label; wrong for a composite (`PARCEL`, `PROPERTY`, `TITLEDEED`, `CONTRACT`,
   `FLOORUNIT`, `BUILDINGS`, `ACCOM`), which is a full-width card list, and wrong for a DISPLAY
   paragraph. `ZCL_RAK_JOURNEY_RENDER->WIDE_FIELD( )` forces those two shapes to a full-width,
@@ -561,7 +561,7 @@ These raise nothing and render nothing. They account for most of the bugs found 
   hidden in the renderer: a hidden button is not an unreachable event. There is **no native
   draft store yet**, so `NATIVE` on a journey with no backend reports an error rather than a
   false success.
-- **Layout is per element in `ZRAK_CJ_LAY`, edited in the Studio's Design tab.** Row, column
+- **Layout is per element in `ZRAK_CJ_LAYOUT`, edited in the Studio's Design tab.** Row, column
   and span come from the twelve-column grid; `FLOW` makes one cell lay its contents left to
   right, which is how a handler's search or ADD button ends up *beside* its field instead of
   under it — a cell is a `vbox`, so `AFTER_FIELD( )` content always stacks otherwise. `FLOW`
@@ -887,11 +887,16 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
   traps in this file; a logic error unique to one journey (E017's non-blocking validation
   was exactly that) only surfaces on a real read.
 
-- **Five DDIC changes are in git but not necessarily in SAP**: `ZRAK_T_JNY` gained
-  `DRAFT_MODE` / `ATTACH_MODE`, `ZRAK_CJ_LAY` gained `FLOW`, `ZRAK_T_JNY_FLD` gained
-  `ZSECTION_AR` and `CLOSED_LIST`, and `ZRAK_T_JNY_STEP` gained `NO_ACTION`. All need
-  activation **and a table adjust** before the
-  code reading them behaves. `ZSECTION_AR` additionally needs its Studio maintenance screen
+- **Six DDIC changes are in git but not necessarily in SAP**: `ZRAK_T_JNY` gained
+  `DRAFT_MODE` / `ATTACH_MODE`, `ZRAK_CJ_LAYOUT` gained `FLOW` **and had `ELEM_ID`
+  narrowed 30 → 23** (the primary key stood at 124 against DDIC's hard ceiling of 120;
+  23 is the same limit `COMP_NAME( )` already imposes on a field name, so nothing that
+  can legally be an element id is lost, and the key is now 117), `ZRAK_T_JNY_FLD` gained
+  `ZSECTION_AR`, `CLOSED_LIST` and `NO_BROWSE`, and `ZRAK_T_JNY_STEP` gained `NO_ACTION`.
+  All need activation **and a table adjust** before the
+  code reading them behaves. **The full current shape of all 27 tables — every column,
+  every enumeration, and which nuance belongs to which — is in
+  [`config-tables.md`](.claude/skills/cjs-development/reference/config-tables.md).** `ZSECTION_AR` additionally needs its Studio maintenance screen
   regenerated — the `ZCL_RAK_CJS` field editor already has a "Section (AR)" input wired to it,
   but the column won't reach a plain SM30/view-cluster screen on `ZRAK_T_JNY_FLD` until that's
   done. `CLOSED_LIST` (`FTYPE 'SELECT'` only — `'X'` renders `sap.m.Select` instead of the
