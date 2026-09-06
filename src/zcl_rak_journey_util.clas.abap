@@ -404,6 +404,14 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
       OR iv_type = 'FLOORUNIT' OR iv_type = 'CONTRACT' OR iv_type = 'BUILDINGS'
       OR iv_type = 'SIGN' OR iv_type = 'CHEMICALS'
       OR iv_type = 'ACCOM' OR iv_type = 'BOATS'
+*     PDF BELONGS HERE AND HAS BEEN MISSING TWICE. Commit bc1a7ee is
+*     titled "PDF was missing from KNOWN_TYPE" and its one added line
+*     landed in IS_BLOCK( ) instead - which PDF also needs, and already
+*     had - so the warning it was meant to silence never stopped. A PDF
+*     field therefore renders correctly AND reports itself as an
+*     unsupported type rendered as a plain input, which reads as the
+*     control having failed.
+      OR iv_type = 'PDF'
       OR iv_type = 'CAPTCHA' ).
   ENDMETHOD.
 

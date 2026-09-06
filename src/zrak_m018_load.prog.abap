@@ -185,8 +185,12 @@ START-OF-SELECTION.
 *   where the spec page shows two boxes. Only RB3 is seeded, because
 *   in CJS one RADIO field carries the whole group and its options are
 *   ZRAK_T_JNY_OPT rows; RB4 and RB5 are the legacy control's other
-*   buttons, not separate fields. Which means the option list here
-*   needs THREE rows, and that is the one thing still unseeded.
+*   buttons, not separate fields. Which means the option list here needs
+*   THREE rows - and it has them: RB3, RB4 and RB5 are seeded together in
+*   the ZRAK_T_JNY_OPT block further down this report. This note used to
+*   end "and that is the one thing still unseeded", which stopped being
+*   true when they were added and would have sent the next reader to seed
+*   them a second time.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 10
       field_name = 'RB3' ftype = 'RADIO' required = 'X'
       tech_name = 'GTYPE_N'
@@ -226,9 +230,12 @@ START-OF-SELECTION.
 *   the BAdI's UPDATE( ) writes from the items - not as table data. A
 *   TECH_NAME here would post a second, competing list.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 40
+*   ZSECTION ONLY, NOT ZSECTION AND ZLABEL. Both were set to the same
+*   string, and the two are drawn by different things: the section draws
+*   the panel header, the control draws its own title. Setting both prints
+*   "Business Partner list" twice, once above the other, on every render.
       field_name = 'TABLE_FETCHER' ftype = 'EDITABLE_TABLE'
       zsection = 'Business Partner list' zsection_ar = 'قائمة الشركاء'
-      zlabel = 'Business Partner list' zlabel_ar = 'قائمة الشركاء'
       default_val = 'BPNO:BP number:TEXT'      &&
                     '|BPNAME:Name:TEXT'        &&
                     '|NATIONALITY:Nationality:TEXT' &&

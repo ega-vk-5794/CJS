@@ -679,6 +679,7 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
 *     accumulates across every grid on the step and the trace names the
 *     wrong one.
       DATA lv_drop  TYPE i.
+      DATA lv_join  TYPE string.
       CLEAR lv_drop.
       LOOP AT lt_rows INTO DATA(ls_row).
         CLEAR lt_cells.
@@ -717,12 +718,14 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
 *       the backend never filled. A grid meant to open with empty rows for
 *       the citizen to type into is a FIX grid seeded by ON_INIT( ), not a
 *       backend read - see grids.md.
-*       CONCAT_LINES_OF rather than a LOOP ... WHERE table_line IS NOT
-*       INITIAL: the same call is used twenty lines below to build the
-*       duplicate-grid signature, so it is known to compile here, and
-*       every cell has already been CONDENSEd - a row of blanks
-*       concatenates to an empty string and nothing else does.
-        IF concat_lines_of( table = lt_cells ) IS INITIAL.
+*       CONCAT_LINES_OF, but INTO A VARIABLE FIRST. Every cell has already
+*       been CONDENSEd, so a row of blanks concatenates to an empty string
+*       and nothing else does - but `IF concat_lines_of( ... ) IS INITIAL`
+*       does not compile: IS INITIAL wants a data object, not a functional
+*       call, and the Class Builder reports it as `Unexpected operator
+*       "IS"` naming the method rather than the expression.
+        lv_join = concat_lines_of( table = lt_cells ).
+        IF lv_join IS INITIAL.
           lv_drop = lv_drop + 1.
           CONTINUE.
         ENDIF.

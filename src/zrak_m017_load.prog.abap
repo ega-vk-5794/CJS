@@ -225,8 +225,24 @@ START-OF-SELECTION.
 *   citizen can pick a code the case cannot accept. Fill ROLLNAME,
 *   DOMNAME or SHLP once the source is known - see config-tables.md on
 *   the four option sources.
+*   TECH_NAME IS CI_ENTITY_CODE, AND WITHOUT IT THIS FIELD POSTS NOTHING.
+*   The field renders, the citizen must answer it, and the value went
+*   nowhere - TECH_NAME is what puts a value in CT_ITEM_DATA, and this row
+*   had none.
+*
+*   It is not cosmetic. ZCL_EGA_CJ_ENH_IMPL_M017_V1->VALIDATE( ) reads
+*
+*       DATA(entity) = VALUE #( ct_item_data[ technicalname = 'CI_ENTITY_CODE' ]-value OPTIONAL ).
+*
+*   and joins it as VIBDCHARACT-CJ07 in the "does this owner already have
+*   an open case for this entity" check. With the item absent, ENTITY is
+*   blank, the join runs against a blank characteristic, and the duplicate
+*   check answers on a question nobody asked. The same name is what the
+*   journey's ZEGA_T_CJ_2_OBJ row maps to CJ07 on the way in, so the write
+*   never happened either.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 30
       field_name = 'CI_ENTITY_SELECT' ftype = 'SELECT' required = 'X'
+      tech_name = 'CI_ENTITY_CODE'
       closed_list = 'X'
       zlabel = 'Entity' zlabel_ar = 'الجهة'
       placeholder = 'To whom it concerns'
