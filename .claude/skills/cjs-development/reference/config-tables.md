@@ -147,11 +147,11 @@ The 36 columns, current:
 | `FTYPE` | `CHAR(15)` | the control — 47 valid values, listed below |
 | `ZLABEL` / `ZLABEL_AR` | `CHAR(150)` | **cut on INSERT** — see below |
 | `PLACEHOLDER` / `PLACEHOLDER_AR` | `CHAR(150)` | |
-| `ZSECTION` / `ZSECTION_AR` | `CHAR(60)` | panel heading. Setting this **and** `ZLABEL` to one string prints it twice |
+| `ZSECTION` / `ZSECTION_AR` | `CHAR(60)` | panel heading — **one card per section, on both render paths now**. Setting this **and** `ZLABEL` to one string prints it twice |
 | `DEFAULT_VAL` | `CHAR(1000)` | five different jobs — see below. **No `_AR` twin** |
 | `FGROUP` | `CHAR(60)` | `'ROW:<token>'` puts fields side by side; a bare value is an FGROUP heading |
 | `FSTATE` | `CHAR(15)` | UI5 ValueState for `STATUS` / `PROGRESS`: `None` `Success` `Warning` `Error` `Information` |
-| `WIDTH` | `CHAR(10)` | **read now, and it was not before** — `%` and `rem` only |
+| `WIDTH` | `CHAR(10)` | **read now, and it was not before** — `%` and `rem` only, through `CSS_WIDTH( )`. Outranks both the type default and a laid-out cell's `100%` |
 | `HIDDEN` / `READONLY` / `REQUIRED` | `CHAR(1)` | rules and handler overrides outrank all three |
 | `REGEX` | `CHAR(255)` | |
 | `MIN_LEN` / `MAX_LEN` | `INT4` | **never read `MSG`** except through an explicit `LEN:` clause |
@@ -474,6 +474,31 @@ moment the handler adds it, before the read can fill the rest.
   because an empty header falls back to the column name.
 
 A feeder that must work on either writes both: header `-` **and** type `HIDE`.
+
+**A `TABLE` column token may carry its own width**, after the header text and
+behind a `|`:
+
+```
+Applicant name|14rem
+-|14rem                 still a hidden column
+```
+
+`ZCL_RAK_JOURNEY_UTIL=>COL_SPEC( )` splits the token and hands the width to
+`CSS_WIDTH( )`, so the hide test judges the **header text** and not the width
+token behind it — a header that is blank apart from a width still hides. Without
+it `sap.m.Table` shares the width out evenly and ignores what is in the cells.
+
+**`CSS_WIDTH( )` is the one width validator**, and both `CFG_WIDTH( )` (a
+field's `WIDTH`) and `COL_SPEC( )` come through it so the two cannot drift. It
+accepts `%` and `rem` only, number required — a hard px width does not collapse
+on a phone. **A refused value is never passed through**: the column renders
+exactly as it does today rather than emitting a length the browser discards
+silently, which would look like the width never arrived.
+
+**Hiding is abandoned on ragged rows.** If the columns are marked hidden but the
+rows do not all carry the same number of cells, nothing is hidden and the reason
+is traced — hiding by position on ragged rows would put cells under the wrong
+headings.
 
 ## Rows are positional at both ends
 
