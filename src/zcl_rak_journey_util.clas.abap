@@ -52,6 +52,33 @@ CLASS zcl_rak_journey_util DEFINITION
     CLASS-METHODS css_align IMPORTING iv_value  TYPE string
                        RETURNING VALUE(rv) TYPE string.
 
+*   ============ NOT WIRED. READ THIS BEFORE CONNECTING IT. ==============
+*   This was written for R13-6 and passed to DATE_PICKER( )'s MINDATE and
+*   MAXDATE. It broke every journey that has a DATE field.
+*
+*   sap.m.DatePicker types MINDATE and MAXDATE as OBJECT - a JavaScript
+*   Date - not as a string. An XML view parses an object-typed attribute as
+*   JSON, and 2026-12-31 is not JSON:
+*
+*       SyntaxError: Unexpected non-whitespace character after JSON at
+*       position 4
+*
+*   and it is fatal to the WHOLE VIEW. Not the field, not the step - the
+*   journey does not render.
+*
+*   THE SECOND MISTAKE MATTERED MORE. The change was argued as "additive by
+*   construction, because MIN_VAL and MAX_VAL are blank on every DATE
+*   field" - and that was never checked. ZTEST_ALL carries both on
+*   BIRTH_DATE, which is how it broke on the first journey anyone opened.
+*   An additive-by-construction claim resting on an unverified SELECT is
+*   not an argument.
+*
+*   Kept rather than deleted because the parsing is right and the next
+*   attempt will want it: a real bound needs a BINDING or a
+*   follow_up_action( ) setting the property from JavaScript after render,
+*   which is a different mechanism. Do not pass it as an attribute again.
+*   ======================================================================
+*
 *   A DATE BOUND FOR sap.m.DatePicker's MINDATE / MAXDATE, from what an
 *   author wrote in MIN_VAL or MAX_VAL.
 *

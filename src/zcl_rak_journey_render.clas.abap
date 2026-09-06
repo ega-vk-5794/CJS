@@ -2255,26 +2255,35 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *                             rendered with slashes therefore displayed in one
 *                             format and parsed in another.
                               valueformat    = 'yyyy-MM-dd'
-*                             R13-6. MIN_VAL / MAX_VAL are CHAR(20) on
-*                             ZRAK_T_JNY_FLD, read for NUMBER ranges today and
-*                             blank on every DATE field - so reading them here
-*                             is additive by construction.
+*                             R13-6 IS NOT WIRED HERE, AND CANNOT BE AS AN
+*                             ATTRIBUTE. sap.m.DatePicker types MINDATE and
+*                             MAXDATE as OBJECT - a JavaScript Date - not as a
+*                             string. An XML view therefore parses the
+*                             attribute value as JSON, and 2026-12-31 is not
+*                             JSON:
 *
-*                             DATE_BOUND( ) takes a literal or a TODAY token
-*                             and returns yyyy-MM-dd, matching the VALUEFORMAT
-*                             two lines up; the two have to agree or the picker
-*                             parses the bound in one format and the value in
-*                             another. A value it refuses comes back blank,
-*                             which is no bound at all.
+*                               SyntaxError: Unexpected non-whitespace
+*                               character after JSON at position 4
 *
-*                             The calendar greys out what is not allowed, so
-*                             the citizen is not offered a date that would be
-*                             refused on Next after they had filled the rest of
-*                             the step. It does NOT replace the handler's own
-*                             check - a greyed day stops the click, not a value
-*                             arriving by another route.
-                              mindate        = zcl_rak_journey_util=>date_bound( is_field-validation-min_val )
-                              maxdate        = zcl_rak_journey_util=>date_bound( is_field-validation-max_val )
+*                             and the error is fatal to the WHOLE VIEW, not to
+*                             the field - the journey does not render at all.
+*                             Wiring this cost exactly that, on ZTEST_ALL's
+*                             BIRTH_DATE, and it is reverted.
+*
+*                             TWO THINGS WERE WRONG, not one. The second is
+*                             worth more than the first: the claim that
+*                             MIN_VAL / MAX_VAL are "blank on every DATE field,
+*                             so this is additive by construction" was not
+*                             checked, and ZTEST_ALL carries both on
+*                             BIRTH_DATE. An additive-by-construction argument
+*                             that rests on an unverified SELECT is not an
+*                             argument.
+*
+*                             A real MINDATE needs a binding or a
+*                             follow_up_action( ) that sets the property from
+*                             JavaScript, which is a different mechanism and a
+*                             different conversation. DATE_BOUND( ) is kept in
+*                             ZCL_RAK_JOURNEY_UTIL, unused, with the same note.
                               displayformat  = 'dd.MM.yyyy' ).
 
       WHEN 'TIME'.
