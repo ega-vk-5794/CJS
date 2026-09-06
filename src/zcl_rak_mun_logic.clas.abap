@@ -227,6 +227,25 @@ CLASS zcl_rak_mun_logic DEFINITION
       IMPORTING io_ctx    TYPE REF TO zif_rak_journey
       RETURNING VALUE(rv) TYPE i.
 
+*   DOES THIS JOURNEY ASK FOR A PARCEL AT ALL - a question about the CONFIG,
+*   not about what the citizen has answered. HAS_PARCEL( ) and PARCEL_ROWS( )
+*   both report "no" for a journey that has no parcel field, because
+*   GET_VAL( ) and GET_GRID_DATA( ) on a name the journey does not carry
+*   answer blank and raise nothing. That is the documented trap at
+*   PARCEL_ROWS( ), and the parcel rule in ON_CUSTOM_VALIDATE( ) walked
+*   straight into it: guarded only on IV_STEP = 0, it refused step one of
+*   every journey inheriting this class - including M017 and M018, which
+*   have no PARCELSELECTOR anywhere. Two journeys that could not be started
+*   at all, with an error naming a control the citizen could not see.
+*
+*   Reads MS_CONFIG through GET_CONFIG( ) rather than probing a value, so it
+*   answers what the journey was authored to ask. Both names count: the
+*   scalar selector and the added-parcel grid, since either one means the
+*   journey is about a parcel.
+    METHODS wants_parcel
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+      RETURNING VALUE(rv) TYPE abap_bool.
+
 *   ---- what the citizen is actually being asked to pay -----------------
 *   READ THE SAME SOURCE THE CARD READS, which is the PAYFEE backend grid -
 *   NOT the PAY_TOTAL model field.
@@ -263,6 +282,24 @@ CLASS zcl_rak_mun_logic IMPLEMENTATION.
       RETURN.
     ENDIF.
     rv = xsdbool( parcel_rows( io_ctx ) > 0 ).
+  ENDMETHOD.
+
+
+  METHOD wants_parcel.
+*   The config into a variable first. LOOP AT over a component of a
+*   functional method's result is a position this dialect is not reliably
+*   happy with, and the same shape is written out longhand everywhere else
+*   in this class.
+    DATA(ls_wpcfg) = io_ctx->get_config( ).
+    LOOP AT ls_wpcfg-steps INTO DATA(ls_wpstep).
+      LOOP AT ls_wpstep-fields INTO DATA(ls_wpfld).
+        DATA(lv_wpn) = to_upper( ls_wpfld-name ).
+        IF lv_wpn = c_fld_parcel OR lv_wpn = c_fld_parcels.
+          rv = abap_true.
+          RETURN.
+        ENDIF.
+      ENDLOOP.
+    ENDLOOP.
   ENDMETHOD.
 
 
@@ -355,10 +392,21 @@ CLASS zcl_rak_mun_logic IMPLEMENTATION.
 *   Only the parcel step. The field is on the first step of all three
 *   journeys, and the check is meaningless anywhere else.
     IF io_ctx->get_val( c_fld_parcel ) IS INITIAL AND parcel_rows( io_ctx ) = 0.
-*     Guarded on the field being ON this step, not merely on the journey:
-*     otherwise every later step would refuse to advance because a field it
-*     does not show is empty.
-      IF iv_step = 0.
+*     TWO GUARDS, AND ONLY ONE OF THEM WAS HERE. IV_STEP = 0 keeps the rule
+*     off every later step, which is right - otherwise a step that does not
+*     show the field would refuse to advance because it is empty.
+*
+*     But it says nothing about whether the journey HAS a parcel field, and
+*     GET_VAL( ) on a name the journey does not carry answers blank without
+*     raising - so on M017 and M018, which have no PARCELSELECTOR at all,
+*     step one refused with "Select a parcel before continuing." against a
+*     control that is not on the screen. Neither journey could be started.
+*
+*     WANTS_PARCEL( ) asks the config instead of the model, so the answer is
+*     what the journey was authored to ask rather than what the citizen has
+*     typed. M011, M012, M016, M019 and M020 all carry the field and are
+*     unaffected.
+      IF iv_step = 0 AND wants_parcel( io_ctx ) = abap_true.
         rt = VALUE #( BASE rt
           ( type = 'Error'
             text = COND string(
