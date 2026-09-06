@@ -175,11 +175,37 @@ CLASS zcl_rak_qnv_bridge DEFINITION
 
     CONSTANTS c_fm_read_table TYPE string VALUE 'ZFM_EGA_CJ_FW_READ_TABLE_DATAN'.
 
-*   The Municipality category, and the only family whose BAdI derives its
-*   partners from a bare 'BP' item. Named rather than written inline
-*   because the reason it is a literal at all is a boundary, not a
-*   preference - see the BP block in POST( ).
-    CONSTANTS c_cat_muni TYPE string VALUE 'MML'.
+*   The Municipality categories - PLURAL, and that is the whole point. This
+*   was one constant holding 'MML', and Municipality has at least three:
+*
+*       MML     the land journeys      M011, M012, M016
+*       CI      comprehensive investigation   M017
+*       GRANTS  the grants family      M018, M019, M020
+*
+*   All of them post through ZCL_EGA_CJ_FW_RO_ABS_V1 or its grants
+*   subclass, and both derive BOTH partners from a bare 'BP' item in
+*   ZIF_EGA_FW_CJI~MAPPER. With the guard matching 'MML' alone, M017 and
+*   the three grants journeys never got the item, MT_PARTNER came back
+*   empty, and their own VALIDATE( ) refused the first post with
+*   "Business Partner is mandatory" - on a screen that asks the citizen
+*   for no partner at all, because the partner is meant to come from the
+*   session.
+*
+*   A LIST AND NOT A PATTERN, deliberately. The tempting shorthand is
+*   "journey code starts with M", and it is wrong twice: MP00..MP04 are
+*   Municipality-prefixed but are a different contract, and the value that
+*   decides which BAdI runs is the CATEGORY, not the journey id. Sending a
+*   bare two-letter identifier to the wrong family is not a harmless miss -
+*   MAPPER does ASSIGN (<ms_item_data>-technicalname) and writes into
+*   whatever that name resolves to in its own program, which is exactly how
+*   an item called LOGINBP dumped every DOK journey. So the set is explicit
+*   and each member is one somebody checked.
+*
+*   ADD A CATEGORY HERE when a new Municipality service arrives, and only
+*   after confirming its BAdI inherits one of the two RO abstracts.
+    CONSTANTS c_cat_muni  TYPE string VALUE 'MML'.
+    CONSTANTS c_cat_ci    TYPE string VALUE 'CI'.
+    CONSTANTS c_cat_grant TYPE string VALUE 'GRANTS'.
 *   The name the fee list answers to. Part of the read FM's contract with every
 *   department, not a per-journey configuration value - which is precisely why it
 *   belongs here as a constant and not in ZRAK_T_JNY_FLD.
@@ -344,7 +370,9 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
 *   BP is what ZCL_EGA_CJ_FW_RO_ABS_V1 derives both Municipality partners
 *   from and nothing else will do there; on DOK and EPDA it is a name
 *   their programs may well have, for no benefit at all.
-    IF ms_config-backend-category = c_cat_muni
+    IF ( ms_config-backend-category = c_cat_muni
+      OR ms_config-backend-category = c_cat_ci
+      OR ms_config-backend-category = c_cat_grant )
        AND lv_partner IS NOT INITIAL
        AND NOT line_exists( lt_item[ technicalname = 'BP' ] ).
       APPEND VALUE #( fieldname = 'BP' technicalname = 'BP'
