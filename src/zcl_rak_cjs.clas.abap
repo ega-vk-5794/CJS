@@ -22,6 +22,21 @@ CLASS zcl_rak_cjs DEFINITION
 *       strip and nothing else. NO_FORWARD is a different thing: it removes
 *       Next and leaves Close/Submit, which is still a button.
         no_action     TYPE abap_bool,
+*       R14-2. ZRAK_T_JNY_STEP-ACTIVE, which SAVE_JOURNEY( ) used to blank.
+*
+*       INERT AT RUNTIME TODAY and worth saying so rather than overstating it:
+*       ZCL_RAK_JOURNEY_REPO selects the steps WHERE JOURNEY_ID ORDER BY SEQNR
+*       with no ACTIVE filter, so a blanked step still renders. It is the same
+*       defect as the three header columns - a loader writes it, the Studio
+*       silently empties it - with a smaller consequence, and it stops being
+*       inert the day anything starts filtering on it.
+*
+*       DEFAULTED TO 'X' ON LOAD when the column is blank, not carried as
+*       blank. Every loader in the package writes ACTIVE = 'X', so a blank
+*       here means a row an earlier Save already destroyed; reading it back
+*       as false would make this fix preserve the damage instead of undoing
+*       it.
+        active        TYPE abap_bool,
       END OF ty_step,
       tt_step TYPE STANDARD TABLE OF ty_step WITH EMPTY KEY.
     TYPES:
@@ -265,6 +280,23 @@ CLASS zcl_rak_cjs DEFINITION
     DATA mv_bknd_fmr    TYPE string.
     DATA mv_tile_code   TYPE string.
 
+*   R14-2. THREE HEADER COLUMNS THE STUDIO HAD NEVER HEARD OF.
+*
+*   CJ_TYPE, DRAFT_MODE and ATTACH_MODE are on ZRAK_T_JNY and the strings did
+*   not appear ANYWHERE in this class - not in the structure, not in the load,
+*   not in the write, not in an editor - while SAVE_JOURNEY( ) rewrites that
+*   table in full. So a Save blanked all three and reported success. Exactly
+*   the CLOSED_LIST / NO_BROWSE shape, two tables over.
+*
+*   DRAFT_MODE and ATTACH_MODE are the two with teeth: RESOLVE_DRAFT_MODE( )
+*   and RESOLVE_ATTACH_MODE( ) read them, so blanking them moves a journey to
+*   the engine's fallback for who keeps the draft and who keeps the files.
+*   CJ_TYPE prefixes the synthetic case key when no backend mints one, so
+*   blanking it changes the shape of the key that gets generated.
+    DATA mv_cj_type     TYPE string.
+    DATA mv_draft_mode  TYPE string.
+    DATA mv_attach_mode TYPE string.
+
     " ---- step editor ----
     DATA sv_seq      TYPE string.
     DATA sv_step     TYPE string.
@@ -275,6 +307,20 @@ CLASS zcl_rak_cjs DEFINITION
     DATA sv_nextreq  TYPE string.
     DATA sv_nofwd    TYPE abap_bool.
     DATA sv_noact    TYPE abap_bool.
+
+*   R14-2. THE STEP EDITOR'S HALF OF ZRAK_T_JNY_STEP-ACTIVE.
+*
+*   HELD AS THE INVERSE - "inactive" - and that is deliberate rather than
+*   awkward. Add / update step assigns a whole VALUE #( ) over the row, so
+*   ACTIVE has to be in it or the Studio blanks the column a second time in
+*   the same class. But CLEAR leaves an ABAP_BOOL false, and an "Active"
+*   checkbox that starts false would make every step ADDED in the Studio
+*   inactive - harmless today, since ZCL_RAK_JOURNEY_REPO does not filter on
+*   it, and a trap the day anything does.
+*
+*   Storing the negation makes the safe state the default state: a cleared
+*   form means active, which is what every loader in the package writes.
+    DATA sv_inactive TYPE abap_bool.
     DATA sv_icon     TYPE string.
     DATA sv_cols     TYPE string.
     DATA sv_bscreen  TYPE string.
@@ -490,6 +536,13 @@ CLASS zcl_rak_cjs DEFINITION
              theme_own   TYPE abap_bool,
              handler     TYPE string,
              tile_code   TYPE string,
+*            R14-2. In the DRAFT too. The Studio's own draft is another full
+*            round trip through a structure - leaving them out here would lose
+*            the three values on a draft save and restore, which is the same
+*            defect one layer along.
+             cj_type     TYPE string,
+             draft_mode  TYPE string,
+             attach_mode TYPE string,
              show_act    TYPE abap_bool,
              active      TYPE abap_bool,
              bknd_act    TYPE abap_bool,
@@ -838,6 +891,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         sv_cols = ls_es-columns. sv_bscreen = ls_es-bknd_screen.
         sv_nextreq = ls_es-next_requires. sv_nofwd = ls_es-no_forward.
         sv_noact = ls_es-no_action.
+        sv_inactive = xsdbool( ls_es-active = abap_false ).
         focus_panel( 'STEPS' ).
         mv_msg = |Step { lv_es } loaded — change values, then Add / update step|. mv_mtype = 'Information'.
       ENDIF.
@@ -1012,7 +1066,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         WHEN 'PAYTPL'. add_payment_step( ). IF mv_mtype = 'Success'. mv_dirty = abap_true. ENDIF.
 
         WHEN 'CLR_STEP'. CLEAR: sv_seq, sv_step, sv_title, sv_title_ar, sv_icon, sv_cols, sv_bscreen, sv_nextreq, sv_nofwd,
-                              sv_noact.
+                              sv_noact, sv_inactive.
         WHEN 'CLR_FLD'.  clear_field_form( ).
         WHEN 'CLR_OPT'.  CLEAR: ov_seq, ov_key, ov_text, ov_text_ar.
         WHEN 'CLR_COL'.  CLEAR: cv_seq, cv_col, cv_label, cv_label_ar, cv_ctrl, cv_shlp, cv_rollname,
@@ -1157,10 +1211,13 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
             <s> = VALUE #( seqnr = sv_seq step_id = to_upper( sv_step ) title = sv_title title_ar = sv_title_ar
                            icon = sv_icon columns = sv_cols bknd_screen = to_upper( sv_bscreen )
                            next_requires = to_upper( sv_nextreq ) no_forward = sv_nofwd
-                           no_action = sv_noact ).
+                           no_action = sv_noact
+*                          R14-2. In the VALUE, or Add / update step blanks
+*                          the column the same way SAVE_JOURNEY( ) did.
+                           active = xsdbool( sv_inactive = abap_false ) ).
             resort( ).
             CLEAR: sv_seq, sv_step, sv_title, sv_title_ar, sv_icon, sv_cols, sv_bscreen, sv_nextreq, sv_nofwd,
-                              sv_noact.
+                              sv_noact, sv_inactive.
             mv_dirty = abap_true.
           ENDIF.
 
@@ -1299,6 +1356,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
   METHOD new_journey.
     CLEAR: mv_journey_id, mv_title, mv_title_ar, mv_subtitle, mv_subtitle_ar, mv_handler,
            mt_steps, mt_fields, mt_opts, mt_cols, mt_rules, mv_preview, mv_tile_code,
+           mv_cj_type, mv_draft_mode, mv_attach_mode,
            mv_bknd_act, mv_bknd_cat, mv_bknd_jny, mv_bknd_fmp, mv_bknd_fmr,
            mv_roll_term, mt_roll_hits, mt_roll_preview, mv_shlp_term, mt_shlp_hits,
            mt_lint, mt_lint_row, mt_xchk, mv_dirty, mt_f4_scan, mv_f4_scanned,
@@ -1334,6 +1392,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     mv_bknd_cat = h-bknd_category. mv_bknd_jny = h-bknd_journey.
     mv_bknd_fmp = h-bknd_fm_post.  mv_bknd_fmr = h-bknd_fm_read.
     mv_tile_code = h-tile_code.
+*   R14-2. Read, so a Save can write them back instead of blanking them.
+    mv_cj_type = h-cj_type. mv_draft_mode = h-draft_mode. mv_attach_mode = h-attach_mode.
 
     mv_chg_by = h-changed_by.
     CLEAR mv_chg_at.
@@ -1348,7 +1408,13 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       APPEND VALUE #( seqnr = |{ s-seqnr }| step_id = s-step_id title = s-title title_ar = s-title_ar
                       icon = s-icon columns = |{ s-columns }| bknd_screen = s-bknd_screen
                       next_requires = s-next_requires no_forward = s-no_forward
-                      no_action = s-no_action ) TO mt_steps.
+                      no_action = s-no_action
+*                     R14-2. Blank reads as ACTIVE - see TY_STEP-ACTIVE. A row
+*                     an earlier Save already blanked comes back on rather than
+*                     staying off, so loading and re-saving repairs the damage
+*                     instead of making it permanent.
+                      active = xsdbool( s-active = 'X' OR s-active IS INITIAL )
+                    ) TO mt_steps.
     ENDLOOP.
     SELECT * FROM zrak_t_jny_fld INTO TABLE @DATA(lf) WHERE journey_id = @mv_sel ORDER BY step_id, seqnr.
     LOOP AT lf INTO DATA(f).
@@ -1539,6 +1605,16 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       bknd_fm_post  = to_upper( mv_bknd_fmp )
       bknd_fm_read  = to_upper( mv_bknd_fmr )
       tile_code     = to_upper( mv_tile_code )
+*     R14-2. The three columns this INSERT used to omit. UPPER because all
+*     three are read as enumerations - RESOLVE_DRAFT_MODE( ) and
+*     RESOLVE_ATTACH_MODE( ) compare against DELEGATE/NATIVE/OFF, and
+*     ZCL_RAK_JOURNEY_REPO already applies TO_UPPER on the way out, so a
+*     lower-case value typed in the Studio would match nothing and fall
+*     through to the derived default - the same outcome as blanking it,
+*     which is the bug being fixed.
+      cj_type       = to_upper( mv_cj_type )
+      draft_mode    = to_upper( mv_draft_mode )
+      attach_mode   = to_upper( mv_attach_mode )
       changed_by    = sy-uname
       changed_at    = lv_now ) ).
     IF sy-subrc <> 0.
@@ -1550,7 +1626,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         seqnr = to_int( s-seqnr ) title = s-title title_ar = s-title_ar icon = s-icon
         columns = to_int( s-columns ) bknd_screen = s-bknd_screen
         next_requires = s-next_requires no_forward = s-no_forward
-        no_action = s-no_action ) ).
+        no_action = s-no_action
+*       R14-2. The column this INSERT used to omit.
+        active = COND string( WHEN s-active = abap_true THEN 'X' ELSE ' ' ) ) ).
       IF sy-subrc <> 0.
         lv_err = abap_true.
         EXIT.
@@ -2182,6 +2260,20 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     f->label( 'Subtitle (AR)' ). f->input( value = mo_client->_bind_edit( mv_subtitle_ar ) ).
     f->label( 'Handler class' ). f->input( value = mo_client->_bind_edit( mv_handler ) placeholder = 'ZCL_RAK_<ID>_LOGIC (optional)' ).
     f->label( 'Tile code' ).     f->input( value = mo_client->_bind_edit( mv_tile_code ) placeholder = 'portal tile CHAR4' ).
+
+*   R14-2. EDITORS FOR THE THREE COLUMNS, not just assignments in the INSERT.
+*   Loading and writing a column the author cannot see would stop the Save
+*   destroying it, which is the defect - but it would also leave three
+*   columns only a loader can ever set, which is half a fix.
+    f->label( 'Case type' ).
+    f->input( value = mo_client->_bind_edit( mv_cj_type )
+              placeholder = 'prefixes the synthetic case key when no backend mints one' ).
+    f->label( 'Draft mode' ).
+    f->input( value = mo_client->_bind_edit( mv_draft_mode )
+              placeholder = 'DELEGATE / NATIVE / OFF - blank lets the engine derive it' ).
+    f->label( 'Attachment mode' ).
+    f->input( value = mo_client->_bind_edit( mv_attach_mode )
+              placeholder = 'DELEGATE / NATIVE / OFF - blank lets the engine derive it' ).
 *   The ENQUEUE stops two authors overwriting each other at the same moment.
 *   Nothing answered who changed a live journey yesterday, which is the question
 *   that actually gets asked.
@@ -2236,6 +2328,13 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   by a button. Back and the message strip still draw.
     f->label( 'No footer action' ). f->checkbox( selected = mo_client->_bind_edit( sv_noact )
     text = 'no Next / Close / Submit - the step is left by acting on it' ).
+
+*   R14-2. Phrased as the negative because that is how it is stored - see
+*   SV_INACTIVE. The text says what it currently does rather than what the
+*   column promises: nothing filters on ACTIVE yet, and a checkbox that
+*   silently did nothing would be worse than one that says so.
+    f->label( 'Inactive' ). f->checkbox( selected = mo_client->_bind_edit( sv_inactive )
+    text = 'clears ZRAK_T_JNY_STEP-ACTIVE - stored, but nothing filters on it yet' ).
     DATA(b) = p->hbox( class = 'sapUiSmallMargin' ).
     b->button( text = 'Add / update step' icon = 'sap-icon://add' type = 'Emphasized' press = mo_client->_event( 'ASTEP' ) ).
     b->button( text = 'Clear form' icon = 'sap-icon://clear-all' press = mo_client->_event( 'CLR_STEP' ) class = 'sapUiTinyMarginBegin' ).
@@ -5606,6 +5705,8 @@ title = 'Showcase — all controls' sub = 'Every field type and capability, for 
     mv_navy       = is_draft-navy.        mv_density     = is_draft-density.
     mv_theme_own  = is_draft-theme_own.
     mv_handler    = is_draft-handler.     mv_tile_code   = is_draft-tile_code.
+    mv_cj_type    = is_draft-cj_type.     mv_draft_mode  = is_draft-draft_mode.
+    mv_attach_mode = is_draft-attach_mode.
     mv_show_act   = is_draft-show_act.    mv_active      = is_draft-active.
     mv_bknd_act   = is_draft-bknd_act.    mv_bknd_cat    = is_draft-bknd_cat.
     mv_bknd_jny   = is_draft-bknd_jny.    mv_bknd_fmp    = is_draft-bknd_fmp.
@@ -5720,6 +5821,8 @@ title = 'Showcase — all controls' sub = 'Every field type and capability, for 
                   navy       = mv_navy        density   = mv_density
                   theme_own  = mv_theme_own
                   handler    = mv_handler     tile_code = mv_tile_code
+                  cj_type    = mv_cj_type     draft_mode = mv_draft_mode
+                  attach_mode = mv_attach_mode
                   show_act   = mv_show_act    active    = mv_active
                   bknd_act   = mv_bknd_act    bknd_cat  = mv_bknd_cat
                   bknd_jny   = mv_bknd_jny    bknd_fmp  = mv_bknd_fmp

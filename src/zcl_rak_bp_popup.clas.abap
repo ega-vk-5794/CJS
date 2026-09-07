@@ -441,8 +441,36 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
       )->content( ns = 'form' ).
 
     lo_form->label( t( iv_no = zcl_rak_text=>c_no-bpp_search_by iv_default = 'Search By' ) ).
-    DATA(lo_by) = lo_form->combobox( selectedkey = mo_ctx->bind( fld( 'SEARCHBY' ) )
-                                     change      = mo_ctx->event( c_ev_go ) ).
+
+*   R14-1. SELECT, NOT COMBOBOX - AND FORCESELECTION PASSED EXPLICITLY.
+*
+*   These four keys are appended by this method. There is no free-text case,
+*   so a typable box offers a keyboard on a touch device and accepts input
+*   that can never match. That is what CLOSED_LIST fixed on configured
+*   fields, and then this popup opened on top of them still typable -
+*   CLOSED_LIST cannot reach here, because these are the engine's own
+*   controls and not ZRAK_T_JNY_FLD rows.
+*
+*   FORCESELECTION = ABAP_FALSE IS NOT OPTIONAL AND NOT A DEFAULT.
+*   An unsupplied z2ui5 OPTIONAL arrives blank, XML_GET_PARTS( ) drops every
+*   blank property from the markup, and sap.m.Select's own default of TRUE
+*   then applies - so an untouched Search By would DRAW "Emirates ID" while
+*   the model still held nothing.
+*
+*   On this screen that is worse than on a form field. The very next
+*   statement is IF lv_by IS INITIAL -> buttons, RETURN. So the citizen
+*   would see a dropdown reading "Emirates ID", no number field beneath it,
+*   and a popup offering nothing but Close: a screen that looks answered and
+*   is empty. ABAP_FALSE works because it is typed ABAP_BOOL and renders the
+*   literal string 'false', which is not blank and survives the filter.
+*
+*   NO BLANK LEADING ITEM HERE. The form cannot proceed without an answer, so
+*   this is required in everything but the column, and a blank item would be
+*   a value the citizen can pick that takes the form back to nothing. That is
+*   R13-8's own rule, which gates its leading item on REQUIRED = FALSE.
+    DATA(lo_by) = lo_form->select( selectedkey    = mo_ctx->bind( fld( 'SEARCHBY' ) )
+                                   forceselection = abap_false
+                                   change         = mo_ctx->event( c_ev_go ) ).
     lo_by->item( key = c_eid  text = t( iv_no = zcl_rak_text=>c_no-bpp_eid iv_default = 'Emirates ID' ) ).
     lo_by->item( key = c_pass
       text = t( iv_no = zcl_rak_text=>c_no-bpp_passport_ne iv_default = 'Passport (Non EID Holder only)' ) ).
@@ -482,7 +510,19 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
                             valueformat   = 'yyyyMMdd' ).
 
       lo_form->label( t( iv_no = zcl_rak_text=>c_no-bpp_nat iv_default = 'Nationality' ) ).
-      DATA(lo_nat) = lo_form->combobox( selectedkey = mo_ctx->bind( fld( 'NAT' ) ) ).
+*     Closed by construction: the list is NATIONALITIES( ). Same reasoning and
+*     the same explicit FORCESELECTION as Search By above.
+*
+*     A BLANK LEADING ITEM, unlike Search By. Nationality is not required to
+*     search - ADD_FLT( ) only rejects a blank value, it never demands this
+*     one - so without a way back the first nationality in the list becomes
+*     the search's nationality the moment the box is drawn, silently
+*     narrowing a search the citizen never narrowed. That is exactly the
+*     case R13-8's leading item is for.
+      DATA(lo_nat) = lo_form->select( selectedkey    = mo_ctx->bind( fld( 'NAT' ) )
+                                      forceselection = abap_false ).
+      lo_nat->item( key  = ``
+                    text = t( iv_no = zcl_rak_text=>c_no-opt_none iv_default = '(none)' ) ).
       LOOP AT nationalities( ) INTO DATA(ls_n).
         lo_nat->item( key = ls_n-key text = ls_n-text ).
       ENDLOOP.
@@ -492,7 +532,14 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *   are meaningless against any other ID.
     IF lv_by = c_pass.
       lo_form->label( t( iv_no = zcl_rak_text=>c_no-bpp_pass_type iv_default = 'Passport Type' ) ).
-      DATA(lo_pt) = lo_form->combobox( selectedkey = mo_ctx->bind( fld( 'PPTYPE' ) ) ).
+*     Closed by construction: ten domain values from DOC_TYPES( ). Blank
+*     leading item for the same reason as Nationality - the passport type is
+*     not required to search, so the first domain value must not become the
+*     answer by being drawn first.
+      DATA(lo_pt) = lo_form->select( selectedkey    = mo_ctx->bind( fld( 'PPTYPE' ) )
+                                     forceselection = abap_false ).
+      lo_pt->item( key  = ``
+                   text = t( iv_no = zcl_rak_text=>c_no-opt_none iv_default = '(none)' ) ).
       LOOP AT doc_types( ) INTO DATA(ls_p).
         lo_pt->item( key = ls_p-key text = ls_p-text ).
       ENDLOOP.

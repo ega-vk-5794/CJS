@@ -73,6 +73,34 @@ CLASS zcl_rak_cjs_xcheck DEFINITION
     CLASS-METHODS x14_overlength_name.
     CLASS-METHODS x15_required_readonly.
     CLASS-METHODS x16_ui_map.
+
+*   ---- X17: THE STUDIO ROUND-TRIP AUDIT --------------------------------
+*   THE ASK BEHIND R14-2, and the reason the four assignments were only the
+*   symptom. Three times now a column has been added to a ZRAK_T_JNY* table,
+*   written by a loader, and silently emptied by the Studio, because
+*   SAVE_JOURNEY( ) rewrites those tables IN FULL and anything it does not
+*   name it deletes: CLOSED_LIST, NO_BROWSE, then CJ_TYPE / DRAFT_MODE /
+*   ATTACH_MODE / STEP-ACTIVE.
+*
+*   The rule that was supposed to prevent it - "a new column is not finished
+*   until the Studio can round-trip it" - is a discipline, and a discipline
+*   has been the only guard each time. This is the mechanical version: read
+*   the FIELDNAMEs of each table out of the DDIC, look for each one in
+*   ZCL_RAK_CJS's own source, and report the ones that appear nowhere.
+*
+*   IT READS SOURCE, WHICH IS UNUSUAL HERE AND IS THE POINT. Nothing else can
+*   answer the question - the defect is a column MISSING from a statement, and
+*   a missing statement leaves no runtime trace at all. Every earlier
+*   detection was somebody reading the INSERT by eye.
+*
+*   DELIBERATELY COARSE. It asks only "does this column name occur in the
+*   class", not "is it assigned in the right statement". A name that appears
+*   in a comment and nowhere else would pass. That is the correct trade: the
+*   failure mode being hunted is a column the Studio has NEVER heard of - all
+*   five found so far occurred exactly zero times - and a coarse check with no
+*   false positives will be left switched on, where a precise one that cries
+*   wolf gets ignored. It is a floor, not a proof.
+    CLASS-METHODS x17_studio_roundtrip.
     CLASS-METHODS col_of IMPORTING is_line   TYPE any
                                    it_try    TYPE string_table
                          RETURNING VALUE(rv) TYPE string.
@@ -137,6 +165,11 @@ CLASS ZCL_RAK_CJS_XCHECK IMPLEMENTATION.
     x13_label_truncated( ).
     x14_overlength_name( ).
     x15_required_readonly( ).
+*   Not journey-specific - it audits the Studio against the DDIC and answers
+*   the same on every journey. Run here anyway rather than in a separate
+*   report: the Studio calls XCHECK on load and on save, so this is the one
+*   place an author is already looking when they add a column.
+    x17_studio_roundtrip( ).
 
     IF gt_msg IS INITIAL.
       add( iv_sev  = 'I'
@@ -1271,5 +1304,106 @@ CLASS ZCL_RAK_CJS_XCHECK IMPLEMENTATION.
                      |stage, read BKND_SCREEN down SEQNR against it - that is X12's | &&
                      |off-by-one seen from the map side.| ).
     ENDIF.
+  ENDMETHOD.
+
+  METHOD x17_studio_roundtrip.
+*   Read the DDIC, read the Studio's source, report every column the Studio
+*   never mentions. See the declaration for why this is coarse on purpose.
+    DATA lt_tab TYPE string_table.
+
+*   THE SIX TABLES SAVE_JOURNEY( ) REWRITES IN FULL. Not every ZRAK_T_JNY*
+*   table - only the ones a Save replaces, because those are the only ones
+*   where omitting a column DELETES data. ZRAK_CJ_LAYOUT is not here: it is
+*   written by PERSIST( ), which RESOLVEs first and overwrites only its own
+*   fields, so a column it does not know is left alone rather than blanked.
+    lt_tab = VALUE string_table( ( `ZRAK_T_JNY` )
+                                 ( `ZRAK_T_JNY_STEP` )
+                                 ( `ZRAK_T_JNY_FLD` )
+                                 ( `ZRAK_T_JNY_OPT` )
+                                 ( `ZRAK_T_JNY_COL` )
+                                 ( `ZRAK_T_JNY_RULE` ) ).
+
+*   THE STUDIO'S OWN SOURCE, read once for all six tables.
+*
+*   READ_REPORT ON A CLASS POOL, not the class name: a global class lives in
+*   the generated program <name>========CP, and READ_REPORT on
+*   'ZCL_RAK_CJS' finds nothing and reports nothing - which would make this
+*   rule pass silently on every column, the exact failure it exists to catch.
+*   So a blank result is reported rather than treated as a clean run.
+    DATA lt_src TYPE TABLE OF string.
+    DATA(lv_pool) = |ZCL_RAK_CJS{ repeat( val = `=` occ = 19 ) }CP|.
+
+*   SY-SUBRC, not TRY/CATCH. READ REPORT signals a missing program through
+*   SY-SUBRC and raises nothing, so a CATCH here would be dead code that
+*   reads like protection.
+    READ REPORT lv_pool INTO lt_src.
+    IF sy-subrc <> 0.
+      CLEAR lt_src.
+    ENDIF.
+
+    IF lt_src IS INITIAL.
+      add( iv_sev  = 'I'
+           iv_rule = 'X17'
+           iv_text = |X17 could not read the Studio's source ({ lv_pool }), so the | &&
+                     |Studio round-trip was not audited. This is reported rather than | &&
+                     |passed quietly: a rule that cannot read its input has not | &&
+                     |checked anything.| ).
+      RETURN.
+    ENDIF.
+
+    DATA(lv_src) = to_upper( concat_lines_of( table = lt_src sep = | | ) ).
+
+    LOOP AT lt_tab INTO DATA(lv_tab).
+
+*     THE COLUMNS AS THE DDIC HAS THEM. DD03L rather than a structure
+*     description, so this sees what is really on the table today - including
+*     a column added since this class was last touched, which is the whole
+*     case being guarded.
+      SELECT fieldname FROM dd03l
+        INTO TABLE @DATA(lt_col)
+        WHERE tabname  = @lv_tab
+          AND as4local = 'A'
+          AND fieldname NOT LIKE '.%'
+        ORDER BY position.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+
+      DATA lt_miss TYPE string_table.
+      CLEAR lt_miss.
+
+      LOOP AT lt_col INTO DATA(ls_col).
+        DATA(lv_col) = to_upper( condense( CONV string( ls_col-fieldname ) ) ).
+
+*       NEVER PART OF A ROUND TRIP, so their absence is correct and reporting
+*       them would be the noise that gets a rule switched off. MANDT is set
+*       from SY-MANDT, the key columns are built by the Studio from the
+*       journey and step it is editing, and the two audit columns are stamped
+*       at write time on purpose.
+        IF lv_col = 'MANDT'      OR lv_col = 'JOURNEY_ID' OR lv_col = 'STEP_ID'
+        OR lv_col = 'FIELD_NAME' OR lv_col = 'COL_NAME'   OR lv_col = 'RULE_ID'
+        OR lv_col = 'SEQNR'      OR lv_col = 'OPT_KEY'
+        OR lv_col = 'CHANGED_BY' OR lv_col = 'CHANGED_AT'.
+          CONTINUE.
+        ENDIF.
+
+        IF lv_src NS lv_col.
+          APPEND lv_col TO lt_miss.
+        ENDIF.
+      ENDLOOP.
+
+      IF lt_miss IS NOT INITIAL.
+        add( iv_sev  = 'W'
+             iv_rule = 'X17'
+             iv_text = |{ lv_tab }: { lines( lt_miss ) } column(s) the Studio never | &&
+                       |mentions - { concat_lines_of( table = lt_miss sep = `, ` ) }. | &&
+                       |SAVE_JOURNEY( ) rewrites this table in full, so a Save BLANKS | &&
+                       |each of them and reports success. Whatever loader writes them | &&
+                       |is the only thing keeping them, and one Save from the Studio | &&
+                       |on any journey destroys them. Add each to the structure, the | &&
+                       |load, the INSERT and an editor - all four, or the next Save | &&
+                       |undoes whichever half is missing.| ).
+      ENDIF.
+    ENDLOOP.
   ENDMETHOD.
 ENDCLASS.
