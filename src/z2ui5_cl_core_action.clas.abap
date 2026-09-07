@@ -78,6 +78,75 @@ CLASS z2ui5_cl_core_action IMPLEMENTATION.
 
   METHOD factory_first_start.
 
+*---------------------------------------------------------------------------*
+* WHAT MAY BE LAUNCHED FROM A URL. AN ALLOWLIST, NOT A DENYLIST.
+*
+* The CREATE OBJECT below takes its class name straight from the
+* app_start URL parameter, so before this guard anyone who could reach
+* /sap/bc/rest/egardcjs could instantiate ANY class implementing
+* Z2UI5_IF_APP - on production, with no authority check in front of it.
+* That is 35 classes in this package today, and the ones that matter are
+* not the framework's:
+*
+*     ZCL_RAK_PAY_TEST, ZCL_RAK_PAY_ENGINE_TEST, ZCL_RAK_ATB_TEST,
+*     ZCL_RAK_ATT_TEST, ZCL_RAK_BATTSCRAP_TEST, ZCL_RAK_DEMO_APP,
+*     Z2UI5_CL_APP_HELLO_WORLD, ...
+*
+* A payment test harness reachable from a production URL is the whole
+* finding. Closing the Quickstart landing page did not touch this - that
+* was the ELSE branch of MAIN_BEGIN( ), this is the ELSEIF.
+*
+* ALLOWLIST, because a denylist is wrong by construction here: the risk
+* is the app nobody remembered to list, and every new test class added
+* next month is one of those. An allowlist fails closed.
+*
+* DEVELOPMENT IS EXEMPT, and only development. A developer launching
+* their own test app is the normal way to work and breaking it would get
+* this reverted rather than fixed. E10 is the one system where the
+* landscape already accepts developer conveniences - the same line
+* DEV_STUBS_OK( ) draws.
+*
+* SY-SYSID DIRECTLY, NOT ZCL_RAK_JOURNEY_UTIL=>IS_DEV( ). It says the
+* same thing and the helper is better English, but this method is on the
+* critical path of EVERY request: a static reference from the z2ui5 core
+* to a CJS class means the core cannot load whenever that class is
+* inactive, which would turn one failed activation into every journey
+* down. The duplication is deliberate and cheap.
+*
+* THE LIST IS THE REAL APPS ONLY. ZCL_RAK_CJS and
+* ZCL_RAK_JOURNEY_DESIGNER are authoring tools and stay on it because
+* they are legitimately opened by URL - but they are NOT made safe by
+* being here. The Studio carries its own gate (STUDIO_MODE( ) refuses
+* and returns before it assembles anything); the designer's own gating
+* is unread and is worth checking separately rather than assumed.
+*---------------------------------------------------------------------------*
+    DATA(lv_want) = to_upper( condense( CONV string(
+      mo_http_post->ms_request-s_control-app_start ) ) ).
+
+    IF sy-sysid <> 'E10'.
+      IF lv_want <> `ZCL_RAK_JOURNEY_ENGINE`
+        AND lv_want <> `ZCL_RAK_CJS`
+        AND lv_want <> `ZCL_RAK_JOURNEY_DESIGNER`
+        AND lv_want <> `ZCL_RAK_CJ_DASH`.
+*       The same wording the Studio's own refusal uses, and for the same
+*       reason: the caller has not been identified, so a refusal must not
+*       confirm whether the class exists, whether the name was close, or
+*       what would have been accepted instead.
+*
+*       RAISED ABOVE THE TRY, WHICH IS WHY THE GUARD SITS HERE RATHER
+*       THAN NEXT TO THE CREATE OBJECT IT PROTECTS. That TRY ends in
+*       CATCH cx_root and rewrites everything it catches into "App with
+*       name X not found...", so a refusal raised inside it would have
+*       been relabelled into a different message with the class name
+*       echoed back. Z2UI5_CX_UTIL_ERROR is a CX_NO_CHECK subclass, so
+*       no RAISING clause is needed on the method - which is also how
+*       the existing raise in the CATCH below gets away with it.
+        RAISE EXCEPTION TYPE z2ui5_cx_util_error
+          EXPORTING
+            val = `Not authorized.`.
+      ENDIF.
+    ENDIF.
+
     TRY.
         result = NEW #( mo_http_post ).
 
