@@ -171,6 +171,32 @@ CLASS ZCL_RAK_PAY_TEST IMPLEMENTATION.
 
 
   METHOD z2ui5_if_app~main.
+*   ---- DEVELOPMENT ONLY. THIS IS A TEST HARNESS. --------------------
+*   Refuses anywhere but E10, before it touches anything.
+*
+*   The allowlist in Z2UI5_CL_CORE_ACTION->FACTORY_FIRST_START( ) already
+*   stops this class being launched by app_start outside development, and
+*   this is the second lock rather than a duplicate of the first: the
+*   allowlist governs one entry point, whereas the class itself is what
+*   any OTHER route would reach - a stack call, a bookmarked draft, a
+*   later refactor of the handler, or a fourth name somebody adds to that
+*   list without asking what the class does.
+*
+*   It exists because these classes CANNOT BE KEPT OUT OF PRODUCTION.
+*   They are already in the package and the transport, and the ones that
+*   carry hardcoded case ids, partner numbers and payment references are
+*   exactly the ones that must not run against production data.
+*
+*   A test app is the one place where refusing on the wrong system is
+*   free: there is no citizen to inconvenience and nothing to degrade to.
+    IF zcl_rak_journey_util=>is_dev( ) = abap_false.
+      client->message_box_display(
+        text = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-not_authorized
+                                  iv_default = 'Not authorized.' )
+        type = 'error' ).
+      RETURN.
+    ENDIF.
+
     mo_client = client.
     IF mv_caseid IS INITIAL.
       mv_caseid  = '1958731'.
