@@ -208,6 +208,52 @@ CLASS z2ui5_cl_app_startup IMPLEMENTATION.
 
     me->client = client.
 
+*---------------------------------------------------------------------------*
+* THE abap2UI5 QUICKSTART PAGE IS CLOSED ON EVERY SYSTEM.
+*
+* This class is what Z2UI5_CL_CORE_HANDLER->MAIN_BEGIN( ) falls through to
+* when a request carries no app_start and no frontend id:
+*
+*     ELSEIF ms_request-s_control-app_start IS NOT INITIAL.
+*       mo_action = mo_action->factory_first_start( ).
+*     ELSE.
+*       mo_action = mo_action->factory_system_startup( ).   " <- here
+*
+* So the bare service URL served the library's own Quickstart screen -
+* found on PRODUCTION (grpportal, client 600) by opening
+* /sap/bc/rest/egardcjs with no parameters. It offers Debugging Tools, a
+* System link, a free-text class-name box with a Check button, and links
+* to install a 250-app sample repository. None of that belongs on a
+* citizen-facing host on any system, which is why this is closed
+* unconditionally rather than gated on SY-SYSID: a page nobody should
+* reach in production is not a page worth keeping in development either,
+* and an environment gate here would leave it live on the two systems
+* where somebody is most likely to be looking for a way in.
+*
+* CLOSED AT THE ENTRY POINT, NOT BY EDITING THE VIEW. Every path through
+* this class - on_init, the navigated F4 return, and z2ui5_on_event -
+* renders through VIEW_DISPLAY_START( ) or VIEW_DISPLAY_POPUP( ), and
+* returning before any of them means no button, no popup and no event
+* handler is reachable. Blanking one view would have left the others.
+*
+* This is a two-line change to a vendored library, kept deliberately
+* small and at the top of one method so it is obvious in a diff on the
+* next z2ui5 upgrade. Nothing else in the class is touched; the code
+* below is intact and unreachable.
+*
+* WHAT THIS DOES NOT FIX, and it is the bigger of the two findings:
+* app_start still instantiates whatever class is named in the URL -
+* Z2UI5_CL_CORE_ACTION line 105, CREATE OBJECT li_app TYPE
+* (ms_request-s_control-app_start) - so any class implementing
+* Z2UI5_IF_APP can still be launched by anyone who can reach the node.
+* Closing the landing page does not close that, and an allowlist there is
+* the real remedy. Raised separately rather than bundled in here.
+*---------------------------------------------------------------------------*
+    client->message_box_display(
+      text = `This service is not available directly. Open it from the portal.`
+      type = 'error' ).
+    RETURN.
+
     IF client->check_on_init( ).
       z2ui5_on_init( ).
       view_display_start( ).
