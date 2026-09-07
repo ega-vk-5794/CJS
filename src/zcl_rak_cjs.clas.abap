@@ -2976,6 +2976,18 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   THE NAMED-USER OVERRIDE, and the last of the four gates it lifts.
+*   Without this the Studio would open in EDIT mode for that user and
+*   then refuse every save on a system where they hold no S_DEVELOP -
+*   which is worse than closing it, because the buttons work and the
+*   action does not. See ZCL_RAK_JOURNEY_UTIL=>POWER_USER( ) for what
+*   the whole override opens and why a hardcoded name is the weakest
+*   form of it.
+    IF zcl_rak_journey_util=>power_user( ) = abap_true.
+      rv = abap_true.
+      RETURN.
+    ENDIF.
+
     AUTHORITY-CHECK OBJECT 'S_DEVELOP'
       ID 'DEVCLASS' DUMMY
       ID 'OBJTYPE'  FIELD 'TABL'
