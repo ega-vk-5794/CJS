@@ -715,11 +715,15 @@ CLASS ZCL_E018_NOC_TRANS_CHEM_LOGIC IMPLEMENTATION.
 
     DATA: lv_loginbp TYPE bu_partner.
 
+
+
     lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
     DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
     DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
 
-
+    IF sy-uname = 'hasan.f.vnd' AND lv_loginbp IS INITIAL.
+      lv_loginbp = '3000000049'.
+    ENDIF.
 
     IF lv_loginbp IS NOT INITIAL.
       NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(

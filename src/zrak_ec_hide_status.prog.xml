@@ -14,7 +14,7 @@
     <item>
      <ID>R</ID>
      <ENTRY>Hide the duplicate STATUS column on EC02 and EC06</ENTRY>
-     <LENGTH>48</LENGTH>
+     <LENGTH>49</LENGTH>
     </item>
    </TPOOL>
   </asx:values>

@@ -364,8 +364,13 @@ START-OF-SELECTION.
   msg = 'Last divorce date is required' msg_ar = |تاريخ الطلاق السابق مطلوب| )
 *   STEP PRTY ------------------------------------------------------
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'PERS_INFO' seqnr = 10
+*   POPIN = 'X' is R13-2, engine commit 0ef0d4d, read as AUTOPOPINMODE. The
+*   engine team's own note says the editable grid is the case that needs it
+*   most, and this one is why: a row of party columns squeezed onto a phone is
+*   not a milder version of a read-only list, it is fields the citizen has to
+*   type into. Blank is what the phone does today.
   ftype = 'EDITABLE_TABLE' required = 'X' zlabel = 'Personal information' zlabel_ar = |البيانات الشخصية للاطراف|
-  default_val = 'FIX|RX:ZZAFLD0000TT,ZZAFLD0000TW' tech_name = 'PERS_INFO' )
+  default_val = 'FIX|RX:ZZAFLD0000TT,ZZAFLD0000TW' tech_name = 'PERS_INFO' popin = 'X' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'DIVORCEE_PARTNER' seqnr = 20
   ftype = 'READONLY' required = 'X' readonly = 'X' zlabel = 'Divorcee' zlabel_ar = |المطلقة| fgroup = 'ROW:P1'
   max_len = 10 tech_name = 'NO_PARTIES_INVOLVED2-DIVORCEE_BP'
@@ -442,8 +447,14 @@ START-OF-SELECTION.
   ftype = 'INPUT' hidden = 'X' zlabel = 'Witness2 — Email (BP popup)' )
 *   STEP DOCS ------------------------------------------------------
   ( mandt = sy-mandt journey_id = c_jid step_id = 'DOCS' field_name = 'REQUEST_TEXT' seqnr = 10
+*   TA_ROWS 6, R13-7, engine commit 0ef0d4d. Blank still means three rows. This
+*   field is the free-text reason for the whole application - the one place the
+*   citizen writes prose rather than picking - and three rows of it showed the
+*   citizen a third of what they had written. Six is a judgement, not a
+*   measurement: it is the height at which a short paragraph is visible whole
+*   without the field dominating the step.
   ftype = 'TEXTAREA' required = 'X' zlabel = 'Request text' zlabel_ar = |نص الطلب|
-  tech_name = 'NO_DIV_MARR_TAKEOFF-TEXT_Z11'
+  tech_name = 'NO_DIV_MARR_TAKEOFF-TEXT_Z11' ta_rows = 6
   msg = 'Request text is required' msg_ar = |نص الطلب مطلوب| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'DOCS' field_name = 'DOCUMENT_TYPE' seqnr = 20
   ftype = 'SELECT' closed_list = 'X' required = 'X' zlabel = 'Document Type' zlabel_ar = |نوع المرفق| domname = 'ZDO_EGA_DOCUMENT_TYPE'
@@ -490,8 +501,22 @@ START-OF-SELECTION.
 * is never reported as empty - the EDITABLE_TABLE branch CONTINUEs past the
 * scalar value check.
   INSERT zrak_t_jny_col FROM TABLE @( VALUE #(
+*   WIDTH 9rem ON PARTNER TYPE ONLY, and it is the asterisk that needs it.
+*   RENDER_GRID appends the required marker as ` *` - a SPACE and a star - so
+*   the header is one string that wraps at that space like any other, and
+*   "Partner type" filled the column exactly, leaving a lone '*' on a second
+*   line reading as a stray character rather than as a marker. sap.m.Table has
+*   FIXEDLAYOUT true, so ten columns took an equal tenth each whatever they
+*   held; 9rem is the width at which the label and its marker hold one line.
+*
+*   The other two starred columns do not need it. "Residence status *" and
+*   "Job status *" both wrap between words and keep the marker beside the last
+*   one, which is a wrapped heading rather than a broken one. Widening a column
+*   in a fixed-layout table takes the space from the other nine, so only the
+*   column with the problem gets a width.
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'PERS_INFO'
   col_name = 'ZZAFLD0000V2' seqnr = 10 ctrl = 'SELECT' readonly = 'X' required = 'X'
+  width = '9rem'
   zlabel = 'Partner type' zlabel_ar = |نوع الطرف| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'PERS_INFO'
   col_name = 'ZZAFLD0000V0' seqnr = 15 ctrl = 'INPUT' hidden = 'X' )

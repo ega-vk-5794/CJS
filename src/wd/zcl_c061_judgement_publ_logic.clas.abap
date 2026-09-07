@@ -192,8 +192,11 @@ CLASS zcl_c061_judgement_publ_logic DEFINITION
       VALUE 'Z_RAKEGA_MUNI/ZEGA_CRM_JUDPUBLISH_JUD_BASECAS_ASOF'.
     CONSTANTS c_a_verdict_ttl TYPE sotr_alias
       VALUE 'Z_RAKEGA_MUNI/ZEGA_CRM_JUDPUBLISH_VERDICT_TITLE'.
-    CONSTANTS c_a_verdict_prv TYPE sotr_alias
-      VALUE 'Z_RAKEGA_MUNI/ZEGA_CRM_JUDPUBLISH_VERDICT_PREVIEW'.
+*   ZEGA_CRM_JUDPUBLISH_VERDICT_PREVIEW is the WD's alias for the PDF's file
+*   name and is NOT declared here any more. The name is chrome - a browser tab
+*   and a download - so it goes through PICK( ) rather than OTR( ), and OTR( )
+*   is the only reader of these constants. Recorded rather than deleted
+*   silently, in case the alias is wanted again.
 
 *   HEADTXT_LINE_3 is deliberately NOT in that list. Its OTR alias holds
 *   Arabic in BOTH language columns, so reading it in English returns
@@ -332,6 +335,12 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
 *& A service that reads published judgments and creates nothing has nothing
 *& to submit, and a Submit would run HANDLE_SUBMIT, VALIDATE_ALL and the
 *& confirmation card for a request that does not exist.
+*&
+*& IT NO LONGER REACHES SRCH. NO_SUBMIT turns the last step's Submit into
+*& Close, and the Close it used to leave on the SEARCH step is now removed by
+*& NO_ACTION = 'X' in the loader - a step flag, not a model value, and read
+*& before the three-way this one feeds. The two are not alternatives: JDGM
+*& still needs the Close this line produces.
 *&
 *& Nothing else is seeded. Court Type and Case Year are mandatory and start
 *& EMPTY on purpose: INIT_DROPDOWN_LOAD has the one line that would have
@@ -495,10 +504,22 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
 *       MAIN and ONACTIONADOBEFORM_DISPLAY on VIEW_CASE_DETAILS, the same
 *       eighty lines twice, with the MAIN one already commented out at its
 *       only call site. Only one is migrated.
-*       ARABIC CAPTION, like the page it sits on. The WD's own button read
-*       "نسخة العرض" whatever the logon language.
+*       BILINGUAL, unlike the document it sits above. The judgment body is
+*       Arabic on every session because the WD read it that way - LOAD_JUDGMENT( )
+*       passes IV_LANGU = 'A' to ZFM_JUDGEMENT_PUBLICATION_TEXT - but this button
+*       is chrome rather than document content, so it follows the reader.
+*
+*       PICK( ), NOT THE OTR. PDF_BUTTON's TEXT in the WD is an OTR CONCEPT
+*       (9EFD37829E031EDA86CFC614B86007A0) rather than an alias, and
+*       SOTR_GET_TEXT_KEY takes an alias - so the concept cannot be resolved at
+*       runtime and its English text, if it has one, is not readable from here.
+*       The Arabic below is verbatim from the live screen; THE ENGLISH IS OURS.
+*
+*       PICK( ) follows the ENGINE's resolved language, not SY-LANGU, which is
+*       what makes it right: the step, its buttons and any popup then agree,
+*       where SY-LANGU can differ from the language the journey is rendering in.
         io_view->button(
-          text  = |نسخة العرض|
+          text  = zcl_rak_text=>pick( iv_base = `View copy` iv_ar = |نسخة العرض| )
           icon  = 'sap-icon://pdf-attachment'
           type  = 'Emphasized'
           class = 'sapUiSmallMarginTop'
@@ -556,6 +577,46 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
 *& hides any column whose header is blank or '-'. So the key the ROWPICK
 *& event needs is present and the citizen never sees it.
 *&
+*& EVERY COLUMN NAMES ITS WIDTH, as a PERCENTAGE. R12-1, engine commit
+*& abdab55: COL_SPEC( ) splits the header on '|' and CSS_WIDTH( ) validates the
+*& tail, so a refused unit leaves the column exactly as it renders without one.
+*&
+*& THE SHARE IS THE POINT, not the absolute size. sap.m.Table has FIXEDLAYOUT
+*& true, so a column's width is decided by what it is given and NOT by what it
+*& holds - and CASE_TEXT is up to 80 characters where the three date and period
+*& columns hold ten, four and three. Left to itself the table gave all six an
+*& equal sixth, so the one value the citizen reads wrapped onto three lines
+*& while three columns sat mostly empty. 34 / 15 / 13 / 13 / 13 leaves about an
+*& eighth for the pick button, which the engine appends with no width of its
+*& own.
+*&
+*& PER CENT RATHER THAN rem, deliberately. Under FIXEDLAYOUT the columns are
+*& shares of the table, so percentages keep their proportions as the page
+*& narrows, where a rem width is an absolute that stops fitting. CSS_WIDTH( )
+*& accepts both and refuses px for the same reason.
+*&
+*& ALIGNMENT IS THE THIRD PART, '|End'. R13-1, engine commit 0ef0d4d, and live:
+*& COL_SPEC( ) answers a header, a width and an alignment, validated by
+*& CSS_ALIGN( ) - the same validator the DISPLAY field's TEXT_ALIGN uses, so the
+*& two cannot drift into accepting different words. A value it refuses answers
+*& blank and the column renders as it does without one.
+*&
+*& THE TWO DATES AND THE DAY COUNT ARE RIGHT-ALIGNED; the case reference and the
+*& court are left, which is the default and is left blank rather than written
+*& out. The day count is a number and that half is not a judgment call. The
+*& dates are: they are one fixed format, dd.MM.yyyy, and a column of them shares
+*& an edge and reads as data instead of as prose - and it puts them with the
+*& number beside them rather than with the text before them. 'Begin' on both is
+*& one word away if the department reads it the other way.
+*&
+*& 'BEGIN' AND 'END', NOT 'LEFT' AND 'RIGHT'. CSS_ALIGN( ) accepts all six that
+*& sap.m.Column takes, but the journey renders right-to-left in Arabic and only
+*& the logical pair follows the reading direction.
+*&
+*& THE PIPE IS WHY THIS COLUMN LIST CANNOT COME FROM DEFAULT_VAL. In the
+*& KEY:Label:TYPE spec '|' separates the COLUMNS, so a header there can never
+*& carry one. Only GET_TABLE( ) can reach the width, by construction.
+*&
 *& THE WD's SIXTH COLUMN IS NOT HERE. It held the literal 'نص الحكم' and
 *& was configured as a link that opened the judgment. The engine draws that
 *& affordance itself - a trailing Select button on every row, because the
@@ -568,11 +629,11 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
 
     rs_data-columns = VALUE zif_rak_journey=>tt_string(
       ( `-` )
-      ( zcl_rak_text=>pick( iv_base = `Case No.`          iv_ar = |رقم القضية| ) )
-      ( zcl_rak_text=>pick( iv_base = `Court`             iv_ar = |المحكمة| ) )
-      ( zcl_rak_text=>pick( iv_base = `Registration Date` iv_ar = |تاريخ التسجيل| ) )
-      ( zcl_rak_text=>pick( iv_base = `Judgment Date`     iv_ar = |تاريخ الحكم| ) )
-      ( zcl_rak_text=>pick( iv_base = `Litigation Period` iv_ar = |مدة التقاضي| ) ) ).
+      ( zcl_rak_text=>pick( iv_base = `Case No.`          iv_ar = |رقم القضية| )    && `|34%` )
+      ( zcl_rak_text=>pick( iv_base = `Court`             iv_ar = |المحكمة| )       && `|15%` )
+      ( zcl_rak_text=>pick( iv_base = `Registration Date` iv_ar = |تاريخ التسجيل| ) && `|13%|End` )
+      ( zcl_rak_text=>pick( iv_base = `Judgment Date`     iv_ar = |تاريخ الحكم| )   && `|13%|End` )
+      ( zcl_rak_text=>pick( iv_base = `Litigation Period` iv_ar = |مدة التقاضي| )   && `|13%|End` ) ).
 
     DATA lt_cell  TYPE zif_rak_journey=>tt_string.
     DATA lt_show  TYPE zif_rak_journey=>tt_string.
@@ -635,12 +696,27 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
     DATA(lo_doc) = io_form->vbox( class = 'sapUiSmallMargin' width = '100%' ).
 
 *   Header block 1 - the three OTR lines with the court on the third.
+*
+*   BOLD, AND A LABEL RATHER THAN A TEXT TO GET THERE. The legacy screen draws
+*   this block in bold and the hearing and case lines under it in normal weight;
+*   both were plain sap.m.Text here, so the document opened with no hierarchy at
+*   all. sap.m.Text has no weight property, and the only bold the engine's
+*   stylesheet offers is .rakBlkTitle - a block-title class with its own colour,
+*   which would couple this document to a rule written for table headings.
+*   sap.m.Label carries DESIGN 'Bold' as a first-class property instead.
+*
+*   WRAPPING IS NOT OPTIONAL WITH IT. A Label defaults WRAPPING to false where a
+*   Text defaults it to true, so line 2 - the longest line on the page - would
+*   have been truncated with an ellipsis rather than wrapped. Read off the
+*   signature in Z2UI5_CL_XML_VIEW, not assumed from the control it replaces.
     DATA(lt_h1) = text_lines( io_ctx->get_val( c_f_head1 ) ).
     LOOP AT lt_h1 INTO DATA(lv_h1).
-      lo_doc->text( text      = zcl_rak_journey_util=>esc( lv_h1 )
-                    textalign = 'Center'
-                    width     = '100%'
-                    class     = 'sapUiTinyMarginBottom' ).
+      lo_doc->label( text      = zcl_rak_journey_util=>esc( lv_h1 )
+                     design    = 'Bold'
+                     wrapping  = abap_true
+                     textalign = 'Center'
+                     width     = '100%'
+                     class     = 'sapUiTinyMarginBottom' ).
     ENDLOOP.
 
 *   Header block 2 - the hearing line and the case line.
@@ -661,7 +737,8 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
     DATA(lv_l1) = io_ctx->get_val( c_f_bp1l ).
     IF lv_l1 IS NOT INITIAL.
       DATA(lo_p1) = lo_pty->hbox( alignitems = 'Start' class = 'sapUiTinyMarginBottom' ).
-      lo_p1->label( text = zcl_rak_journey_util=>esc( lv_l1 ) ).
+      lo_p1->label( text   = zcl_rak_journey_util=>esc( lv_l1 )
+                    design = 'Bold' ).
       DATA(lo_v1) = lo_p1->vbox( class = 'sapUiSmallMarginBegin' ).
       DATA(lt_v1) = text_lines( io_ctx->get_val( c_f_bp1v ) ).
       LOOP AT lt_v1 INTO DATA(lv_v1).
@@ -672,7 +749,8 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
     DATA(lv_l2) = io_ctx->get_val( c_f_bp2l ).
     IF lv_l2 IS NOT INITIAL.
       DATA(lo_p2) = lo_pty->hbox( alignitems = 'Start' class = 'sapUiTinyMarginBottom' ).
-      lo_p2->label( text = zcl_rak_journey_util=>esc( lv_l2 ) ).
+      lo_p2->label( text   = zcl_rak_journey_util=>esc( lv_l2 )
+                    design = 'Bold' ).
       DATA(lo_v2) = lo_p2->vbox( class = 'sapUiSmallMarginBegin' ).
       DATA(lt_v2) = text_lines( io_ctx->get_val( c_f_bp2v ) ).
       LOOP AT lt_v2 INTO DATA(lv_v2).
@@ -687,7 +765,8 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
     DATA(lv_lj) = io_ctx->get_val( c_f_jdgl ).
     IF lv_lj IS NOT INITIAL.
       DATA(lo_pj) = lo_pty->hbox( alignitems = 'Start' class = 'sapUiTinyMarginBottom' ).
-      lo_pj->label( text = zcl_rak_journey_util=>esc( lv_lj ) ).
+      lo_pj->label( text   = zcl_rak_journey_util=>esc( lv_lj )
+                    design = 'Bold' ).
       DATA(lo_vj) = lo_pj->vbox( class = 'sapUiSmallMarginBegin' ).
       DATA(lt_vj) = text_lines( io_ctx->get_val( c_f_jdgv ) ).
       LOOP AT lt_vj INTO DATA(lv_vj).
@@ -768,7 +847,19 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
     lv_yr  = lv_year.
 
     DATA(lt_range) = case_range( io_ctx ).
-    DATA(lv_lang)  = zcl_rak_text=>lang( ).
+
+*   IV_LANGU IS 'A', UNCONDITIONALLY, BECAUSE THE WD ASKED THAT WAY. What this
+*   FM composes into CASE_TEXT is "0 / 2026 مدني كلي" - a case number, a year
+*   and the case type's description - and that reference is DOCUMENT DATA. It
+*   is printed on the judgment, on the Adobe form and in the result list, and
+*   the legacy screen shows all three in Arabic whatever the logon language.
+*
+*   This asked in the CITIZEN's language and fell back to Arabic only when
+*   EVERY row came back with a blank CASE_TEXT. The fallback never fired,
+*   because CRM does hold an English text - so an English session read
+*   "0 / 2026 Total Civil Case" on a page that is otherwise an Arabic document,
+*   and the same string went into the PDF. The fallback is removed with it:
+*   it existed only to cover asking in a language that might have no text.
 
 *   A LOCAL CALL, and the same is true of the other two function modules in
 *   this class. The WD passed DESTINATION, resolved through
@@ -789,48 +880,13 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
             iv_case_number = lv_num
             iv_case_year   = lv_yr
             iv_case_type   = lt_range
-            iv_langu       = lv_lang
+            iv_langu       = zcl_rak_text=>c_langu_ar
           IMPORTING
             et_zjdg        = lt_jdg.
       CATCH cx_root INTO DATA(lx_srch).
         io_ctx->add_msg( iv_type = 'Error' iv_text = lx_srch->get_text( ) ).
         RETURN.
     ENDTRY.
-
-*   LANGUAGE FALLBACK, and only where it is unambiguous. CASE_TEXT is the
-*   composed "437 / 2026 تجاري يومي" the first column shows, and IV_LANGU
-*   decides the case-type half of it. The WD asked for Arabic
-*   unconditionally, so whether CRM holds an English text at all is
-*   unverified. Asking in the citizen's language is the right thing to try;
-*   a page of blank case numbers is not an acceptable way to discover it
-*   was not there, so if EVERY row came back without one, ask again in
-*   Arabic. An EMPTY result is never retried - no rows is a real answer,
-*   not a language problem.
-    IF lt_jdg IS NOT INITIAL AND lv_lang <> zcl_rak_text=>c_langu_ar.
-      DATA(lv_any) = abap_false.
-      LOOP AT lt_jdg INTO DATA(ls_probe).
-        IF ls_probe-case_text IS NOT INITIAL.
-          lv_any = abap_true.
-          EXIT.
-        ENDIF.
-      ENDLOOP.
-      IF lv_any = abap_false.
-        TRY.
-            CALL FUNCTION 'ZFM_JUDGEMENT_PUBLICATION'
-              EXPORTING
-                iv_case_number = lv_num
-                iv_case_year   = lv_yr
-                iv_case_type   = lt_range
-                iv_langu       = zcl_rak_text=>c_langu_ar
-              IMPORTING
-                et_zjdg        = lt_jdg.
-          CATCH cx_root.
-*           The Arabic retry is a best effort on top of a call that already
-*           succeeded, so a failure here leaves the English rows standing
-*           rather than throwing away a result the citizen can use.
-        ENDTRY.
-      ENDIF.
-    ENDIF.
 
     io_ctx->set_val( iv_name = c_f_sel  iv_value = '' ).
     io_ctx->set_val( iv_name = c_f_rows iv_value = '' ).
@@ -881,11 +937,17 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
                                  iv_key    = CONV string( ls_map-court_type ) ).
       ENDIF.
 
-      DATA(lv_age_txt) = ``.
-      IF ls_jdg-zzafld00005j IS NOT INITIAL AND ls_jdg-zzafld000073 IS NOT INITIAL.
-        lv_age = ls_jdg-zzafld00005j - ls_jdg-zzafld000073 + 1.
-        lv_age_txt = |{ lv_age }|.
-      ENDIF.
+*     THE LITIGATION PERIOD IS COMPUTED UNCONDITIONALLY, as the WD computed it.
+*     This carried a guard - both dates filled or the cell stayed blank - written
+*     to avoid the six-digit number one missing date produces. The guard was
+*     wrong, and wrong in the only case the live data actually exercises: with
+*     BOTH dates empty the arithmetic is 0 - 0 + 1 = 1, which is what the legacy
+*     screen prints and what the citizen sees there. Suppressing it left our
+*     column blank against the WD's 1 on the same case.
+*     The six-digit case is real and stays: the WD printed it too, and inventing
+*     a blank the legacy screen never showed is the larger error of the two.
+      lv_age = ls_jdg-zzafld00005j - ls_jdg-zzafld000073 + 1.
+      DATA(lv_age_txt) = |{ lv_age }|.
 
       DATA(lv_line) = |{ ls_jdg-guid }{ c_cell_sep }{ ls_jdg-case_text }|
                    && |{ c_cell_sep }{ lv_court_txt }|
@@ -1375,9 +1437,19 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
     DATA(lv_b64) = |data:application/pdf;base64,| &&
                    z2ui5_cl_util=>conv_encode_x_base64( ls_output-pdf ).
 
-    DATA(lv_name) = otr( iv_alias = c_a_verdict_prv
-                         iv_en    = `Verdict Preview`
-                         iv_ar    = |عرض الحكم| ).
+*   THE FILE NAME IS CHROME, NOT DOCUMENT CONTENT, so it follows the reader
+*   through PICK( ) rather than being forced Arabic through OTR( ). It is what
+*   the browser puts on the tab and what a download is saved as - the WD's own
+*   tab reads "Verdict Preview.pdf" - and neither is part of the judgment.
+*
+*   Going through OTR( ) is what made ours read "cjattviewer.pdf": the name
+*   stored was the Arabic, the viewer sends it as Content-Disposition
+*   filename="...", and what the tab showed instead was the last segment of the
+*   URL. Whether a non-ASCII name can survive that header at all is UNVERIFIED
+*   from here - if an Arabic session still shows cjattviewer.pdf, that is the
+*   next thing to look at and it is the engine's ZCL_RAK_CJ_ATT_HTTP, not this.
+    DATA(lv_name) = zcl_rak_text=>pick( iv_base = `Verdict Preview`
+                                        iv_ar   = |عرض الحكم| ).
 
     DATA lv_guid TYPE string.
     DATA lv_msg  TYPE string.
@@ -1492,8 +1564,10 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
 *& the seventeen aliases goes through here, which is the whole reason the
 *& helper exists - the alternative was seventeen call sites to remember.
 *&
-*& SCOPE: this method and the two literals that do not come from an alias
-*& (HEADTXT_LINE_3, and the View-copy caption). It does NOT touch the search
+*& SCOPE: this method and HEADTXT_LINE_3, the one document line that does not
+*& come from an alias. It does NOT cover the two things that are chrome rather
+*& than document - the View-copy button's caption and the PDF's file name -
+*& which both go through PICK( ) and follow the reader. It does NOT touch the search
 *& step, which stays bilingual - OTR( ) is called from LOAD_JUDGMENT( ) and
 *& its helpers and from nowhere else. Nor the engine's own chrome: the wizard
 *& step titles and the footer buttons come from the framework catalogue in the

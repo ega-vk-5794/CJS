@@ -179,24 +179,20 @@ CLASS ZCL_D013_STAFF_APP_LET_LOGIC IMPLEMENTATION.
     rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
                                                          iv_step = iv_step ).
 
-    CHECK iv_step = 1.   " zero-based: step 2 "Appointment" in the wizard
-    CHECK io_ctx->get_val( 'STAFFTYPE' ) = 'STAFF_1'.   " Teaching only
+    CASE iv_step.
+      WHEN 1.
+*    CHECK iv_step = 1.   " zero-based: step 2 "Appointment" in the wizard
 
-*    DATA(lv_grades) = VALUE string_table(
-*      ( 'GRADEPREKG' ) ( 'GRADEKG1' ) ( 'GRADEKG2' )
-*      ( 'GRADE1' ) ( 'GRADE2' ) ( 'GRADE3' ) ( 'GRADE4' ) ( 'GRADE5' ) ( 'GRADE6' )
-*      ( 'GRADE7' ) ( 'GRADE8' ) ( 'GRADE9' ) ( 'GRADE10' ) ( 'GRADE11' ) ( 'GRADE12' ) ).
-*
-*    DATA(lv_any) = abap_false.
-*    LOOP AT lv_grades INTO DATA(lv_grade).
-*      IF io_ctx->get_val( lv_grade ) = abap_true.
-*        lv_any = abap_true.
-*      ENDIF.
-*    ENDLOOP.
-*
-*    IF lv_any = abap_false.
-*      rt_msg = VALUE #( ( type = 'Error' text = 'Select at least one grade for a Teaching appointment.' ) ).
-*    ENDIF.
+
+        DATA(lv_apointment_flag) =  io_ctx->get_val( 'APPOINTMENTTYPE' ).
+        IF lv_apointment_flag = 'APP_2'.
+*          io_ctx->set_value( iv_name = 'APPOINTMENT_PERMANENT' = iv_value
+        ENDIF.
+
+        CHECK io_ctx->get_val( 'STAFFTYPE' ) = 'STAFF_1'.   " Teaching only
+      WHEN OTHERS.
+    ENDCASE.
+
   ENDMETHOD.
 
 
@@ -230,45 +226,11 @@ CLASS ZCL_D013_STAFF_APP_LET_LOGIC IMPLEMENTATION.
 *      "Applicant Type
 *      io_ctx->set_val( iv_name = c_applicanttype iv_value = |{ lv_role }| ).
       io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Investor' ).
+
+***      "CAND,DATESEARCH
+*       io_ctx->set_val( iv_name = 'CANDIDATESEARCH_IDTYPE' iv_value = 'Emirates ID' ).
     ENDIF.
 
-*    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
-*
-*    zcl_ega_cj_utility=>get_bp(
-*      EXPORTING
-*        qv_key  = user_data
-*      IMPORTING
-*        loginbp = DATA(loginbp)
-*        rolebp  = DATA(rolebp)
-*        role    = DATA(role)
-*    ).
-*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
-*
-*    io_ctx->set_val( iv_name = 'LICNO' iv_value = '0000002500009' ).
-*    io_ctx->set_val( iv_name = 'LICISSUED' iv_value = 'yyyy.mm.dd' ).
-*    io_ctx->set_val( iv_name = 'LICEXPIRED' iv_value = 'yyyy.mm.dd' ).
-
-*    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
-*   The signed-in citizen, read from the business partner register. What stood
-*   here was a fixed name and Emirates ID, written AFTER the real read, so every
-*   applicant saw and posted the same test person.
-*    NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
-*      EXPORTING
-*        iv_bp_id      = CONV bu_partner( loginbp )
-*      IMPORTING
-*        es_bp_details = DATA(ls_bp_real) ).
-*    io_ctx->set_val( iv_name = 'APPLICANTNAME' iv_value = COND #(
-*      WHEN sy-langu <> 'E' AND ls_bp_real-bp_name_ar IS NOT INITIAL
-*      THEN CONV string( ls_bp_real-bp_name_ar )
-*      ELSE CONV string( ls_bp_real-bp_name ) ) ).
-*    io_ctx->set_val( iv_name = 'APPLICANT_ID' iv_value = CONV #( ls_bp_real-emirates_id ) ).
-**    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
-*
-**    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
-*    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Investor' ).
-*
-*    io_ctx->set_val( iv_name = 'SCHOOLNAMEEN' iv_value = 'UAE School' ).
-*    io_ctx->set_val( iv_name = 'SCHOOLNAMEAR' iv_value = 'UAE School Arabic' ).
   ENDMETHOD.
 
 

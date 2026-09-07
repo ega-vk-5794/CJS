@@ -237,7 +237,7 @@ CLASS ZCL_EPDA_E020_BATT_SCRAP_LOGIC IMPLEMENTATION.
     DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
 
 
-    IF sy-uname = 'HASAN.F.VND'.
+    IF sy-uname = 'HASAN.F.VND' AND lv_loginbp IS INITIAL.
       lv_loginbp = '1000116563'.
       lv_rolebp   = '1000116563'.
       lv_role = 'OWNER'.

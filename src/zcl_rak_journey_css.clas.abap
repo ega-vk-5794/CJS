@@ -30,6 +30,7 @@ CLASS zcl_rak_journey_css DEFINITION
 *   database read per button.
     METHODS theme RETURNING VALUE(rs) TYPE zcl_rak_cj_theme=>ty_theme.
 
+protected section.
   PRIVATE SECTION.
     DATA mo_e TYPE REF TO zcl_rak_journey_engine.
     DATA ms_theme TYPE zcl_rak_cj_theme=>ty_theme.
@@ -124,6 +125,7 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 
 
   METHOD build_theme_css.
+
     DATA lv_css TYPE string.
 
     DATA(g)  = theme( ).

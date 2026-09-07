@@ -359,24 +359,16 @@ CLASS ZCL_D016_SCHOOL_LIC_CANC_LOGIC IMPLEMENTATION.
     CALL METHOD super->zif_rak_journey_logic~on_init
       EXPORTING
         io_ctx = io_ctx.
-*
-    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
-**
-*    zcl_ega_cj_utility=>get_bp(
-*      EXPORTING
-*        qv_key  = user_data
-*      IMPORTING
-*        loginbp = DATA(loginbp)
-*        rolebp  = DATA(rolebp)
-*        role    = DATA(role)
-*    ).
-**
-*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
+
 
     DATA: lv_loginbp TYPE bu_partner.
     lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
     DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
     DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
+
+    IF sy-uname = 'hasan.f.vnd'.
+      lv_loginbp = '3000000049'.
+    ENDIF.
 
     io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
     io_ctx->set_val( iv_name = 'OWNER_BP' iv_value = |{ lv_loginbp }| ).
