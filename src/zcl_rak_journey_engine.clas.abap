@@ -3629,12 +3629,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD zif_rak_journey~set_hidden.
-    mo_rules->set_prop( iv_field = iv_field iv_prop = 'HIDDEN' iv_on = iv_on ).
+    mo_rules->set_prop( iv_field = iv_field iv_prop = 'HIDDEN' iv_on = iv_on
+                        iv_step  = iv_step ).
   ENDMETHOD.
 
 
   METHOD zif_rak_journey~set_readonly.
-    mo_rules->set_prop( iv_field = iv_field iv_prop = 'READONLY' iv_on = iv_on ).
+    mo_rules->set_prop( iv_field = iv_field iv_prop = 'READONLY' iv_on = iv_on
+                        iv_step  = iv_step ).
   ENDMETHOD.
 
 
@@ -3644,6 +3646,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD zif_rak_journey~set_required.
-    mo_rules->set_prop( iv_field = iv_field iv_prop = 'REQUIRED' iv_on = iv_on ).
+    mo_rules->set_prop( iv_field = iv_field iv_prop = 'REQUIRED' iv_on = iv_on
+                        iv_step  = iv_step ).
   ENDMETHOD.
 ENDCLASS.

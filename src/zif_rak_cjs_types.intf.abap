@@ -145,6 +145,19 @@ INTERFACE zif_rak_cjs_types
            field TYPE string,
            prop  TYPE string,
            on    TYPE abap_bool,
+*          WHICH STEP THE OVERRIDE APPLIES TO. -1 means every step, which is
+*          what every existing caller gets and what the behaviour has always
+*          been - an override "lasts for the rest of the session".
+*
+*          It exists because A FIELD NAME IS NOT UNIQUE ACROSS A JOURNEY and
+*          this table is keyed on the name alone. A migrated legacy screen set
+*          repeats its field names per screen - E019 carries
+*          REGISTERED_EMIRATES_1 and TRADE_LICENSE_1 on three of its six
+*          screens and ADDRESS_1 on two - so hiding the one on the first step
+*          hid its namesakes on the rest, including REQUIRED fields the
+*          citizen then could not see or fill. Nothing reports that: the field
+*          is simply not drawn, and the step will not pass validation.
+           step  TYPE i,
          END OF ty_ovr,
          tt_ovr TYPE STANDARD TABLE OF ty_ovr WITH EMPTY KEY.
 

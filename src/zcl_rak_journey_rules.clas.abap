@@ -13,7 +13,10 @@ CLASS zcl_rak_journey_rules DEFINITION
     METHODS is_hidden   IMPORTING is_field TYPE zif_rak_journey=>ty_field RETURNING VALUE(rv) TYPE abap_bool.
     METHODS is_required IMPORTING is_field TYPE zif_rak_journey=>ty_field RETURNING VALUE(rv) TYPE abap_bool.
     METHODS is_readonly IMPORTING is_field TYPE zif_rak_journey=>ty_field RETURNING VALUE(rv) TYPE abap_bool.
-    METHODS set_prop  IMPORTING iv_field TYPE string iv_prop TYPE string iv_on TYPE abap_bool.
+*   IV_STEP: -1 (the default) means every step, which is what every caller
+*   before this parameter existed gets. See ZIF_RAK_CJS_TYPES=>TY_OVR-STEP.
+    METHODS set_prop  IMPORTING iv_field TYPE string iv_prop TYPE string iv_on TYPE abap_bool
+                                iv_step TYPE i DEFAULT -1.
     METHODS prop_ovr  IMPORTING iv_field TYPE string iv_prop TYPE string
                       EXPORTING ev_found TYPE abap_bool ev_on TYPE abap_bool.
     METHODS validate_step IMPORTING iv_step TYPE i RETURNING VALUE(rt_msg) TYPE zif_rak_journey=>tt_msg.
@@ -368,8 +371,29 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
 
   METHOD prop_ovr.
     CLEAR: ev_found, ev_on.
+    DATA(lv_f) = to_upper( condense( iv_field ) ).
+
+*   THE MORE SPECIFIC ROW WINS, and it is looked for first: an override scoped
+*   to the step being rendered outranks one that named no step. Anything else
+*   would make the scoped form pointless, since the journey-wide row is exactly
+*   what it exists to narrow.
+*
+*   MV_STEP is the step being rendered or validated, which is the only step
+*   whose fields ever reach here - IS_HIDDEN( ) and its two siblings are called
+*   from the renderer and the grid, per field, for the current step.
     READ TABLE mo_e->mt_ovr INTO DATA(ls_o)
-      WITH KEY field = to_upper( condense( iv_field ) ) prop = iv_prop.
+      WITH KEY field = lv_f prop = iv_prop step = mo_e->mv_step.
+    IF sy-subrc = 0.
+      ev_found = abap_true.
+      ev_on    = ls_o-on.
+      RETURN.
+    ENDIF.
+
+*   The journey-wide row: -1, and the only kind written before TY_OVR-STEP
+*   existed. Every caller that does not pass IV_STEP lands here, so this is
+*   the path that keeps today's behaviour identical.
+    READ TABLE mo_e->mt_ovr INTO ls_o
+      WITH KEY field = lv_f prop = iv_prop step = -1.
     IF sy-subrc = 0.
       ev_found = abap_true.
       ev_on    = ls_o-on.
@@ -382,12 +406,18 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
     IF lv_f IS INITIAL.
       RETURN.
     ENDIF.
+*   STEP IS PART OF THE KEY, so a per-step override and a journey-wide one on
+*   the same field are two rows rather than one overwriting the other. A
+*   handler that scopes REGISTERED_EMIRATES_1 to step 0 must not thereby
+*   silence a journey-wide instruction about the same name, or the other way
+*   round - PROP_OVR( ) below decides which of the two wins at read time.
     READ TABLE mo_e->mt_ovr ASSIGNING FIELD-SYMBOL(<o>)
-      WITH KEY field = lv_f prop = iv_prop.
+      WITH KEY field = lv_f prop = iv_prop step = iv_step.
     IF sy-subrc = 0.
       <o>-on = iv_on.
     ELSE.
-      APPEND VALUE #( field = lv_f prop = iv_prop on = iv_on ) TO mo_e->mt_ovr.
+      APPEND VALUE #( field = lv_f prop = iv_prop on = iv_on step = iv_step )
+             TO mo_e->mt_ovr.
     ENDIF.
   ENDMETHOD.
 

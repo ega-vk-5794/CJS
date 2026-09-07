@@ -578,15 +578,29 @@ INTERFACE zif_rak_journey
   "
   " Safe to call from any hook. They are read at render time, so setting one in
   " on_init, on_change or on_custom_validate all work.
+  "
+  " IV_STEP limits the override to ONE step, counted from zero the same way
+  " get_step( ) counts. Leave it out and the override applies to every step -
+  " what it has always done, and what every existing caller keeps getting.
+  "
+  " Pass it when the field name is not unique across the journey. A migrated
+  " legacy screen set repeats its names per screen, so the same FIELD_NAME can
+  " sit on several steps; hiding it then hides all of them, and a REQUIRED
+  " field the citizen cannot see is a form that will not submit and does not
+  " say why. Renaming is not the alternative - backend field control is keyed
+  " on the legacy FIELD_NAME end to end.
   METHODS set_hidden
     IMPORTING iv_field TYPE string
-              iv_on    TYPE abap_bool DEFAULT abap_true.
+              iv_on    TYPE abap_bool DEFAULT abap_true
+              iv_step  TYPE i DEFAULT -1.
   METHODS set_required
     IMPORTING iv_field TYPE string
-              iv_on    TYPE abap_bool DEFAULT abap_true.
+              iv_on    TYPE abap_bool DEFAULT abap_true
+              iv_step  TYPE i DEFAULT -1.
   METHODS set_readonly
     IMPORTING iv_field TYPE string
-              iv_on    TYPE abap_bool DEFAULT abap_true.
+              iv_on    TYPE abap_bool DEFAULT abap_true
+              iv_step  TYPE i DEFAULT -1.
   " Blank field clears every override on every field.
   METHODS clear_props
     IMPORTING iv_field TYPE string OPTIONAL.
