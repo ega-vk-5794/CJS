@@ -1330,8 +1330,24 @@ CLASS ZCL_RAK_CJS_XCHECK IMPLEMENTATION.
 *   'ZCL_RAK_CJS' finds nothing and reports nothing - which would make this
 *   rule pass silently on every column, the exact failure it exists to catch.
 *   So a blank result is reported rather than treated as a clean run.
-    DATA lt_src TYPE TABLE OF string.
-    DATA(lv_pool) = |ZCL_RAK_CJS{ repeat( val = `=` occ = 19 ) }CP|.
+*   NEITHER OF THESE MAY BE A STRING, and both were.
+*   READ REPORT is a classic statement: it wants a character-like field for
+*   the program name and a table of character-like lines for the source. A
+*   TYPE string program name is rejected outright - "LV_POOL must be a
+*   character-like field (data type C, N, D, or T)" - and TABLE OF string for
+*   the source is the same mistake one line up.
+*
+*   THE LINE TYPE IS DECLARED HERE RATHER THAN BORROWED. The obvious choice
+*   is ABAPTXT255_TAB, and it is the wrong kind of guess: whether its line is
+*   an elementary CHAR255 or a structure wrapping one cannot be read from
+*   here, and if it is a structure then CONCAT_LINES_OF( ) below fails on the
+*   very next statement - a second activation round to learn one fact. An
+*   elementary C LENGTH 255 satisfies both statements by construction.
+    TYPES ty_srcline TYPE c LENGTH 255.
+    DATA lt_src  TYPE STANDARD TABLE OF ty_srcline WITH EMPTY KEY.
+    DATA lv_pool TYPE progname.
+
+    lv_pool = |ZCL_RAK_CJS{ repeat( val = `=` occ = 19 ) }CP|.
 
 *   SY-SUBRC, not TRY/CATCH. READ REPORT signals a missing program through
 *   SY-SUBRC and raises nothing, so a CATCH here would be dead code that
