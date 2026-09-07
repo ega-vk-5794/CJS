@@ -769,13 +769,25 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     mv_readonly = xsdbool( zcl_rak_journey_util=>studio_mode( ) = zcl_rak_journey_util=>c_studio_read ).
 
     IF zcl_rak_journey_util=>studio_mode( ) = zcl_rak_journey_util=>c_studio_none.
+*     SAYS ONLY THAT ACCESS IS REFUSED, AND NOTHING ELSE.
+*
+*     It used to name the system - "This system is E30." - and then
+*     explain how journeys reach it and that editing against its data is
+*     the wrong way round. Every word of that is true and none of it is
+*     the caller's business: this page answers a bare URL on a
+*     citizen-facing host, before any authority check, so whoever is
+*     reading it has not been identified. The system id, the landscape
+*     shape and the fact that a Studio exists at all are things a refusal
+*     should not volunteer.
+*
+*     A refusal that explains itself is helping the wrong reader. The
+*     people who need the reason are developers, and they have this
+*     class; anyone else gets the fact and no detail to work from.
       mo_client->view_display(
         z2ui5_cl_xml_view=>factory(
-          )->message_page( text        = |This system is { sy-sysid }.|
-                           description = 'The Journey Studio does not open here. Author journeys ' &&
-                                         'on development and let them reach this system by ' &&
-                                         'transport, never by editing against its data.'
-                           icon        = 'sap-icon://locked'
+          )->message_page( text = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-not_authorized
+                                                     iv_default = 'Not authorized.' )
+                           icon = 'sap-icon://locked'
           )->stringify( ) ).
       RETURN.
     ENDIF.
@@ -1513,8 +1525,13 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
   METHOD can_write.
     rv = xsdbool( mv_readonly = abap_false ).
     IF rv = abap_false.
-      mv_msg   = |This system is { sy-sysid } and the Studio is read-only here. | &&
-                 |Author on development and let the change arrive by transport.|.
+*     Same rule as the message page above: the refusal states that the
+*     write was refused and names neither the system nor the reason.
+*     This one is reached only after the Studio has opened, so the reader
+*     is at least inside - but it is the same sentence either way, and one
+*     wording is one thing to keep right.
+      mv_msg   = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-not_authorized
+                                    iv_default = 'Not authorized.' ).
       mv_mtype = 'Error'.
     ENDIF.
   ENDMETHOD.
@@ -3057,36 +3074,26 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   activates as-is: open to developers in DEV/QA, closed in PRD. For a dedicated
 *   role, create Z_RAK_CJS in SU21 with field ACTVT (02 change / 03 display /
 *   06 delete) and swap the object name below.
-*   ---- THE BYPASS IS OFF, AND IT IS NOW DEVELOPMENT-ONLY ----------------
-*   This used to be `lv_bypass = abap_true` unconditionally, so AUTH_OK( )
-*   returned true to everybody and the authority check below never ran.
-*   Anyone who could start the Studio could save or delete a live journey.
-*   With that standing, "read-only on quality" would have been decoration.
 *
-*   Left as a flag rather than deleted, because it is genuinely useful on a
-*   fresh development client where nobody has the object yet - but bounded
-*   by DEV_STUBS_OK( ), so it cannot travel. The AND is the point: setting
-*   it back to ABAP_TRUE re-opens development and changes nothing anywhere
-*   else.
-    DATA lv_bypass TYPE abap_bool.
-    lv_bypass = abap_false.
-    IF lv_bypass = abap_true AND zcl_rak_journey_util=>dev_stubs_ok( ) = abap_true.
-      rv = abap_true.
-      RETURN.
-    ENDIF.
-
-*   THE NAMED-USER OVERRIDE, and the last of the four gates it lifts.
-*   Without this the Studio would open in EDIT mode for that user and
-*   then refuse every save on a system where they hold no S_DEVELOP -
-*   which is worse than closing it, because the buttons work and the
-*   action does not. See ZCL_RAK_JOURNEY_UTIL=>POWER_USER( ) for what
-*   the whole override opens and why a hardcoded name is the weakest
-*   form of it.
-    IF zcl_rak_journey_util=>power_user( ) = abap_true.
-      rv = abap_true.
-      RETURN.
-    ENDIF.
-
+*   ---- THERE IS NO BYPASS AND NO EXCEPTION. BOTH ARE GONE ---------------
+*   Two escapes used to sit above the authority check and both have been
+*   removed rather than switched off:
+*
+*     LV_BYPASS, a flag that once read ABAP_TRUE unconditionally, so
+*     AUTH_OK( ) returned true to everybody and the check below never ran.
+*     It was later bounded by DEV_STUBS_OK( ) and kept "in case a fresh
+*     development client has nobody with the object yet" - which is a
+*     Basis problem with a Basis answer, not a reason to keep a
+*     one-character hole in the only authority check the Studio has.
+*
+*     A named-user override, which did its job before go-live and was
+*     removed at the owner's request.
+*
+*   WHAT IS LEFT IS THE AUTHORITY CHECK AND NOTHING ELSE, which is the
+*   point: there is now exactly one way to be allowed to write
+*   configuration, it is granted and revoked in SU01, and no edit to this
+*   class can widen it by accident. Do not add a third escape here. If
+*   somebody needs access, they need the role.
     AUTHORITY-CHECK OBJECT 'S_DEVELOP'
       ID 'DEVCLASS' DUMMY
       ID 'OBJTYPE'  FIELD 'TABL'
