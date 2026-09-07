@@ -232,6 +232,11 @@ CLASS zcl_rak_text DEFINITION
 *       has no PLACEHOLDER of its own to use instead. See R13-8 in
 *       ZCL_RAK_JOURNEY_RENDER's SELECT branch.
         opt_none            TYPE symsgno VALUE '138',
+*       THE WHOLE REFUSAL, and deliberately the whole of it. Used by the
+*       Studio's closed-system page and by its write guard. Any extra
+*       word here reaches a caller who has not been identified, so the
+*       wording is the one thing about it that must not grow.
+        not_authorized      TYPE symsgno VALUE '139',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -563,7 +568,10 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
         ar = `رمز التحقق غير مطابق. تم عرض رمز جديد - يرجى المحاولة مرة أخرى.` )
       ( msgno = c_no-opt_none
         en = `(none)`
-        ar = `(بدون)` ) ).
+        ar = `(بدون)` )
+      ( msgno = c_no-not_authorized
+        en = `Not authorized.`
+        ar = `غير مصرح.` ) ).
   ENDMETHOD.
 
 
