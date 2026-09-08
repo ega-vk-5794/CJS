@@ -1765,6 +1765,25 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     ENDIF.
 
     SELECT SINGLE * FROM zrak_t_jny INTO @DATA(h) WHERE journey_id = @mv_sel.
+*   SY-SUBRC, WHICH WAS NOT CHECKED, AND THE MISS IS NOT HARMLESS.
+*   On no row H stays blank, and the very next line stamps an id and a
+*   title onto it - so the INSERT below writes a journey with an id, the
+*   word "(copy)" and nothing else, every child SELECT copies zero rows,
+*   and the method reports Success. An author gets a new empty journey and
+*   a green message saying it was created from the pattern.
+*
+*   That is reachable from the Studio's own pattern list today. The five
+*   pattern ids - DEMO_TRADE_LIC, DEMO_ENV_PERMIT, DEMO_GOLDEN_VISA,
+*   DEMO_FEEDBACK, ZDEMO_SHOWCASE - are named in RENDER_PATTERNS( ) and
+*   seeded by nothing in this repository, so on any client where those
+*   rows were never created by hand, every "Use this pattern" button
+*   silently produces an empty journey rather than saying the pattern is
+*   missing.
+    IF sy-subrc <> 0.
+      mv_msg   = |Source journey { to_upper( mv_sel ) } does not exist - nothing to copy|.
+      mv_mtype = 'Error'.
+      RETURN.
+    ENDIF.
     h-journey_id = lv_to. h-title = |{ h-title } (copy)|.
     h-changed_by = sy-uname.
     GET TIME STAMP FIELD h-changed_at.
