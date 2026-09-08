@@ -975,6 +975,48 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
       lv_css = lv_css && legacy_chrome( ).
     ENDIF.
 
+*   ---- R15-1. A BLOCK NESTED IN A CARD DOES NOT REPEAT THE CARD --------
+*   A grid, an upload or a search started about thirty pixels right of the
+*   scalar fields under it on the same card, and the arithmetic is theirs
+*   and correct: RENDER_BLOCK( ) wraps every block type in
+*   vbox( class = 'rakSearch' ), so its box starts at the card's own
+*   14px of padding PLUS .rakSearch's side margin. Two blocks of one form
+*   with two left edges, and the eye reads the grid as belonging to
+*   something else.
+*
+*   ONE NESTED RULE, APPENDED ONCE, RATHER THAN EDITING THE VARIANTS.
+*   .rakSearch is defined SIX times - five theme variants in this method
+*   and a sixth in LEGACY_CHROME( ) - with three different side margins
+*   between them. Editing them individually is how the reporters' own
+*   warning comes true: they asked us not to leave one variant's inset
+*   different from the others, and six hand-edits is exactly the shape
+*   that leaves one behind. This cannot: `.rakCard .rakSearch` is two
+*   classes against one, so it outranks every variant on SPECIFICITY and
+*   wins regardless of source order or which branch ran.
+*
+*   OUTER EDGE TO OUTER EDGE, and worth being exact about because their
+*   preferred shape does not quite do what it says. Dropping the side
+*   margin aligns the block's BOX with the SimpleForm's box. The block's
+*   CONTENT still sits its own padding further in - about 13 of the 30
+*   pixels - because it is a bordered container and that is what the
+*   border is for. Removing the padding too would align the text and
+*   leave the border hugging it, which is worse. So this is the honest
+*   half of the fix, not the whole 30px.
+*
+*   THE SHADOW GOES, THE BORDER AND GROUND STAY. A box-shadow exists to
+*   lift a card off the page; nested inside another card it has nothing
+*   to lift off and is the main reason the second panel reads as a panel.
+*   The border and background are what make a block legible AS a block,
+*   which the reporters said they wanted kept where it is.
+*
+*   THIS MOVES EVERY JOURNEY THAT HAS A GRID, AN UPLOAD OR A SEARCH ON A
+*   STEP - it is a correction, not a preference, so it is not behind a
+*   flag. A column would have meant every journey keeping a
+*   misalignment until somebody set it, and a new column nobody sets is
+*   the PINNED shape this project has already retired once.
+    lv_css = lv_css &&
+      |.rakCard .rakSearch\{margin-left:0;margin-right:0;box-shadow:none;\}|.
+
     DATA lv_hash TYPE string.
     TRY.
         cl_abap_message_digest=>calculate_hash_for_char(
