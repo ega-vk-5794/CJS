@@ -65,6 +65,48 @@ CLASS zcl_rak_cj_opts DEFINITION
       EXPORTING et_opt   TYPE zif_rak_journey=>tt_option
                 ev_note  TYPE string.
 
+*   The logged-on partner's projects, for M028's project step.
+*
+*   IT GOES THROUGH ZCL_RAK_FEES_API, NOT ZCL_RAK_PROPERTY_API, and that
+*   is not an accident of where the method landed: ProjectSet is one of
+*   the three entity sets that never dereference IO_TECH_REQUEST_CONTEXT
+*   (with FeesSet and TrackerSet), which is why those three could be
+*   wrapped before the request-context factory existed. PROJECTS( ) says
+*   so at its own signature.
+*
+*   TAKES IS_CTX, like PROPERTY_OPTS( ). The filters are Dept, Partner
+*   and CaseId - all three are journey identity, so the built context
+*   answers them and nothing has to come off the screen.
+    CLASS-METHODS project_opts
+      IMPORTING is_dir   TYPE zcl_rak_cj_api=>ty_dir
+                is_ctx   TYPE zcl_rak_cj_api=>ty_ctx
+      EXPORTING et_opt   TYPE zif_rak_journey=>tt_option
+                ev_note  TYPE string.
+
+*   First non-blank component of a row named in IV_NAMES, a comma list.
+*
+*   WHY A CANDIDATE LIST AND NOT A FIELD NAME. A project row is
+*   LINE OF ZCL_ZEGA_CJ_MPC=>TT_PROJECT, and that MPC cannot be opened
+*   from the CJS repository - so naming a component directly would be a
+*   guess, and a wrong guess is a syntax error that takes this class down
+*   at load. Every journey with an API: directive renders through
+*   RESOLVE( ), so that would take the parcel selector down with it.
+*
+*   Same decision, and the same reason, as ATTACHMENTS_FOR_BACKEND( )'s
+*   DIFFCRT list and ZCL_RAK_CJ_API->COLUMNS_OF( )'s runtime read of the
+*   MPC row structure.
+*
+*   EV_HIT names the component that answered. Nothing reads it today -
+*   PROJECT_OPTS( ) reports the MISS instead, which is the actionable
+*   half - but it is on the signature because the first caller that has
+*   somewhere to log to will want it, and adding it later would mean
+*   touching every call site.
+    CLASS-METHODS row_pick
+      IMPORTING is_row    TYPE any
+                iv_names  TYPE string
+      EXPORTING ev_val    TYPE string
+                ev_hit    TYPE string.
+
 *   'Type=Parcel' -> 'Parcel'. The directive's filter slot is one
 *   name=value pair today; anything richer belongs in the API, not in a
 *   string this class has to parse.
@@ -137,6 +179,17 @@ CLASS zcl_rak_cj_opts IMPLEMENTATION.
                               io_ctx  = io_ctx
                     IMPORTING et_opt  = et_opt
                               ev_note = ev_note ).
+
+*     ADDITIVE, AND THAT IS THE WHOLE SAFETY ARGUMENT. This CASE is on the
+*     directive's own API word, so a field carrying API:PROPERTY: or
+*     API:MAPLET: cannot reach this branch and behaves exactly as it did.
+*     Nothing configured today says PROJECT - M028 is the first, and it is
+*     seeded by ZRAK_M028_LOAD in the same change.
+      WHEN 'PROJECT'.
+        project_opts( EXPORTING is_dir  = ls_dir
+                                is_ctx  = ls_ctx
+                      IMPORTING et_opt  = et_opt
+                                ev_note = ev_note ).
 
       WHEN OTHERS.
 *       Named, not silent. The list is empty because nothing serves this
@@ -245,6 +298,111 @@ CLASS zcl_rak_cj_opts IMPLEMENTATION.
                              THEN 'No property is registered against this partner'
                              ELSE 'لا يوجد عقار مسجل لهذا الشريك' ).
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD project_opts.
+    CLEAR: et_opt, ev_note.
+
+*   ProjectSet is the only set this branch serves. Anything else under
+*   API:PROJECT: is named rather than silently answered with an empty
+*   list - an empty dropdown and an unserved binding look identical on
+*   screen and are completely different problems.
+    IF to_upper( is_dir-eset ) <> 'PROJECTSET'.
+      ev_note = |{ is_dir-eset } is not served by the project API|.
+      RETURN.
+    ENDIF.
+
+    DATA(lo_api) = NEW zcl_rak_fees_api( is_ctx = is_ctx ).
+
+*   IV_CASE IS THE CONTEXT'S INTRENO, and it is OPTIONAL on purpose.
+*   IS_CTX-INTRENO is io_ctx->get_case( ) - the live case guid, which on
+*   a brand new request does not exist yet. Blank is the normal state at
+*   the project step, and PROJECTS( ) simply omits the CaseId filter, so
+*   the read comes back as "every project this partner owns". That is
+*   exactly what step 1 has to offer.
+    DATA(ls_res) = lo_api->projects( iv_case = is_ctx-intreno ).
+
+    IF ls_res-msg IS NOT INITIAL.
+      ev_note = first_msg( ls_res-msg ).
+    ENDIF.
+
+    DATA lv_key  TYPE string.
+    DATA lv_desc TYPE string.
+
+    LOOP AT ls_res-rows ASSIGNING FIELD-SYMBOL(<ls_row>).
+
+*     THE KEY IS THE PROJECT'S INTERNAL NUMBER, because that is what
+*     NCOD_1_1 stores: the screen carries INTRENO_PROJECT as a TOSAVE
+*     carrier beside the control, exactly as NACO_1_1 carries
+*     INTRENO_PARCEL beside the parcel selector.
+      row_pick( EXPORTING is_row   = <ls_row>
+                          iv_names = 'INTRENO,PROJECTID,PROJECT,PROJECTNO,PROJECTNUMBER,ID'
+                IMPORTING ev_val   = lv_key ).
+      IF lv_key IS INITIAL.
+        CONTINUE.
+      ENDIF.
+
+*     Enough to tell two projects apart without turning the dropdown into
+*     a table. Falls back to the key alone, which is always readable.
+      row_pick( EXPORTING is_row   = <ls_row>
+                          iv_names = 'PROJECTNAME,DESCRIPTION,PROJECTDESC,NAME,TEXT,DESC'
+                IMPORTING ev_val   = lv_desc ).
+
+      APPEND VALUE #( key  = lv_key
+                      text = COND string( WHEN lv_desc IS NOT INITIAL
+                                          THEN |{ lv_key } - { lv_desc }|
+                                          ELSE lv_key ) ) TO et_opt.
+    ENDLOOP.
+
+*   ---- SAYING WHICH OF THE TWO EMPTINESSES THIS IS -------------------
+*   NO TRACE( ) CALL HERE, DELIBERATELY. TRACE( ) is an INSTANCE method on
+*   ZCL_RAK_JOURNEY_ENGINE and this is a CLASS-METHOD holding a context
+*   struct, not an engine - so there is nothing to call it on. Reaching
+*   for ZCL_RAK_JOURNEY_UTIL=>TRACE( ) instead does not work either: no
+*   such method exists, and an unknown method here is a syntax error that
+*   leaves this class with no active version, which would take the parcel
+*   selector and every other API-bound field down with it.
+*
+*   EV_NOTE carries it instead, and it separates the two cases that look
+*   identical on screen:
+*
+*     rows came back but no key could be read -> the candidate list in
+*         ROW_PICK( ) above does not name the real component. Actionable,
+*         and one run names it.
+*     no rows at all -> this partner genuinely owns no project.
+    IF et_opt IS INITIAL AND ev_note IS INITIAL.
+      IF ls_res-rows IS NOT INITIAL.
+        ev_note = |ProjectSet returned { lines( ls_res-rows ) } row(s) but no key | &&
+                  |component matched. Extend the candidate list in | &&
+                  |ZCL_RAK_CJ_OPTS->PROJECT_OPTS( ).|.
+      ELSE.
+        ev_note = COND string( WHEN sy-langu = 'E'
+                               THEN 'No project is registered against this partner'
+                               ELSE 'لا يوجد مشروع مسجل لهذا الشريك' ).
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD row_pick.
+    CLEAR: ev_val, ev_hit.
+
+*   ASSIGN COMPONENT, NEVER ASSIGN (name). Assign-by-name resolves a
+*   string as a data object visible in the CALLING program and writes
+*   into whatever it finds - which is how ZIF_EGA_FW_CJI~MAPPER dumped
+*   every DOK journey with MOVE_TO_LIT_NOTALLOWED_NODATA. Component
+*   assignment cannot reach outside the structure.
+    SPLIT iv_names AT ',' INTO TABLE DATA(lt_name).
+    LOOP AT lt_name INTO DATA(lv_name).
+      ASSIGN COMPONENT condense( to_upper( lv_name ) )
+             OF STRUCTURE is_row TO FIELD-SYMBOL(<val>).
+      IF sy-subrc = 0 AND <val> IS NOT INITIAL.
+        ev_val = condense( CONV string( <val> ) ).
+        ev_hit = condense( to_upper( lv_name ) ).
+        RETURN.
+      ENDIF.
+    ENDLOOP.
   ENDMETHOD.
 
 
