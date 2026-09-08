@@ -249,11 +249,11 @@ CLASS zcl_m029_aco_logic IMPLEMENTATION.
 *   is a real shape for a local consultancy, and an empty first column
 *   reads as a broken row.
     DATA(lv_company) = COND string(
-      WHEN sy-langu = 'A' AND ls_bp-arabic_full_name IS NOT INITIAL
-      THEN CONV string( ls_bp-arabic_full_name )
-      WHEN ls_bp-english_full_name IS NOT INITIAL
-      THEN CONV string( ls_bp-english_full_name )
-      ELSE CONV string( ls_bp-arabic_full_name ) ).
+      WHEN sy-langu = 'A' AND is_bp-arabic_full_name IS NOT INITIAL
+      THEN CONV string( is_bp-arabic_full_name )
+      WHEN is_bp-english_full_name IS NOT INITIAL
+      THEN CONV string( is_bp-english_full_name )
+      ELSE CONV string( is_bp-arabic_full_name ) ).
     IF lv_company IS INITIAL.
       lv_company = pick( is_bp    = is_bp
                          iv_names = 'NAME_ORG1,ZZCOMPANY_NAME,MC_NAME1,NAME' ).
@@ -384,7 +384,10 @@ CLASS zcl_m029_aco_logic IMPLEMENTATION.
 *     Deliberately NOT a check on C_FLD_DONATE. That is the five-dirham
 *     Ajer donation and it is optional - requiring it would make a
 *     charitable donation compulsory before a citizen could continue.
-      IF io_ctx->get_val( c_fld_agree ) IS INITIAL.
+*     Into a variable first: IS INITIAL is a predicate over a data
+*     object, not over a functional call.
+      DATA(lv_agree) = io_ctx->get_val( c_fld_agree ).
+      IF lv_agree IS INITIAL.
         rt = VALUE #( BASE rt
           ( type = 'Error'
             text = COND string(

@@ -291,7 +291,13 @@ CLASS zcl_m028_cod_logic IMPLEMENTATION.
       IF NOT line_exists( lt_req[ table_line = ls_f-name ] ).
         CONTINUE.
       ENDIF.
-      IF condense( io_ctx->get_val( ls_f-name ) ) IS INITIAL.
+*     THE VALUE GOES INTO A VARIABLE FIRST. "IS INITIAL" is a predicate
+*     over a DATA OBJECT, not over an expression, so a functional call as
+*     its operand is rejected with "Unexpected operator IS" - a message
+*     that names the operator rather than the call, which is what makes it
+*     read like a typo in the IF.
+      DATA(lv_val) = condense( io_ctx->get_val( ls_f-name ) ).
+      IF lv_val IS INITIAL.
         rt = VALUE #( BASE rt
           ( type = 'Error'
             text = COND string(
@@ -401,8 +407,12 @@ CLASS zcl_m028_cod_logic IMPLEMENTATION.
 *   CB1..CB6. Six, from the export - the walkthrough shows four and the
 *   other two are presumably hidden by the live field control, which
 *   costs nothing here: a hidden checkbox is simply never ticked.
+    DATA lv_cb TYPE string.
     DO 6 TIMES.
-      IF io_ctx->get_val( |CB{ sy-index }| ) IS NOT INITIAL.
+*     Same rule as VALIDATE_POPUP( ): IS NOT INITIAL needs a data object,
+*     never a functional call.
+      lv_cb = io_ctx->get_val( |CB{ sy-index }| ).
+      IF lv_cb IS NOT INITIAL.
         rv = rv + 1.
       ENDIF.
     ENDDO.
