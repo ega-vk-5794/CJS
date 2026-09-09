@@ -785,9 +785,20 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *     class; anyone else gets the fact and no detail to work from.
       mo_client->view_display(
         z2ui5_cl_xml_view=>factory(
-          )->message_page( text = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-not_authorized
-                                                     iv_default = 'Not authorized.' )
-                           icon = 'sap-icon://locked'
+*     DESCRIPTION IS PASSED, AND IT HAS TO BE. It was left out when the
+*     system name came out of this page, and sap.m.MessagePage's own
+*     default filled the hole - the refusal read "Not authorized. /
+*     Check the filter settings" on a page with no filters. An
+*     unsupplied z2ui5 OPTIONAL is not blank: XML_GET_PARTS( ) drops
+*     every blank property from the markup and the control's default
+*     applies. A space does not work either - a space IS blank to that
+*     filter - so the only way to suppress a default is to pass
+*     something real.
+          )->message_page( text        = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-not_authorized
+                                                            iv_default = 'Not authorized.' )
+                           description = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-not_auth_hint
+                                                            iv_default = 'Contact your administrator if you need access.' )
+                           icon        = 'sap-icon://locked'
           )->stringify( ) ).
       RETURN.
     ENDIF.

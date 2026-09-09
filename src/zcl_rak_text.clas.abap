@@ -237,6 +237,23 @@ CLASS zcl_rak_text DEFINITION
 *       word here reaches a caller who has not been identified, so the
 *       wording is the one thing about it that must not grow.
         not_authorized      TYPE symsgno VALUE '139',
+*       THE SECOND LINE OF THE REFUSAL, AND IT EXISTS TO SUPPRESS A
+*       DEFAULT RATHER THAN TO SAY ANYTHING.
+*
+*       sap.m.MessagePage's DESCRIPTION defaults to "Check the filter
+*       settings", and an unsupplied z2ui5 OPTIONAL is not blank - it is
+*       whatever UI5 defaults to, because XML_GET_PARTS( ) drops every
+*       blank property from the markup and the control's own default
+*       then applies. So the refusal page read "Not authorized. / Check
+*       the filter settings", which is nonsense on a page with no
+*       filters. Passing a space does not help either: a space IS blank
+*       to that filter and gets dropped the same way.
+*
+*       Something real therefore has to be passed. This is the most
+*       neutral line available - it names no system, no landscape and no
+*       Studio, and it tells the one reader who might legitimately be
+*       stuck what to do next.
+        not_auth_hint       TYPE symsgno VALUE '140',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -571,7 +588,10 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
         ar = `(بدون)` )
       ( msgno = c_no-not_authorized
         en = `Not authorized.`
-        ar = `غير مصرح.` ) ).
+        ar = `غير مصرح.` )
+      ( msgno = c_no-not_auth_hint
+        en = `Contact your administrator if you need access.`
+        ar = `يرجى التواصل مع المسؤول إذا كنت بحاجة إلى الوصول.` ) ).
   ENDMETHOD.
 
 
