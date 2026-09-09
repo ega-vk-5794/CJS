@@ -154,6 +154,56 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
           text = |{ lv_skipped } attached file(s) could not be read and were not sent | &&
                  |with this application. Please attach them again.| ) ).
     ENDIF.
+
+*   ---- TWO FILES WITH ONE IDENTIFIER1 IS A FILE THE CASE WILL NOT KEEP -
+*   ATTACH_MULTI lets a citizen add a second file to the same field, and
+*   the backend then keeps ONE of them. That is not a bug in the send:
+*   GET_ATTACHMENT( ) de-duplicates on (objsrc, diffcrt, objsrctype,
+*   objtrgtype), and two files on one field share the field, so they
+*   share IDENTIFIER1, IDENTIFIER2 and the document type. They collide by
+*   construction.
+*
+*   IDENTIFIER1 gains an occurrence suffix only when the file belongs to
+*   one - LV_ATT_KEY comes from splitting the upload event at '~', which
+*   only a grid row's uploader supplies. A plain field's uploader sends
+*   no key, so there is nothing to make its files distinguishable.
+*
+*   WHY THIS DETECTS RATHER THAN RENAMES. Sending FIELD_1 / FIELD_2 would
+*   make them unique and is the wrong fix: IDENTIFIER1's suffix means an
+*   OCCURRENCE to the BAdI - ZCL_EGA_CJ_DOK_ABS reads OWNERS_SEARCH_<n>
+*   back out of it - so an invented index claims a row that does not
+*   exist, and mis-filing a file is worse than losing it visibly.
+*
+*   AND WHY IT WARNS RATHER THAN REFUSES. Refusing the second file would
+*   change what a journey configured this way does today, and the owner
+*   asked for no side effects. A warning removes the SILENCE, which is
+*   the actual harm - the citizen believed both files were attached.
+*   Whether ATTACH_MULTI should be offered at all is a config decision
+*   and is now visible enough to make.
+    DATA lt_seen TYPE zif_rak_journey=>tt_string.
+    DATA lv_dup  TYPE i.
+    LOOP AT rt INTO DATA(ls_chk).
+      DATA(lv_key1) = CONV string( ls_chk-identifier1 ).
+      IF line_exists( lt_seen[ table_line = lv_key1 ] ).
+        lv_dup = lv_dup + 1.
+        mo_e->trace_gate( |Attachment { ls_chk-file_name } shares identifier1 | &&
+                          |'{ lv_key1 }' with a file already sent. The backend | &&
+                          |de-duplicates on it, so only one of them is kept. A | &&
+                          |plain field cannot distinguish its files - only a grid | &&
+                          |row supplies an occurrence key - so ATTACH_MULTI on | &&
+                          |this field loses every file after the first.| ).
+      ELSE.
+        APPEND lv_key1 TO lt_seen.
+      ENDIF.
+    ENDLOOP.
+
+    IF lv_dup > 0.
+      mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg
+        ( type = 'Warning'
+          text = |Only one file per attachment field is kept. { lv_dup } | &&
+                 |additional file(s) will not be stored with this application - | &&
+                 |please combine them into one document.| ) ).
+    ENDIF.
   ENDMETHOD.
 
 
