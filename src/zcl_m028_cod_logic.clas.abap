@@ -119,6 +119,24 @@ CLASS zcl_m028_cod_logic DEFINITION
     CONSTANTS c_pop_heli  TYPE string VALUE 'BLD_HELI'.
     CONSTANTS c_pop_base  TYPE string VALUE 'BLD_BASEMENT'.
 
+*   ---- CONSTRUCTION AND UTILITIES CONFIGURATION -----------------------
+*   The popup's THIRD section, and it was missing entirely. The eleven
+*   fields above were derived from an English walkthrough that showed
+*   two sections; the Arabic screenshots of the live service show three,
+*   and the third has these:
+*
+*       نوع الأساسات        Foundation type
+*       نوع البناء          Construction type
+*       نوع نظام البناء     Building system type
+*
+*   All three carry the red asterisk on screen, so a building saved
+*   without them is incomplete - and nothing on the CJS side would have
+*   said so, because the grid it feeds had eleven columns and eleven is
+*   what the popup collected.
+    CONSTANTS c_pop_found TYPE string VALUE 'BLD_FOUND'.
+    CONSTANTS c_pop_const TYPE string VALUE 'BLD_CONSTR'.
+    CONSTANTS c_pop_syst  TYPE string VALUE 'BLD_SYSTEM'.
+
 *   ---- events --------------------------------------------------------
 *   MATCHED WITH CP, NEVER AN OFFSET. IV_EVENT is TYPE string and event
 *   names are short, so iv_event(8) on a six-character name raises
@@ -224,7 +242,14 @@ CLASS zcl_m028_cod_logic IMPLEMENTATION.
                                            ELSE `Add Building` )
                  iv_ok_evt  = c_evt_ok
                  iv_cxl_evt = c_evt_cancel
-                 iv_columns = 2 ).
+*                THREE, MATCHING THE LIVE SCREEN, and it was two.
+*                The Arabic walkthrough lays this dialog out in three
+*                columns per section, and the field count went from
+*                eleven to fourteen with the Construction and Utilities
+*                block - which at two columns is seven rows of a
+*                scrolling popup. DIALOG_FORM( ) accepts 1, 2 or 3 and
+*                clamps anything else, so this is the widest it offers.
+                 iv_columns = 3 ).
 
   ENDMETHOD.
 
@@ -264,21 +289,41 @@ CLASS zcl_m028_cod_logic IMPLEMENTATION.
       ( name = c_pop_mezz  label = 'No of Mezzanine Floors' type = 'NUMBER' required = abap_true )
       ( name = c_pop_roof  label = 'No of Roof Floors'      type = 'NUMBER' required = abap_true )
       ( name = c_pop_heli  label = 'No of Helioports'       type = 'NUMBER' required = abap_true )
-      ( name = c_pop_base  label = 'No of Basement Floors'  type = 'NUMBER' required = abap_true ) ).
+      ( name = c_pop_base  label = 'No of Basement Floors'  type = 'NUMBER' required = abap_true )
+
+*     ---- Construction and Utilities Configuration ---------------------
+*     The popup's third section. NOT numeric - these are the three
+*     dropdowns at the bottom of the live screen, and they are the same
+*     case as Building type and usage above: dropdowns on the legacy
+*     control, filled from a read, with no search help in the export. So
+*     they stay plain inputs by the same reasoning, and become dropdowns
+*     the moment somebody supplies OPTIONS, ROLLNAME, DOMNAME or SHLP -
+*     no other change needed.
+      ( name = c_pop_found label = 'Foundation type'         required = abap_true )
+      ( name = c_pop_const label = 'Construction type'       required = abap_true )
+      ( name = c_pop_syst  label = 'Building system type'    required = abap_true ) ).
 
   ENDMETHOD.
 
 
   METHOD validate_popup.
 
-*   THE MIRROR OF BUILDING_FIELDS( ) - see the warning there. Ten
-*   required fields, ten checks, Building costs deliberately absent from
-*   both.
+*   THE MIRROR OF BUILDING_FIELDS( ) - see the warning there. THIRTEEN
+*   required fields, thirteen checks, Building costs deliberately absent
+*   from both because it is the one field on the live screen with no
+*   asterisk.
+*
+*   It was ten. The three Construction and Utilities fields were added
+*   with the section they belong to, and this list is the reason that
+*   change is two edits rather than one: a field marked required in
+*   BUILDING_FIELDS( ) and missing here promises an asterisk it never
+*   keeps, so the citizen gets a marker and the save goes through empty.
     DATA lt_req TYPE zif_rak_journey=>tt_string.
-    lt_req = VALUE #( ( c_pop_name ) ( c_pop_type ) ( c_pop_usage )
-                      ( c_pop_hgt )  ( c_pop_typ )  ( c_pop_flr )
-                      ( c_pop_mezz ) ( c_pop_roof ) ( c_pop_heli )
-                      ( c_pop_base ) ).
+    lt_req = VALUE #( ( c_pop_name )  ( c_pop_type )  ( c_pop_usage )
+                      ( c_pop_hgt )   ( c_pop_typ )   ( c_pop_flr )
+                      ( c_pop_mezz )  ( c_pop_roof )  ( c_pop_heli )
+                      ( c_pop_base )
+                      ( c_pop_found ) ( c_pop_const ) ( c_pop_syst ) ).
 
 *   THE FIELD LIST GOES INTO A VARIABLE FIRST. A functional method call
 *   is not reliably accepted as the source of a LOOP AT on this release,
@@ -358,8 +403,16 @@ CLASS zcl_m028_cod_logic IMPLEMENTATION.
 *       10 BNAME  20 BTYPE  30 BUSAGE  40 BCOST  50 BHEIGHT
 *       60 BTYPICAL  70 BFLOORS  80 BMEZZ  90 BROOF
 *       100 BHELI  110 BBASEMENT
+*       120 BFOUND  130 BCONSTR  140 BSYSTEM
 *
 *     Read that report before adding or reordering a column here.
+*
+*     THE THREE NEW ONES ARE APPENDED, NOT INSERTED, and that is why
+*     this change is safe. They belong to the popup's third section,
+*     which reads last on screen, so appending happens to match the
+*     visual order - but the reason for appending is that inserting
+*     anywhere else would shift every cell after it into its
+*     neighbour's column, silently, on a grid that already holds rows.
       DATA(ls_grid) = io_ctx->get_grid_data( c_fld_grid ).
       DATA lt_cell TYPE zif_rak_journey=>tt_string.
       lt_cell = VALUE #(
@@ -373,7 +426,10 @@ CLASS zcl_m028_cod_logic IMPLEMENTATION.
         ( io_ctx->get_val( c_pop_mezz ) )
         ( io_ctx->get_val( c_pop_roof ) )
         ( io_ctx->get_val( c_pop_heli ) )
-        ( io_ctx->get_val( c_pop_base ) ) ).
+        ( io_ctx->get_val( c_pop_base ) )
+        ( io_ctx->get_val( c_pop_found ) )
+        ( io_ctx->get_val( c_pop_const ) )
+        ( io_ctx->get_val( c_pop_syst ) ) ).
       APPEND lt_cell TO ls_grid-rows.
       io_ctx->set_grid_data( iv_field = c_fld_grid is_data = ls_grid ).
 

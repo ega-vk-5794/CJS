@@ -73,9 +73,21 @@
 *& 1. ZEGA_T_CJ_UI_MAP must carry NCOD_1_1..1_3. A screen correct in
 *&    /QNV and missing from the map posts, returns success and creates
 *&    nothing. Rule X16 in ZCL_RAK_CJS_XCHECK reports it CJS-side.
-*& 2. MY_COMPONENT has no option list. RAK_PROJECTLIST fills itself from
-*&    a read in the legacy control; the export names no search help. An
-*&    empty dropdown is deliberate - see the note at the field.
+*& 2. MY_COMPONENT IS API-BOUND NOW and this note used to say it was a
+*&    deliberately empty dropdown. That was true when it was written and
+*&    stopped being true when DEFAULT_VAL gained
+*&    'API:PROJECT:ProjectSet' - ZCL_RAK_CJ_OPTS->PROJECT_OPTS( ) reads
+*&    ProjectSet through ZCL_RAK_FEES_API and fills the list from the
+*&    projects the partner owns. A stale note is worse than no note: the
+*&    next reader would have gone looking for a search help that is no
+*&    longer needed.
+*&
+*&    The live screen is a SEARCHABLE, PAGINATED CARD LIST - 127
+*&    projects over 16 pages on the Arabic walkthrough - where CJS draws
+*&    a dropdown. The binding is right and the shape is not; a dropdown
+*&    of 127 entries is usable but poor. CJS has no list paging at all
+*&    (no GROWING anywhere in the renderer), so this cannot be matched
+*&    today and is the strongest argument yet for finishing it.
 *& 3. Building type and Building usage type have no option lists either,
 *&    for the same reason and with the same consequence.
 *& 4. The six discipline pairs are the export's. The walkthrough shows
@@ -292,11 +304,14 @@ START-OF-SELECTION.
 * cell out of order lands in the neighbouring column and one past the
 * last column is dropped, neither of which raises anything.
 *
-* THREE VISIBLE, EIGHT HIDDEN. The walkthrough's grid shows Building
+* THREE VISIBLE, ELEVEN HIDDEN. The walkthrough's grid shows Building
 * Name, Building type and Building usage type only - but the popup
-* collects eleven values and all eleven have to reach the backend, so the
-* rest ride along as hidden columns rather than as eleven more model
-* fields that could only hold one building.
+* collects FOURTEEN values and all fourteen have to reach the backend,
+* so the rest ride along as hidden columns rather than as fourteen more
+* model fields that could only hold one building.
+*
+* It said eleven until the Arabic screenshots arrived. See the
+* Construction and Utilities block at the end of this list.
   INSERT zrak_t_jny_col FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2'
       field_name = 'ADDBUILDING' col_name = 'BNAME' seqnr = 10
@@ -304,15 +319,15 @@ START-OF-SELECTION.
       ctrl = 'TEXT' readonly = 'X' required = 'X' width = '34%' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2'
       field_name = 'ADDBUILDING' col_name = 'BTYPE' seqnr = 20
-      zlabel = 'Building type' zlabel_ar = 'نوع المبنى'
+      zlabel = 'Building type' zlabel_ar = 'نوع البناية'
       ctrl = 'TEXT' readonly = 'X' required = 'X' width = '33%' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2'
       field_name = 'ADDBUILDING' col_name = 'BUSAGE' seqnr = 30
-      zlabel = 'Building usage type' zlabel_ar = 'نوع استخدام المبنى'
+      zlabel = 'Building usage type' zlabel_ar = 'الإستخدام الرئيسي للمبنى'
       ctrl = 'TEXT' readonly = 'X' required = 'X' width = '33%' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2'
       field_name = 'ADDBUILDING' col_name = 'BCOST' seqnr = 40
-      zlabel = 'Building costs' zlabel_ar = 'تكلفة المبنى'
+      zlabel = 'Building costs' zlabel_ar = 'تكاليف البناء'
       ctrl = 'TEXT' readonly = 'X' hidden = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2'
       field_name = 'ADDBUILDING' col_name = 'BHEIGHT' seqnr = 50
@@ -320,7 +335,7 @@ START-OF-SELECTION.
       ctrl = 'TEXT' readonly = 'X' hidden = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2'
       field_name = 'ADDBUILDING' col_name = 'BTYPICAL' seqnr = 60
-      zlabel = 'No of typical building' zlabel_ar = 'عدد المباني المتكررة'
+      zlabel = 'No of typical building' zlabel_ar = 'عدد المباني النموذجيه'
       ctrl = 'TEXT' readonly = 'X' hidden = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2'
       field_name = 'ADDBUILDING' col_name = 'BFLOORS' seqnr = 70
@@ -340,7 +355,33 @@ START-OF-SELECTION.
       ctrl = 'TEXT' readonly = 'X' hidden = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2'
       field_name = 'ADDBUILDING' col_name = 'BBASEMENT' seqnr = 110
-      zlabel = 'No of Basement Floors' zlabel_ar = 'عدد طوابق القبو'
+      zlabel = 'No of Basement Floors' zlabel_ar = 'عدد طوابق السرداب'
+      ctrl = 'TEXT' readonly = 'X' hidden = 'X' )
+
+*   ---- Construction and Utilities Configuration ---------------------
+*   THE POPUP'S THIRD SECTION, AND IT WAS MISSING ENTIRELY. The eleven
+*   columns above were derived from an English walkthrough showing two
+*   sections; the Arabic screenshots of the live service show three, and
+*   all three of these carry the red asterisk. A building saved without
+*   them was incomplete, and nothing said so - the popup collected
+*   eleven values and the grid had eleven columns to put them in, so the
+*   two agreed with each other and both were short.
+*
+*   APPENDED AT 120/130/140, never inserted. Cell order is the contract
+*   with ZCL_M028_COD_LOGIC and a column inserted higher up shifts every
+*   cell after it into its neighbour, silently, on a grid that may
+*   already hold rows.
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2'
+      field_name = 'ADDBUILDING' col_name = 'BFOUND' seqnr = 120
+      zlabel = 'Foundation type' zlabel_ar = 'نوع الأساسات'
+      ctrl = 'TEXT' readonly = 'X' hidden = 'X' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2'
+      field_name = 'ADDBUILDING' col_name = 'BCONSTR' seqnr = 130
+      zlabel = 'Construction type' zlabel_ar = 'نوع البناء'
+      ctrl = 'TEXT' readonly = 'X' hidden = 'X' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2'
+      field_name = 'ADDBUILDING' col_name = 'BSYSTEM' seqnr = 140
+      zlabel = 'Building system type' zlabel_ar = 'نوع نظام البناء'
       ctrl = 'TEXT' readonly = 'X' hidden = 'X' ) ) ).
 
 * --------------------------------------------- STP3 Required Discipline
