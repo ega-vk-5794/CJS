@@ -193,7 +193,7 @@ START-OF-SELECTION.
       title = 'Parcel Selection' title_ar = 'اختيار قطعة الأرض'
       icon = 'sap-icon://map' bknd_screen = 'NACO_1_1' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
-      title = 'Adding a Consultant' title_ar = 'إضافة استشاري'
+      title = 'Adding a Consultant' title_ar = 'اضافة استشاري'
       icon = 'sap-icon://employee' bknd_screen = 'NACO_1_2'
       active = 'X' ) ) ).
 

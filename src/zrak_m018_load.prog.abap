@@ -161,13 +161,13 @@ START-OF-SELECTION.
       title = 'Grant Information' title_ar = 'معلومات المنحة'
       icon = 'sap-icon://request' bknd_screen = 'NOG_1_1' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
-      title = 'Family Details' title_ar = 'بيانات الأسرة'
+      title = 'Family Details' title_ar = 'تفاصيل العائلة'
       icon = 'sap-icon://family-care' bknd_screen = 'NOG_1_2' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
-      title = 'Program Details' title_ar = 'بيانات البرنامج'
+      title = 'Program Details' title_ar = 'تفاصيل البرنامج'
       icon = 'sap-icon://detail-view' bknd_screen = 'NOG_1_3' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP4' seqnr = 40
-      title = 'Documents' title_ar = 'المستندات'
+      title = 'Documents' title_ar = 'الوثائق'
       icon = 'sap-icon://attachment' bknd_screen = 'NOG_1_4' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP5' seqnr = 50
       title = 'Fees & Payment' title_ar = 'الرسوم والدفع'

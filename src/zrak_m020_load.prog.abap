@@ -156,10 +156,10 @@ START-OF-SELECTION.
 * ---------------------------------------------------------------- steps
   INSERT zrak_t_jny_step FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 10
-      title = 'Parcel Selection' title_ar = 'اختيار القطعة'
+      title = 'Parcel Selection' title_ar = 'اختيار قطعة الأرض'
       icon = 'sap-icon://map' bknd_screen = 'NRGR_1_1' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
-      title = 'Documents' title_ar = 'المستندات'
+      title = 'Documents' title_ar = 'الوثائق'
       icon = 'sap-icon://attachment' bknd_screen = 'NRGR_1_2' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
       title = 'Fees & Payment' title_ar = 'الرسوم والدفع'

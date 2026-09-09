@@ -184,10 +184,10 @@ START-OF-SELECTION.
       icon = 'sap-icon://project-definition-triangle' bknd_screen = 'NCOD_1_1'
       active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
-      title = 'Building Details' title_ar = 'تفاصيل المباني'
+      title = 'Building Details' title_ar = 'تفاصيل البناية'
       icon = 'sap-icon://building' bknd_screen = 'NCOD_1_2' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
-      title = 'Required Discipline' title_ar = 'التخصصات المطلوبة'
+      title = 'Required Discipline' title_ar = 'التخصص المطلوب'
       icon = 'sap-icon://competitor' bknd_screen = 'NCOD_1_3'
       active = 'X' ) ) ).
 

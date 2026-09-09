@@ -165,7 +165,7 @@ START-OF-SELECTION.
       title = 'Grant Selection' title_ar = 'اختيار المنحة'
       icon = 'sap-icon://map' bknd_screen = 'NCPGR_1_1' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
-      title = 'Documents' title_ar = 'المستندات'
+      title = 'Documents' title_ar = 'الوثائق'
       icon = 'sap-icon://attachment' bknd_screen = 'NCPGR_1_2' active = 'X' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
       title = 'Fees & Payment' title_ar = 'الرسوم والدفع'
