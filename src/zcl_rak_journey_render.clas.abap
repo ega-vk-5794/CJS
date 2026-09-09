@@ -2299,10 +2299,57 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
       WHEN 'TIME'.
         req_label( io_form = io_form is_field = is_field ).
-        io_form->time_picker( value = lv_bind enabled = lv_edit valuestate = lv_vs valuestatetext = lv_vst width = lv_w ).
+*       HH:MM:SS ON SCREEN, HHMMSS IN THE VALUE - and neither was set.
+*
+*       sap.m.TimePicker with no VALUEFORMAT writes its DISPLAY string
+*       into the model, so the model held '11:13:00' - eight characters
+*       with punctuation. The backend's field is a TIME, which is CHAR6
+*       (see ZST_CS_EGA_DOK_APPLN_OP_ACTV: START_TIME and END_TIME are
+*       both TIME / CHAR / 6), so the assignment TRUNCATED to six and the
+*       printed form read
+*
+*           Start Time  11:13:        instead of 11:13:00
+*           End Time    1:13:3        instead of 01:13:30
+*
+*       which is not a formatting problem on the form - the seconds were
+*       never in the data. Same class of defect as a 1000-character
+*       description arriving as exactly 250: a longer string assigned
+*       into a fixed-width DDIC component, cut silently at the boundary.
+*
+*       THE DATE BRANCH ALREADY LEARNED THIS. It passes DISPLAYFORMAT and
+*       nothing else because its VALUEFORMAT default happens to be the
+*       ISO form the backend wants, and ZCL_RAK_BP_POPUP's date_picker
+*       spells both out with a comment saying why. TIME never got the
+*       same treatment.
+*
+*       HHmmss is 24-hour and unpunctuated, so it is exactly six
+*       characters and lands whole. HH:mm:ss keeps the citizen on a
+*       24-hour clock, which is what the printed form shows.
+        io_form->time_picker( value          = lv_bind
+                              enabled        = lv_edit
+                              valuestate     = lv_vs
+                              valuestatetext = lv_vst
+                              width          = lv_w
+                              displayformat  = 'HH:mm:ss'
+                              valueformat    = 'HHmmss' ).
 
       WHEN 'DATETIME'.
         req_label( io_form = io_form is_field = is_field ).
+*       DELIBERATELY NOT GIVEN A VALUEFORMAT, unlike TIME above, and this
+*       is a flag rather than an oversight.
+*
+*       It has the same exposure: no VALUEFORMAT means the model holds
+*       the display string, and a backend field narrower than that string
+*       truncates it silently. The reason for not fixing it here is that
+*       nothing says what the target wants. TIME was answerable because
+*       the DDIC structure names it - CHAR6, so HHmmss - whereas no
+*       journey in this repository configures a DATETIME field at all, so
+*       there is no backend component to read a width off.
+*
+*       Guessing yyyyMMddHHmmss would be a 14-character string sent at a
+*       field nobody has looked at. If a journey ever needs DATETIME,
+*       read its backend component first and set VALUEFORMAT to match,
+*       the way the TIME branch now does.
         io_form->date_time_picker( value = lv_bind enabled = lv_edit valuestate = lv_vs ).
 
       WHEN 'CHECKBOX'.
