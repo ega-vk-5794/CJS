@@ -1414,9 +1414,32 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
 
   METHOD render_feedback.
-    IF mo_e->mo_logic IS NOT BOUND.
-      RETURN.
-    ENDIF.
+*   ---- NO HANDLER IS NOT A REFUSAL -------------------------------------
+*   This used to RETURN when MO_LOGIC was unbound, so a journey with no
+*   HANDLER_CLASS - or one whose handler failed to instantiate - showed no
+*   happiness meter at all. Nothing said so; the closing page simply had
+*   no faces on it.
+*
+*   THAT GUARD CONTRADICTED EVERY OTHER DEFAULT AROUND IT.
+*   ZCL_RAK_JOURNEY_LOGIC~WANTS_FEEDBACK( ) returns ABAP_TRUE, so a
+*   journey that says nothing wants the meter; the CATCH below defaults to
+*   ABAP_TRUE for the same reason, on the argument that a handler which
+*   dumps must not silently remove the feedback step. An absent handler is
+*   a weaker statement than a broken one, and it was the only one of the
+*   three treated as "no".
+*
+*   It matters because handler-free journeys are normal here, not
+*   exceptional: the base class is concrete and CREATE PUBLIC precisely so
+*   a journey can be configured without writing one, and twelve M
+*   journeys are pointed straight at it. Four EC journeys shipped with no
+*   handler at all until somebody noticed - the note at the top of
+*   ZCL_RAK_EC01_LOGIC is about that discovery.
+*
+*   MO_LOGIC IS ONLY TOUCHED INSIDE THE TRY, which is what makes removing
+*   the guard safe rather than a deferred dump: an unbound reference
+*   raises CX_SY_REF_IS_INITIAL, the CATCH takes it, and LV_WANT keeps the
+*   ABAP_TRUE it was initialised with. Nothing further down the method
+*   dereferences it.
     DATA lv_want TYPE abap_bool.
     lv_want = abap_true.
     TRY.

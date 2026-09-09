@@ -655,14 +655,35 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         CLEAR mt_msg.
         mv_closed    = abap_true.
         mv_submitted = abap_true.
-        DATA(lv_fbw) = abap_false.
-        IF mo_logic IS BOUND.
-          lv_fbw = abap_true.
-          TRY.
-              lv_fbw = mo_logic->wants_feedback( me ).
-            CATCH cx_root.
-          ENDTRY.
-        ENDIF.
+*       ---- THE DECIDING HALF OF THE HAPPINESS METER -------------------
+*       LV_FBW STARTS TRUE NOW, AND IT STARTED FALSE. With no handler
+*       bound the old code left it FALSE, which set MV_CLOSE_PAGE and
+*       took the citizen straight to the closing page - so a journey with
+*       no HANDLER_CLASS was never OFFERED feedback at all. The renderer
+*       had a matching guard and that was only the second lock on the
+*       same door; this is the one that decides.
+*
+*       Every other default here already said the opposite:
+*       WANTS_FEEDBACK( ) on the base returns ABAP_TRUE, and the CATCH
+*       deliberately leaves LV_FBW alone so a handler that DUMPS still
+*       gets the meter. An absent handler is a weaker statement than a
+*       broken one, and it was the only one of the three read as "no".
+*
+*       Handler-free journeys are normal here rather than exceptional -
+*       the base class is concrete and CREATE PUBLIC so a journey can be
+*       configured without one, and twelve M journeys point straight at
+*       it.
+*
+*       The unbound call raises CX_SY_REF_IS_INITIAL and the CATCH takes
+*       it, leaving the ABAP_TRUE above standing, so the IS BOUND test is
+*       not needed to keep this safe - only to keep it quiet, which is
+*       what it was doing wrong.
+        DATA(lv_fbw) = abap_true.
+        TRY.
+            lv_fbw = mo_logic->wants_feedback( me ).
+          CATCH cx_root.
+            lv_fbw = abap_true.
+        ENDTRY.
         IF mv_fb_done = abap_true OR mv_fb_skip = abap_true OR lv_fbw = abap_false.
           mv_close_page = abap_true.
         ENDIF.
