@@ -319,24 +319,46 @@ CLASS zcl_rak_journey_util DEFINITION
     CLASS-METHODS is_qa   RETURNING VALUE(rv) TYPE abap_bool.
     CLASS-METHODS is_prod RETURNING VALUE(rv) TYPE abap_bool.
 
-*   ---- THERE IS NO PER-USER OVERRIDE, AND THAT IS DELIBERATE ------------
-*   POWER_USER( ) briefly lived here: a hardcoded user name that lifted
-*   STUDIO_MODE( ), TRACE_OK( ) and the Studio's AUTH_OK( ) on every
-*   system so the framework owner could manage configuration before
-*   go-live. It was tested, it did its job, and it is gone at their
-*   request.
+*   ---- THE NAMED-USER OVERRIDE: CONFIGURATION ONLY ---------------------
+*   The framework owner may manage CONFIGURATION on every system while
+*   the framework is being finished - the Studio opens in EDIT mode and
+*   &trace=x prints. Requested, removed at go-live readiness, and
+*   requested again for a further period; C_ON below is the switch.
 *
-*   Do not put it back. A name in ABAP travels through the transport to
-*   every system, is readable by anyone with the repository, and cannot
-*   be withdrawn without a code change and an activation - so Basis
-*   cannot revoke it the way they revoke a role. If a person needs Studio
-*   access somewhere the matrix closes it, the answer is the Z_RAK_CJS
-*   SU21 object AUTH_OK( ) already describes, granted and revoked in
-*   SU01 with no transport.
+*   IT IS THE ONE THING IN THIS MATRIX NOT DERIVED FROM SY-SYSID, so
+*   what it does and does not reach is worth stating exactly:
 *
-*   Every answer below is now derived from SY-SYSID alone, which is the
-*   only form of this that Basis can reason about and that a reader can
-*   trust at a glance.
+*     LIFTS  STUDIO_MODE( )  -> EDIT, so this user can save and delete
+*                               the live configuration of citizen-facing
+*                               services, E30 included.
+*            TRACE_OK( )     -> &trace=x prints, which carries partner
+*                               numbers, case ids and backend payloads.
+*            AUTH_OK( )      -> satisfied without S_DEVELOP, or the
+*                               Studio would open in EDIT mode and then
+*                               refuse every save - buttons that work
+*                               and an action that does not.
+*
+*     DOES NOT LIFT  DEV_STUBS_OK( ). Identity stays derived from
+*            SY-SYSID for everyone, with no exception. Configuration
+*            work does not need to impersonate a citizen, and the stubs
+*            are what would let a request be posted on production under
+*            a partner the session never authenticated. See that method.
+*
+*   THE OTHER BYPASS IS NOT COMING BACK WITH IT. AUTH_OK( ) used to
+*   carry LV_BYPASS as well, which once returned true to everybody. That
+*   was removed in the same commit as this and stays removed: this
+*   grants ONE named person configuration access, which is a different
+*   thing from leaving the authority check switchable.
+*
+*   A HARDCODED NAME IS THE WEAKEST FORM OF THIS and this is now the
+*   second time it has gone in. It is readable by anyone with the
+*   repository, it travels through the transport to every system, and
+*   withdrawing it needs a code change and an activation - so Basis
+*   cannot revoke it the way they revoke a role. The churn is itself the
+*   argument: the Z_RAK_CJS SU21 object AUTH_OK( ) already describes
+*   would have made both removals and both restorations an SU01 change
+*   with no transport and no commit.
+    CLASS-METHODS power_user RETURNING VALUE(rv) TYPE abap_bool.
 
 *   MAY A DEVELOPMENT STUB STAND IN FOR A REAL VALUE. Development only,
 *   and this is the one that matters most.
@@ -436,29 +458,69 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD power_user.
+*   ---- TO TURN THIS OFF ------------------------------------------------
+*   Set C_ON to ABAP_FALSE and activate this class. That is the whole
+*   change: every gate reads this one method, which is why the name sits
+*   here once rather than at three call sites - and why switching it off
+*   cannot leave one of them still open.
+*
+*   A named constant rather than a line to delete, because this is now
+*   the second time it has been switched. The off state is a one-word
+*   edit that is obvious in a diff, and nobody has to reconstruct the
+*   method from a reverted commit the next time it is wanted back.
+    CONSTANTS c_on TYPE abap_bool VALUE abap_true.
+
+    IF c_on = abap_false.
+      rv = abap_false.
+      RETURN.
+    ENDIF.
+
+*   SY-UNAME is already upper case in every dialog and RFC context, but
+*   TO_UPPER costs nothing and removes the one way this could fail
+*   silently - a comparison that never matches reads exactly like a user
+*   who was never on the list.
+    rv = xsdbool( to_upper( sy-uname ) = 'VIKRAM.K' ).
+  ENDMETHOD.
+
+
   METHOD dev_stubs_ok.
+*   POWER_USER( ) IS DELIBERATELY NOT CONSULTED HERE, and this is the one
+*   gate it does not lift.
+*
+*   The override exists so the framework owner can manage CONFIGURATION -
+*   open the Studio, read a trace. It is not for submitting. The stubs
+*   are the other thing entirely: they decide WHO THE CITIZEN IS, and
+*   lifting them here would honour &loginbp=, send ZCL_RAK_BE_NOT's
+*   MC_DEV_BP and let the bridge fill PARAM3 and LOGINBP_DEV - so a
+*   request could be posted on production under a partner the session
+*   never authenticated. No amount of configuration work needs that.
+*
+*   The first version of the override did lift it. The owner then said
+*   they would use this for configuration only and never for submission,
+*   which is exactly the boundary that makes the stubs unnecessary.
     rv = is_dev( ).
   ENDMETHOD.
 
 
   METHOD trace_ok.
-    rv = xsdbool( is_dev( ) = abap_true OR is_qa( ) = abap_true ).
+    rv = xsdbool( is_dev( ) = abap_true
+               OR is_qa( )  = abap_true
+               OR power_user( ) = abap_true ).
   ENDMETHOD.
 
 
   METHOD studio_mode.
-*   NO PER-USER EXCEPTION, AND THERE IS NOT MEANT TO BE ONE.
-*   A named-user override lived here briefly so the framework owner could
-*   manage configuration before go-live. It was tested, it did its job,
-*   and it has been removed at their request - so the answer is derived
-*   from SY-SYSID and nothing else, which is the only form of this that
-*   Basis can reason about and that a reader can trust at a glance.
+*   POWER_USER( ) IS TESTED FIRST, so it outranks the system rather than
+*   being narrowed by it - on E20 the answer would otherwise be READ and
+*   on E30 NONE, which is the whole thing being overridden.
 *
 *   IS_PROD( ) is not consulted and does not need to be: anything that is
-*   not development and not quality falls to C_STUDIO_NONE, so a sandbox,
-*   a system copy or a system renamed after this was written is closed by
-*   default rather than open by omission.
-    rv = COND string( WHEN is_dev( ) = abap_true THEN c_studio_edit
+*   not development, not quality and not the named user falls to
+*   C_STUDIO_NONE, so a sandbox, a system copy or a system renamed after
+*   this was written is closed by default rather than open by omission.
+    rv = COND string( WHEN power_user( ) = abap_true THEN c_studio_edit
+                      WHEN is_dev( ) = abap_true THEN c_studio_edit
                       WHEN is_qa( )  = abap_true THEN c_studio_read
                       ELSE c_studio_none ).
   ENDMETHOD.

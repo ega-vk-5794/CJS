@@ -3108,11 +3108,29 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *     A named-user override, which did its job before go-live and was
 *     removed at the owner's request.
 *
-*   WHAT IS LEFT IS THE AUTHORITY CHECK AND NOTHING ELSE, which is the
-*   point: there is now exactly one way to be allowed to write
-*   configuration, it is granted and revoked in SU01, and no edit to this
-*   class can widen it by accident. Do not add a third escape here. If
-*   somebody needs access, they need the role.
+*   LV_BYPASS IS GONE FOR GOOD. The named-user override below is back;
+*   the flag that returned true to EVERYBODY is not, and the two are not
+*   the same concession. One grants one identified person configuration
+*   access; the other left the only authority check the Studio has
+*   switchable by a one-character edit. Do not reintroduce it - a fresh
+*   development client with nobody holding the object is a Basis problem
+*   with a Basis answer.
+*
+*   ---- THE NAMED-USER OVERRIDE ------------------------------------------
+*   Restored for a further period at the framework owner's request. It
+*   has to be HERE as well as in STUDIO_MODE( ), or the Studio opens in
+*   EDIT mode and then refuses every save wherever that user holds no
+*   S_DEVELOP - which is worse than closing it, because the buttons work
+*   and the action does not.
+*
+*   See ZCL_RAK_JOURNEY_UTIL=>POWER_USER( ) for the whole scope, what it
+*   deliberately does NOT lift (the identity stubs), and how to switch it
+*   off in one word.
+    IF zcl_rak_journey_util=>power_user( ) = abap_true.
+      rv = abap_true.
+      RETURN.
+    ENDIF.
+
     AUTHORITY-CHECK OBJECT 'S_DEVELOP'
       ID 'DEVCLASS' DUMMY
       ID 'OBJTYPE'  FIELD 'TABL'
