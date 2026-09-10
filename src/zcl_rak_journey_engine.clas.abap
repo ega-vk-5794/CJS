@@ -408,17 +408,22 @@ CLASS zcl_rak_journey_engine DEFINITION
 
 *   THE ENTRY STEP THE URL ASKED FOR, or -1 when it asked for none.
 *
-*   &step=<n>, zero-based, is the screen the citizen lands on. It exists so
-*   a portal action - "upload the missing document", "read the decision" -
-*   can open an existing case straight on the screen it is about, instead
-*   of on step 0 with the citizen walking forward through screens that are
-*   already filled and re-posting each one on the way.
+*   &step= takes EITHER a STEP_ID - &step=OWNER - or a zero-based index.
+*   It exists so a portal action - "upload the missing document", "read
+*   the decision" - can open an existing case straight on the screen it is
+*   about, instead of on step 0 with the citizen walking forward through
+*   screens that are already filled and re-posting each one on the way.
 *
-*   Resolved against the step list only AFTER MERGE_DYNAMIC_STEPS( ) has
-*   run, and that is why this is a method rather than a CONV at the point
-*   of use: the merge DELETES a step whose backend describes no fields, so
-*   the same &step=2 addresses a different screen depending on what the
-*   backend answered. A value past the end is REFUSED, not clamped -
+*   PREFER THE STEP_ID in any link written by hand or built by the portal.
+*   Both are resolved against the step list only AFTER
+*   MERGE_DYNAMIC_STEPS( ) has run - which is why this is a method rather
+*   than a CONV at the point of use - but the merge DELETES a step whose
+*   backend describes no fields, so an index addresses whatever happens to
+*   be in that position on the day. A name addresses the step somebody
+*   meant, and when it is renamed or dropped it stops matching anything,
+*   visibly, instead of silently addressing its neighbour.
+*
+*   Neither form is clamped. A value that resolves to nothing is REFUSED -
 *   landing somewhere the link did not ask for is worse than not moving,
 *   because nothing on screen tells the citizen it happened.
 *
@@ -1048,7 +1053,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *           this - BACKEND_READ( ) is careful about that - so a citizen's
 *           own rows survive the trip.
             IF mo_bridge IS BOUND.
-              mo_be->backend_read( mv_step ).
+              mo_be->backend_read( iv_step = mv_step ).
               IF mo_logic IS BOUND.
                 TRY.
                     mo_logic->on_after_read( me ).
@@ -1360,7 +1365,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     IF mv_intreno IS NOT INITIAL AND mo_bridge IS BOUND.
-      mo_be->backend_read( 0 ).
+      mo_be->backend_read( iv_step = 0 ).
       entry_read( ).
       IF mo_logic IS BOUND.
         TRY.
@@ -1372,7 +1377,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ELSEIF mv_intreno IS INITIAL AND mo_bridge IS BOUND.
       mo_be->backend_create( ).
       IF mv_intreno IS NOT INITIAL.
-        mo_be->backend_read( 0 ).
+        mo_be->backend_read( iv_step = 0 ).
         entry_read( ).
         IF mo_logic IS BOUND.
           TRY.
@@ -2543,7 +2548,18 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
     trace( |ENTRY   reading landed step { mv_step } · screen | &&
            |{ VALUE #( ms_config-steps[ mv_step + 1 ]-bknd_screen OPTIONAL ) }| ).
-    mo_be->backend_read( mv_step ).
+
+*   IV_CARRY, and only here. Walking forward POSTS each step on the way, so
+*   a citizen arriving at step N normally has already told the backend what
+*   steps 0..N-1 hold. Landing on N directly posts nothing, and D004 showed
+*   what that costs: its step 0 is a CHOICE - which of twenty-two licences
+*   - and step 1 answered with the choice unmade, so the licence grid's own
+*   JSON came back in the scalar that draws the licence number.
+*
+*   The read is widened, never turned into a post. See BACKEND_READ( )'s
+*   IV_CARRY for the two guards that keep it safe: filled values only, and
+*   no TECHNICALNAME that the journey does not already send anyway.
+    mo_be->backend_read( iv_step = mv_step iv_carry = abap_true ).
   ENDMETHOD.
 
 
@@ -2559,6 +2575,28 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   CONV on 'abc' raises CX_SY_CONVERSION_NO_NUMBER, which on this path -
 *   inside INIT( ), before the first render - is the whole app gone rather
 *   than a journey that opens on step 0.
+*   A STEP_ID IS ACCEPTED AS WELL AS AN INDEX, and the name is the better
+*   half of the two. An index is a position in a list MERGE_DYNAMIC_STEPS( )
+*   is entitled to shorten, so &step=2 addresses whatever is second TODAY;
+*   &step=OWNER addresses the step somebody meant, and stops addressing
+*   anything at all - visibly, on the trace - if that step is renamed or
+*   dropped. It is also what anybody writing the link by hand types first:
+*   this went out as a number, came back as &step=OWNER, and the numeric
+*   test refused it into a silent step 0.
+*
+*   Tried BEFORE the numeric branch so a journey whose STEP_IDs are digits
+*   resolves by name rather than by position.
+    DATA(lv_id) = to_upper( lv_sp ).
+    DATA lv_ix TYPE i.
+    lv_ix = 0.
+    LOOP AT ms_config-steps INTO DATA(ls_st).
+      IF to_upper( ls_st-id ) = lv_id.
+        rv = lv_ix.
+        RETURN.
+      ENDIF.
+      lv_ix = lv_ix + 1.
+    ENDLOOP.
+
 *   STRLEN as well as CN, and the length test is not belt-and-braces: CN
 *   passes '99999999999' - every character IS a digit - and the CONV below
 *   then raises CX_SY_CONVERSION_OVERFLOW, which is the same uncatchable
@@ -2566,7 +2604,10 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   real step count; the range test below refuses everything between that
 *   and the journey's actual length.
     IF lv_sp CN '0123456789' OR strlen( lv_sp ) > 4.
-      trace_gate( |&step={ lv_sp } is not a usable step number. | &&
+      trace_gate( |&step={ lv_sp } matches no STEP_ID on this journey | &&
+                  |and is not a step number. The journey has: | &&
+                  |{ concat_lines_of( table = VALUE string_table(
+                       FOR s IN ms_config-steps ( s-id ) ) sep = `, ` ) }. | &&
                   |Opening on step 0.| ).
       RETURN.
     ENDIF.
@@ -3507,7 +3548,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     IF mv_step < lines( ms_config-steps ) - 1.
       mv_step = mv_step + 1.
       IF mo_bridge IS BOUND.
-        mo_be->backend_read( mv_step ).
+        mo_be->backend_read( iv_step = mv_step ).
         IF mo_logic IS BOUND.
           TRY.
               mo_logic->on_after_read( me ).

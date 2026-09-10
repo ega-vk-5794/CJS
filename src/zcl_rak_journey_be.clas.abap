@@ -11,7 +11,30 @@ CLASS zcl_rak_journey_be DEFINITION
       IMPORTING io_engine TYPE REF TO zcl_rak_journey_engine.
 
     METHODS backend_create.
-    METHODS backend_read  IMPORTING iv_step TYPE i.
+
+*   IV_CARRY - ask with the CONTEXT OF THE STEPS BEFORE THIS ONE as well as
+*   this one's own fields. Only ENTRY_READ( ) passes it, and only when a
+*   launch landed somewhere other than step 0.
+*
+*   Why it exists. Walking forward POSTS each step, so by the time the
+*   citizen reaches step N the backend has been told what steps 0..N-1 hold
+*   - on D004, which of twenty-two licences was picked. A launch that lands
+*   on step N directly performs no post at all, so the backend answers step
+*   N with no idea what was chosen, and the screen comes back unresolved.
+*
+*   This is NOT a post and must not become one. It widens the ask of a READ
+*   so the backend has the same context it would have had, and it carries
+*   ONLY VALUES THAT ARE FILLED - see CARRY_ITEMS( ). A blank would travel
+*   into the BAdI's ASSIGN (technicalname) and overwrite a real value in
+*   GS_DATA with nothing, which is the one way this could damage a case
+*   that is currently fine.
+*
+*   No new TECHNICALNAME is introduced by it: every item carried is one the
+*   journey already sends when its own step is read or posted, so nothing
+*   here can collide with a data object in the BAdI's program that did not
+*   already collide.
+    METHODS backend_read  IMPORTING iv_step  TYPE i
+                                    iv_carry TYPE abap_bool DEFAULT abap_false.
     METHODS backend_read_grids IMPORTING iv_step TYPE i.
     METHODS be_commit
       IMPORTING iv_step      TYPE i
@@ -31,6 +54,14 @@ CLASS zcl_rak_journey_be DEFINITION
                           RETURNING VALUE(rt_kv) TYPE zif_rak_journey=>tt_kv.
 
   PRIVATE SECTION.
+
+*   The ask for an entry read: this step's items exactly as POST_ITEMS( )
+*   builds them, plus the FILLED values of every earlier step. See IV_CARRY
+*   on BACKEND_READ( ) for why. Strictly a SUPERSET of POST_ITEMS( iv_step )
+*   - it can add context, never remove any - which is what makes it safe to
+*   turn on for a path that is currently answering wrongly.
+    METHODS carry_items IMPORTING iv_step   TYPE i
+                        RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_item.
 
 *   Apply the field control the BAdI wrote onto the definition rows. What
 *   arrives here is only what the BAdI CHANGED - see ZCL_RAK_QNV_BRIDGE for
@@ -439,7 +470,12 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
-    DATA(lt_ri) = post_items( iv_step ).
+    DATA lt_ri TYPE zif_rak_journey=>tt_item.
+    IF iv_carry = abap_true.
+      lt_ri = carry_items( iv_step ).
+    ELSE.
+      lt_ri = post_items( iv_step ).
+    ENDIF.
     mo_e->trace( |READ    screen { ls_step-bknd_screen } · guid { mo_e->mv_intreno } · { lines( lt_ri ) } fields asked| ).
 
     DATA(lv_rt0) = mo_e->tick( ).
@@ -1121,6 +1157,74 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
         APPEND VALUE #( key = to_upper( ls_f-name ) value = mo_e->val_get( ls_f-name ) ) TO rt_kv.
       ENDLOOP.
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD carry_items.
+*   THIS STEP FIRST, and unfiltered. Whatever POST_ITEMS( ) would have sent
+*   is what still goes: blanks included, because a blank on the screen being
+*   asked for is a question, not an omission. Everything below only ADDS.
+*
+*   POST_ITEMS( )'s GRID_SEL_COLLECT( ) sweep is deliberately NOT repeated
+*   here. It writes each grid's selection into that grid's pick target, and
+*   on an entry read nothing has been clicked - so it would collect an empty
+*   selection and blank a target the read had just filled. There is no stale
+*   click to refresh on a launch, which is the only thing that sweep is for.
+    DATA(lt_kv) = flatten_kv( iv_step ).
+
+    DATA lv_added TYPE i.
+    DATA lv_i     TYPE i.
+    lv_i = 0.
+    DATA lt_prev TYPE zif_rak_journey=>tt_kv.
+    DATA ls_p    TYPE zif_rak_journey=>ty_kv.
+    WHILE lv_i < iv_step.
+*     Into a variable first: LOOP AT does not take a functional method call
+*     as its source.
+      lt_prev = flatten_kv( lv_i ).
+      LOOP AT lt_prev INTO ls_p.
+*       FILLED ONLY. A blank carried forward reaches
+*       ZIF_EGA_FW_CJI~MAPPER's ASSIGN (technicalname) and writes nothing
+*       over whatever GS_DATA holds - which on a resumed case is the case's
+*       own data. Skipping blanks is the difference between widening a
+*       question and erasing an answer.
+        IF ls_p-value IS INITIAL.
+          CONTINUE.
+        ENDIF.
+*       The landed step wins any name clash: it is the screen being asked
+*       for, and a field name is not unique across steps.
+        READ TABLE lt_kv TRANSPORTING NO FIELDS WITH KEY key = ls_p-key.
+        IF sy-subrc <> 0.
+          APPEND ls_p TO lt_kv.
+          lv_added = lv_added + 1.
+        ENDIF.
+      ENDLOOP.
+      lv_i = lv_i + 1.
+    ENDWHILE.
+
+*   ON_BEFORE_POST( ) ONCE, over the merged list - not once per step. It is
+*   a handler hook and calling it repeatedly in one round trip would let a
+*   handler that appends see its own earlier output.
+    IF mo_e->mo_logic IS BOUND.
+      TRY.
+          mo_e->mo_logic->on_before_post( EXPORTING io_ctx = mo_e CHANGING ct_kv = lt_kv ).
+        CATCH cx_root INTO DATA(lx_ci).
+          mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
+            text = |on_before_post failed: { lx_ci->get_text( ) }| ) ).
+      ENDTRY.
+    ELSE.
+      DELETE lt_kv WHERE key CP 'PAY_*'.
+      DELETE lt_kv WHERE key = 'PAYFEE'.
+    ENDIF.
+
+*   THE COUNT IS THE DIAGNOSIS. Nought carried answers "why is the landed
+*   screen still unresolved" in one launch rather than five: it means the
+*   earlier steps hold nothing on the CJS side either, so the context the
+*   backend is missing cannot be sent from here and the answer lies in what
+*   the case read returns, not in this method.
+    mo_e->trace( |ENTRY   carried { lv_added } filled value(s) from step(s) | &&
+                 |before { iv_step }| ).
+
+    rt = items_from_kv( lt_kv ).
   ENDMETHOD.
 
 
