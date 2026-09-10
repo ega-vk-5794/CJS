@@ -406,6 +406,33 @@ CLASS zcl_rak_journey_engine DEFINITION
     METHODS step_of   IMPORTING iv_field  TYPE string
                       RETURNING VALUE(rv) TYPE i.
 
+*   THE ENTRY STEP THE URL ASKED FOR, or -1 when it asked for none.
+*
+*   &step=<n>, zero-based, is the screen the citizen lands on. It exists so
+*   a portal action - "upload the missing document", "read the decision" -
+*   can open an existing case straight on the screen it is about, instead
+*   of on step 0 with the citizen walking forward through screens that are
+*   already filled and re-posting each one on the way.
+*
+*   Resolved against the step list only AFTER MERGE_DYNAMIC_STEPS( ) has
+*   run, and that is why this is a method rather than a CONV at the point
+*   of use: the merge DELETES a step whose backend describes no fields, so
+*   the same &step=2 addresses a different screen depending on what the
+*   backend answered. A value past the end is REFUSED, not clamped -
+*   landing somewhere the link did not ask for is worse than not moving,
+*   because nothing on screen tells the citizen it happened.
+*
+*   -1 rather than 0 for "not asked". The caller has to tell an absent
+*   parameter from an explicit &step=0, because only the absent one leaves
+*   the PAY landing free to have its say.
+    METHODS param_step RETURNING VALUE(rv) TYPE i.
+
+*   Read the screen of the step being LANDED on, when that is not step 0.
+*   A no-op on a step-0 landing, so the caller does not have to test, and
+*   a no-op with no bridge - the external-backend path resumes the whole
+*   case in one call and has no per-screen read to make.
+    METHODS entry_read.
+
 *   A fresh challenge. First render, the refresh button, and after every
 *   WRONG answer - a challenge that survives a failed attempt can be
 *   brute-forced one guess per round trip against a target that never moves.
@@ -1306,8 +1333,35 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDTRY.
     ENDIF.
 
+*   ---- THE ENTRY STEP IS DECIDED BEFORE THE READ, NOT AFTER IT ----------
+*   BACKEND_READ( ) IS PER SCREEN. It sends the BKND_SCREEN of the step
+*   index it is given, so a launch that renders step 2 while only step 0
+*   was read shows the citizen a screen nobody asked the backend about.
+*   MV_STEP used to be resolved forty lines BELOW the two reads, which is
+*   why &step= drew an empty second screen and filled it only once the
+*   citizen navigated away and back - and an empty screen on a resumed
+*   case looks exactly like a case with nothing in it.
+*
+*   So the order is now: resolve where we are landing, then read. Step 0 is
+*   STILL read unconditionally, and that is deliberate rather than left
+*   over - a value the backend returns for screen 0 lands in the model by
+*   NAME, so anything drawn outside the current step (the applicant banner
+*   is the one that matters) would go blank if the entry read replaced it
+*   instead of following it. One extra call, and only on a launch that
+*   names a step, which is a launch that does not exist today.
+*
+*   PARAM_STEP( ) has to run after MERGE_DYNAMIC_STEPS( ) and BUILD_MODEL( )
+*   above, because the step list it validates against is only final there.
+    DATA(lv_entry) = param_step( ).
+    IF lv_entry >= 0.
+      mv_step = lv_entry.
+      trace( |entry step { mv_step } from &step= · screen | &&
+             |{ VALUE #( ms_config-steps[ mv_step + 1 ]-bknd_screen OPTIONAL ) }| ).
+    ENDIF.
+
     IF mv_intreno IS NOT INITIAL AND mo_bridge IS BOUND.
       mo_be->backend_read( 0 ).
+      entry_read( ).
       IF mo_logic IS BOUND.
         TRY.
             mo_logic->on_after_read( me ).
@@ -1319,6 +1373,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       mo_be->backend_create( ).
       IF mv_intreno IS NOT INITIAL.
         mo_be->backend_read( 0 ).
+        entry_read( ).
         IF mo_logic IS BOUND.
           TRY.
               mo_logic->on_after_read( me ).
@@ -1348,22 +1403,35 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         ENDTRY.
       ENDIF.
     ENDIF.
-    DATA(lv_sp) = zif_rak_journey~get_param( 'step' ).
-    IF lv_sp IS NOT INITIAL AND lv_sp CO '0123456789'.
-      DATA(lv_si) = CONV i( lv_sp ).
-      IF lv_si > 0 AND lv_si < lines( ms_config-steps ).
-        mv_step = lv_si.
-      ENDIF.
-
 *   LAND WHERE THERE IS SOMETHING TO DO. Reopening an unpaid case put the
 *   citizen back on step 0, walking forward through steps that are already
 *   filled and re-posting each one on the way to the fee they came to pay.
 *   An explicit &step= still wins - it is a deliberate instruction from
-*   whoever built the link.
-    ELSEIF case_mode( ) = c_mode_pay.
+*   whoever built the link - and it has already been applied above, before
+*   the read, which is why the test here is LV_ENTRY and not the parameter.
+*
+*   Still decided HERE rather than up there, deliberately: CASE_MODE( )
+*   reads the PAYFEE field's value, and on this path that value is whatever
+*   the read just returned. Moving the test above the read would judge the
+*   payment state of a case nobody had read yet.
+    IF lv_entry < 0 AND case_mode( ) = c_mode_pay.
       DATA(lv_pst) = pay_step( ).
       IF lv_pst > 0.
         mv_step = lv_pst.
+
+*       AND READ THE SCREEN WE JUST MOVED TO. Same defect as the &step=
+*       one above and it was here first: this landing moved the index and
+*       nothing else, so the fee step drew from a model holding only what
+*       screen 0's read had returned. It survived because the fee card
+*       resolves its amount through ZCL_RAK_PAY_ENGINE rather than through
+*       the step read - every other field on that screen was blank.
+        entry_read( ).
+        IF mo_logic IS BOUND.
+          TRY.
+              mo_logic->on_after_read( me ).
+            CATCH cx_root.
+          ENDTRY.
+        ENDIF.
       ENDIF.
     ENDIF.
   ENDMETHOD.
@@ -2466,6 +2534,55 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDLOOP.
       lv_ix = lv_ix + 1.
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD entry_read.
+    IF mv_step = 0 OR mo_bridge IS NOT BOUND OR mo_be IS NOT BOUND.
+      RETURN.
+    ENDIF.
+    trace( |ENTRY   reading landed step { mv_step } · screen | &&
+           |{ VALUE #( ms_config-steps[ mv_step + 1 ]-bknd_screen OPTIONAL ) }| ).
+    mo_be->backend_read( mv_step ).
+  ENDMETHOD.
+
+
+  METHOD param_step.
+    rv = -1.
+
+    DATA(lv_sp) = zif_rak_journey~get_param( 'step' ).
+    IF lv_sp IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   CO, not a TRY: the parameter is free text off the address bar and a
+*   CONV on 'abc' raises CX_SY_CONVERSION_NO_NUMBER, which on this path -
+*   inside INIT( ), before the first render - is the whole app gone rather
+*   than a journey that opens on step 0.
+*   STRLEN as well as CN, and the length test is not belt-and-braces: CN
+*   passes '99999999999' - every character IS a digit - and the CONV below
+*   then raises CX_SY_CONVERSION_OVERFLOW, which is the same uncatchable
+*   dump the CN test was written to avoid. Four digits is far past any
+*   real step count; the range test below refuses everything between that
+*   and the journey's actual length.
+    IF lv_sp CN '0123456789' OR strlen( lv_sp ) > 4.
+      trace_gate( |&step={ lv_sp } is not a usable step number. | &&
+                  |Opening on step 0.| ).
+      RETURN.
+    ENDIF.
+
+    DATA(lv_si) = CONV i( lv_sp ).
+
+*   Zero-based, so the last addressable step is LINES( ) - 1. Refused
+*   rather than clamped - see the declaration.
+    IF lv_si > lines( ms_config-steps ) - 1.
+      trace_gate( |&step={ lv_si } is outside this journey's | &&
+                  |{ lines( ms_config-steps ) } step(s), counted AFTER the | &&
+                  |dynamic-step merge. Opening on step 0.| ).
+      RETURN.
+    ENDIF.
+
+    rv = lv_si.
   ENDMETHOD.
 
 
