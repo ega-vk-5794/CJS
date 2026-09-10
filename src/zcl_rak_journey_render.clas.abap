@@ -2753,8 +2753,62 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           io_form->text( text      = long_text( is_field )
                          textalign = lv_dta ).
         ELSE.
-          io_form->text( text      = lv_bind
-                         textalign = lv_dta ).
+*         A DISPLAY FIELD THAT HAS A LIST SHOWS THE TEXT, NOT THE KEY.
+*
+*         The value in the model is the option KEY, because that is what a
+*         SELECT stores and what the backend wants back. Bound straight into
+*         a text( ) the citizen reads the key: Curriculum Type drew "2"
+*         where the same field as a SELECT drew "British Curriculum".
+*
+*         That is what put authors in an unwinnable position on the DOK
+*         school journeys. The field is display-only, so SELECT with
+*         EDITABLE off is the wrong control - it draws the grey input box
+*         they were asking to be rid of - but DISPLAY, the right control,
+*         showed the code. Neither was correct and the trade was between
+*         two visible faults.
+*
+*         LT_OPT IS ALREADY RESOLVED for every field type, not just the ones
+*         that draw a list: configured options, ON_VALUE_HELP( ), an API:
+*         directive and the DDIC resolver all run above this CASE. So this
+*         costs one READ TABLE and no new lookup - a DISPLAY field with a
+*         DOMNAME was already paying for F4_OPTS( ) and throwing the answer
+*         away.
+*
+*         A LITERAL, NOT THE BINDING, and that is the one real trade here. A
+*         resolved text cannot be a bound path, so a value the server
+*         changes later reaches the screen through a repaint rather than
+*         through the model. SEND_VIEW( ) makes that safe by construction:
+*         it hashes the MARKUP, and the resolved text is IN the markup, so a
+*         changed value changes the hash and forces the full view. A field
+*         with no list keeps the binding exactly as before.
+          DATA lv_dtxt TYPE string.
+          CLEAR lv_dtxt.
+          IF lt_opt IS NOT INITIAL.
+            DATA(lv_dkey) = mo_e->zif_rak_journey~get_val( is_field-name ).
+            IF lv_dkey IS NOT INITIAL.
+              READ TABLE lt_opt INTO DATA(ls_dopt) WITH KEY key = lv_dkey.
+              IF sy-subrc = 0.
+                lv_dtxt = zcl_rak_journey_util=>opt_text( iv_key  = ls_dopt-key
+                                                          iv_text = ls_dopt-text ).
+              ENDIF.
+            ENDIF.
+          ENDIF.
+
+          IF lv_dtxt IS NOT INITIAL.
+*           ESC( ), because this is a literal going into an XML view
+*           attribute: an option text carrying a brace would otherwise be
+*           read as a binding expression and the control would not render.
+            io_form->text( text      = zcl_rak_journey_util=>esc( lv_dtxt )
+                           textalign = lv_dta ).
+          ELSE.
+*           NO LIST, OR A VALUE THE LIST DOES NOT CARRY. Falling back to the
+*           binding is deliberate: a key with no matching option is exactly
+*           the case where showing the raw value beats showing nothing, and
+*           it leaves every DISPLAY field that has no list behaving as it
+*           did before this branch existed.
+            io_form->text( text      = lv_bind
+                           textalign = lv_dta ).
+          ENDIF.
         ENDIF.
 
       WHEN 'RESULT'.
