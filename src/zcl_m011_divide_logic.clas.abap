@@ -1,8 +1,8 @@
-CLASS zcl_m011_divide_logic DEFINITION
-  PUBLIC
-  INHERITING FROM zcl_rak_mun_logic
-  FINAL
-  CREATE PUBLIC.
+class ZCL_M011_DIVIDE_LOGIC definition
+  public
+  inheriting from ZCL_RAK_MUN_LOGIC
+  final
+  create public .
 
 *&---------------------------------------------------------------------*
 *& M011 - Request for Plots Division (legacy NSUBDIVISION_1_1..1_4).
@@ -35,8 +35,7 @@ CLASS zcl_m011_divide_logic DEFINITION
 *& added-parcel grid, no usage-type change. That is the whole difference from
 *& M012 and M016, and all three of those differences are configuration.
 *&---------------------------------------------------------------------*
-
-  PUBLIC SECTION.
+public section.
 
 *   ---- M011's own field vocabulary -----------------------------------
 *   EVERY NAME IS THE LEGACY /QNV/SB_UI_DEFIN FIELD_NAME, because that is
@@ -60,8 +59,6 @@ CLASS zcl_m011_divide_logic DEFINITION
 *   redeclared here. C_FLD_TOTAL moved up when the Pay press started
 *   writing TOTALFEESVALUE into the post; all three journeys name that
 *   field identically, so one declaration serves them.
-    CONSTANTS c_fld_upload3 TYPE string VALUE 'UPLOADER3'.   " optional, DATA2=3
-
 *   ---- what the backend decides, and where -----------------------------
 *   Written down so an enhancement does not re-implement it by accident.
 *   ZCL_EGA_CJ_FW_RO_ABS_V1 does all of this on the legacy side:
@@ -81,12 +78,39 @@ CLASS zcl_m011_divide_logic DEFINITION
 *   So the room for a journey-specific rule here is: anything that needs no
 *   table read and improves the round trip before a post. M012's parcel
 *   count is the family's one example. M011 has none today.
+  constants C_FLD_UPLOAD3 type STRING value 'UPLOADER3' ##NO_TEXT. " optional, DATA2=3
 
-  PROTECTED SECTION.
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+protected section.
   PRIVATE SECTION.
 ENDCLASS.
 
 
 
-CLASS zcl_m011_divide_logic IMPLEMENTATION.
+CLASS ZCL_M011_DIVIDE_LOGIC IMPLEMENTATION.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_INIT.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+*  EXPORTING
+*    IO_CTX =
+*    .
+
+    DATA: lv_loginbp TYPE bu_partner.
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
+
+
+*
+    IF sy-uname = 'hasan.f.vnd'.
+      lv_loginbp = '3000000049'. "3000401630
+    ENDIF.
+
+    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
+*    io_ctx->set_val( iv_name = c_owner_bp iv_value = |{ lv_loginbp }| ).
+
+
+  endmethod.
 ENDCLASS.

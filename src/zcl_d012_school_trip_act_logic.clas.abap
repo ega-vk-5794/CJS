@@ -26,7 +26,7 @@ private section.
   constants C_LOGIN_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
   constants C_PARTNER_NAME type STRING value 'Applicant Name' ##NO_TEXT.
   constants C_PARTNER_ID type STRING value 'Emirates Id Number' ##NO_TEXT.
-  constants C_APPLICANTTYPE type STRING value 'Applicant Type' ##NO_TEXT.
+  constants C_APPLICANTTYPE type STRING value 'APP_TYPE' ##NO_TEXT.
   constants C_LANG_EN type STRING value 'E' ##NO_TEXT.
   constants C_VALID_TO type STRING value 'LICENCE_VALID_TO' ##NO_TEXT.
 
@@ -181,7 +181,7 @@ CLASS ZCL_D012_SCHOOL_TRIP_ACT_LOGIC IMPLEMENTATION.
 *      "Emirates Id
       io_ctx->set_val( iv_name = c_partner_id iv_value = CONV #( ls_bp-emirates_id ) ).
 *      "Applicant Type
-      io_ctx->set_val( iv_name = c_applicanttype iv_value = |{ lv_role }| ).
+      io_ctx->set_val( iv_name = c_applicanttype iv_value = 'Investor' ).
 *      "Valid to
       io_ctx->set_val( iv_name = c_valid_to iv_value = CONV #( ls_bp-EID_expiry_on ) ).
 

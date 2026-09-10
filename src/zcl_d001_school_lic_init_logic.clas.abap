@@ -1107,15 +1107,17 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
                     showvaluehelp    = abap_true
                     valuehelprequest = io_ctx->event( c_evt_ownsr )
                     submit           = io_ctx->event( c_evt_ownsr ) ).
-            lo_form->button( text = 'Check' press = io_ctx->event( c_evt_ownsr ) ).
+            lo_form->button( text = 'Search' press = io_ctx->event( c_evt_ownsr ) ).
 
-    lo_form->label( text = 'Birth Date' required = abap_true ).
+    lo_form->label( text = 'Birth Date' required = abap_true DISPLAYONLY = abap_true ).
     lo_form->date_picker( value         = io_ctx->bind( c_dob )
                           valueformat   = 'yyyy-MM-dd'
-                          displayformat = 'dd.MM.yyyy' ).
+                          displayformat = 'dd.MM.yyyy'
+                          EDITABLE = abap_false ).
 
     lo_form->label( text = 'Nationality' required = abap_true ).
     DATA(lo_nat) = lo_form->combobox( selectedkey = io_ctx->bind( c_nat )
+                                      editable    = abap_false
                                       placeholder = 'select' ).
 *   T005T, not a hand-typed list. The 106-item literal this replaced stopped
 *   at "Kenya" and never had United Arab Emirates in it at all - or anything
@@ -1155,7 +1157,7 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *   Two per row, the same rakRow/rakCell layout as the fields above.
     DATA(lo_dr1) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d1)  = lo_dr1->vbox( class = 'rakCell' ).
-    lo_d1->label( text = 'Emirates ID Copy' ).
+    lo_d1->label( text = 'Emirates ID Copy' required = abap_true ).
     io_ctx->render_upload( io_view = lo_d1 iv_field = 'MAIN_DOC' iv_key = lv_id ).
     DATA(lo_d2)  = lo_dr1->vbox( class = 'rakCell' ).
     lo_d2->label( text = 'Passport Copy' ).
@@ -1163,15 +1165,15 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
     DATA(lo_dr2) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d3)  = lo_dr2->vbox( class = 'rakCell' ).
-    lo_d3->label( text = 'Introductory Statement' ).
+    lo_d3->label( text = 'Introductory Statement'  required = abap_true ).
     io_ctx->render_upload( io_view = lo_d3 iv_field = 'INTRO' iv_key = lv_id ).
     DATA(lo_d4)  = lo_dr2->vbox( class = 'rakCell' ).
-    lo_d4->label( text = 'Criminal Clearance certificate' ).
+    lo_d4->label( text = 'Criminal Clearance certificate'  required = abap_true ).
     io_ctx->render_upload( io_view = lo_d4 iv_field = 'CRIMCC' iv_key = lv_id ).
 
     DATA(lo_dr3) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d5)  = lo_dr3->vbox( class = 'rakCell' ).
-    lo_d5->label( text = 'Curriculum Vitae' ).
+    lo_d5->label( text = 'Curriculum Vitae'  required = abap_true ).
     io_ctx->render_upload( io_view = lo_d5 iv_field = 'CURR' iv_key = lv_id ).
     DATA(lo_d6)  = lo_dr3->vbox( class = 'rakCell' ).
     lo_d6->label( text = 'Family Book' ).

@@ -265,6 +265,10 @@ CLASS ZCL_E017_NOC_EXP_CHEM_LOGIC IMPLEMENTATION.
 
 *     "Login BP
       io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
+
+      "Owner Search
+*      OWNER_SEARCH_IDTYPE
+      io_ctx->set_val( iv_name = 'OWNER_SEARCH_IDTYPE' iv_value = 'YFS002' ).
     ENDIF.
 
 

@@ -41,6 +41,15 @@ public section.
 *   a type no partner holds and could never match; invisible because live traffic
 *   is almost entirely Emirates ID, where YFS002 was already right.
 *   ZCL_RAK_BP_POPUP was corrected in the same round - keep the two in step.
+*   THE LABEL COLUMN OF THE FOUND-PARTNER CARD, the one half of the BP
+*   popup that still puts a label beside its value rather than above it -
+*   see BP_RENDER( ) for why the search form does not. 8rem was measured
+*   rather than estimated: it was originally sized to the longer of the two
+*   halves' labels, the search form's Arabic "رقم الهوية الإماراتية" with
+*   its colon and its required asterisk, and left at that width now that
+*   only the card uses it - the card's own longest, "البريد الإلكتروني",
+*   is shorter and was already comfortably inside it.
+    CONSTANTS c_bp_lblw   TYPE string VALUE '8rem'.
     CONSTANTS c_bp_eid    TYPE string VALUE 'YFS002'.   " Emirates ID
     CONSTANTS c_bp_pass   TYPE string VALUE 'YFS005'.   " Passport
     CONSTANTS c_bp_unif   TYPE string VALUE 'YFS001'.   " Unified ID
@@ -136,6 +145,18 @@ public section.
       IMPORTING iv_subject TYPE string
                 iv_suffix  TYPE string
       RETURNING VALUE(rv)  TYPE string.
+    METHODS bp_or_dash
+      IMPORTING iv_value  TYPE string
+      RETURNING VALUE(rv) TYPE string.
+    METHODS bp_pair
+      IMPORTING io_box   TYPE REF TO z2ui5_cl_xml_view
+                iv_label TYPE string
+                iv_value TYPE string.
+    METHODS bp_row
+      IMPORTING io_box        TYPE REF TO z2ui5_cl_xml_view
+                iv_label      TYPE string
+                iv_required   TYPE abap_bool DEFAULT abap_false
+      RETURNING VALUE(ro_row) TYPE REF TO z2ui5_cl_xml_view.
     METHODS bp_render
       IMPORTING io_ctx     TYPE REF TO zif_rak_journey
                 io_popup   TYPE REF TO z2ui5_cl_xml_view
@@ -160,6 +181,9 @@ public section.
     " One mandatory field. Reports through the framework's own "&1 is required"
     " so the popup reads like every other required message in CJS, and returns
     " whether it complained so the caller can collect them all before refusing.
+    METHODS bp_eid_digits
+      IMPORTING iv_value  TYPE string
+      RETURNING VALUE(rv) TYPE string.
     METHODS bp_need
       IMPORTING io_ctx     TYPE REF TO zif_rak_journey
                 iv_subject TYPE string
@@ -225,6 +249,36 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD BP_EID_DIGITS.
+*&---------------------------------------------------------------------*
+*& bp_eid_digits — the Emirates ID as the fifteen digits it is.
+*&
+*& The field is a sap.m.MaskInput now (see BP_RENDER( )), so what reaches
+*& the model carries the mask's own literals - the fixed 784 and the three
+*& separators. MOI wants the number, so the separators come off here, once,
+*& on the way into the request rather than by rewriting the model: the
+*& citizen keeps seeing the grouped form they typed into.
+*&
+*& CHARACTER BY CHARACTER, not REPLACE of '-'. An untouched MaskInput's value
+*& is not something this method should have an opinion about - it may be
+*& blank, it may be the literals alone - and counting digits answers "has the
+*& citizen actually entered an ID" for every one of those shapes without
+*& needing to know which. BP_RUN_SEARCH( ) tests the LENGTH of what comes
+*& back, so 784 and nothing else fails the same way a half-typed number does.
+*&---------------------------------------------------------------------*
+    DATA lv_c TYPE c LENGTH 1.
+    DATA(lv_len) = strlen( iv_value ).
+    DATA(lv_i)   = 0.
+    WHILE lv_i < lv_len.
+      lv_c = iv_value+lv_i(1).
+      IF lv_c CO '0123456789'.
+        rv = rv && lv_c.
+      ENDIF.
+      lv_i = lv_i + 1.
+    ENDWHILE.
+  ENDMETHOD.
+
+
   METHOD BP_NEED.
     IF io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = iv_suffix ) ) IS NOT INITIAL.
       RETURN.
@@ -263,22 +317,48 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
 *& The format alone is not the whole guard - 31.13.2020 is still typable -
 *& so BP_DOB( ) in BP_RUN_SEARCH keeps an unparsed value out of the request.
 *&---------------------------------------------------------------------*
-    io_form->label( text     = zcl_rak_text=>pick( iv_base = `Date of Birth`
-                                                   iv_ar   = |تاريخ الميلاد| )
-    required = abap_true ).
-    io_form->date_picker(
+    DATA(lo_row) = bp_row( io_box      = io_form
+                           iv_label    = zcl_rak_text=>pick( iv_base = `Date of Birth`
+                                                             iv_ar   = |تاريخ الميلاد| )
+                           iv_required = abap_true ).
+    lo_row->date_picker(
     value         = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'DOB' ) )
     displayformat = 'dd.MM.yyyy'
-    valueformat   = 'yyyyMMdd' ).
+    valueformat   = 'yyyyMMdd'
+    width         = '100%'
+    class         = 'sapUiSmallMarginBottom' ).
   ENDMETHOD.
 
 
   METHOD BP_NAT_FIELD.
-    io_form->label( text     = zcl_rak_text=>pick( iv_base = `Nationality`
-                                                   iv_ar   = |الجنسية| )
-    required = abap_true ).
-    DATA(lo_nat) = io_form->combobox(
-          selectedkey = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'NAT' ) ) ).
+*&---------------------------------------------------------------------*
+*& SELECT, NOT COMBOBOX. The nationality list is BP_NATIONALITIES( ) and
+*& nothing a citizen types into it can ever match, so a type-ahead ComboBox
+*& only invites typing and pops a keyboard on a touch device. Same reasoning
+*& as CLOSED_LIST on the fourteen dropdowns of the journey behind this popup.
+*&
+*& FORCESELECTION = ABAP_FALSE PASSED EXPLICITLY, and it has to be. Not
+*& passing it does NOT give the false: an unsupplied OPTIONAL arrives blank,
+*& XML_GET_PARTS( ) drops every blank property from the markup, and UI5's own
+*& default of TRUE applies - so an untouched box would DRAW the first
+*& nationality while the model held nothing, and the citizen would search
+*& under a nationality they never chose.
+*&
+*& NO BLANK LEADING ITEM, unlike the engine's own popup. There the field is
+*& optional, so a way back to blank is right. Here it is MANDATORY - the MOI
+*& cross-check compares it and a blank fails rather than skips - so a blank
+*& item would be a pickable value that fails validation, which is the case
+*& the rule exists to avoid.
+*&---------------------------------------------------------------------*
+    DATA(lo_row) = bp_row( io_box      = io_form
+                           iv_label    = zcl_rak_text=>pick( iv_base = `Nationality`
+                                                             iv_ar   = |الجنسية| )
+                           iv_required = abap_true ).
+    DATA(lo_nat) = lo_row->select(
+          selectedkey    = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'NAT' ) )
+          forceselection = abap_false
+          width          = '100%'
+          class          = 'sapUiSmallMarginBottom' ).
     LOOP AT bp_nationalities( ) INTO DATA(ls_n).
       lo_nat->item( key = ls_n-key text = ls_n-text ).
     ENDLOOP.
@@ -287,6 +367,81 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
 
   METHOD BP_FLD.
     rv = |{ to_upper( iv_subject ) }_{ iv_suffix }|.
+  ENDMETHOD.
+
+
+  METHOD BP_OR_DASH.
+*&---------------------------------------------------------------------*
+*& bp_or_dash — a blank BP attribute reads as '-', not as nothing.
+*&
+*& The same thing ZCL_RAK_BP_POPUP=>PAIR( ) does on the engine's own party
+*& card, for the same reason: a label with an empty control after its colon
+*& looks like the value failed to arrive, where '-' says the business partner
+*& does not have one. Phone and email are the two that are routinely blank,
+*& so they are the two this was noticed on.
+*&
+*& It does NOT go through ESC( ) here - every caller already does, and
+*& escaping a '-' twice is harmless but escaping it here and not there would
+*& be the kind of asymmetry that gets copied.
+*&---------------------------------------------------------------------*
+    rv = COND string( WHEN iv_value IS NOT INITIAL THEN iv_value ELSE `-` ).
+  ENDMETHOD.
+
+
+  METHOD BP_PAIR.
+*&---------------------------------------------------------------------*
+*& bp_pair — one label/value row of the found-partner card.
+*&
+*& A fixed-width LABEL and a TEXT in an HBOX, replacing a SimpleForm. See
+*& BP_RENDER( ) for why there is no form here any more.
+*&
+*& WIDTH ON THE LABEL IS THE WHOLE POINT. It is what puts the four values
+*& on one edge under each other, and it is a number rather than a grid span
+*& the layout recomputes. ALIGNITEMS 'Center' keeps a one-line value level
+*& with its label; the label does not wrap at 10rem, so there is no second
+*& line to align to.
+*&---------------------------------------------------------------------*
+    DATA(lo_row) = io_box->hbox( alignitems = 'Center'
+                                 class      = 'sapUiTinyMarginBottom' ).
+    lo_row->label( text      = zcl_rak_journey_util=>esc( iv_label )
+                   showcolon = abap_true
+                   width     = c_bp_lblw ).
+    lo_row->text( text = zcl_rak_journey_util=>esc( bp_or_dash( iv_value ) ) ).
+  ENDMETHOD.
+
+
+  METHOD BP_ROW.
+*&---------------------------------------------------------------------*
+*& bp_row — the label above one search-form control. Draws the label
+*& straight into IO_BOX and hands the SAME box back, so the control the
+*& caller adds next is the label's next sibling and the two stack, one
+*& above the other, because IO_BOX is a VBox and a VBox lays its children
+*& out vertically in creation order.
+*&
+*& WHY NOT A ROW OF ITS OWN, which is what this drew until the screenshot
+*& showed a collapsed Select and a clipped Input. IO_BOX->HBOX( ) with no
+*& WIDTH creates a box that shrinks to its content - confirmed by reading
+*& HBOX( )'s signature, WIDTH is OPTIONAL and nothing was passed - so the
+*& row was only ever as wide as the label plus a sliver, and a control
+*& inside it asking for WIDTH '100%' was asking for 100% of an undersized,
+*& indefinite box. That is the defect, not a guess at one: label-beside-
+*& control needed two widths to agree (the row's and the control's) and
+*& only one was ever set.
+*&
+*& LABEL-ABOVE NEEDS ONLY ONE WIDTH TO BE RIGHT, and it is set two levels
+*& up: BP_RENDER( ) gives the column itself WIDTH '100%' against the
+*& dialog's own CONTENTWIDTH, which is a real, resolved size rather than
+*& content-shrunk - so a control's WIDTH '100%' here resolves against an
+*& ancestor that actually has one.
+*&
+*& REQUIRED draws the asterisk. It is a promise and not a check: the refusal
+*& lives in BP_RUN_SEARCH( ), which is the half that matters.
+*&---------------------------------------------------------------------*
+    io_box->label( text      = zcl_rak_journey_util=>esc( iv_label )
+                   showcolon = abap_true
+                   required  = iv_required
+                   class     = 'sapUiTinyMarginTop' ).
+    ro_row = io_box.
   ENDMETHOD.
 
 
@@ -367,23 +522,65 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     " ---- already found: show it, do not ask again ----------------------
     DATA(lv_partner) = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'PARTNER' ) ).
     IF lv_partner IS NOT INITIAL.
-      DATA(lo_res) = lo_dlg->content(
-            )->simple_form( editable = abap_false layout = 'ResponsiveGridLayout'
-            columnsxl = '2' columnsl = '2' columnsm = '1'
-            )->content( ns = 'form' ).
-      lo_res->title( zcl_rak_journey_util=>esc(
-      io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'NAME' ) ) ) ).
-      lo_res->label( zcl_rak_text=>pick( iv_base = `Partner` iv_ar = |الشريك| ) ).
-      lo_res->text( zcl_rak_journey_util=>esc( lv_partner ) ).
-      lo_res->label( zcl_rak_text=>pick( iv_base = `Nationality` iv_ar = |الجنسية| ) ).
-      lo_res->text( zcl_rak_journey_util=>esc(
-      io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'NAT' ) ) ) ).
-      lo_res->label( zcl_rak_text=>pick( iv_base = `Phone Number` iv_ar = |رقم الهاتف| ) ).
-      lo_res->text( zcl_rak_journey_util=>esc(
-      io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'PHONE' ) ) ) ).
-      lo_res->label( zcl_rak_text=>pick( iv_base = `Email` iv_ar = |البريد الإلكتروني| ) ).
-      lo_res->text( zcl_rak_journey_util=>esc(
-      io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'EMAIL' ) ) ) ).
+*     NO FORM AT ALL. This card is four label/value pairs and it has now cost
+*     three rounds inside sap.ui.layout.form: ResponsiveGridLayout put the
+*     label and its value at opposite ends of the row in Arabic, pinning
+*     LABELSPAN with ADJUSTLABELSPAN off changed nothing, and ColumnLayout
+*     refused to render at all - "sap.m.Title is not a valid Form content",
+*     which took the whole app down, because the name below is a TITLE and
+*     ColumnLayout validates its content where the responsive grid tolerated
+*     it.
+*
+*     So the form is gone. Four HBOX rows, a fixed-width LABEL and a TEXT
+*     beside it: the gap between a label and its value is now a number in this
+*     method rather than something negotiated with a layout algorithm, and it
+*     reads the same in both directions because an HBOX follows the page.
+*
+*     C_BP_LBLW is this card's own label column now - see the constant's
+*     declaration for why it is still 8rem even though the search form no
+*     longer shares it.
+*     SHOWCOLON keeps the colon the form used to add; drawing our own labels
+*     means nothing adds it for us.
+      DATA(lo_res) = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
+*     THE NAME IS A BOLD LABEL, NOT A TITLE, AND THE REASON IS ARABIC. It was
+*     TITLE( LEVEL = 'H4' ) and came out bold in English and NOT in Arabic. On
+*     an Arabic journey ZCL_RAK_JOURNEY_CSS emits a universal family override -
+*     .sapUiBody *:not(.sapUiIcon) { font-family:'Dubai','Tajawal','Almarai',
+*     'Segoe UI',sans-serif !important } - which sets the FAMILY and never a
+*     weight, so anything whose boldness came from the theme's own font family
+*     rather than from a font-weight declaration loses it. The PREMIUM variant
+*     this journey uses puts a weight on .rakHdrTitle and the page header only,
+*     so a plain sap.m.Title has nothing of its own to survive on.
+*
+*     DESIGN 'Bold' IS A FONT-WEIGHT ON THE CONTROL, which the family swap
+*     cannot take away, and it is the mechanism already proven to render bold
+*     Arabic here - it is what JP1's three Arabic head lines use. Borrowing the
+*     engine's .rakBlkTitle would also have worked for the weight and was
+*     rejected: another variant gives that class a margin and a font-size of
+*     its own, so it would have moved and resized this line as a side effect.
+*
+*     WRAPPING, because a Label defaults it to FALSE where a Title does not,
+*     and a long partner name would have been truncated with an ellipsis
+*     rather than wrapped. The cost of the swap is that the name is body size
+*     now rather than H4 - bold, and no longer larger than the rows under it.
+      lo_res->label( text     = zcl_rak_journey_util=>esc(
+                     io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'NAME' ) ) )
+                     design   = 'Bold'
+                     wrapping = abap_true
+                     class    = 'sapUiTinyMarginBottom' ).
+
+      bp_pair( io_box   = lo_res
+               iv_label = zcl_rak_text=>pick( iv_base = `Partner` iv_ar = |الشريك| )
+               iv_value = lv_partner ).
+      bp_pair( io_box   = lo_res
+               iv_label = zcl_rak_text=>pick( iv_base = `Nationality` iv_ar = |الجنسية| )
+               iv_value = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'NAT' ) ) ).
+      bp_pair( io_box   = lo_res
+               iv_label = zcl_rak_text=>pick( iv_base = `Phone Number` iv_ar = |رقم الهاتف| )
+               iv_value = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'PHONE' ) ) ).
+      bp_pair( io_box   = lo_res
+               iv_label = zcl_rak_text=>pick( iv_base = `Email` iv_ar = |البريد الإلكتروني| )
+               iv_value = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'EMAIL' ) ) ).
 
       DATA(lo_rb) = lo_dlg->buttons( ).
       lo_rb->button( text  = zcl_rak_text=>pick( iv_base = `Resume Search` iv_ar = |استئناف البحث| )
@@ -398,15 +595,49 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
 
     " ---- the search form ----------------------------------------------
     DATA(lv_by) = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'SEARCHBY' ) ).
-    DATA(lo_form) = lo_dlg->content(
-          )->simple_form( editable = abap_true layout = 'ResponsiveGridLayout'
-          columnsxl = '2' columnsl = '2' columnsm = '1'
-          )->content( ns = 'form' ).
+*   NO FORM HERE EITHER, for the reasons on the card above: a SimpleForm put
+*   each label at the far edge of its row from the control it belongs to, and
+*   its Arabic label column was too narrow for "رقم الهوية الإماراتية", which
+*   wrapped onto two lines and pushed its own control down.
+*
+*   LABEL ABOVE CONTROL, full width, matching the rest of the service and
+*   chosen over label-beside-control after that shape broke on screen twice -
+*   once with FlexItemData doing nothing, once with a control's WIDTH '100%'
+*   resolving against an HBOX row that had no width of its own. See BP_ROW( )
+*   for the mechanism this uses instead.
+*
+*   NO WIDTH ON THIS BOX, and the horizontal scrollbar is what taught us why.
+*   It carried WIDTH '100%' alongside SAPUISMALLMARGIN, which is a MARGIN of
+*   1rem a side - so the box was the full width of the dialog content PLUS
+*   2rem, overflowed by exactly that, and the dialog grew a scrollbar. The
+*   controls were never the problem: at '100%' they filled this box exactly.
+*
+*   AUTO IS RIGHT HERE, unlike on the HBOX row this replaced, and the
+*   difference is worth keeping straight. A block-level box with WIDTH auto
+*   fills its containing block MINUS its margins, and its used width is then
+*   DEFINITE - so a child's '100%' has something real to resolve against. The
+*   old row was a FLEX ITEM whose width came from its content, which is
+*   indefinite, and that is why a percentage inside it collapsed. Same
+*   property, opposite outcome, because of what the parent is.
+    DATA(lo_form) = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
 
-    lo_form->label( zcl_rak_text=>pick( iv_base = `Search By` iv_ar = |البحث بواسطة| ) ).
-    DATA(lo_by) = lo_form->combobox(
-          selectedkey = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'SEARCHBY' ) )
-          change      = io_ctx->event( c_ev_bp_go ) ).
+*   SELECT, NOT COMBOBOX - four keys this method appends itself, so there is
+*   nothing a citizen could usefully type. See BP_NAT_FIELD( ) for why
+*   FORCESELECTION has to be passed rather than left unsupplied.
+*
+*   AND NO BLANK LEADING ITEM. This one is the gate: with nothing chosen the
+*   method returns a Close button and no fields at all, so the form cannot
+*   proceed without it and a blank item would be a pickable value that takes
+*   the citizen back to an empty popup.
+    DATA(lo_r_by) = bp_row( io_box   = lo_form
+                            iv_label = zcl_rak_text=>pick( iv_base = `Search By`
+                                                           iv_ar   = |البحث بواسطة| ) ).
+    DATA(lo_by) = lo_r_by->select(
+          selectedkey    = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'SEARCHBY' ) )
+          forceselection = abap_false
+          width          = '100%'
+          class          = 'sapUiSmallMarginBottom'
+          change         = io_ctx->event( c_ev_bp_go ) ).
     lo_by->item( key = c_bp_eid
     text = zcl_rak_text=>pick( iv_base = `Emirates ID` iv_ar = |رقم الهوية الإماراتية| ) ).
     lo_by->item( key = c_bp_pass
@@ -442,15 +673,58 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
 *   what MOI holds - so the citizen got "Input data does not match with ID" for a
 *   field they had not filled in. Demanding them turns that into a message that
 *   names what is missing.
-    lo_form->label( text     = SWITCH string( lv_by
+    DATA(lo_r_id) = bp_row( io_box      = lo_form
+                            iv_required = abap_true
+                            iv_label    = SWITCH string( lv_by
     WHEN c_bp_eid  THEN zcl_rak_text=>pick( iv_base = `Emirates ID`
                                             iv_ar   = |رقم الهوية الإماراتية| )
     WHEN c_bp_pass THEN zcl_rak_text=>pick( iv_base = `Passport Number`
                                             iv_ar   = |رقم جواز السفر| )
     ELSE                zcl_rak_text=>pick( iv_base = `Unified ID`
-                                            iv_ar   = |الرقم الموحد| ) )
-    required = abap_true ).
-    lo_form->input( value = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'IDNUM' ) ) ).
+                                            iv_ar   = |الرقم الموحد| ) ) ).
+*   THE EMIRATES ID BRANCH GETS A MASK, the other two do not. An Emirates ID
+*   is 784-YYYY-NNNNNNN-C: fifteen digits in four groups, and the first three
+*   are ALWAYS 784. The legacy screen made that four boxes with the 784 one
+*   filled in and disabled, and a citizen typing into it never presses Tab.
+*
+*   SAP.M.MASKINPUT IS THAT CONTROL, and it needs no JavaScript to be it -
+*   which matters, because a handler has no clean channel to deliver any. The
+*   mask's '9' is MaskInput's own built-in digit rule, so it is [0-9] without a
+*   MASK_INPUT_RULE( ) of ours. Everything that is not a '9' - the 784 and the
+*   three dashes - is a LITERAL: the citizen cannot type over it, cannot delete
+*   it, and the caret jumps across it, so entry flows 2026 -> 1234567 -> 8
+*   without a keystroke spent on separators. Fifteen digits is the whole mask,
+*   so it also cannot be overtyped or come up short unnoticed.
+*
+*   PASSPORT AND UNIFIED ID STAY A PLAIN INPUT. Neither has a fixed prefix or
+*   a fixed length - a passport number's shape depends on its issuing country,
+*   which is the reason nationality is part of that search key at all - so a
+*   mask there would refuse valid numbers.
+*
+*   MASK_INPUT( ) HAS NEITHER EDITABLE NOR CLASS - both checked against the
+*   signature, the second of them only after passing CLASS to it cost an
+*   activation error. It takes PLACEHOLDER, MASK, NAME, TEXTALIGN,
+*   TEXTDIRECTION, VALUE, WIDTH, VALUESTATE, VALUESTATETEXT,
+*   PLACEHOLDERSYMBOL, REQUIRED, SHOWCLEARICON, SHOWVALUESTATEMESSAGE,
+*   VISIBLE, FIELDWIDTH, LIVECHANGE and CHANGE, and nothing else. EDITABLE
+*   being missing is harmless here because this field is always editable -
+*   it is why the engine's own COUNT branch keeps a plain INPUT( ) for its
+*   read-only path.
+*
+*   SO THE BOTTOM MARGIN GOES ON A BOX AROUND IT. The VBOX is block-level and
+*   fills this column, which also gives the mask a definite width to take its
+*   '100%' from - the same reason the column itself carries no width.
+    IF lv_by = c_bp_eid.
+      lo_r_id->vbox( class = 'sapUiSmallMarginBottom' )->mask_input(
+            value = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'IDNUM' ) )
+            mask  = '784-9999-9999999-9'
+            width = '100%' ).
+    ELSE.
+      lo_r_id->input(
+            value = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'IDNUM' ) )
+            width = '100%'
+            class = 'sapUiSmallMarginBottom' ).
+    ENDIF.
 
 *   ONE FIELD ORDER FOR ALL THREE: number, date of birth, nationality.
 *
@@ -529,6 +803,36 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     ENDIF.
     IF lv_gap = abap_true.
       RETURN.
+    ENDIF.
+
+*   THE EMIRATES ID IS FIFTEEN DIGITS, and the mask on the field is not the
+*   check - the same rule as the asterisks above. BP_RENDER( ) draws that
+*   branch as a sap.m.MaskInput, so an untouched or half-typed field arrives
+*   here carrying the mask's own literals rather than blank, and BP_NEED( )'s
+*   IS INITIAL test cannot see that: '784' with nothing after it is not empty.
+*   Counting digits is what separates the two, and 15 is the only length an
+*   Emirates ID has.
+*
+*   REPORTED THE WAY THE DATE IS REPORTED, through C_NO-BAD_FORMAT with the
+*   shape appended, so a citizen who stopped halfway is told what is wrong in
+*   the same words the rest of the popup uses. The pattern is not translated -
+*   784-YYYY-NNNNNNN-C reads the same either way.
+    IF lv_by = c_bp_eid.
+      DATA(lv_eid) = bp_eid_digits( lv_num ).
+      IF strlen( lv_eid ) <> 15.
+        DATA(lv_eid_lbl) = zcl_rak_text=>pick( iv_base = `Emirates ID`
+                                               iv_ar   = |رقم الهوية الإماراتية| ).
+        io_ctx->add_msg(
+          iv_type = 'Error'
+          iv_text = |{ zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-bad_format
+                                          iv_default = '&1 has an invalid format'
+                                          iv_v1      = lv_eid_lbl ) } (784-YYYY-NNNNNNN-C)| ).
+        RETURN.
+      ENDIF.
+*     THE DIGITS GO TO MOI, not the grouped form. LV_NUM is replaced rather
+*     than the model field, so the screen keeps the grouping the citizen typed
+*     into while the request carries the fifteen digits that identify them.
+      lv_num = lv_eid.
     ENDIF.
 
     ls_req-idtype      = lv_by.

@@ -19,4 +19,4 @@
   INCLUDE LSVIMOXX                                . " PBO modules
   INCLUDE LSVIMIXX                                . " PAI modules
 
-INCLUDE lzfg_mv_jny_fieldo01.
+INCLUDE LZFG_MV_JNY_FIELDO01.

@@ -1,34 +1,35 @@
 PROCESS BEFORE OUTPUT.
-  MODULE liste_initialisieren.
-  MODULE sort_table.
-  LOOP AT extract WITH CONTROL
-   tctrl_zmv_jny_step CURSOR nextline.
-    MODULE liste_show_liste.
-  ENDLOOP.
-  MODULE fill_substflds.
+ MODULE LISTE_INITIALISIEREN.
+ MODULE sort_table.
+ LOOP AT EXTRACT WITH CONTROL
+  TCTRL_ZMV_JNY_STEP CURSOR NEXTLINE.
+   MODULE LISTE_SHOW_LISTE.
+ ENDLOOP.
+ MODULE FILL_SUBSTFLDS.
 *
 PROCESS AFTER INPUT.
-  MODULE liste_exit_command AT EXIT-COMMAND.
-  MODULE liste_before_loop.
-  LOOP AT extract.
-    MODULE liste_init_workarea.
-    CHAIN.
-      FIELD zmv_jny_step-step_id .
-      FIELD zmv_jny_step-seqnr .
-      FIELD zmv_jny_step-title .
-      FIELD zmv_jny_step-icon .
-      FIELD zmv_jny_step-columns .
-      FIELD zmv_jny_step-title_ar .
-      FIELD zmv_jny_step-bknd_screen .
-      FIELD zmv_jny_step-active .
-      FIELD zmv_jny_step-next_requires .
-      FIELD zmv_jny_step-no_forward .
-      MODULE set_update_flag ON CHAIN-REQUEST.
-    ENDCHAIN.
-    FIELD vim_marked MODULE liste_mark_checkbox.
-    CHAIN.
-      FIELD zmv_jny_step-step_id .
-      MODULE liste_update_liste.
-    ENDCHAIN.
-  ENDLOOP.
-  MODULE liste_after_loop.
+ MODULE LISTE_EXIT_COMMAND AT EXIT-COMMAND.
+ MODULE LISTE_BEFORE_LOOP.
+ LOOP AT EXTRACT.
+   MODULE LISTE_INIT_WORKAREA.
+   CHAIN.
+    FIELD ZMV_JNY_STEP-STEP_ID .
+    FIELD ZMV_JNY_STEP-SEQNR .
+    FIELD ZMV_JNY_STEP-TITLE .
+    FIELD ZMV_JNY_STEP-ICON .
+    FIELD ZMV_JNY_STEP-COLUMNS .
+    FIELD ZMV_JNY_STEP-TITLE_AR .
+    FIELD ZMV_JNY_STEP-BKND_SCREEN .
+    FIELD ZMV_JNY_STEP-ACTIVE .
+    FIELD ZMV_JNY_STEP-NEXT_REQUIRES .
+    FIELD ZMV_JNY_STEP-NO_FORWARD .
+    FIELD ZMV_JNY_STEP-NO_ACTION .
+    MODULE SET_UPDATE_FLAG ON CHAIN-REQUEST.
+   ENDCHAIN.
+   FIELD VIM_MARKED MODULE LISTE_MARK_CHECKBOX.
+   CHAIN.
+    FIELD ZMV_JNY_STEP-STEP_ID .
+    MODULE LISTE_UPDATE_LISTE.
+   ENDCHAIN.
+ ENDLOOP.
+ MODULE LISTE_AFTER_LOOP.

@@ -28,6 +28,7 @@ private section.
   constants C_MIN_SEARCH_LEN type I value 3 ##NO_TEXT.
   constants C_DEFAULT_IDTYPE type STRING value 'YFS002' ##NO_TEXT.
   constants C_OWNER_BP type STRING value 'OWNER_BP' ##NO_TEXT.
+  constants C_STEP_APPLICANT type I value 0 ##NO_TEXT.
   constants C_STEP_STORAGE type I value 2 ##NO_TEXT.  " 0-based: APPL,COMP,STORAGE
   constants C_APP_NAME type STRING value 'APP_NAME' ##NO_TEXT.
   constants C_APP_ID type STRING value 'APP_ID' ##NO_TEXT.
@@ -105,6 +106,30 @@ CLASS ZCL_E031_MATSTORAGE_LOGIC IMPLEMENTATION.
 *   VALUE #( BASE rt ... ), never assign over it, or the gate's own messages go.
     rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
                                                          iv_step = iv_step ).
+
+    IF iv_step = c_step_applicant.
+      DATA(lv_permit) = condense( io_ctx->get_val( c_permit_number ) ).
+
+      IF lv_permit IS NOT INITIAL.
+        SELECT SINGLE contractname
+        FROM zv_epdapmmast
+        INTO @DATA(lv_contrat)
+        WHERE permitid = @lv_permit.
+
+        IF lv_contrat IS NOT INITIAL.
+          io_ctx->set_val( iv_name = c_permit_number  iv_value = |{ lv_permit }| ).
+          io_ctx->set_val( iv_name = c_permit_loaded  iv_value = |{ lv_contrat  }| ).
+        ELSE.
+          io_ctx->set_val( iv_name = c_permit_loaded  iv_value  = ' ' ).
+          io_ctx->add_msg( iv_type = 'Error'
+                             iv_text = |Enter Valid Permit No to search| ).
+        ENDIF.
+      ENDIF.
+
+    ENDIF.
+
+
+
 
     CHECK iv_step = c_step_storage.
     " STILL DEAD. The block below was written against an assumed get_grid( )
@@ -216,63 +241,64 @@ CLASS ZCL_E031_MATSTORAGE_LOGIC IMPLEMENTATION.
       io_ctx->set_val( iv_name = c_owner_dob         iv_value = |{ ev_date_of_birth }| ).
       io_ctx->set_val( iv_name = c_owner_nationality iv_value = |{ ev_nationality }| ).
 
-    ELSEIF iv_field = c_permit_number.
-      DATA(lv_permit) = condense( io_ctx->get_val( c_permit_number ) ).
-
-      IF lv_permit IS NOT INITIAL.
-        SELECT SINGLE contractname
-        FROM zv_epdapmmast
-        INTO @DATA(lv_contrat)
-        WHERE permitid = @lv_permit.
-
-        IF lv_contrat IS NOT INITIAL.
-          io_ctx->set_val( iv_name = c_permit_number  iv_value = |{ lv_permit }| ).
-          io_ctx->set_val( iv_name = c_permit_loaded  iv_value = |{ lv_contrat }| ).
-        ELSE.
-          io_ctx->set_val( iv_name = c_permit_loaded  iv_value  = ' ' ).
-          io_ctx->add_msg( iv_type = 'Error'
-                             iv_text = |Enter Valid Permit No to search| ).
-        ENDIF.
-      ENDIF.
+*    ELSEIF iv_field = c_permit_number.
+*      DATA(lv_permit) = condense( io_ctx->get_val( c_permit_number ) ).
+*
+*      IF lv_permit IS NOT INITIAL.
+*        SELECT SINGLE contractname
+*        FROM zv_epdapmmast
+*        INTO @DATA(lv_contrat)
+*        WHERE permitid = @lv_permit.
+*
+*        IF lv_contrat IS NOT INITIAL.
+*          io_ctx->set_val( iv_name = c_permit_number  iv_value = |{ lv_permit }| ).
+*          io_ctx->set_val( iv_name = c_permit_loaded  iv_value = |{ lv_contrat  }| ).
+*        ELSE.
+*          io_ctx->set_val( iv_name = c_permit_loaded  iv_value  = ' ' ).
+*          io_ctx->add_msg( iv_type = 'Error'
+*                             iv_text = |Enter Valid Permit No to search| ).
+*        ENDIF.
+*      ENDIF.
 
     ENDIF.
   ENDMETHOD.
 
 
   METHOD zif_rak_journey_logic~on_init.
-*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
-*  EXPORTING
-*    IO_CTX =
-*    .
+    CALL METHOD super->zif_rak_journey_logic~on_init
+      EXPORTING
+        io_ctx = io_ctx.
 
-*    DATA: lv_loginbp TYPE bu_partner.
-*    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
-*    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
-*    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
-*
-*
-*    IF lv_loginbp IS NOT INITIAL.
-*      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
-*        EXPORTING
-*          iv_bp_id      = lv_loginbp
-*        IMPORTING
-*          es_bp_details = DATA(ls_bp) ).
-*
-*      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
-*
-*      IF sy-langu = c_lang_en.
-*        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name ) ).
-*      ELSE.
-*        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
-*      ENDIF.
-*
-*      io_ctx->set_val( iv_name = c_app_id     iv_value = CONV #( ls_bp-emirates_id ) ).
-*      io_ctx->set_val( iv_name = c_app_mobile iv_value = CONV #( ls_bp-mobile_number ) ).
-*      io_ctx->set_val( iv_name = c_app_email  iv_value = CONV #( ls_bp-email_address ) ).
-**      io_ctx->set_val( iv_name = c_app_role iv_value = |{ lv_role }| ).
-*      io_ctx->set_val( iv_name = c_app_role iv_value = |{ c_rep }| ).
+    DATA: lv_loginbp TYPE bu_partner.
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
 
-*    ENDIF.
+
+    IF lv_loginbp IS NOT INITIAL.
+      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+        EXPORTING
+          iv_bp_id      = lv_loginbp
+        IMPORTING
+          es_bp_details = DATA(ls_bp) ).
+
+      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+
+      IF sy-langu = c_lang_en.
+        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name ) ).
+      ELSE.
+        io_ctx->set_val( iv_name = c_app_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+      ENDIF.
+
+      io_ctx->set_val( iv_name = c_app_id     iv_value = CONV #( ls_bp-emirates_id ) ).
+      io_ctx->set_val( iv_name = c_app_mobile iv_value = CONV #( ls_bp-mobile_number ) ).
+      io_ctx->set_val( iv_name = c_app_email  iv_value = CONV #( ls_bp-email_address ) ).
+*      io_ctx->set_val( iv_name = c_app_role iv_value = |{ lv_role }| ).
+      io_ctx->set_val( iv_name = c_app_role iv_value = |{ c_owner }| ).
+
+      io_ctx->set_val( iv_name = c_owner_bp_idtype iv_value = |{ c_default_idtype }| ).
+
+    ENDIF.
 
   ENDMETHOD.
 
@@ -281,18 +307,18 @@ CLASS ZCL_E031_MATSTORAGE_LOGIC IMPLEMENTATION.
 
     DATA(lv_step) = io_ctx->get_step( ).
     CASE iv_field.
-      WHEN 'MATERIALS_DET.MATERIAL_TYPE'.
+      WHEN 'ALTERNATIVE_FUEL_DET.MATERIAL_TYPE'.
 
         rt = VALUE #( ( key = '001' text = 'Coal' )
                       ( key = '002' text = 'Clinker' )
                     ).
 
-      WHEN 'MATERIALS_DET.UNIT'.
+      WHEN 'ALTERNATIVE_FUEL_DET.UNIT'.
         rt = VALUE #( ( key = '001' text = 'KG' )
                       ( key = '002' text = 'MT' )
                     ).
 
-      WHEN 'MATERIALS_DET.DURATION_DAYS'.
+      WHEN 'ALTERNATIVE_FUEL_DET.DURATION_DAYS'.
 
         rt = VALUE #( ( key = '01' text = '10 Days' )
                       ( key = '02' text = '30 Days' )

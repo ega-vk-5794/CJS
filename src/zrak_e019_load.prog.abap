@@ -98,7 +98,7 @@
 *&---------------------------------------------------------------------*
 REPORT zrak_e019_load.
 
-CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'E019'.
+CONSTANTS c_jny TYPE zrak_t_jny-journey_id VALUE 'EPDA_E019_TRANS_USED_OIL'.
 
 * Long-text numbers for the declaration. Well clear of the engine
 * catalogue in ZCL_RAK_TEXT, which currently ends at 138.
@@ -199,14 +199,14 @@ START-OF-SELECTION.
 * language for this journey id.
   SELECT SINGLE description FROM zega_t_cj_idt
     INTO @DATA(lv_title_en)
-    WHERE journeyid = @c_jny AND spras = @sy-langu.
+    WHERE journeyid = 'E019' AND spras = @sy-langu.
   IF lv_title_en IS INITIAL.
     lv_title_en = 'Transport Used Oil'.
   ENDIF.
 
   SELECT SINGLE description FROM zega_t_cj_idt
     INTO @DATA(lv_title_ar)
-    WHERE journeyid = @c_jny AND spras = 'A'.
+    WHERE journeyid = 'E019' AND spras = 'A'.
 
 * ------------------------------------------------ declaration long text
 * OVER 150 CHARACTERS, so it cannot live in ZLABEL - that column cuts on

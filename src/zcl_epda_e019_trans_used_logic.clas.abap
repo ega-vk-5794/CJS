@@ -1,8 +1,8 @@
-CLASS zcl_epda_e019_trans_used_logic DEFINITION
-  PUBLIC
-  INHERITING FROM zcl_rak_journey_logic
-  FINAL
-  CREATE PUBLIC.
+class ZCL_EPDA_E019_TRANS_USED_LOGIC definition
+  public
+  inheriting from ZCL_RAK_JOURNEY_LOGIC
+  final
+  create public .
 
 *---------------------------------------------------------------------------------------*
 * E019 Transport Used Oil - handler.  Config is ZRAK_E019_LOAD.
@@ -76,17 +76,26 @@ CLASS zcl_epda_e019_trans_used_logic DEFINITION
 * only what the BAdI changed, APPLY_CTRL( ) applies it - so it needs no
 * handler code and must not get any, or the two would fight.
 *---------------------------------------------------------------------------------------*
+public section.
 
-  PUBLIC SECTION.
 *   Redefinitions, NOT "INTERFACES zif_rak_journey_logic". Declaring the interface
 *   directly obliges this class to implement all ~25 of its methods; it implements
 *   four, so it would never activate. Inheriting the base supplies the empty
 *   defaults for the rest AND the payment card - the shape every other handler in
 *   this package uses.
-    METHODS zif_rak_journey_logic~on_after_read      REDEFINITION.
-    METHODS zif_rak_journey_logic~on_change          REDEFINITION.
-    METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
-
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
+    redefinition .
+protected section.
   PRIVATE SECTION.
     CONSTANTS c_partner_owner_1 TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
     CONSTANTS c_permit_yes      TYPE string VALUE 'PERMIT_YES' ##NO_TEXT.
@@ -440,5 +449,153 @@ CLASS ZCL_EPDA_E019_TRANS_USED_LOGIC IMPLEMENTATION.
         ( type = 'Error'
           text = |Add at least one material before continuing.| ) ).
     ENDIF.
+  ENDMETHOD.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_INIT.
+    super->zif_rak_journey_logic~on_init( io_ctx = io_ctx ).
+
+    DATA(lv_user) = io_ctx->get_param( iv_name = 'USERDATA' ).
+
+    zcl_ega_cj_utility=>get_bp(
+      EXPORTING qv_key  = lv_user
+      IMPORTING loginbp = DATA(lv_loginbp)
+                rolebp  = DATA(lv_rolebp)
+                role    = DATA(lv_role) ).
+
+    IF lv_loginbp IS INITIAL.
+      lv_loginbp = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+      lv_rolebp  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+      lv_role    = CAST zcl_rak_journey_engine( io_ctx )->mv_role.
+
+*     "Login BP
+      io_ctx->set_val( iv_name = 'OWNER_BP' iv_value = |{ lv_loginbp }| ).
+
+      "Owner Search
+*      OWNER_SEARCH_IDTYPE
+      io_ctx->set_val( iv_name = 'OWNER_1_IDTYPE' iv_value = 'YFS002' ).
+
+      "Permit Number
+       io_ctx->set_val( iv_name = 'PERMIT_NUMBER_1_IDTYPE' iv_value = 'HF' ).
+    ENDIF.
+  endmethod.
+
+
+  METHOD zif_rak_journey_logic~on_search.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
+*  EXPORTING
+*    IO_CTX   =
+*    IV_FIELD =
+*    .
+
+    IF iv_field = 'OWNER_1'.
+
+      DATA(lv_eid) = condense( io_ctx->get_val( 'OWNER_1' ) ).
+      IF lv_eid IS INITIAL.
+        io_ctx->add_msg( iv_type = 'Warning'
+                         iv_text = |Enter Emirates ID to search| ).
+        RETURN.
+      ENDIF.
+
+      DATA(lv_idtype) = io_ctx->get_val( 'OWNER_1_IDTYPE' ).
+      IF lv_idtype IS INITIAL.
+        lv_idtype = 'YFS002'.
+      ENDIF.
+
+      DATA: lv_eid_no   TYPE bu_id_number,
+            lv_eid_type TYPE bu_id_type.
+
+      lv_eid_no = lv_eid.
+      lv_eid_type = lv_idtype.
+
+      DATA ev_partner         TYPE partner.
+      DATA ev_id_number       TYPE bu_id_number.
+      DATA ev_passport        TYPE bu_id_number.
+      DATA ev_name            TYPE bu_name1tx.
+      DATA ev_phone           TYPE farp_mobile.
+      DATA ev_email           TYPE ad_smtpadr.
+      DATA ev_nationality     TYPE natio50.
+      DATA ev_nationality_key TYPE bu_natio.
+      DATA ev_date_of_birth   TYPE bu_birthdt.
+      DATA ev_message         TYPE bapiret2-message.
+
+      CALL FUNCTION 'ZFE_CJ_SEARCH_BP_BY_ID'
+        EXPORTING
+          iv_type            = lv_eid_type
+          iv_idnumber        = lv_eid_no
+*         IV_APP             = IV_APP
+        IMPORTING
+          ev_partner         = ev_partner
+          ev_id_number       = ev_id_number
+          ev_passport        = ev_passport
+          ev_name            = ev_name
+          ev_phone           = ev_phone
+          ev_email           = ev_email
+          ev_nationality     = ev_nationality
+          ev_nationality_key = ev_nationality_key
+          ev_date_of_birth   = ev_date_of_birth
+          ev_message         = ev_message.
+
+      io_ctx->set_val( iv_name = 'OWNER_NAME'        iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_PHONE'      iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_EMAIL'       iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_DOB'         iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_NATIONALITY' iv_value = ' ' ).
+
+*
+
+      io_ctx->set_val( iv_name = 'OWNER_1'  iv_value = |{ lv_eid }| ).
+      io_ctx->set_val( iv_name = 'OWNER_NAME'        iv_value = |{ ev_name }| ).
+      io_ctx->set_val( iv_name = 'OWNER_PHONE'      iv_value = |{ ev_phone }| ).
+      io_ctx->set_val( iv_name = 'OWNER_EMAIL'       iv_value = |{ ev_email }| ).
+      io_ctx->set_val( iv_name = 'OWNER_DOB'         iv_value = |{ ev_date_of_birth DATE = USER }| ).
+      io_ctx->set_val( iv_name = 'OWNER_NATIONALITY' iv_value = |{ ev_nationality }| ).
+
+
+    ELSEIF iv_field = 'PERMIT_NUMBER_1'.
+
+      DATA(lv_permit) = condense( io_ctx->get_val( 'PERMIT_NUMBER_1' ) ).
+
+      IF lv_permit IS NOT INITIAL.
+        SELECT SINGLE contractname FROM zv_epdapmmast INTO @DATA(lv_contrat) WHERE permitid = @lv_permit.
+
+        IF lv_contrat IS NOT INITIAL.
+          io_ctx->set_val( iv_name = 'PERMIT_NUMBER_1'  iv_value = |{ lv_permit }| ).
+          io_ctx->set_val( iv_name = 'PERMIT_LOADED'  iv_value = |{ lv_contrat }| ).
+        ELSE.
+          io_ctx->set_val( iv_name = 'PERMIT_LOADED' iv_value = ' ' ).
+          io_ctx->add_msg( iv_type = 'Warning'
+                           iv_text = |Enter Valid Permit No to search| ).
+        ENDIF.
+
+      ENDIF.
+
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_value_help.
+
+    DATA(lv_step) = io_ctx->get_step( ).
+    CASE iv_field.
+      WHEN 'VEHICLES.EMIRATE'.
+
+        rt = VALUE #( ( key = '01' text = 'ALM' )
+                      ( key = '02' text = 'AUH' )
+                      ( key = '03' text = 'DXB' )
+                      ( key = '04' text = 'FUJ' )
+                      ( key = '05' text = 'RAK' )
+                      ( key = '06' text = 'SHJ' )
+                      ( key = '07' text = 'UAQ' ) ).
+
+      WHEN 'MATERIALS_DET.UNIT'.
+        rt = VALUE #( ( key = '001' text = 'Gallon' )
+                      ( key = '002' text = 'Killogram' )
+                      ( key = '003' text = 'Liter' )
+                      ( key = '004' text = 'Metric Ton' )
+                    ).
+
+    ENDCASE.
+
   ENDMETHOD.
 ENDCLASS.

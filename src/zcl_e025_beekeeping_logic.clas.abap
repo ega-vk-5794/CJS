@@ -140,7 +140,7 @@ CLASS ZCL_E025_BEEKEEPING_LOGIC IMPLEMENTATION.
 
 *
       io_ctx->set_val( iv_name = 'EXEC_TYPE' iv_value = lv_idtype ).
-      io_ctx->set_val( iv_name = 'OWNER_BP'  iv_value = |{ lv_eid }| ).
+*      io_ctx->set_val( iv_name = 'OWNER_BP'  iv_value = |{ lv_eid }| ).
       io_ctx->set_val( iv_name = 'EXEC_NAME'        iv_value = |{ ev_name }| ).
       io_ctx->set_val( iv_name = 'EXEC_PHONE'      iv_value = |{ ev_phone }| ).
       io_ctx->set_val( iv_name = 'EXEC_EMAIL'       iv_value = |{ ev_email }| ).
@@ -190,9 +190,10 @@ CLASS ZCL_E025_BEEKEEPING_LOGIC IMPLEMENTATION.
 
       io_ctx->set_val( iv_name = c_applicanttype iv_value = |{ lv_role }| ).
 
-      io_ctx->set_val( iv_name = 'OWNER_BP' iv_value = ' ' ).
+      io_ctx->set_val( iv_name = 'OWNER_BP' iv_value = |{ lv_loginbp }| ).
 
     ENDIF.
+*    io_ctx->set_val( iv_name = 'OWNER_BP_IDTYPE'    iv_value = CONV #( 'YFS002' ) ).
   ENDMETHOD.
 
 

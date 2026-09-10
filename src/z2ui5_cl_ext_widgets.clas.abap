@@ -83,6 +83,18 @@ public section.
         verypoor     TYPE flag,
         textareatext TYPE string,
       END OF ty_happy .
+  types:
+    BEGIN OF ty_raksearch,
+        method        TYPE string,
+        description   TYPE string,
+        subject       TYPE string,
+        mask          TYPE string,
+        birth_date    TYPE flag,
+        nationality   TYPE flag,
+        passport_type TYPE flag,
+      END OF ty_raksearch .
+  types:
+    tt_raksearch TYPE STANDARD TABLE OF ty_raksearch WITH DEFAULT KEY .
 
   data MT_STAGES type TT_STAGES .
   data MS_PAYMENT type TY_PAYMENT .
@@ -90,6 +102,7 @@ public section.
   data MT_RESULTS type WDY_KEY_VALUE_LIST .
   data MT_ATTACH type TT_ATTACH .
   data MS_HAPPY type TY_HAPPY .
+  data MT_RAKSEARCH type TT_RAKSEARCH .
   data FUNCTIONS type STRING .
   data STYLES type STRING .
   data MS_PARAMS type TY_PARAMS .
@@ -149,6 +162,9 @@ public section.
       !KEYFIELD type FIELDNAME optional
       !VALUEFIELD type FIELDNAME optional
       !IT_SELOPT type DDSHSELOPS optional .
+  methods RAKSEARCH
+    importing
+      !IO_PARENT type ref to Z2UI5_CL_XML_FRAGMENT .
   PROTECTED SECTION.
 private section.
 
@@ -179,6 +195,9 @@ private section.
   methods GENERAL_CSS
     returning
       value(EV_CSS) type STRING .
+  methods RAKSEARCH_FUNCTIONS
+    returning
+      value(EV_FUNCTION) type STRING .
 ENDCLASS.
 
 
@@ -283,10 +302,38 @@ CLASS Z2UI5_CL_EXT_WIDGETS IMPLEMENTATION.
 
     me->general_css( ).
 
+    APPEND INITIAL LINE TO mt_raksearch ASSIGNING FIELD-SYMBOL(<search>).
+    <search>-method        = 'EMIRATE_ID'.
+    <search>-description   = 'Emirates ID'.
+    <search>-subject       = 'Emirates ID'.
+    <search>-mask          = '999-9999-9999999-9'.
+    <search>-birth_date    = abap_true.
+    <search>-nationality   = abap_true.
+    APPEND INITIAL LINE TO mt_raksearch ASSIGNING <search>.
+    <search>-method        = 'PASSPORT'.
+    <search>-description   = 'Passport(Non EID Holder only)'.
+    <search>-subject       = 'Passport Number'.
+    <search>-birth_date    = abap_true.
+    <search>-passport_type = abap_true.
+    <search>-nationality   = abap_true.
+    APPEND INITIAL LINE TO mt_raksearch ASSIGNING <search>.
+    <search>-method        = 'UNIFIED_ID'.
+    <search>-description   = 'Unified ID(Non EID Holder only)'.
+    <search>-subject       = 'Unified ID'.
+    <search>-birth_date    = abap_true.
+    <search>-nationality   = abap_true.
+    APPEND INITIAL LINE TO mt_raksearch ASSIGNING <search>.
+    <search>-method        = 'TRADE_LICENSE'.
+    <search>-description   = 'Trade License Number'.
+    <search>-subject       = 'Trade License Number'.
+
+
+
 
     client->_bind_edit( mt_stages ).
     client->_bind_edit( mt_attach ).
     client->_bind_edit( ms_payment ).
+    client->_bind_edit( mt_raksearch ).
     client->_bind_edit( functions ).
     client->_bind_edit( styles ).
 
@@ -712,6 +759,32 @@ CLASS Z2UI5_CL_EXT_WIDGETS IMPLEMENTATION.
 
     me->rakstagebar_css( ).
 
+    DATA: lv_max_step_len  TYPE i VALUE '120',
+          lv_max_line_len  TYPE i VALUE '45',
+          lv_max_space_len TYPE i VALUE '72',
+          lv_max_len       TYPE char10,
+          lv_max_line      TYPE char10,
+          lv_max_space     TYPE char10.
+    DESCRIBE TABLE mt_stages LINES DATA(lv_tot_stages).
+    SUBTRACT 6 FROM lv_tot_stages.
+    IF lv_tot_stages GT 0.
+      lv_max_step_len = lv_max_step_len - '20' * lv_tot_stages.
+      lv_max_line_len = lv_max_line_len - '5' * lv_tot_stages.
+      lv_max_space_len = lv_max_space_len - '10' * lv_tot_stages.
+    ENDIF.
+    WRITE lv_max_step_len TO lv_max_len LEFT-JUSTIFIED.
+    lv_max_len = lv_max_len && 'px'.
+    REPLACE ALL OCCURRENCES OF '.' IN lv_max_len WITH ''.
+    REPLACE ALL OCCURRENCES OF ',' IN lv_max_len WITH ''.
+    WRITE lv_max_line_len TO lv_max_line LEFT-JUSTIFIED.
+    lv_max_line = lv_max_line && 'px'.
+    REPLACE ALL OCCURRENCES OF '.' IN lv_max_line WITH ''.
+    REPLACE ALL OCCURRENCES OF ',' IN lv_max_line WITH ''.
+    WRITE lv_max_space_len TO lv_max_space LEFT-JUSTIFIED.
+    lv_max_space = lv_max_space && 'px'.
+    REPLACE ALL OCCURRENCES OF '.' IN lv_max_space WITH ''.
+    REPLACE ALL OCCURRENCES OF ',' IN lv_max_space WITH ''.
+
     DATA(id_rak_stagebar) = io_parent->vbox( id = 'id-rak-stagebar' width = '100%' class = 'rak-stagebar-margin' rendertype = 'Bare' ).
 
     " ===================== DESKTOP =====================
@@ -723,13 +796,13 @@ CLASS Z2UI5_CL_EXT_WIDGETS IMPLEMENTATION.
     DATA(stage_item) = stages->hbox( rendertype = 'Bare' ).
 
     " ---- STEP VBOX ----
-    DATA(step_cont) = stage_item->vbox( width = '120px' justifycontent = 'Start' alignitems = 'Center' class = 'rak-stagebar-step-cont' rendertype = 'Bare' ).
+    DATA(step_cont) = stage_item->vbox( width = lv_max_len justifycontent = 'Start' alignitems = 'Center' class = 'rak-stagebar-step-cont' rendertype = 'Bare' ).
 
     " -- lines & circle row --
     DATA(lines_circle) = step_cont->hbox( justifycontent = 'Start' alignitems = 'Start' rendertype = 'Bare' ).
 
     " left line
-    DATA(left_line) = lines_circle->hbox( width = '2.8125rem' height = '0.9375rem' rendertype = 'Bare' ).
+    DATA(left_line) = lines_circle->hbox( width = lv_max_line height = '0.9375rem' rendertype = 'Bare' ).
     DATA(left_line_gray) = left_line->hbox( width = '100%' height = '100%' class = 'rak-stagebar-line-gray3' visible = '{GRAYLEFTLINE}' rendertype = 'Bare' ).
     DATA(left_line_green) = left_line->hbox( width = '100%' height = '100%' class = 'rak-stagebar-line-green' visible = '{GREENLEFTLINE}' rendertype = 'Bare' ).
 
@@ -746,7 +819,7 @@ CLASS Z2UI5_CL_EXT_WIDGETS IMPLEMENTATION.
     DATA(circle_gray_text) = circle_gray->text( text = '{STAGENUMBER}' class = 'Body_2_3 color-gray4' ).
 
     " right line
-    DATA(right_line) = lines_circle->hbox( width = '2.8125rem' height = '0.9375rem' rendertype = 'Bare' ).
+    DATA(right_line) = lines_circle->hbox( width = lv_max_line height = '0.9375rem' rendertype = 'Bare' ).
     DATA(right_line_gray) = right_line->hbox( width = '100%' height = '100%' class = 'rak-stagebar-line-gray3' visible = '{GRAYRIGHTLINE}' rendertype = 'Bare' ).
     DATA(right_line_green) = right_line->hbox( width = '100%' height = '100%' class = 'rak-stagebar-line-green' visible = '{GREENRIGHTLINE}' rendertype = 'Bare' ).
 
@@ -758,7 +831,7 @@ CLASS Z2UI5_CL_EXT_WIDGETS IMPLEMENTATION.
 
     " ---- GAP VBOX ----
     " NOTE: width is set programmatically client-side (StepBarInit()), same as source fragment's own comment.
-    DATA(gap) = stage_item->vbox( width = '72px' height = '0.9375rem' justifycontent = 'Start'
+    DATA(gap) = stage_item->vbox( width = lv_max_space height = '0.9375rem' justifycontent = 'Start'
                                    visible = '{ISLAST}' rendertype = 'Bare' ).
     DATA(gap_gray) = gap->hbox( width = '100%' height = '100%' class = 'rak-stagebar-line-gray3' visible = '{GRAYGAP}' rendertype = 'Bare' ).
     DATA(gap_green) = gap->hbox( width = '100%' height = '100%' class = 'rak-stagebar-line-green' visible = '{GREENGAP}' rendertype = 'Bare' ).
@@ -843,11 +916,11 @@ CLASS Z2UI5_CL_EXT_WIDGETS IMPLEMENTATION.
 
 
     DATA(mandatory_msg) = state_empty->text( text = '{i18n>MandatoryMessage}' class = 'sapMValueStateMessageError'
-                                              visible = '{= ${FileModel>/mandatoryMsg} ? true : false }' ).
+                                              visible = '{REQUIRED}' ).
 
-    DATA(special_char_row) = state_empty->hbox( visible = '{= ${FileModel>/mandatoryMsg} ? false : true }' ).
-    DATA(special_char_text) = special_char_row->text( text = '{i18n>fileSpecialChar}' class = 'sapMValueStateMessageError'
-                                                        visible = '{= ${FileModel>/fileSpecialChar} ? true : false }' ).
+*    DATA(special_char_row) = state_empty->hbox( visible = '{REQUIRED}' ).
+*    DATA(special_char_text) = special_char_row->text( text = '{i18n>fileSpecialChar}' class = 'sapMValueStateMessageError'
+*                                                        visible = '{= ${FileModel>/fileSpecialChar} ? true : false }' ).
 
 
     " ===================== STATE 2: uploaded (file present, done) =====================
@@ -2731,4 +2804,155 @@ CLASS Z2UI5_CL_EXT_WIDGETS IMPLEMENTATION.
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
+
+
+  METHOD raksearch.
+
+    me->raksearch_functions( ).
+
+    DATA(search) = io_parent->hbox( ).
+    IF lines( mt_raksearch ) > 1.
+      DATA(select_vbox) = search->vbox( class = 'sapUiSmallMarginEnd' ).
+      select_vbox->label( text = 'Search By' required = 'true' class = 'Body_1_2 color-gray7' ).
+      DATA(select) = select_vbox->combo_box( items = '{/XX/MT_RAKSEARCH}' enabled = 'true'
+      placeholder = ' - Select - ' change = '.onRAKSearchChange' class = 'combobox' )->ui_core_item( key = '{METHOD}' text = '{DESCRIPTION}' ).
+    ENDIF.
+    DATA(vbox_1) = search->vbox( class = 'sapUiSmallMarginEnd' visible = 'false' ).
+    vbox_1->label( text = '' required = 'true' class = 'Body_1_2 color-gray7' ).
+    vbox_1->mask_input( value = '' class = 'input' ).
+
+    DATA(vbox_2) = search->vbox( class = 'sapUiSmallMarginEnd' visible = 'false' ).
+    vbox_2->label( text = '' required = 'true' class = 'Body_1_2 color-gray7' ).
+    vbox_2->input( value = '' visible = 'true' class = 'input' ).
+
+    DATA(vbox_3) = search->vbox( class = 'sapUiSmallMarginEnd' visible = 'false' ).
+    vbox_3->label( text = 'Date of Birth' required = 'true' class = 'Body_1_2 color-gray7' ).
+    vbox_3->date_picker( displayformat = 'dd/MM/yyyy' placeholder = 'dd/MM/yyyy' valueformat = 'yyyyMMdd' class = 'datepicker editable-datepicker' ).
+
+    DATA(vbox_4) = search->vbox( class = 'sapUiSmallMarginEnd' visible = 'false' ).
+    vbox_4->label( text = 'Passport Type' required = 'true' class = 'Body_1_2 color-gray7' ).
+    DATA(passport_type) = vbox_4->combo_box( class = 'combobox' placeholder = ' - Select - ' ).
+    SELECT domvalue_l AS key, ddtext AS text INTO TABLE @DATA(lt_pass) FROM dd07t
+            WHERE ddlanguage EQ @sy-langu
+            AND   domname    EQ 'Z_MOI_DOC_TYPE'
+            ORDER BY domvalue_l ASCENDING.
+    LOOP AT lt_pass INTO DATA(ls_pass).
+      passport_type->ui_core_item( key = ls_pass-key text = ls_pass-text ).
+    ENDLOOP.
+
+    DATA(vbox_5) = search->vbox( class = 'sapUiSmallMarginEnd' visible = 'false' ).
+    vbox_5->label( text = 'Nationality' required = 'true' class = 'Body_1_2 color-gray7' ).
+    DATA(nationality) = vbox_5->combo_box( class = 'combobox' placeholder = ' - Select - ' ).
+    SELECT land1 AS key, landx50 AS text INTO TABLE @DATA(lt_t005t) FROM t005t
+            WHERE spras EQ @sy-langu
+            ORDER BY land1 ASCENDING.
+    LOOP AT lt_t005t INTO DATA(ls_t005t).
+      nationality->ui_core_item( key = ls_t005t-key text = ls_t005t-text ).
+    ENDLOOP.
+
+    DATA(vbox_6) = search->vbox( height = '100%' alignitems = 'End' justifycontent = 'End' )->button( class = 'regularBTN_with_border'
+    text = 'Search' press = '.onRAKSearchPress' ).
+
+
+
+  ENDMETHOD.
+
+
+  method RAKSEARCH_FUNCTIONS.
+
+    ev_function =
+'     onRAKSearchChange: function(oEvent){' && |\n| &&
+'         var item = oEvent.getSource().getSelectedItem().getBindingContext().getObject();' && |\n| &&
+'         var controls = oEvent.getSource().getParent().getParent().getItems();' && |\n| &&
+'         controls[1].setVisible(false);' && |\n| &&
+'         controls[2].setVisible(false);' && |\n| &&
+'         controls[3].setVisible(false);' && |\n| &&
+'         controls[4].setVisible(false);' && |\n| &&
+'         controls[5].setVisible(false);' && |\n| &&
+'       if (item.MASK !== ""){' && |\n| &&
+'         var searchInput = controls[1].getItems()[1];' && |\n| &&
+'         var searchLabel = controls[1].getItems()[0];' && |\n| &&
+'         searchInput.setMask(item.MASK);' && |\n| &&
+'         controls[1].setVisible(true);' && |\n| &&
+'       }else{' && |\n| &&
+'         var searchInput = controls[2].getItems()[1];' && |\n| &&
+'         var searchLabel = controls[2].getItems()[0];' && |\n| &&
+'         controls[2].setVisible(true);' && |\n| &&
+'       }' && |\n| &&
+'       searchLabel.setText( item.SUBJECT );' && |\n| &&
+'       if (item.BIRTH_DATE){' && |\n| &&
+'         controls[3].setVisible(true);' && |\n| &&
+'       }' && |\n| &&
+'       if (item.PASSPORT_TYPE){' && |\n| &&
+'         controls[4].setVisible(true);' && |\n| &&
+'       }' && |\n| &&
+'       if (item.NATIONALITY){' && |\n| &&
+'         controls[5].setVisible(true);' && |\n| &&
+'       }' && |\n| &&
+'     }    '.
+    me->add_function( ev_function ).
+
+    ev_function =
+'     onRAKSearchPress: function(oEvent){' && |\n| &&
+'         var controls = oEvent.getSource().getParent().getParent().getItems();' && |\n| &&
+'         var aFilters = [];' && |\n| &&
+'         if (controls[0].getItems()[1].getSelectedItem()){' && |\n| &&
+'           var item = controls[0].getItems()[1].getSelectedItem().getBindingContext().getObject();' && |\n| &&
+'         }' && |\n| &&
+'       var search = controls[0].getItems()[1];' && |\n| &&
+'       if (item && item.MASK !== ""){' && |\n| &&
+'         var searchInput = controls[1].getItems()[1];' && |\n| &&
+'       }else{' && |\n| &&
+'         var searchInput = controls[2].getItems()[1];' && |\n| &&
+'       }' && |\n| &&
+'       var birthDate = controls[3].getItems()[1];' && |\n| &&
+'       var passportType = controls[4].getItems()[1];' && |\n| &&
+'       var nationality = controls[5].getItems()[1];' && |\n| &&
+'       search.setValueState("None");' && |\n| &&
+'       searchInput.setValueState("None");' && |\n| &&
+'       birthDate.setValueState("None");' && |\n| &&
+'       passportType.setValueState("None");' && |\n| &&
+'       nationality.setValueState("None");' && |\n| &&
+'       if (!item){' && |\n| &&
+'         search.setValueState("Error");' && |\n| &&
+'         return;' && |\n| &&
+'       }' && |\n| &&
+'       if ( searchInput.getValue() === ""){' && |\n| &&
+'         debugger;searchInput.setValueState("Error");' && |\n| &&
+'         return;' && |\n| &&
+'       }' && |\n| &&
+'       if (item.BIRTH_DATE && birthDate.getValue() === ""){' && |\n| &&
+'         birthDate.setValueState("Error");' && |\n| &&
+'         return;' && |\n| &&
+'       }' && |\n| &&
+'       if (item.PASSPORT_TYPE && passportType.getSelectedKey() === ""){' && |\n| &&
+'         passportType.setValueState("Error");' && |\n| &&
+'         return;' && |\n| &&
+'       }' && |\n| &&
+'       if (item.NATIONALITY && nationality.getSelectedKey() === ""){' && |\n| &&
+'         nationality.setValueState("Error");' && |\n| &&
+'         return;' && |\n| &&
+'       }' && |\n| &&
+'       var args = []; ' && |\n| &&
+'       args.push(searchInput.getValue());' && |\n| &&
+'       args.push(birthDate.getValue());' && |\n| &&
+'       args.push(passportType.getSelectedKey());' && |\n| &&
+'       args.push(nationality.getSelectedKey());' && |\n| &&
+'       this.eB([search.getSelectedKey(), args, true]);' && |\n| &&
+*'       var that = this;' && |\n| &&
+*'       var oModel = new sap.ui.model.odata.ODataModel("/sap/opu/odata/rak/cj/zega_fw_fnd_srv/");' && |\n| &&
+*'        oModel.read("/BusinessPartnerSet", {' && |\n| &&
+*'       filters: aFilters,' && |\n| &&
+*'       success: function (oData) {' && |\n| &&
+*'         ' && |\n| &&
+*'       },' && |\n| &&
+*'       error: function (error) {' && |\n| &&
+*'         ' && |\n| &&
+*'       }' && |\n| &&
+*'     });' && |\n| &&
+'     }    '.
+    me->add_function( ev_function ).
+
+    functions = me->functions_to_front( ).
+  endmethod.
 ENDCLASS.

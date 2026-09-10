@@ -227,8 +227,8 @@ CLASS ZCL_D013_STAFF_APP_LET_LOGIC IMPLEMENTATION.
 *      io_ctx->set_val( iv_name = c_applicanttype iv_value = |{ lv_role }| ).
       io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Investor' ).
 
-***      "CAND,DATESEARCH
-*       io_ctx->set_val( iv_name = 'CANDIDATESEARCH_IDTYPE' iv_value = 'Emirates ID' ).
+*      "CANDIDATESEARCH
+       io_ctx->set_val( iv_name = 'CANDIDATESEARCH_IDTYPE' iv_value = 'YFS002' ).
     ENDIF.
 
   ENDMETHOD.
@@ -255,18 +255,6 @@ CLASS ZCL_D013_STAFF_APP_LET_LOGIC IMPLEMENTATION.
     lv_eid_no = lv_eid.
     lv_eid_type = lv_idtype.
 
-*    SELECT SINGLE a~partner, a~zzfull_name_eng, b~idnumber, a~zzmobile, a~zzemail
-*      FROM but000 AS a
-*      LEFT JOIN but0id AS b ON b~partner = a~partner AND b~type = @lv_idtype
-*      WHERE b~idnumber = @lv_term OR a~partner = @lv_term
-*      INTO @DATA(ls_bp).                                "#EC CI_NOORDBY
-
-*    IF sy-subrc <> 0.
-*      io_ctx->add_msg( iv_type = 'Error' iv_text = |Nothing found for { lv_term }| ).
-*      RETURN.
-*    ENDIF.
-
-*    io_ctx->set_val( iv_name = 'CANDIDATESEARCH' iv_value = |{ ls_bp-partner }| ).
     " REVIEW: the screenshot shows the found candidate's name/mobile/email
     " displayed inline where the search box is — if that needs separate
     " READONLY fields (rather than the search control rendering it
@@ -310,6 +298,7 @@ CLASS ZCL_D013_STAFF_APP_LET_LOGIC IMPLEMENTATION.
     io_ctx->set_val( iv_name = 'MANAGEREMAIL'       iv_value = |{ ev_email }| ).
     io_ctx->set_val( iv_name = 'DOB'                iv_value = |{ ev_date_of_birth }| ).
     io_ctx->set_val( iv_name = 'MANAGERNATIONALITY' iv_value = |{ ev_nationality }| ).
+    io_ctx->set_val( iv_name = 'PARTNER' iv_value = |{  ev_partner }| ).
 
   ENDMETHOD.
 ENDCLASS.

@@ -276,41 +276,18 @@ CLASS ZCL_D006_SCHOOL_MNG_CHG_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_init.
-*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
-*  EXPORTING
-*    IO_CTX =
-*    .
-*    CALL METHOD super->zif_rak_journey_logic~on_init
-*      EXPORTING
-*        io_ctx = io_ctx.
-**
-*    DATA(user_data) = io_ctx->get_param( iv_name = 'USERDATA' ).
-**
-*    zcl_ega_cj_utility=>get_bp(
-*      EXPORTING
-*        qv_key  = user_data
-*      IMPORTING
-*        loginbp = DATA(loginbp)
-*        rolebp  = DATA(rolebp)
-*        role    = DATA(role)
-*    ).
-**
-*    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = '3000000049' ).
 
     DATA: lv_loginbp TYPE bu_partner.
     lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
 
     io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
-*    io_ctx->set_val( iv_name = c_owner_bp iv_value = |{ lv_loginbp }| ).
-
-**    io_ctx->set_val( iv_name = 'APPLICANTNM' iv_value = CONV #( ls_login_bp-bp_name_en ) ).
-*    io_ctx->set_val( iv_name = 'PARTNER_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
-**    io_ctx->set_val( iv_name = 'APPLICANTEID' iv_value = CONV #( ls_login_bp-emirates_id ) ).
-*    io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
-*
-**    io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ loginbp }| ).
-*    io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = 'Owner' ).
     io_ctx->set_val( iv_name = 'NEWMANAGERSEARCH_IDTYPE' iv_value = CONV #( 'YFS002' ) ).
+
+    DATA(lv_case_id) = io_ctx->get_param( iv_name = 'CASEID' ).
+    IF lv_case_id IS NOT INITIAL.
+      io_ctx->set_val( iv_name = 'LICENSE_NO' iv_value = |{ lv_case_id }| ).
+    ENDIF.
+
   ENDMETHOD.
 
 
@@ -498,6 +475,7 @@ CLASS ZCL_D006_SCHOOL_MNG_CHG_LOGIC IMPLEMENTATION.
     io_ctx->set_val( iv_name = 'NEWMGREMAIL'       iv_value = ' ' ).
     io_ctx->set_val( iv_name = 'NEWMGRDOB'         iv_value = ' ' ).
     io_ctx->set_val( iv_name = 'NEWMGRNATIONALITY' iv_value = ' ' ).
+    io_ctx->set_val( iv_name = 'NEWMGR_BP'         iv_value = ' ' ).
 
 
     io_ctx->set_val( iv_name = 'NEWMANAGERSEARCH'  iv_value = |{ lv_eid }| ).
@@ -506,6 +484,8 @@ CLASS ZCL_D006_SCHOOL_MNG_CHG_LOGIC IMPLEMENTATION.
     io_ctx->set_val( iv_name = 'NEWMGREMAIL'       iv_value = |{ ev_email }| ).
     io_ctx->set_val( iv_name = 'NEWMGRDOB'         iv_value = |{ ev_date_of_birth }| ).
     io_ctx->set_val( iv_name = 'NEWMGRNATIONALITY' iv_value = |{ ev_nationality }| ).
+    io_ctx->set_val( iv_name = 'NEWMGR_BP'         iv_value = |{ ev_partner }| ).
+
 
 
 

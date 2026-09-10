@@ -44,6 +44,13 @@ PROCESS AFTER INPUT.
       FIELD zmv_jny_field-msg_ar .
       FIELD zmv_jny_field-tech_name .
       FIELD zmv_jny_field-domname .
+      FIELD zmv_jny_field-zsection_ar .
+      FIELD zmv_jny_field-closed_list .
+      FIELD zmv_jny_field-no_browse .
+      FIELD zmv_jny_field-text_align .
+      FIELD zmv_jny_field-descr .
+      FIELD zmv_jny_field-ta_rows .
+      FIELD zmv_jny_field-popin .
       MODULE set_update_flag ON CHAIN-REQUEST.
     ENDCHAIN.
     FIELD vim_marked MODULE liste_mark_checkbox.

@@ -280,6 +280,8 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     DATA(case_type_1) = hbox_7->combo_box( selectedkey = '{/XX/GS_DATA/CASE/CASE_TYPE}' placeholder = get_text_by_id( 'SELECT' ) required = 'true' class = 'combobox noMax' width = '12rem' ).
     get_value_list( parent = case_type_1 shlpname = 'ZSH_CJ_PPD_CASE_TYPE' keyfield = 'KEY' valuefield = 'VALUE' ).
 
+    me->raksearch( io_parent = vbox_9 ).
+
     " TODO(CASE_TYPE_1): items come from search-help ZSH_CJ_PPD_CASE_TYPE - value-list binding pattern not yet confirmed
 *    DATA(journey) = hbox_7->label( text = '{JOURNEYTYPE}' ).
     DATA(footer) = fisrt->hbox( class = 'RAKEGA-footer RAKEGA-next-btn-end' ).
@@ -666,21 +668,6 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     me->client = client.
 
     IF client->check_on_init( ).
-
-*      me->functions = 'sap.ui.define([], function () {' && |\n| &&
-*'        return {' && |\n| &&
-**'           afterOpen: function (oEvent) {' && |\n| &&
-**'             var url = oEvent.getSource().getCustomData().find(item => item.getKey() === "URL");' && |\n| &&
-**'             if (url && url.getValue()){' && |\n| &&
-**'               window.open(url.getValue(), "_blank");' && |\n| &&
-**'               setTimeout(function () {' && |\n| &&
-**'             that._checkIfPaymentCompleted(that, oModel.getProperty("/XX/GS_DATA/CASEID"), that._z2ui5Popup);' && |\n| &&
-**'           }, 5000);' && |\n| &&
-**'         }' && |\n| &&
-**'       }' && |\n| &&
-*'     };' && |\n| &&
-*'   });'.
-
 
       me->init( ).
       gs_data-journeytype = ms_params-journey.

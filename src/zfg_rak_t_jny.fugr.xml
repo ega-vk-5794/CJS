@@ -496,10 +496,40 @@
        <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
        <CONT_NAME>TCTRL_ZRAK_T_JNY</CONT_NAME>
        <TYPE>TEXT</TYPE>
+       <NAME>*ZRAK_T_JNY-DRAFT_MODE</NAME>
+       <TEXT>Draft_______________________________________</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>009</COLUMN>
+       <LENGTH>044</LENGTH>
+       <VISLENGTH>044</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <REQU_ENTRY>N</REQU_ENTRY>
+       <TC_HEADING>X</TC_HEADING>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZRAK_T_JNY</CONT_NAME>
+       <TYPE>TEXT</TYPE>
+       <NAME>*ZRAK_T_JNY-ATTACH_MODE</NAME>
+       <TEXT>Attach_______________________________________</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>010</COLUMN>
+       <LENGTH>045</LENGTH>
+       <VISLENGTH>045</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <REQU_ENTRY>N</REQU_ENTRY>
+       <TC_HEADING>X</TC_HEADING>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZRAK_T_JNY</CONT_NAME>
+       <TYPE>TEXT</TYPE>
        <NAME>*ZRAK_T_JNY-DENSITY</NAME>
        <TEXT>Density_______________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>009</COLUMN>
+       <COLUMN>011</COLUMN>
        <LENGTH>046</LENGTH>
        <VISLENGTH>046</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -514,7 +544,7 @@
        <NAME>*ZRAK_T_JNY-SUBTITLE</NAME>
        <TEXT>Sub_Title_______________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>010</COLUMN>
+       <COLUMN>012</COLUMN>
        <LENGTH>048</LENGTH>
        <VISLENGTH>048</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -529,7 +559,7 @@
        <NAME>*ZRAK_T_JNY-SHOW_ACTIONS</NAME>
        <TEXT>Show_Action_______________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>011</COLUMN>
+       <COLUMN>013</COLUMN>
        <LENGTH>050</LENGTH>
        <VISLENGTH>050</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -544,7 +574,7 @@
        <NAME>*ZRAK_T_JNY-HANDLER_CLASS</NAME>
        <TEXT>Handler_Class_______________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>012</COLUMN>
+       <COLUMN>014</COLUMN>
        <LENGTH>052</LENGTH>
        <VISLENGTH>052</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -559,7 +589,7 @@
        <NAME>*ZRAK_T_JNY-ACTIVE</NAME>
        <TEXT>Active_______________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>013</COLUMN>
+       <COLUMN>015</COLUMN>
        <LENGTH>045</LENGTH>
        <VISLENGTH>045</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -574,7 +604,7 @@
        <NAME>*ZRAK_T_JNY-TITLE_AR</NAME>
        <TEXT>Title_Arabic_______________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>014</COLUMN>
+       <COLUMN>016</COLUMN>
        <LENGTH>051</LENGTH>
        <VISLENGTH>051</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -589,7 +619,7 @@
        <NAME>*ZRAK_T_JNY-SUBTITLE_AR</NAME>
        <TEXT>Sub_Title_Arabic_______________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>015</COLUMN>
+       <COLUMN>017</COLUMN>
        <LENGTH>055</LENGTH>
        <VISLENGTH>055</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -604,7 +634,7 @@
        <NAME>*ZRAK_T_JNY-BKND_ACTIVE</NAME>
        <TEXT>Backend_Active_______________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>016</COLUMN>
+       <COLUMN>018</COLUMN>
        <LENGTH>053</LENGTH>
        <VISLENGTH>053</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -619,7 +649,7 @@
        <NAME>*ZRAK_T_JNY-BKND_CATEGORY</NAME>
        <TEXT>Backend_Category_______________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>017</COLUMN>
+       <COLUMN>019</COLUMN>
        <LENGTH>055</LENGTH>
        <VISLENGTH>055</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -634,7 +664,7 @@
        <NAME>*ZRAK_T_JNY-BKND_FM_POST</NAME>
        <TEXT>Backend_FM_Post_______________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>018</COLUMN>
+       <COLUMN>020</COLUMN>
        <LENGTH>054</LENGTH>
        <VISLENGTH>054</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -649,7 +679,7 @@
        <NAME>*ZRAK_T_JNY-BKND_FM_READ</NAME>
        <TEXT>Backend_FM_Read_______________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>019</COLUMN>
+       <COLUMN>021</COLUMN>
        <LENGTH>054</LENGTH>
        <VISLENGTH>054</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -664,7 +694,7 @@
        <NAME>*ZRAK_T_JNY-BKND_JOURNEY</NAME>
        <TEXT>Backend_Journey_______________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>020</COLUMN>
+       <COLUMN>022</COLUMN>
        <LENGTH>054</LENGTH>
        <VISLENGTH>054</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -677,14 +707,15 @@
        <CONT_NAME>TCTRL_ZRAK_T_JNY</CONT_NAME>
        <TYPE>TEXT</TYPE>
        <NAME>*ZRAK_T_JNY-TILE_CODE</NAME>
+       <TEXT>Tile_Code______________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>021</COLUMN>
-       <LENGTH>040</LENGTH>
-       <VISLENGTH>010</VISLENGTH>
+       <COLUMN>023</COLUMN>
+       <LENGTH>039</LENGTH>
+       <VISLENGTH>039</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <FROM_DICT>X</FROM_DICT>
-       <MODIFIC>1</MODIFIC>
+       <MODIFIC>F</MODIFIC>
        <REQU_ENTRY>N</REQU_ENTRY>
        <TC_HEADING>X</TC_HEADING>
       </RPY_DYFATC>
@@ -694,9 +725,9 @@
        <TYPE>TEXT</TYPE>
        <NAME>*ZRAK_T_JNY-CHANGED_BY</NAME>
        <LINE>001</LINE>
-       <COLUMN>022</COLUMN>
+       <COLUMN>024</COLUMN>
        <LENGTH>040</LENGTH>
-       <VISLENGTH>012</VISLENGTH>
+       <VISLENGTH>040</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <FROM_DICT>X</FROM_DICT>
@@ -710,9 +741,9 @@
        <TYPE>TEXT</TYPE>
        <NAME>*ZRAK_T_JNY-CHANGED_AT</NAME>
        <LINE>001</LINE>
-       <COLUMN>023</COLUMN>
+       <COLUMN>025</COLUMN>
        <LENGTH>040</LENGTH>
-       <VISLENGTH>027</VISLENGTH>
+       <VISLENGTH>040</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <FROM_DICT>X</FROM_DICT>
@@ -727,7 +758,7 @@
        <NAME>*ZRAK_T_JNY-THEME_OWN</NAME>
        <TEXT>Theme_Own_______________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>024</COLUMN>
+       <COLUMN>026</COLUMN>
        <LENGTH>048</LENGTH>
        <VISLENGTH>048</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -890,10 +921,44 @@
        <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
        <CONT_NAME>TCTRL_ZRAK_T_JNY</CONT_NAME>
        <TYPE>TEMPLATE</TYPE>
+       <NAME>ZRAK_T_JNY-DRAFT_MODE</NAME>
+       <TEXT>__________</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>009</COLUMN>
+       <LENGTH>010</LENGTH>
+       <VISLENGTH>010</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <FROM_DICT>X</FROM_DICT>
+       <MODIFIC>X</MODIFIC>
+       <INPUT_FLD>X</INPUT_FLD>
+       <OUTPUT_FLD>X</OUTPUT_FLD>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZRAK_T_JNY</CONT_NAME>
+       <TYPE>TEMPLATE</TYPE>
+       <NAME>ZRAK_T_JNY-ATTACH_MODE</NAME>
+       <TEXT>__________</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>010</COLUMN>
+       <LENGTH>010</LENGTH>
+       <VISLENGTH>010</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <FROM_DICT>X</FROM_DICT>
+       <MODIFIC>X</MODIFIC>
+       <INPUT_FLD>X</INPUT_FLD>
+       <OUTPUT_FLD>X</OUTPUT_FLD>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZRAK_T_JNY</CONT_NAME>
+       <TYPE>TEMPLATE</TYPE>
        <NAME>ZRAK_T_JNY-DENSITY</NAME>
        <TEXT>____________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>009</COLUMN>
+       <COLUMN>011</COLUMN>
        <LENGTH>012</LENGTH>
        <VISLENGTH>012</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -910,7 +975,7 @@
        <NAME>ZRAK_T_JNY-SUBTITLE</NAME>
        <TEXT>____________________________________________________________________________________________________________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>010</COLUMN>
+       <COLUMN>012</COLUMN>
        <LENGTH>150</LENGTH>
        <VISLENGTH>150</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -927,7 +992,7 @@
        <NAME>ZRAK_T_JNY-SHOW_ACTIONS</NAME>
        <TEXT>_</TEXT>
        <LINE>001</LINE>
-       <COLUMN>011</COLUMN>
+       <COLUMN>013</COLUMN>
        <LENGTH>001</LENGTH>
        <VISLENGTH>001</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -944,7 +1009,7 @@
        <NAME>ZRAK_T_JNY-HANDLER_CLASS</NAME>
        <TEXT>______________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>012</COLUMN>
+       <COLUMN>014</COLUMN>
        <LENGTH>030</LENGTH>
        <VISLENGTH>030</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -961,7 +1026,7 @@
        <NAME>ZRAK_T_JNY-ACTIVE</NAME>
        <TEXT>_</TEXT>
        <LINE>001</LINE>
-       <COLUMN>013</COLUMN>
+       <COLUMN>015</COLUMN>
        <LENGTH>001</LENGTH>
        <VISLENGTH>001</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -976,11 +1041,11 @@
        <CONT_NAME>TCTRL_ZRAK_T_JNY</CONT_NAME>
        <TYPE>TEMPLATE</TYPE>
        <NAME>ZRAK_T_JNY-TITLE_AR</NAME>
-       <TEXT>________________________________________________________________________________</TEXT>
+       <TEXT>________________________________________________________________________________________________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>014</COLUMN>
-       <LENGTH>080</LENGTH>
-       <VISLENGTH>080</VISLENGTH>
+       <COLUMN>016</COLUMN>
+       <LENGTH>120</LENGTH>
+       <VISLENGTH>120</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <FROM_DICT>X</FROM_DICT>
@@ -993,11 +1058,11 @@
        <CONT_NAME>TCTRL_ZRAK_T_JNY</CONT_NAME>
        <TYPE>TEMPLATE</TYPE>
        <NAME>ZRAK_T_JNY-SUBTITLE_AR</NAME>
-       <TEXT>________________________________________________________________________________________________________________________</TEXT>
+       <TEXT>____________________________________________________________________________________________________________________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>015</COLUMN>
-       <LENGTH>120</LENGTH>
-       <VISLENGTH>120</VISLENGTH>
+       <COLUMN>017</COLUMN>
+       <LENGTH>150</LENGTH>
+       <VISLENGTH>150</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <FROM_DICT>X</FROM_DICT>
@@ -1012,7 +1077,7 @@
        <NAME>ZRAK_T_JNY-BKND_ACTIVE</NAME>
        <TEXT>_</TEXT>
        <LINE>001</LINE>
-       <COLUMN>016</COLUMN>
+       <COLUMN>018</COLUMN>
        <LENGTH>001</LENGTH>
        <VISLENGTH>001</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -1028,7 +1093,7 @@
        <TYPE>TEMPLATE</TYPE>
        <NAME>ZRAK_T_JNY-BKND_CATEGORY</NAME>
        <LINE>001</LINE>
-       <COLUMN>017</COLUMN>
+       <COLUMN>019</COLUMN>
        <LENGTH>040</LENGTH>
        <VISLENGTH>040</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -1044,7 +1109,7 @@
        <NAME>ZRAK_T_JNY-BKND_FM_POST</NAME>
        <TEXT>______________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>018</COLUMN>
+       <COLUMN>020</COLUMN>
        <LENGTH>030</LENGTH>
        <VISLENGTH>030</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -1061,7 +1126,7 @@
        <NAME>ZRAK_T_JNY-BKND_FM_READ</NAME>
        <TEXT>______________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>019</COLUMN>
+       <COLUMN>021</COLUMN>
        <LENGTH>030</LENGTH>
        <VISLENGTH>030</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -1078,7 +1143,7 @@
        <NAME>ZRAK_T_JNY-BKND_JOURNEY</NAME>
        <TEXT>__________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>020</COLUMN>
+       <COLUMN>022</COLUMN>
        <LENGTH>010</LENGTH>
        <VISLENGTH>010</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -1095,7 +1160,7 @@
        <NAME>ZRAK_T_JNY-TILE_CODE</NAME>
        <TEXT>____</TEXT>
        <LINE>001</LINE>
-       <COLUMN>021</COLUMN>
+       <COLUMN>023</COLUMN>
        <LENGTH>004</LENGTH>
        <VISLENGTH>010</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -1113,7 +1178,7 @@
        <NAME>ZRAK_T_JNY-CHANGED_BY</NAME>
        <TEXT>____________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>022</COLUMN>
+       <COLUMN>024</COLUMN>
        <LENGTH>012</LENGTH>
        <VISLENGTH>012</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -1130,7 +1195,7 @@
        <NAME>ZRAK_T_JNY-CHANGED_AT</NAME>
        <TEXT>___________________________</TEXT>
        <LINE>001</LINE>
-       <COLUMN>023</COLUMN>
+       <COLUMN>025</COLUMN>
        <LENGTH>027</LENGTH>
        <VISLENGTH>027</VISLENGTH>
        <HEIGHT>001</HEIGHT>
@@ -1146,7 +1211,7 @@
        <TYPE>CHECK</TYPE>
        <NAME>ZRAK_T_JNY-THEME_OWN</NAME>
        <LINE>001</LINE>
-       <COLUMN>024</COLUMN>
+       <COLUMN>026</COLUMN>
        <LENGTH>001</LENGTH>
        <VISLENGTH>003</VISLENGTH>
        <HEIGHT>001</HEIGHT>

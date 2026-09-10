@@ -24,13 +24,15 @@ public section.
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_BEFORE_FIELD
     redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_END
+    redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_POPUP
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_START
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
     redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_END
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
     redefinition .
 protected section.
 private section.
@@ -1467,4 +1469,15 @@ super->zif_rak_journey_logic~on_render_popup(
       RETURN.
     ENDIF.
   endmethod.
+
+
+  METHOD zif_rak_journey_logic~on_after_read.
+
+
+    DATA(lv_licno) = io_ctx->get_val( 'LICNO' ).
+    DATA(lv_licsel) = io_ctx->get_val( 'LICENSE_SEL' ).
+    IF lv_licno <> lv_licsel AND lv_licsel IS INITIAL.
+      io_ctx->set_val( iv_name = 'LICENSE_SEL' iv_value = lv_licno ).
+    ENDIF.
+  ENDMETHOD.
 ENDCLASS.

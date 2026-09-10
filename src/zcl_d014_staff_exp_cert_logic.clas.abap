@@ -158,7 +158,9 @@ CLASS ZCL_D014_STAFF_EXP_CERT_LOGIC IMPLEMENTATION.
 *      "Emirates Id
       io_ctx->set_val( iv_name = c_partner_id iv_value = CONV #( ls_bp-emirates_id ) ).
 *      "Applicant Type
-      io_ctx->set_val( iv_name = c_applicanttype iv_value = |{ lv_role }| ).
+      io_ctx->set_val( iv_name = c_applicanttype  iv_value = 'Investor' ).
+*      "CANDIDATESEARCH
+      io_ctx->set_val( iv_name = 'CANDIDATESEARCH_IDTYPE' iv_value = 'YFS002' ).
     ENDIF.
 
   ENDMETHOD.
@@ -228,6 +230,8 @@ CLASS ZCL_D014_STAFF_EXP_CERT_LOGIC IMPLEMENTATION.
     io_ctx->set_val( iv_name = 'CAND_EMAIL'       iv_value = |{ ev_email }| ).
     io_ctx->set_val( iv_name = 'SEARCH_DOB'       iv_value = |{ ev_date_of_birth }| ).
     io_ctx->set_val( iv_name = 'SEARCH_NAT'       iv_value = |{ ev_nationality }| ).
+
+    io_ctx->set_val( iv_name = 'STAFFPARTNER' iv_value = |{ ev_partner }| ).
 
   ENDMETHOD.
 ENDCLASS.

@@ -576,6 +576,21 @@
       <RPY_DYFATC>
        <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
        <CONT_NAME>TCTRL_ZMV_JNY_STEP</CONT_NAME>
+       <TYPE>TEXT</TYPE>
+       <NAME>*ZMV_JNY_STEP-NO_ACTION</NAME>
+       <TEXT>No_Action_______________________________________</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>011</COLUMN>
+       <LENGTH>048</LENGTH>
+       <VISLENGTH>048</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <REQU_ENTRY>N</REQU_ENTRY>
+       <TC_HEADING>X</TC_HEADING>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_STEP</CONT_NAME>
        <TYPE>CHECK</TYPE>
        <NAME>VIM_MARKED</NAME>
        <LINE>001</LINE>
@@ -678,11 +693,11 @@
        <CONT_NAME>TCTRL_ZMV_JNY_STEP</CONT_NAME>
        <TYPE>TEMPLATE</TYPE>
        <NAME>ZMV_JNY_STEP-TITLE_AR</NAME>
-       <TEXT>________________________________________________________________________________</TEXT>
+       <TEXT>________________________________________________________________________________________________________________________</TEXT>
        <LINE>001</LINE>
        <COLUMN>006</COLUMN>
-       <LENGTH>080</LENGTH>
-       <VISLENGTH>080</VISLENGTH>
+       <LENGTH>120</LENGTH>
+       <VISLENGTH>120</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <FROM_DICT>X</FROM_DICT>
@@ -749,6 +764,23 @@
        <TEXT>_</TEXT>
        <LINE>001</LINE>
        <COLUMN>010</COLUMN>
+       <LENGTH>001</LENGTH>
+       <VISLENGTH>001</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <FROM_DICT>X</FROM_DICT>
+       <MODIFIC>X</MODIFIC>
+       <INPUT_FLD>X</INPUT_FLD>
+       <OUTPUT_FLD>X</OUTPUT_FLD>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_STEP</CONT_NAME>
+       <TYPE>TEMPLATE</TYPE>
+       <NAME>ZMV_JNY_STEP-NO_ACTION</NAME>
+       <TEXT>_</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>011</COLUMN>
        <LENGTH>001</LENGTH>
        <VISLENGTH>001</VISLENGTH>
        <HEIGHT>001</HEIGHT>

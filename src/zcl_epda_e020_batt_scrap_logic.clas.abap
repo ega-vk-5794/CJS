@@ -197,6 +197,56 @@ CLASS ZCL_EPDA_E020_BATT_SCRAP_LOGIC IMPLEMENTATION.
                      it_off = permit_finder_fields( ) ).
         ENDIF.
 
+
+
+      WHEN 'MATERIAL_ORIGIN_1'.
+*        Make field Hide Mandatory etc.
+        DATA(lv_bat_origin) = io_ctx->get_val( 'MATERIAL_ORIGIN_1' ).
+
+        IF lv_bat_origin = 1 OR lv_bat_origin = 9.
+*          SET_HIDDEN & Required if Batteries/Scrap details selected as Company or Others
+          io_ctx->set_hidden( iv_field = 'MATERIAL_TEXT_1'        iv_on = abap_false ).
+          io_ctx->set_required( iv_field = 'MATERIAL_TEXT_1'      iv_on = abap_true ).
+
+          io_ctx->set_hidden( iv_field = 'VEHICLE_EMIRATES_1'   iv_on = abap_true ).
+          io_ctx->set_hidden( iv_field = 'VEHICLE_CODE_1'       iv_on = abap_true ).
+          io_ctx->set_hidden( iv_field = 'VEHICLE_PLATE_1'      iv_on = abap_true ).
+          io_ctx->set_hidden( iv_field = 'VEHICLE_TARF_NO_1'    iv_on = abap_true ).
+
+          io_ctx->set_val( iv_name = 'VEHICLE_EMIRATES_1' iv_value = '' ).
+          io_ctx->set_val( iv_name = 'VEHICLE_CODE_1' iv_value = '' ).
+          io_ctx->set_val( iv_name = 'VEHICLE_PLATE_1' iv_value = '' ).
+          io_ctx->set_val( iv_name = 'VEHICLE_TARF_NO_1' iv_value = '' ).
+
+
+
+
+        ELSEIF lv_bat_origin = 2.
+*          SET_HIDDEN & Required if Batteries/Scrap details selected as Vessel
+          io_ctx->set_hidden( iv_field = 'MATERIAL_TEXT_1'        iv_on = abap_true ). "Company Name
+          io_ctx->set_required( iv_field = 'MATERIAL_TEXT_1'      iv_on = abap_false ).
+          io_ctx->set_val( iv_name = 'MATERIAL_TEXT_1' iv_value = '' ).
+
+          io_ctx->set_hidden( iv_field = 'VEHICLE_EMIRATES_1'   iv_on = abap_false ).
+          io_ctx->set_hidden( iv_field = 'VEHICLE_CODE_1'       iv_on = abap_false ).
+          io_ctx->set_hidden( iv_field = 'VEHICLE_PLATE_1'      iv_on = abap_false ).
+          io_ctx->set_hidden( iv_field = 'VEHICLE_TARF_NO_1'    iv_on = abap_false ).
+
+          io_ctx->set_required( iv_field = 'VEHICLE_EMIRATES_1'   iv_on = abap_true ). "Issuing Emirates
+          io_ctx->set_required( iv_field = 'VEHICLE_CODE_1'       iv_on = abap_true )." Vehicle Code
+          io_ctx->set_required( iv_field = 'VEHICLE_PLATE_1'      iv_on = abap_true ). " Vechile Plate No
+          io_ctx->set_required( iv_field = 'VEHICLE_TARF_NO_1'    iv_on = abap_true ). " Vechile TARF No
+
+
+
+
+        ELSEIF lv_bat_origin = 3.
+*          SET_HIDDEN & Required if Batteries/Scrap details selected as Others
+
+        ENDIF.
+
+
+
       WHEN OTHERS.
     ENDCASE.
   ENDMETHOD.
@@ -266,6 +316,22 @@ CLASS ZCL_EPDA_E020_BATT_SCRAP_LOGIC IMPLEMENTATION.
 
       io_ctx->set_val( iv_name = c_owner_bp_idtype    iv_value = CONV #( 'YFS002' ) ).
       io_ctx->set_val( iv_name = 'PERMIT_NUMBER_IDTYPE'    iv_value = CONV #( 'HF001' ) ).
+
+
+      io_ctx->set_val( iv_name = 'MATERIAL_ORIGIN_1'    iv_value = CONV #( '1' ) ).
+
+      io_ctx->set_hidden( iv_field = 'VEHICLE_EMIRATES_1'   iv_on = abap_true ).
+      io_ctx->set_hidden( iv_field = 'VEHICLE_CODE_1'       iv_on = abap_true ).
+      io_ctx->set_hidden( iv_field = 'VEHICLE_PLATE_1'      iv_on = abap_true ).
+      io_ctx->set_hidden( iv_field = 'VEHICLE_TARF_NO_1'    iv_on = abap_true ).
+
+      io_ctx->set_val( iv_name = 'VEHICLE_EMIRATES_1' iv_value = '' ).
+      io_ctx->set_val( iv_name = 'VEHICLE_CODE_1' iv_value = '' ).
+      io_ctx->set_val( iv_name = 'VEHICLE_PLATE_1' iv_value = '' ).
+      io_ctx->set_val( iv_name = 'VEHICLE_TARF_NO_1' iv_value = '' ).
+
+      io_ctx->set_required( iv_field = 'MATERIAL_TEXT_1'      iv_on = abap_true ).
+
 
 
     ENDIF.
