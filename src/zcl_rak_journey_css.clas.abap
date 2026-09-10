@@ -941,7 +941,41 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *       method able to make a LEGACY journey stop matching the legacy screens.
         COND string( WHEN lv_legacy = abap_true THEN ``
           ELSE |.sapUiBody,.sapUiBody *:not(.sapUiIcon)| &&
-               |\{font-family:'Dubai','Tajawal','Almarai','Segoe UI',sans-serif!important;\}| ).
+               |\{font-family:'Dubai','Tajawal','Almarai','Segoe UI',sans-serif!important;\}| &&
+*              PUT BACK THE BOLD THE LINE ABOVE TAKES AWAY.
+*
+*              SAP's themes do not always reach bold through FONT-WEIGHT. A
+*              good deal of it is reached by naming a different FAMILY -
+*              '72-Bold' rather than '72' - and the rule above beats every
+*              one of those with !important while declaring no weight of its
+*              own. So an element bolded by weight keeps its bold and an
+*              element bolded by FACE loses it, silently, and only in Arabic:
+*              the Find Business Partner dialog's header is bold in English
+*              and not in Arabic, with nothing else different between them.
+*
+*              THE SELECTOR LIST IS SHORT ON PURPOSE, and every omission is
+*              deliberate rather than an oversight:
+*
+*                No bare .sapMTitle. PREMIUM already declares 800 on
+*                .rakHdrTitle and .rakHdr .sapMTitle, and a later !important
+*                at equal-or-higher specificity would DOWNGRADE the page
+*                header from 800 to 700. A :not( ) guard makes that worse,
+*                not better - :not( ) carries its argument's specificity, so
+*                the guarded rule would outrank the very rule it was written
+*                to spare. The dialog form below cannot collide: a dialog
+*                header is never inside .rakHdr.
+*
+*                No .sapMListTblHeaderCell. PREMIUM gives it font-weight 600,
+*                so it already survives the family swap - it has a weight of
+*                its own. Adding 700 here would restyle every Arabic table
+*                header to fix nothing.
+*
+*              What is left is the set with no weight anywhere to survive on.
+*              Arabic only, so no English journey moves; additive, so it can
+*              restore a bold and never remove one.
+               |.sapMDialogTitle,.sapMDialog .sapMIBar .sapMTitle,| &&
+               |.sapMPanelHdr,.sapMLabelBold,b,strong,th| &&
+               |\{font-weight:700!important;\}| ).
     ENDIF.
 
 *   Rewriting innerHTML on every render re-parses the whole sheet, which costs one
