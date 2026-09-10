@@ -426,6 +426,63 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
           RETURN.
         ENDIF.
 
+*       THE MANDATORY DOCUMENTS, ON THE POPUP, BEFORE THE ROW IS WRITTEN.
+*
+*       The four uploaders below are drawn with required = abap_true, and
+*       until now that asterisk promised something nothing enforced: Add
+*       wrote the owner and closed the dialog with no files attached, and
+*       the citizen found out at submit - behind a dialog that was no
+*       longer open, against a row they could no longer see. That is the
+*       marker-without-enforcement trap, and it is why the QA build shows
+*       "Please upload the mandatory attachments" under each uploader
+*       while this one showed nothing.
+*
+*       KEYED ON THIS OWNER, not on the field alone. Every uploader in the
+*       dialog is drawn with iv_key = C_OWN_ID, so a file reaches the
+*       backend as identifier1 = FIELD_<owner id>. Testing the field name
+*       alone would let one owner's Emirates ID copy satisfy the check for
+*       every other owner on the application.
+*
+*       ONE CALL, HELD IN A VARIABLE. GET_ATTACHMENT_FILES( ) base64-loads
+*       every staged file on each call, and its own documentation says not
+*       to call it per attachment - so it is called once here and the four
+*       tests read the result.
+        DATA(lv_own_key) = io_ctx->get_val( c_own_id ).
+        DATA(lt_own_att) = io_ctx->get_attachment_files( ).
+        DATA lv_miss TYPE abap_bool.
+        CLEAR lv_miss.
+
+        DATA(lt_req_doc) = VALUE zif_rak_journey=>tt_kv(
+          ( key = 'MAIN_DOC' value = 'Emirates ID Copy' )
+          ( key = 'INTRO'    value = 'Introductory Statement' )
+          ( key = 'CRIMCC'   value = 'Criminal Clearance certificate' )
+          ( key = 'CURR'     value = 'Curriculum Vitae' ) ).
+
+        LOOP AT lt_req_doc INTO DATA(ls_req_doc).
+          DATA(lv_want_id1) = COND string(
+            WHEN lv_own_key IS NOT INITIAL
+            THEN |{ ls_req_doc-key }_{ lv_own_key }|
+            ELSE ls_req_doc-key ).
+          READ TABLE lt_own_att TRANSPORTING NO FIELDS
+            WITH KEY identifier1 = lv_want_id1.
+          IF sy-subrc <> 0.
+            lv_miss = abap_true.
+*           ONE MESSAGE PER MISSING DOCUMENT, naming it. A single "attach
+*           the required documents" makes the citizen check all six to
+*           find the two that are missing.
+            io_ctx->add_msg( iv_type = 'Warning'
+                             iv_text = |Please upload { ls_req_doc-value }.| ).
+          ENDIF.
+        ENDLOOP.
+
+*       RETURN BEFORE THE SAVE AND BEFORE THE CLOSE, and both matter. The
+*       dialog staying open is the point - the citizen keeps what they
+*       typed and can see which uploader is empty. Closing on a warning is
+*       the E017 shape: a toast behind a shut dialog and a bad row saved.
+        IF lv_miss = abap_true.
+          RETURN.
+        ENDIF.
+
         own_form_save( io_ctx ).
 
         io_ctx->close_popup( ). "Close pop-up screen after adding data
