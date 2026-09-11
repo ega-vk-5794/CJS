@@ -986,10 +986,17 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *   eight editable columns squeezed onto a phone is not a mild version of
 *   the read-only table's problem. Opt-in for the same reason - see the note
 *   at the TABLE branch in ZCL_RAK_JOURNEY_RENDER.
+*   R16-2. The same GROWING pair as the read-only TABLE branch, derived
+*   from the one column so the two cannot disagree. Zero is off, which is
+*   every grid that has never been touched.
+    DATA(lv_grow) = COND string( WHEN is_field-grow_thresh > 0
+                                 THEN |{ is_field-grow_thresh }| ELSE `` ).
     DATA(lo_tab) = lo_box->table( items              = mo_e->mo_client->_bind_edit( <tab> )
                                   sticky             = 'ColumnHeaders'
                                   autopopinmode      = is_field-popin
                                   alternaterowcolors = abap_true
+                                  growing            = COND abap_bool( WHEN lv_grow IS NOT INITIAL THEN abap_true )
+                                  growingthreshold   = lv_grow
                                   class              = 'sapUiSmallMarginTop'
                                   footertext         = lv_footer ).
     DATA(lo_cols) = lo_tab->columns( ).

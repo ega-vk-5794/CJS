@@ -167,6 +167,7 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
           text_align   = ls_f-text_align
           descr        = ls_f-descr
           ta_rows      = ls_f-ta_rows
+          grow_thresh  = ls_f-grow_thresh
           popin        = bool( ls_f-popin )
 *         ZRAK_T_JNY_FLD-WIDTH, which the Studio has always stored and
 *         nothing has ever read. Named CTRL_WIDTH on TY_FIELD after the

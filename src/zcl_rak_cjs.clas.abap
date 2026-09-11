@@ -96,6 +96,7 @@ CLASS zcl_rak_cjs DEFINITION
         text_align   TYPE string,
         descr        TYPE string,
         ta_rows      TYPE string,
+        grow_thresh  TYPE string,
         popin        TYPE abap_bool,
       END OF ty_fld,
       tt_fld TYPE STANDARD TABLE OF ty_fld WITH EMPTY KEY.
@@ -349,6 +350,7 @@ CLASS zcl_rak_cjs DEFINITION
     DATA fv_talign   TYPE string.
     DATA fv_descr    TYPE string.
     DATA fv_tarows   TYPE string.
+    DATA fv_grow     TYPE string.
     DATA fv_req      TYPE abap_bool.
     DATA fv_regex    TYPE string.
     DATA fv_minlen   TYPE string.
@@ -896,6 +898,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         fv_hidden = ls_dup-hidden. fv_readonly = ls_dup-readonly. fv_closed = ls_dup-closed_list. fv_req = ls_dup-required.
         fv_nobrowse = ls_dup-no_browse. fv_popin = ls_dup-popin.
         fv_talign = ls_dup-text_align. fv_descr = ls_dup-descr. fv_tarows = ls_dup-ta_rows.
+        fv_grow = ls_dup-grow_thresh.
         fv_regex = ls_dup-regex. fv_minlen = ls_dup-min_len. fv_maxlen = ls_dup-max_len.
         fv_minval = ls_dup-min_val. fv_maxval = ls_dup-max_val. fv_msg = ls_dup-msg. fv_msg_ar = ls_dup-msg_ar.
         fv_tech = ls_dup-tech_name. fv_roll = ls_dup-rollname. fv_shlp = ls_dup-shlp. fv_dom = ls_dup-domname.
@@ -930,6 +933,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         fv_hidden = ls_ef-hidden. fv_readonly = ls_ef-readonly. fv_closed = ls_ef-closed_list. fv_req = ls_ef-required.
         fv_nobrowse = ls_ef-no_browse. fv_popin = ls_ef-popin.
         fv_talign = ls_ef-text_align. fv_descr = ls_ef-descr. fv_tarows = ls_ef-ta_rows.
+        fv_grow = ls_ef-grow_thresh.
         fv_regex = ls_ef-regex. fv_minlen = ls_ef-min_len. fv_maxlen = ls_ef-max_len.
         fv_minval = ls_ef-min_val. fv_maxval = ls_ef-max_val. fv_msg = ls_ef-msg. fv_msg_ar = ls_ef-msg_ar.
         fv_tech = ls_ef-tech_name. fv_roll = ls_ef-rollname. fv_shlp = ls_ef-shlp. fv_dom = ls_ef-domname.
@@ -1277,7 +1281,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                              popin       = fv_popin
                              text_align  = fv_talign
                              descr       = fv_descr
-                             ta_rows     = fv_tarows ).
+                             ta_rows     = fv_tarows
+                             grow_thresh = fv_grow ).
               resort( ).
               clear_field_form( ).
               CLEAR: mv_roll_term, mt_roll_hits, mt_roll_preview, mv_shlp_term, mt_shlp_hits.
@@ -1456,7 +1461,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *                     it then destroys.
                       no_browse = xsdbool( f-no_browse = 'X' ) popin = xsdbool( f-popin = 'X' )
                       text_align = f-text_align descr = f-descr
-                      ta_rows = COND string( WHEN f-ta_rows > 0 THEN |{ f-ta_rows }| ) ) TO mt_fields.
+                      ta_rows = COND string( WHEN f-ta_rows > 0 THEN |{ f-ta_rows }| )
+                      grow_thresh = COND string( WHEN f-grow_thresh > 0 THEN |{ f-grow_thresh }| ) ) TO mt_fields.
     ENDLOOP.
     SELECT * FROM zrak_t_jny_opt INTO TABLE @DATA(lo) WHERE journey_id = @mv_sel ORDER BY step_id, field_name, seqnr.
     LOOP AT lo INTO DATA(o).
@@ -1681,7 +1687,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         no_browse   = COND string( WHEN f-no_browse = abap_true THEN 'X' ELSE ' ' )
         popin       = COND string( WHEN f-popin     = abap_true THEN 'X' ELSE ' ' )
         text_align  = f-text_align descr      = f-descr
-        ta_rows     = to_int( f-ta_rows ) ) ).
+        ta_rows     = to_int( f-ta_rows )
+        grow_thresh = to_int( f-grow_thresh ) ) ).
       IF sy-subrc <> 0.
         lv_err = abap_true.
         EXIT.
@@ -2495,6 +2502,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                                          placeholder = 'INPUT only - days, AED, cm' ).
     f->label( 'Textarea rows' ). f->input( value = mo_client->_bind_edit( fv_tarows )
                                            placeholder = 'TEXTAREA only - blank is 3' ).
+    f->label( 'Rows before More' ). f->input( value = mo_client->_bind_edit( fv_grow )
+                                              placeholder = 'TABLE / EDITABLE_TABLE - blank or 0 shows every row' ).
 
     f->title( ns = 'core' text = 'Validation' ).
     f->label( 'Required' ).   f->checkbox( selected = mo_client->_bind_edit( fv_req ) ).
@@ -3195,7 +3204,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
            fv_group, fv_sect, fv_sect_ar, fv_state, fv_width, fv_hidden, fv_readonly, fv_closed, fv_req, fv_regex,
            fv_minlen, fv_maxlen, fv_minval, fv_maxval, fv_msg, fv_msg_ar, fv_tech, fv_roll, fv_shlp, fv_dom,
            fv_hasatt, fv_attlabel, fv_atttypes, fv_attmb, fv_attmulti,
-           fv_nobrowse, fv_popin, fv_talign, fv_descr, fv_tarows.
+           fv_nobrowse, fv_popin, fv_talign, fv_descr, fv_tarows, fv_grow.
   ENDMETHOD.
 
 

@@ -1065,9 +1065,26 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       the one thing this round was not allowed to do. AUTOPOPINMODE lets
 *       UI5 decide the order from column width, so an author gets it with
 *       one flag and no per-column work.
+*       R16-2. GROWING, and BOTH properties or neither. GROWINGTHRESHOLD
+*       is ignored unless GROWING is on, so sending the number alone
+*       reads as configured and behaves as unconfigured - the shape this
+*       file keeps meeting. Both are derived from the one column so the
+*       two cannot be set inconsistently from config.
+*
+*       ZERO IS OFF: unsupplied OPTIONALs are dropped from the markup by
+*       XML_GET_PARTS( ), so a field that has never been touched emits
+*       neither property and renders exactly as it does today. GROWING's
+*       own UI5 default is false, so for once leaving it out and meaning
+*       off agree - checked rather than assumed, because that is the
+*       FORCESELECTION trap and it is only safe when the default happens
+*       to match.
+        DATA(lv_grow) = COND string( WHEN is_field-grow_thresh > 0
+                                     THEN |{ is_field-grow_thresh }| ELSE `` ).
         DATA(lo_tab) = io_parent->table( sticky             = 'ColumnHeaders'
                                          autopopinmode      = is_field-popin
                                          alternaterowcolors = abap_true
+                                         growing            = COND abap_bool( WHEN lv_grow IS NOT INITIAL THEN abap_true )
+                                         growingthreshold   = lv_grow
                                          mode               = COND string( WHEN lv_pick IS NOT INITIAL THEN 'SingleSelectMaster' ELSE 'None' )
                                          class              = 'sapUiSmallMarginBeginEnd' ).
 

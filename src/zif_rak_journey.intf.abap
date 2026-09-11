@@ -76,6 +76,26 @@ INTERFACE zif_rak_journey
 *     starts bigger; the control still scrolls beyond it.
       ta_rows      TYPE i,
 
+*     R16-2. GROWING / GROWINGTHRESHOLD on the table this field draws:
+*     render this many rows and give the citizen a More button for the
+*     rest, instead of every row at once.
+*
+*     ZERO IS OFF, and off is what every field that has never been
+*     touched holds - so this changes nothing anywhere until an author
+*     sets it. That is the difference from R15-1, which was a correction
+*     and could not sit behind a column nobody sets: this one genuinely
+*     has a right answer per journey and no right answer for all of them.
+*
+*     WHY IT MATTERS MORE THAN PAGING USUALLY DOES. The alternative in
+*     the field today is a handler cap - JP1 renders 200 rows and tells
+*     the citizen "Only the first 200 judgments are shown" - and a cap
+*     that truncates is a wrong answer presented as the whole answer.
+*     There is no route from that screen to the 201st row, which may be
+*     the one they came for. With a threshold the cap stops being a
+*     truncation the citizen is apologised to for and becomes a ceiling
+*     nobody reaches.
+      grow_thresh  TYPE i,
+
 *     Pop-in for the table this field draws - the responsive table's answer
 *     to a narrow screen, where a column becomes a labelled line inside its
 *     own row rather than a squeezed column.
