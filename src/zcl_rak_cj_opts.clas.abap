@@ -53,6 +53,7 @@ CLASS zcl_rak_cj_opts DEFINITION
     CLASS-METHODS property_opts
       IMPORTING is_dir   TYPE zcl_rak_cj_api=>ty_dir
                 is_ctx   TYPE zcl_rak_cj_api=>ty_ctx
+                io_ctx   TYPE REF TO zif_rak_journey OPTIONAL
       EXPORTING et_opt   TYPE zif_rak_journey=>tt_option
                 ev_note  TYPE string.
 
@@ -80,6 +81,7 @@ CLASS zcl_rak_cj_opts DEFINITION
     CLASS-METHODS project_opts
       IMPORTING is_dir   TYPE zcl_rak_cj_api=>ty_dir
                 is_ctx   TYPE zcl_rak_cj_api=>ty_ctx
+                io_ctx   TYPE REF TO zif_rak_journey OPTIONAL
       EXPORTING et_opt   TYPE zif_rak_journey=>tt_option
                 ev_note  TYPE string.
 
@@ -107,12 +109,24 @@ CLASS zcl_rak_cj_opts DEFINITION
       EXPORTING ev_val    TYPE string
                 ev_hit    TYPE string.
 
-*   'Type=Parcel' -> 'Parcel'. The directive's filter slot is one
-*   name=value pair today; anything richer belongs in the API, not in a
-*   string this class has to parse.
+*   'Type=Parcel' -> 'Parcel'.
+*
+*   The slot now takes SEVERAL clauses separated by ';' and a value may
+*   read another field on the same journey:
+*
+*       API:PROPERTY:PropertiesSet::Type=Parcel;Sector=@SECTOR_SEL
+*
+*   A fixed filter can only ever say "all parcels of type X". One that
+*   reads a field narrows the list to what the citizen has already chosen,
+*   which is the difference between a selector and a catalogue - and it is
+*   configuration rather than a handler.
+*
+*   IO_CTX IS OPTIONAL because the @ form is the only thing that needs it,
+*   and a caller with no context still parses literals correctly.
     CLASS-METHODS filter_val
       IMPORTING iv_filter TYPE string
                 iv_name   TYPE string
+                io_ctx    TYPE REF TO zif_rak_journey OPTIONAL
       RETURNING VALUE(rv) TYPE string.
 
     CLASS-METHODS first_msg
@@ -137,10 +151,47 @@ CLASS zcl_rak_cj_opts IMPLEMENTATION.
     IF iv_filter IS INITIAL.
       RETURN.
     ENDIF.
-    SPLIT iv_filter AT '=' INTO lv_n lv_v.
-    IF to_upper( condense( lv_n ) ) = to_upper( iv_name ).
-      rv = condense( lv_v ).
-    ENDIF.
+
+*   SEMICOLON-SEPARATED CLAUSES, the same shape MSG and an uploader's
+*   DEFAULT_VAL already use, so an author meets one convention rather than
+*   three. A directive carrying a single Name=Value - which is every one
+*   configured today, 'Type=Parcel' - is one clause and parses to exactly
+*   what the old single SPLIT returned.
+    SPLIT iv_filter AT ';' INTO TABLE DATA(lt_cl).
+
+    LOOP AT lt_cl INTO DATA(lv_cl).
+      DATA(lv_eq) = find( val = lv_cl sub = '=' ).
+      IF lv_eq <= 0.
+        CONTINUE.
+      ENDIF.
+      lv_n = condense( substring( val = lv_cl len = lv_eq ) ).
+      lv_v = condense( substring( val = lv_cl off = lv_eq + 1 ) ).
+      CHECK to_upper( lv_n ) = to_upper( iv_name ).
+
+*     @FIELD READS THE JOURNEY'S OWN VALUE, which is the whole point of
+*     this change: a filter that is fixed at design time can only ever say
+*     "all parcels of type X". A filter that reads another field on the
+*     same journey narrows the list to what the citizen has already
+*     chosen - pick a sector, see that sector's parcels - and it is
+*     configuration, not a handler.
+*
+*     A LITERAL IS ANYTHING WITHOUT THE @, so every directive in the
+*     system today is untouched. The @ is not a character a legacy filter
+*     value carries.
+      IF strlen( lv_v ) > 1 AND lv_v(1) = '@'.
+        IF io_ctx IS BOUND.
+          rv = condense( io_ctx->get_val( substring( val = lv_v off = 1 ) ) ).
+        ENDIF.
+*       BLANK IS BLANK, NOT THE LITERAL. A field the citizen has not filled
+*       in yet resolves to nothing, and nothing is the right filter - the
+*       list is unnarrowed until they choose. Falling back to '@SECTOR' as
+*       a literal would filter on a value no row can have and produce an
+*       empty list that looks like "you own no parcels".
+      ELSE.
+        rv = lv_v.
+      ENDIF.
+      RETURN.
+    ENDLOOP.
   ENDMETHOD.
 
 
@@ -171,6 +222,7 @@ CLASS zcl_rak_cj_opts IMPLEMENTATION.
       WHEN 'PROPERTY'.
         property_opts( EXPORTING is_dir  = ls_dir
                                  is_ctx  = ls_ctx
+                                 io_ctx  = io_ctx
                        IMPORTING et_opt  = et_opt
                                  ev_note = ev_note ).
 
@@ -188,6 +240,7 @@ CLASS zcl_rak_cj_opts IMPLEMENTATION.
       WHEN 'PROJECT'.
         project_opts( EXPORTING is_dir  = ls_dir
                                 is_ctx  = ls_ctx
+                                io_ctx  = io_ctx
                       IMPORTING et_opt  = et_opt
                                 ev_note = ev_note ).
 
@@ -262,7 +315,24 @@ CLASS zcl_rak_cj_opts IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA(lv_type) = filter_val( iv_filter = is_dir-dfilter iv_name = 'Type' ).
+    DATA(lv_type) = filter_val( iv_filter = is_dir-dfilter iv_name = `Type` io_ctx = io_ctx ).
+
+*   THE OTHER CLAUSES NARROW WHAT THE CITIZEN SEES, not what the API
+*   returns, and the difference is worth being exact about. TYPE is the
+*   only filter PROPERTIES( ) takes, so SECTOR, LANDUSE and SEARCH are
+*   applied to the rows after they arrive. That is not paging and does not
+*   pretend to be: the read is the same size, but the option list the
+*   browser carries is not, and a citizen choosing from four parcels
+*   instead of two hundred is the half that was actually asked for.
+*
+*   SEARCH IS A FILTER WHOSE VALUE COMES FROM A FIELD, which is why no new
+*   mechanism is needed for it. Configure Search=@PARCEL_FIND, put a plain
+*   input on the step called PARCEL_FIND, and the list narrows as the
+*   citizen types - ON_CHANGE( ) already forces the round trip and
+*   RENDER_ONE( ) already re-resolves the options on every render.
+    DATA(lv_sector) = filter_val( iv_filter = is_dir-dfilter iv_name = `Sector`  io_ctx = io_ctx ).
+    DATA(lv_luse)   = filter_val( iv_filter = is_dir-dfilter iv_name = `LandUse` io_ctx = io_ctx ).
+    DATA(lv_find)   = to_upper( filter_val( iv_filter = is_dir-dfilter iv_name = `Search` io_ctx = io_ctx ) ).
 
     DATA(ls_res) = lo_api->properties( iv_type = lv_type ).
 
@@ -288,6 +358,33 @@ CLASS zcl_rak_cj_opts IMPLEMENTATION.
       ENDIF.
       IF ls_row-landuse IS NOT INITIAL.
         lv_text = |{ lv_text } - { ls_row-landuse }|.
+      ENDIF.
+
+*     THE NARROWING, after the text is composed so SEARCH can match what
+*     the citizen actually reads rather than one column of it.
+*
+*     A BLANK CLAUSE FILTERS NOTHING. An unfilled @FIELD resolves to
+*     blank, and blank has to mean "not narrowed yet" - the alternative is
+*     an empty list on first render that reads as "you own no parcels".
+*     SECTORTEXT ONLY, not a SECTOR code as well. The row type is
+*     LINE OF a legacy MPC table that cannot be opened from here, and
+*     SECTORTEXT and LANDUSE are the two components this method already
+*     reads and therefore the two that are proven to exist. Naming a third
+*     on the strength of the OData property list would be a guess, and a
+*     wrong component name is a syntax error that takes this class down -
+*     which takes the parcel selector and every other API-bound dropdown
+*     with it, because RENDER_ONE( ) routes them all through RESOLVE( ).
+      IF lv_sector IS NOT INITIAL AND to_upper( ls_row-sectortext ) <> to_upper( lv_sector ).
+        CONTINUE.
+      ENDIF.
+      IF lv_luse IS NOT INITIAL AND to_upper( ls_row-landuse ) <> to_upper( lv_luse ).
+        CONTINUE.
+      ENDIF.
+*     CS, not equality: a citizen typing part of a parcel number expects
+*     the ones containing it, which is what a search box means everywhere
+*     else they have used one.
+      IF lv_find IS NOT INITIAL AND to_upper( lv_text ) NS lv_find.
+        CONTINUE.
       ENDIF.
 
       APPEND VALUE #( key = lv_key text = lv_text ) TO et_opt.
