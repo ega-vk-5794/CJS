@@ -115,9 +115,37 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
       IF ls_a-okey IS NOT INITIAL.
         lv_id1 = |{ lv_id1 }_{ ls_a-okey }|.
       ENDIF.
+*     THE NAME THE BACKEND FILES IT UNDER, which need not be the name off
+*     the citizen's disk. FNAME: on the field's DEFAULT_VAL, beside DTYPE:
+*     and read the same way, renames the file on the way out - so a case
+*     holds "Trade Licence.pdf" rather than "scan0007.pdf" or
+*     "WhatsApp Image 2026-09-11 at 14.22.11.jpeg".
+*
+*     THE EXTENSION IS KEPT FROM THE ORIGINAL and is not the author's to
+*     set. The citizen chooses the format - the same field legitimately
+*     takes a PDF from one person and a JPG from the next - and a
+*     configured name carrying its own extension would mislabel half of
+*     them. An author writing FNAME:Trade Licence.pdf gets
+*     "Trade Licence.pdf.jpg" if that is what was uploaded, which is ugly
+*     and honest; stripping what they typed would be neither.
+*
+*     RENAMED ONLY WHERE ASKED. No FNAME:, no change - which is every
+*     uploader configured today.
+      DATA(lv_fname) = ls_a-name.
+      DATA(ls_afld)  = mo_e->safe_field( ls_a-field ).
+      DATA(lv_want)  = zcl_rak_journey_util=>directive( iv_spec = ls_afld-default
+                                                        iv_key  = 'FNAME' ).
+      IF lv_want IS NOT INITIAL.
+        DATA(lv_dot) = find( val = ls_a-name sub = '.' occ = -1 ).
+        lv_fname = COND string( WHEN lv_dot > 0
+                                THEN |{ lv_want }{ substring( val = ls_a-name off = lv_dot ) }|
+                                ELSE lv_want ).
+        mo_e->trace( |ATTACH  { ls_a-name } filed as { lv_fname } (FNAME on { ls_a-field })| ).
+      ENDIF.
+
       APPEND VALUE #( identifier1  = lv_id1
                       identifier2  = ls_a-tech
-                      file_name    = ls_a-name
+                      file_name    = lv_fname
                       file_content = lv_b64 ) TO rt
              ASSIGNING FIELD-SYMBOL(<ls_att>).
 
@@ -234,6 +262,22 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
           text = |Only one file per attachment field is kept. { lv_dup } | &&
                  |additional file(s) will not be stored with this application - | &&
                  |please combine them into one document.| ) ).
+    ENDIF.
+
+*   THE ONLY HOOK ON THE ATTACHMENT PAYLOAD, and the same gap
+*   ON_BEFORE_TABLES( ) was added to close: the files were built here and
+*   handed straight to the bridge with no way for a handler to touch them.
+*
+*   AFTER the FNAME: rename and after the duplicate check, so a handler
+*   sees the payload as it would actually go out and a name it overwrites
+*   is one it is overriding on purpose.
+    IF mo_e->mo_logic IS BOUND.
+      TRY.
+          mo_e->mo_logic->on_before_attachments( EXPORTING io_ctx = mo_e CHANGING ct_att = rt ).
+        CATCH cx_root INTO DATA(lx_ba).
+          mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
+            text = |on_before_attachments failed: { lx_ba->get_text( ) }| ) ).
+      ENDTRY.
     ENDIF.
   ENDMETHOD.
 

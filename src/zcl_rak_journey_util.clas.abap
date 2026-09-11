@@ -216,6 +216,26 @@ CLASS zcl_rak_journey_util DEFINITION
 *   clause is a new instruction and is honoured. A blank return means "nothing
 *   configured for this check": the caller falls back to the catalogue exactly
 *   as it does today.
+*   ONE DIRECTIVE OUT OF A DIRECTIVE-BEARING COLUMN.
+*
+*   DEFAULT_VAL on an UPLOAD already carried DTYPE:; it now also carries
+*   FNAME:, and both are read through here rather than by two substring( )
+*   calls written a year apart. That is the PICK_SPEC( ) lesson: a column
+*   two things read is a column two things must read the SAME WAY, and the
+*   method exists before the second reader rather than after it.
+*
+*   THE SHAPE IS MSG's, deliberately - semicolon-separated KEY:value
+*   clauses, each split on its FIRST colon so the value may itself contain
+*   one. A single unkeyed value is not a clause and returns blank, so a
+*   DEFAULT_VAL holding an ordinary default is untouched.
+*
+*   Backward compatible by construction: DTYPE:1 on its own is one clause
+*   with key DTYPE, which is exactly what the old parse returned.
+    CLASS-METHODS directive
+      IMPORTING VALUE(iv_spec) TYPE string
+                VALUE(iv_key)  TYPE string
+      RETURNING VALUE(rv)      TYPE string.
+
     CLASS-METHODS msg_for
       IMPORTING VALUE(iv_msg)        TYPE string
                 VALUE(iv_check)      TYPE string
@@ -1104,6 +1124,32 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
           rv = iv_raw.
       ENDTRY.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD directive.
+    CLEAR rv.
+
+    DATA(lv_want) = to_upper( condense( iv_key ) ).
+    IF lv_want IS INITIAL OR iv_spec IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA lt_cl TYPE string_table.
+    SPLIT iv_spec AT ';' INTO TABLE lt_cl.
+
+    LOOP AT lt_cl INTO DATA(lv_cl).
+      DATA(lv_off) = find( val = lv_cl sub = ':' ).
+      IF lv_off <= 0.
+        CONTINUE.
+      ENDIF.
+*     FIRST colon only, so a value may contain one of its own - a file
+*     name is free text and nothing stops an author writing one.
+      IF to_upper( condense( substring( val = lv_cl len = lv_off ) ) ) = lv_want.
+        rv = condense( substring( val = lv_cl off = lv_off + 1 ) ).
+        RETURN.
+      ENDIF.
+    ENDLOOP.
   ENDMETHOD.
 
 

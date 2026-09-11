@@ -19,6 +19,26 @@ INTERFACE zif_rak_journey_logic
     IMPORTING io_ctx    TYPE REF TO zif_rak_journey
     CHANGING  ct_tables TYPE /qnv/sb_tabl_def_tt.
 
+  " The last look at the attachment payload before it goes to the backend -
+  " the same hook ON_BEFORE_TABLES( ) is for the table payload, and it
+  " exists for the same reason: the files were built and handed straight to
+  " the bridge with no way for a handler to touch them.
+  "
+  " Rename a file, set IDENTIFIER1 to something the BAdI reads, drop one, or
+  " add one the citizen never uploaded. FILE_NAME is the common case and
+  " config covers the simple half of it: FNAME: on the field's DEFAULT_VAL
+  " renames to a fixed string, and this hook is for a name that has to be
+  " COMPUTED - the case number in it, the owner's Emirates ID, a sequence.
+  "
+  " Runs after the FNAME: rename, so CT_ATT-FILE_NAME already holds the
+  " configured name where there is one, and a handler that overwrites it is
+  " overriding config deliberately rather than racing it.
+  "
+  " Empty here on purpose. Everything sent is what the engine built.
+  METHODS on_before_attachments
+    IMPORTING io_ctx TYPE REF TO zif_rak_journey
+    CHANGING  ct_att TYPE /qnv/sbuild_attachments_tt.
+
   METHODS on_before_fields
     IMPORTING io_ctx    TYPE REF TO zif_rak_journey
     CHANGING  ct_fields TYPE zif_rak_journey_backend=>tt_field.

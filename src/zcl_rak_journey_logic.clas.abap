@@ -1567,6 +1567,12 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_rak_journey_logic~on_before_attachments.
+*   Empty, and emptily overriding it costs nothing - unlike
+*   ON_CUSTOM_VALIDATE, RENDER_FIELD, ON_POPUP_EVENT and WANTS_FEEDBACK.
+  ENDMETHOD.
+
+
   METHOD zif_rak_journey_logic~on_change.
   ENDMETHOD.
 

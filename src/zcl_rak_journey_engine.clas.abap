@@ -929,8 +929,13 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *               See TY_ATT-DTYPE for why it is there and not in a column of
 *               its own. Read here rather than at post time because this is
 *               where the field is already in hand.
-                IF ls_att_f-default CP 'DTYPE:*'.
-                  lv_att_dtyp = condense( substring( val = ls_att_f-default off = 6 ) ).
+*               Through DIRECTIVE( ) now, because DEFAULT_VAL carries more
+*               than one of these - FNAME: sits beside DTYPE: and the two
+*               must be read the same way. DTYPE:1 on its own parses to
+*               exactly what the old substring( ) returned.
+                IF ls_att_f-default CP 'DTYPE:*' OR ls_att_f-default CS ';DTYPE:'.
+                  lv_att_dtyp = zcl_rak_journey_util=>directive( iv_spec = ls_att_f-default
+                                                                 iv_key  = 'DTYPE' ).
                 ENDIF.
 *               NOT "tech_name is filled". A field can legitimately have no
 *               TECH_NAME and still declare a document type, and stopping on
