@@ -30,6 +30,17 @@ PARAMETERS p_fill RADIOBUTTON GROUP g1.
 *   every English/Arabic pair the legacy tables hold, which is what keeps
 *   the answer consistent with the screens the citizen already knows.
 PARAMETERS p_gap  RADIOBUTTON GROUP g1.
+*   THE SEVENTH MODE, and the only one that changes ENGLISH. A migrated
+*   screen carries whatever case the legacy row had, which on several
+*   journeys is SHOUTING - "JOB TITLE IS REQUIRED", "NATIONALITY",
+*   "SELECT A CANDIDATE, OR OTHER IF THEY ARE NOT LISTED" - beside
+*   perfectly ordinary sentence case on the field next to it.
+*
+*   RUN IT AFTER BACKFILL, NOT BEFORE. English is the join key the
+*   backfill matches on, and rewriting it first turns exact matches into
+*   normalised ones - which still work, but a normalised match is the one
+*   that can come back AMBIG. Fill first, then tidy.
+PARAMETERS p_case RADIOBUTTON GROUP g1.
 
 PARAMETERS p_path TYPE string LOWER CASE DEFAULT 'C:\temp\cjs_texts.xls'.
 
@@ -192,6 +203,25 @@ CLASS lcl_app DEFINITION FINAL.
 
     CLASS-METHODS do_gaps
       IMPORTING it_journey TYPE zif_rak_cj_text_src=>ty_t_journey.
+
+    CLASS-METHODS do_case
+      IMPORTING it_journey TYPE zif_rak_cj_text_src=>ty_t_journey.
+
+*   SENTENCE CASE, WITH THE ACRONYMS PUT BACK.
+*
+*   Blank unless the text is worth changing, so the caller does not have
+*   to repeat the test: a string that is not all-caps, or is a single
+*   short token that is almost certainly an acronym, comes back empty and
+*   is left alone.
+*
+*   SENTENCE CASE RATHER THAN TITLE CASE, deliberately. Title case needs a
+*   list of words that stay lower - is, a, the, of, for - and gets "Job
+*   Title Is Required" wrong without one and "E-Mail" wrong with one.
+*   Sentence case has a single rule, matches the majority of the existing
+*   captions, and is what the untouched fields next to these already use.
+    CLASS-METHODS sentence_case
+      IMPORTING iv_txt        TYPE string
+      RETURNING VALUE(rv_new) TYPE string.
 
     CLASS-METHODS write_file
       IMPORTING iv_path TYPE string
@@ -595,6 +625,121 @@ CLASS lcl_app IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD sentence_case.
+
+    CLEAR rv_new.
+
+    DATA(lv_src) = condense( iv_txt ).
+    IF lv_src IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   ONLY A STRING THAT IS ALREADY ALL CAPS. Anything with a lower-case
+*   letter in it was written deliberately and is not this mode's business
+*   - "School Name Arabic 2" stays exactly as it is.
+    IF lv_src <> to_upper( lv_src ).
+      RETURN.
+    ENDIF.
+
+*   AND ONLY IF THERE IS A LETTER TO CHANGE. "*", "X", "F9", "03.05.2023"
+*   and "1" are all-caps by accident of having no lower case at all.
+    IF lv_src CN 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' AND lv_src NA 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.
+      RETURN.
+    ENDIF.
+    IF lv_src NA 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.
+      RETURN.
+    ENDIF.
+
+*   A LONE SHORT TOKEN IS AN ACRONYM, NOT A SHOUT. PRO, NOC, EID, CV, ISO
+*   and the rest are correct as they stand, and lower-casing them would be
+*   the only actual damage this mode could do.
+    IF lv_src NS ` ` AND strlen( lv_src ) <= 5.
+      RETURN.
+    ENDIF.
+
+    DATA lt_tok TYPE string_table.
+    SPLIT to_lower( lv_src ) AT ` ` INTO TABLE lt_tok.
+
+*   THE ACRONYMS THAT SURVIVE INSIDE A SENTENCE. Matched on the token with
+*   its trailing punctuation stripped, so "(RTA)" and "ID:" are recognised
+*   and keep whatever was around them.
+    DATA(lt_acr) = VALUE string_table(
+      ( `id` ) ( `eid` ) ( `noc` ) ( `pro` ) ( `cv` ) ( `iso` ) ( `gps` )
+      ( `rak` ) ( `uae` ) ( `vat` ) ( `pdf` ) ( `jpg` ) ( `jpeg` ) ( `png` )
+      ( `doc` ) ( `docx` ) ( `kg` ) ( `moe` ) ( `fahr` ) ( `rta` ) ( `ewe` )
+      ( `poa` ) ( `epda` ) ( `dok` ) ( `msds` ) ( `gfa` ) ( `eva` ) ( `dcr` )
+      ( `tnoc` ) ( `bp` ) ( `mb` ) ( `aed` ) ( `szhp` ) ( `gra` ) ( `mp` ) ).
+
+    DATA lv_out TYPE string.
+    LOOP AT lt_tok INTO DATA(lv_tok).
+      DATA(lv_bare) = lv_tok.
+*     Strip what a caption hangs on a word so the acronym itself matches.
+      REPLACE ALL OCCURRENCES OF REGEX '[^a-z0-9]' IN lv_bare WITH ``.
+      IF line_exists( lt_acr[ table_line = lv_bare ] ).
+        DATA(lv_use) = lv_tok.
+        REPLACE ALL OCCURRENCES OF lv_bare IN lv_use WITH to_upper( lv_bare ).
+      ELSE.
+        lv_use = lv_tok.
+      ENDIF.
+      lv_out = COND #( WHEN lv_out IS INITIAL THEN lv_use ELSE |{ lv_out } { lv_use }| ).
+    ENDLOOP.
+
+*   The first letter last, so an acronym that opens the sentence is not
+*   undone by it.
+    IF strlen( lv_out ) > 0.
+      lv_out = to_upper( substring( val = lv_out len = 1 ) )
+            && substring( val = lv_out off = 1 ).
+    ENDIF.
+
+    IF lv_out <> lv_src.
+      rv_new = lv_out.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD do_case.
+
+    DATA(lo_src) = NEW zcl_rak_cj_text_src_cfg( ).
+    DATA lt_log   TYPE zcl_rak_cj_txt_io=>ty_t_imp_log.
+    DATA lt_write TYPE zif_rak_cj_text_src=>ty_t_txt.
+    DATA lt_txt   TYPE zif_rak_cj_text_src=>ty_t_txt.
+
+    LOOP AT it_journey INTO DATA(lv_j).
+      lt_txt = lo_src->zif_rak_cj_text_src~read_journey( lv_j ).
+      LOOP AT lt_txt INTO DATA(ls_t).
+
+        DATA(lv_new) = sentence_case( ls_t-text_en ).
+        CHECK lv_new IS NOT INITIAL.
+
+        APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
+                        action  = 'CASE'
+                        old_en  = ls_t-text_en new_en = lv_new
+                        old_ar  = ls_t-text_ar new_ar = ls_t-text_ar ) TO lt_log.
+
+*       THE ARABIC RIDES ALONG UNCHANGED. WRITE( ) takes a whole row, so
+*       sending one with a blank Arabic would erase it - the English tidy
+*       would quietly undo the backfill that ran before it.
+        ls_t-text_en = lv_new.
+        APPEND ls_t TO lt_write.
+
+      ENDLOOP.
+    ENDLOOP.
+
+    IF lt_log IS INITIAL.
+      MESSAGE 'No all-capitals English found on the selected journeys' TYPE 'S'.
+      RETURN.
+    ENDIF.
+
+    IF p_test = abap_false.
+      lo_src->zif_rak_cj_text_src~write( lt_write ).
+    ENDIF.
+
+    show_import( lt_log ).
+
+  ENDMETHOD.
+
+
   METHOD write_file.
 
     DATA(lv_len) = xstrlen( iv_xstr ).
@@ -665,8 +810,11 @@ CLASS lcl_app IMPLEMENTATION.
 *       an identical-looking list and the only difference is whether the
 *       database moved. Counting CHANGE rows rather than all rows: SKIP and
 *       REJECT lines are reported and written nowhere.
+*       CASE counts as a change, because it is one - the same ALV shows
+*       the backfill and the case tidy, and both write.
         DATA(lv_chg) = REDUCE i( INIT n = 0 FOR ls IN it_log
-                                 NEXT n = COND #( WHEN ls-action = 'CHANGE' THEN n + 1 ELSE n ) ).
+                                 NEXT n = COND #( WHEN ls-action = 'CHANGE' OR ls-action = 'CASE'
+                                                  THEN n + 1 ELSE n ) ).
 *       THE OTHER TWO OUTCOMES BELONG IN THE TITLE TOO. A run that fills
 *       230 and leaves 400 unmatched is a different result from one that
 *       fills 230 and leaves none, and the first list scrolls too far to
@@ -734,6 +882,8 @@ CLASS lcl_app IMPLEMENTATION.
         do_backfill( lt_journey ).
       WHEN p_gap.
         do_gaps( lt_journey ).
+      WHEN p_case.
+        do_case( lt_journey ).
       WHEN p_summ.
         show_summary( lo_qa->summarise( lt_journey ) ).
       WHEN OTHERS.
