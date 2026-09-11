@@ -29,6 +29,24 @@ CLASS zcl_rak_journey_render DEFINITION
 *   already configure a REVIEW field of its own.
     METHODS auto_review      IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view
                                        is_step   TYPE zif_rak_journey=>ty_step.
+*   THE FIELD'S OPTION LIST, from wherever that field's list comes from -
+*   configured ZRAK_T_JNY_OPT rows, the handler's ON_VALUE_HELP( ), an API:
+*   directive, or the DDIC resolver, tried in that order.
+*
+*   ONE RESOLVER, TWO CALLERS. RENDER_ONE( ) draws the control and the
+*   REVIEW block prints the chosen value back as text, and both need the
+*   same list. While the chain lived inline in RENDER_ONE( ) the review had
+*   only IS_FIELD-OPTIONS to look in, so a field whose list comes from a
+*   domain or from an API reviewed as its raw key - "Curriculum: 08".
+*
+*   EV_SRC names which source answered, for the trace line RENDER_ONE( )
+*   already prints; EV_NOTE carries an API resolution failure, which that
+*   method renders as a message strip. Both stay OUT of here so a review
+*   does not print a strip or a trace line per field.
+    METHODS options_of       IMPORTING is_field  TYPE zif_rak_journey=>ty_field
+                             EXPORTING ev_src    TYPE string
+                                       ev_note   TYPE string
+                             RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
     METHODS render_block     IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view
                                        is_field  TYPE zif_rak_journey=>ty_field.
     METHODS render_pay       IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view
@@ -695,6 +713,81 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                                     iv_default = '5 digits' )
                    class       = |{ mo_e->mo_css->cls( 'INPUT' ) } sapUiSmallMarginBegin| ).
 
+  ENDMETHOD.
+
+
+  METHOD options_of.
+    DATA(lt_opt) = is_field-options.
+    DATA(lv_vhsrc) = COND string( WHEN lt_opt IS NOT INITIAL THEN 'config' ELSE `` ).
+
+    IF lt_opt IS INITIAL AND mo_e->mo_logic IS BOUND.
+      TRY.
+          lt_opt = mo_e->mo_logic->on_value_help( io_ctx = mo_e iv_field = is_field-name ).
+          lv_vhsrc = COND string( WHEN lt_opt IS NOT INITIAL
+                                  THEN 'on_value_help'
+                                  ELSE 'on_value_help (empty)' ).
+        CATCH cx_root INTO DATA(lx_vh).
+          CLEAR lt_opt.
+          lv_vhsrc = |on_value_help RAISED { lx_vh->get_text( ) }|.
+      ENDTRY.
+    ELSEIF lt_opt IS INITIAL.
+*     No handler at all. Worth saying plainly: every list on a journey whose
+*     options are not configured depends on one, so an unbound handler is not
+*     a detail, it is the reason nothing has any options.
+      lv_vhsrc = 'no handler bound'.
+    ENDIF.
+*   FOURTH SOURCE: a wrapper API named in DEFAULT_VAL. This is what makes
+*   a migrated composite - a parcel selector, a property list - into a
+*   working control rather than an empty box: ZCL_RAK_MIGRATOR wrote
+*   'API:PROPERTY:PropertiesSet::Type=Parcel' onto the field and
+*   ZCL_RAK_CJ_OPTS turns that into the citizen's own parcels.
+*
+*   AHEAD OF THE DDIC RESOLVER, deliberately. An API-bound field must not
+*   fall through to a domain or search help that happens to share its
+*   name - that would answer with the wrong list rather than no list, and
+*   a wrong list is the harder of the two to notice.
+*   CALLED DYNAMICALLY, AND THAT IS NOT DECORATION. ZCL_RAK_CJ_OPTS leads
+*   to ZCL_RAK_CJ_API, which INHERITS the legacy Gateway DPC. A static
+*   reference would make this class - the renderer every journey and the
+*   Studio go through - fail to load whenever anything in that chain is
+*   inactive, which is the widest possible blast radius for a layer that
+*   is still being built. Dynamically, an inactive wrapper is a caught
+*   CX_SY_DYN_CALL_ERROR on one field: no options, a note beside it, every
+*   other field on every other journey untouched.
+*
+*   The parameters go in a PARAMETER-TABLE because a dynamic class AND
+*   method name cannot carry a static EXPORTING list. LO_IF is declared
+*   rather than passing MO_E directly so the reference's type matches the
+*   formal parameter exactly - a parameter table binds by type, not by the
+*   up-cast a normal call would do for free.
+    DATA lv_apinote TYPE string.
+    IF lt_opt IS INITIAL AND strlen( is_field-default ) > 4 AND is_field-default(4) = 'API:'.
+      DATA lo_if TYPE REF TO zif_rak_journey.
+      lo_if = mo_e.
+      DATA(lt_apb) = VALUE abap_parmbind_tab(
+        ( name = 'IS_FIELD' kind = cl_abap_objectdescr=>exporting value = REF #( is_field ) )
+        ( name = 'IO_CTX'   kind = cl_abap_objectdescr=>exporting value = REF #( lo_if ) )
+        ( name = 'ET_OPT'   kind = cl_abap_objectdescr=>importing value = REF #( lt_opt ) )
+        ( name = 'EV_NOTE'  kind = cl_abap_objectdescr=>importing value = REF #( lv_apinote ) ) ).
+      TRY.
+          CALL METHOD ('ZCL_RAK_CJ_OPTS')=>('RESOLVE')
+            PARAMETER-TABLE lt_apb.
+        CATCH cx_root INTO DATA(lx_api).
+          CLEAR lt_opt.
+          lv_apinote = |{ is_field-name }: the API binding could not be resolved - { lx_api->get_text( ) }|.
+      ENDTRY.
+      lv_vhsrc = |{ lv_vhsrc } -> API { is_field-default }| &&
+                 COND string( WHEN lt_opt IS INITIAL THEN ' (empty)' ELSE `` ).
+    ENDIF.
+
+    IF lt_opt IS INITIAL
+       AND ( is_field-rollname IS NOT INITIAL OR is_field-shlp IS NOT INITIAL OR is_field-domname IS NOT INITIAL ).
+      lt_opt = f4_opts( is_field ).
+      lv_vhsrc = |{ lv_vhsrc } -> DDIC resolver| .
+    ENDIF.
+    ev_src  = lv_vhsrc.
+    ev_note = lv_apinote.
+    rt      = lt_opt.
   ENDMETHOD.
 
 
@@ -1881,74 +1974,12 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   the handler raised, or the resolver found nothing. The exception in
 *   particular was caught and cleared without a word, which is the worst of
 *   the four to debug because it looks identical to a deliberate empty list.
-    DATA(lt_opt) = is_field-options.
-    DATA(lv_vhsrc) = COND string( WHEN lt_opt IS NOT INITIAL THEN 'config' ELSE `` ).
-
-    IF lt_opt IS INITIAL AND mo_e->mo_logic IS BOUND.
-      TRY.
-          lt_opt = mo_e->mo_logic->on_value_help( io_ctx = mo_e iv_field = is_field-name ).
-          lv_vhsrc = COND string( WHEN lt_opt IS NOT INITIAL
-                                  THEN 'on_value_help'
-                                  ELSE 'on_value_help (empty)' ).
-        CATCH cx_root INTO DATA(lx_vh).
-          CLEAR lt_opt.
-          lv_vhsrc = |on_value_help RAISED { lx_vh->get_text( ) }|.
-      ENDTRY.
-    ELSEIF lt_opt IS INITIAL.
-*     No handler at all. Worth saying plainly: every list on a journey whose
-*     options are not configured depends on one, so an unbound handler is not
-*     a detail, it is the reason nothing has any options.
-      lv_vhsrc = 'no handler bound'.
-    ENDIF.
-*   FOURTH SOURCE: a wrapper API named in DEFAULT_VAL. This is what makes
-*   a migrated composite - a parcel selector, a property list - into a
-*   working control rather than an empty box: ZCL_RAK_MIGRATOR wrote
-*   'API:PROPERTY:PropertiesSet::Type=Parcel' onto the field and
-*   ZCL_RAK_CJ_OPTS turns that into the citizen's own parcels.
-*
-*   AHEAD OF THE DDIC RESOLVER, deliberately. An API-bound field must not
-*   fall through to a domain or search help that happens to share its
-*   name - that would answer with the wrong list rather than no list, and
-*   a wrong list is the harder of the two to notice.
-*   CALLED DYNAMICALLY, AND THAT IS NOT DECORATION. ZCL_RAK_CJ_OPTS leads
-*   to ZCL_RAK_CJ_API, which INHERITS the legacy Gateway DPC. A static
-*   reference would make this class - the renderer every journey and the
-*   Studio go through - fail to load whenever anything in that chain is
-*   inactive, which is the widest possible blast radius for a layer that
-*   is still being built. Dynamically, an inactive wrapper is a caught
-*   CX_SY_DYN_CALL_ERROR on one field: no options, a note beside it, every
-*   other field on every other journey untouched.
-*
-*   The parameters go in a PARAMETER-TABLE because a dynamic class AND
-*   method name cannot carry a static EXPORTING list. LO_IF is declared
-*   rather than passing MO_E directly so the reference's type matches the
-*   formal parameter exactly - a parameter table binds by type, not by the
-*   up-cast a normal call would do for free.
+    DATA lt_opt     TYPE zif_rak_journey=>tt_option.
+    DATA lv_vhsrc   TYPE string.
     DATA lv_apinote TYPE string.
-    IF lt_opt IS INITIAL AND strlen( is_field-default ) > 4 AND is_field-default(4) = 'API:'.
-      DATA lo_if TYPE REF TO zif_rak_journey.
-      lo_if = mo_e.
-      DATA(lt_apb) = VALUE abap_parmbind_tab(
-        ( name = 'IS_FIELD' kind = cl_abap_objectdescr=>exporting value = REF #( is_field ) )
-        ( name = 'IO_CTX'   kind = cl_abap_objectdescr=>exporting value = REF #( lo_if ) )
-        ( name = 'ET_OPT'   kind = cl_abap_objectdescr=>importing value = REF #( lt_opt ) )
-        ( name = 'EV_NOTE'  kind = cl_abap_objectdescr=>importing value = REF #( lv_apinote ) ) ).
-      TRY.
-          CALL METHOD ('ZCL_RAK_CJ_OPTS')=>('RESOLVE')
-            PARAMETER-TABLE lt_apb.
-        CATCH cx_root INTO DATA(lx_api).
-          CLEAR lt_opt.
-          lv_apinote = |{ is_field-name }: the API binding could not be resolved - { lx_api->get_text( ) }|.
-      ENDTRY.
-      lv_vhsrc = |{ lv_vhsrc } -> API { is_field-default }| &&
-                 COND string( WHEN lt_opt IS INITIAL THEN ' (empty)' ELSE `` ).
-    ENDIF.
-
-    IF lt_opt IS INITIAL
-       AND ( is_field-rollname IS NOT INITIAL OR is_field-shlp IS NOT INITIAL OR is_field-domname IS NOT INITIAL ).
-      lt_opt = f4_opts( is_field ).
-      lv_vhsrc = |{ lv_vhsrc } -> DDIC resolver| .
-    ENDIF.
+    lt_opt = options_of( EXPORTING is_field = is_field
+                         IMPORTING ev_src   = lv_vhsrc
+                                   ev_note  = lv_apinote ).
 
 *   Only for the field types that actually show a list, and only under trace.
     IF mo_e->mv_trace = abap_true
@@ -2291,17 +2322,57 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
               IF lv_rvdisp IS INITIAL.
                 lv_rvdisp = lv_rvv.
               ENDIF.
-            ELSEIF ls_rvf-options IS NOT INITIAL.
-              SPLIT lv_rvv AT ',' INTO TABLE DATA(lt_rvk).
-              LOOP AT lt_rvk INTO DATA(lv_rvk).
-                DATA(lv_rvt) = VALUE string( ls_rvf-options[ key = lv_rvk ]-text OPTIONAL ).
-                IF lv_rvt IS INITIAL.
-                  lv_rvt = lv_rvk.
-                ENDIF.
-                lv_rvdisp = COND #( WHEN lv_rvdisp IS INITIAL THEN lv_rvt ELSE |{ lv_rvdisp }, { lv_rvt }| ).
-              ENDLOOP.
             ELSE.
-              lv_rvdisp = lv_rvv.
+*             THE REVIEW PRINTS THE TEXT, NOT THE KEY - and it has to look
+*             in the same four places the control itself looks.
+*
+*             This branch used to read IS_FIELD-OPTIONS and nothing else,
+*             so a field whose list is configured as ZRAK_T_JNY_OPT rows
+*             reviewed correctly while one backed by a DDIC domain, an
+*             API: directive or the handler's ON_VALUE_HELP( ) reviewed as
+*             its stored key: "Curriculum: 08", "Location: 109",
+*             "Applicant Type: 2". The citizen is asked to check an
+*             application they cannot read.
+*
+*             OPTIONS_OF( ) is the resolver RENDER_ONE( ) uses to fill the
+*             dropdown in the first place, so the review cannot show a
+*             different text from the control the citizen chose in.
+              DATA lt_rvopt  TYPE zif_rak_journey=>tt_option.
+              DATA lv_rvsrc  TYPE string.
+              DATA lv_rvnote TYPE string.
+              CLEAR lt_rvopt.
+              lt_rvopt = ls_rvf-options.
+
+*             ONLY WHERE A LIST SOURCE IS DECLARED. The resolver can call a
+*             backend and read DDIC, and a review page walks every field of
+*             every earlier step - so it is asked only for fields that
+*             actually name a source, and only after the CHECK above has
+*             established the field has a value worth printing.
+              IF lt_rvopt IS INITIAL
+                 AND ( ls_rvf-rollname IS NOT INITIAL
+                    OR ls_rvf-shlp     IS NOT INITIAL
+                    OR ls_rvf-domname  IS NOT INITIAL
+                    OR ls_rvf-default CP 'API:*' ).
+                lt_rvopt = options_of( EXPORTING is_field = ls_rvf
+                                       IMPORTING ev_src   = lv_rvsrc
+                                                 ev_note  = lv_rvnote ).
+              ENDIF.
+
+              IF lt_rvopt IS INITIAL.
+                lv_rvdisp = lv_rvv.
+              ELSE.
+                SPLIT lv_rvv AT ',' INTO TABLE DATA(lt_rvk).
+                LOOP AT lt_rvk INTO DATA(lv_rvk).
+*                 A key with no matching option falls back to itself, so an
+*                 unresolvable value still shows something rather than a
+*                 blank line where a value used to be.
+                  DATA(lv_rvt) = VALUE string( lt_rvopt[ key = condense( lv_rvk ) ]-text OPTIONAL ).
+                  IF lv_rvt IS INITIAL.
+                    lv_rvt = lv_rvk.
+                  ENDIF.
+                  lv_rvdisp = COND #( WHEN lv_rvdisp IS INITIAL THEN lv_rvt ELSE |{ lv_rvdisp }, { lv_rvt }| ).
+                ENDLOOP.
+              ENDIF.
             ENDIF.
             DATA(lo_rvr) = lo_rvc->hbox( alignitems = 'Center' class = 'sapUiTinyMarginBottom' ).
             lo_rvr->label( text = zcl_rak_journey_util=>esc( |{ ls_rvf-label }:| ) class = 'rakRevL' ).
@@ -2374,8 +2445,28 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
             DATA(lo_rvt) = lo_rvc->table( items = `` class = 'sapUiTinyMarginBottom' ).
             DATA(lo_rvcols) = lo_rvt->columns( ).
+
+*           HEADERS ARE THE CONFIGURED LABELS, NOT THE MODEL COMPONENT
+*           NAMES. GET_GRID_DATA( )-COLUMNS returns names on purpose - a
+*           handler maps its cells by name and a label would be useless
+*           there - but printed as headers they gave the citizen LICNO,
+*           VALIDFR, SHARE_PER and MOBILE_NUMBER on the page where they
+*           are asked to check their own application, while the grid two
+*           steps back said "Owner Name" and "Owner Shares".
+*
+*           GRID_COLS( ) is the same source the grid itself draws from, so
+*           the review and the step cannot disagree; the name is kept as
+*           the fallback for a column with no label configured.
+            DATA(lt_rvgc) = mo_e->mo_grid->grid_cols( ls_rvg ).
+            DATA lv_rvci TYPE i.
+            CLEAR lv_rvci.
             LOOP AT ls_rvgd-columns INTO DATA(lv_rvcol).
-              lo_rvcols->column( )->text( text = zcl_rak_journey_util=>esc( lv_rvcol ) ).
+              lv_rvci = lv_rvci + 1.
+              DATA(lv_rvhdr) = VALUE string( lt_rvgc[ lv_rvci ]-label OPTIONAL ).
+              IF lv_rvhdr IS INITIAL.
+                lv_rvhdr = lv_rvcol.
+              ENDIF.
+              lo_rvcols->column( )->text( text = zcl_rak_journey_util=>esc( lv_rvhdr ) ).
             ENDLOOP.
 
             DATA(lo_rvitems) = lo_rvt->items( ).
