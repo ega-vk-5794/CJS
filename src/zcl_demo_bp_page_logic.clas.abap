@@ -64,8 +64,13 @@ private section.
 *   One display name from a BUT000 row. An organisation carries NAME_ORG1
 *   and a person carries NAME_FIRST / NAME_LAST, and a demo that shows
 *   only one of them looks empty for half the table.
+*   Three strings rather than a BUT000 structure: the SELECT reads six
+*   named columns, so the row it produces is not a BUT000 and passing one
+*   would mean a CORRESPONDING just to satisfy the signature.
   methods NAME_OF
-    importing IS_BP type BUT000
+    importing IV_ORG   type STRING
+              IV_FIRST type STRING
+              IV_LAST  type STRING
     returning value(RV) type STRING .
 ENDCLASS.
 
@@ -75,9 +80,9 @@ CLASS ZCL_DEMO_BP_PAGE_LOGIC IMPLEMENTATION.
 
 
   METHOD name_of.
-    rv = condense( CONV string( is_bp-name_org1 ) ).
+    rv = condense( iv_org ).
     IF rv IS INITIAL.
-      rv = condense( |{ is_bp-name_first } { is_bp-name_last }| ).
+      rv = condense( |{ iv_first } { iv_last }| ).
     ENDIF.
   ENDMETHOD.
 
@@ -109,47 +114,72 @@ CLASS ZCL_DEMO_BP_PAGE_LOGIC IMPLEMENTATION.
 
       WHEN 'BP_LIST'.
 *       ---- the paged, searched, filtered list ------------------------
+*
+*       CHAR HOST VARIABLES, NOT STRING. ABAP SQL treats a STRING host
+*       variable as a LOB and refuses it in a WHERE expression - "only
+*       elementary types for host variables are permitted". The values
+*       come off the model as strings and are moved into fixed-length
+*       fields for the query.
+        DATA lv_like  TYPE c LENGTH 82.
+        DATA lv_glike TYPE c LENGTH 12.
+        DATA lv_total TYPE i.
+        DATA lv_rows  TYPE i.
+        DATA lv_off   TYPE i.
+
         DATA(lv_find)  = to_upper( condense( io_ctx->get_val( c_find ) ) ).
         DATA(lv_group) = to_upper( condense( io_ctx->get_val( c_group ) ) ).
+
+*       A BLANK SEARCH IS '%', NOT A BRANCH. Comparing a host variable to
+*       a literal inside the WHERE - ( @lv_find = '' OR ... ) - is the
+*       obvious way to make a filter optional and ABAP SQL will not have
+*       it. A wildcard that matches everything says the same thing in one
+*       clause and needs no expression at all.
+        lv_like  = COND #( WHEN lv_find  IS INITIAL THEN '%' ELSE |%{ lv_find }%| ).
+        lv_glike = COND #( WHEN lv_group IS INITIAL THEN '%' ELSE lv_group ).
 
 *       NARROWED IN THE DATABASE, NOT AFTER. Windowing a set you have
 *       already read whole saves the payload and nothing else; the point
 *       of the contract is that the rows beyond the window are never
-*       assembled. A LIKE with both wildcards is what a citizen means by
-*       a search box.
-        DATA(lv_like) = |%{ lv_find }%|.
-
-        SELECT COUNT( * ) FROM but000
-          INTO @DATA(lv_total)
-         WHERE ( @lv_find  = '' OR upper( name_org1 )  LIKE @lv_like
-                                OR upper( name_last )  LIKE @lv_like
-                                OR upper( partner )    LIKE @lv_like )
-           AND ( @lv_group = '' OR bu_group = @lv_group ).
+*       assembled.
+        SELECT COUNT(*) FROM but000
+         WHERE ( upper( name_org1 ) LIKE @lv_like
+              OR upper( name_last ) LIKE @lv_like
+              OR partner            LIKE @lv_like )
+           AND bu_group LIKE @lv_glike
+          INTO @lv_total.
 
         rs_data-total = lv_total.
 
         rs_data-columns = VALUE #( ( `Partner` ) ( `Name` ) ( `Type` ) ( `Group` ) ).
 
-*       UP TO / OFFSET NEEDS AN ORDER BY and the order must be stable, or
-*       page 2 can repeat a row page 1 already showed. PARTNER is the key,
-*       so it is both stable and the order a citizen expects.
-        DATA lv_rows TYPE i.
         lv_rows = COND #( WHEN iv_page_size > 0 THEN iv_page_size ELSE 200 ).
+        lv_off  = iv_offset.
 
+*       THE CLAUSE ORDER IS THE POINT HERE. ABAP SQL wants
+*       ... ORDER BY ... INTO TABLE @lt UP TO @n ROWS OFFSET @o - the INTO
+*       after the ORDER BY, and OFFSET after UP TO. Written the other way
+*       round it reports "OFFSET is not allowed here", which names the
+*       keyword rather than the ordering.
+*
+*       AND THE ORDER MUST BE STABLE, or page 2 repeats a row page 1
+*       already showed. PARTNER is the key, so it is both stable and the
+*       order a citizen expects.
         SELECT partner, type, bu_group, name_org1, name_first, name_last
           FROM but000
-          INTO TABLE @DATA(lt_bp)
-         WHERE ( @lv_find  = '' OR upper( name_org1 )  LIKE @lv_like
-                                OR upper( name_last )  LIKE @lv_like
-                                OR upper( partner )    LIKE @lv_like )
-           AND ( @lv_group = '' OR bu_group = @lv_group )
+         WHERE ( upper( name_org1 ) LIKE @lv_like
+              OR upper( name_last ) LIKE @lv_like
+              OR partner            LIKE @lv_like )
+           AND bu_group LIKE @lv_glike
          ORDER BY partner
-         OFFSET @iv_offset
-         UP TO @lv_rows ROWS.
+          INTO TABLE @DATA(lt_bp)
+            UP TO @lv_rows ROWS
+            OFFSET @lv_off.
 
         LOOP AT lt_bp INTO DATA(ls_bp).
           APPEND VALUE #( ( CONV string( ls_bp-partner ) )
-                          ( name_of( CORRESPONDING #( ls_bp ) ) )
+                          ( name_of( iv_org   = CONV #( ls_bp-name_org1 )
+                                     iv_first = CONV #( ls_bp-name_first )
+                                     iv_last  = CONV #( ls_bp-name_last ) ) )
                           ( CONV string( ls_bp-type ) )
                           ( CONV string( ls_bp-bu_group ) ) ) TO rs_data-rows.
         ENDLOOP.
@@ -172,19 +202,23 @@ CLASS ZCL_DEMO_BP_PAGE_LOGIC IMPLEMENTATION.
 *       itself. Both are read with the five most standard components each
 *       carries; this is a demo, and a demo that will not activate teaches
 *       nothing.
-        SELECT a~addrnumber, c~street, c~city1, c~country, c~post_code
+*       POST_CODE1, NOT POST_CODE. ADRC carries POST_CODE1 (city),
+*       POST_CODE2 (PO box) and POST_CODE3 (company) - there is no bare
+*       POST_CODE, which is the kind of fact that only a syntax error
+*       teaches when the table cannot be opened from the repository.
+        SELECT a~addrnumber, c~street, c~city1, c~country, c~post_code1
           FROM but020 AS a
           INNER JOIN adrc AS c ON c~addrnumber = a~addrnumber
-          INTO TABLE @DATA(lt_ad)
          WHERE a~partner = @lv_bp
-         ORDER BY a~addrnumber.
+         ORDER BY a~addrnumber
+          INTO TABLE @DATA(lt_ad).
 
         LOOP AT lt_ad INTO DATA(ls_ad).
           APPEND VALUE #( ( CONV string( ls_ad-addrnumber ) )
                           ( CONV string( ls_ad-street ) )
                           ( CONV string( ls_ad-city1 ) )
                           ( CONV string( ls_ad-country ) )
-                          ( CONV string( ls_ad-post_code ) ) ) TO rs_data-rows.
+                          ( CONV string( ls_ad-post_code1 ) ) ) TO rs_data-rows.
         ENDLOOP.
 
 *       THE TOTAL IS THE ROW COUNT HERE, and saying so is not the same as
