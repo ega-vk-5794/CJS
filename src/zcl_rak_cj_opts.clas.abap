@@ -250,6 +250,46 @@ CLASS zcl_rak_cj_opts IMPLEMENTATION.
 *       no parcels.
         ev_note = |{ is_field-name }: { ls_dir-api }/{ ls_dir-eset } has no wrapper API yet|.
     ENDCASE.
+
+*   ---- SEARCH IS FRAMEWORK, ABOVE EVERY BRANCH -------------------------
+*   Here rather than inside PROPERTY_OPTS( ), because a search box is not
+*   a property of parcels. Every API-bound list is a list of key/text
+*   options by the time it reaches this line, so one filter serves them
+*   all - projects, accommodations, and whatever the next wrapper answers.
+*
+*   The branch-specific filters stay in their branch, and that split is
+*   the rule rather than an accident: SECTOR and LANDUSE name components
+*   of a property row and only PROPERTY_OPTS( ) knows they exist, while
+*   SEARCH names nothing and works on what the citizen reads.
+*
+*   MATCHED ON KEY AND TEXT TOGETHER. A citizen typing a parcel number
+*   expects it found whether the number is in the key, the text, or both -
+*   and CS, not equality, because a search box means "contains" everywhere
+*   else they have used one.
+*
+*   BLANK SEARCHES NOTHING. An unfilled @FIELD is "not narrowed yet", and
+*   the alternative is an empty list on first render.
+    DATA(lv_q) = to_upper( filter_val( iv_filter = ls_dir-dfilter
+                                       iv_name   = `Search`
+                                       io_ctx    = io_ctx ) ).
+    IF lv_q IS NOT INITIAL AND et_opt IS NOT INITIAL.
+      DATA(lv_before) = lines( et_opt ).
+*     Built into a keep list rather than deleted in place: deleting from
+*     the table being looped over skips the row after each hit, which is
+*     the oldest bug in this file's family and silently leaves half the
+*     non-matches in.
+      DATA lt_keep TYPE zif_rak_journey=>tt_option.
+      LOOP AT et_opt INTO DATA(ls_chk).
+        CHECK to_upper( |{ ls_chk-key } { ls_chk-text }| ) CS lv_q.
+        APPEND ls_chk TO lt_keep.
+      ENDLOOP.
+      et_opt = lt_keep.
+      IF et_opt IS INITIAL.
+*       SAYING SO, because an empty list has four causes that look
+*       identical on screen and this is the one the citizen can fix.
+        ev_note = |No match for '{ lv_q }' in { lv_before } entr(ies) - clear the search to see them all|.
+      ENDIF.
+    ENDIF.
   ENDMETHOD.
 
 
@@ -332,7 +372,6 @@ CLASS zcl_rak_cj_opts IMPLEMENTATION.
 *   RENDER_ONE( ) already re-resolves the options on every render.
     DATA(lv_sector) = filter_val( iv_filter = is_dir-dfilter iv_name = `Sector`  io_ctx = io_ctx ).
     DATA(lv_luse)   = filter_val( iv_filter = is_dir-dfilter iv_name = `LandUse` io_ctx = io_ctx ).
-    DATA(lv_find)   = to_upper( filter_val( iv_filter = is_dir-dfilter iv_name = `Search` io_ctx = io_ctx ) ).
 
     DATA(ls_res) = lo_api->properties( iv_type = lv_type ).
 
@@ -380,12 +419,11 @@ CLASS zcl_rak_cj_opts IMPLEMENTATION.
       IF lv_luse IS NOT INITIAL AND to_upper( ls_row-landuse ) <> to_upper( lv_luse ).
         CONTINUE.
       ENDIF.
-*     CS, not equality: a citizen typing part of a parcel number expects
-*     the ones containing it, which is what a search box means everywhere
-*     else they have used one.
-      IF lv_find IS NOT INITIAL AND to_upper( lv_text ) NS lv_find.
-        CONTINUE.
-      ENDIF.
+*     SEARCH IS NOT HANDLED HERE. It moved up to RESOLVE( ), which applies
+*     it to every API-bound list rather than only to parcels - a search
+*     box is not a property of properties. SECTOR and LANDUSE stay,
+*     because they name components of a property row that only this method
+*     knows exist.
 
       APPEND VALUE #( key = lv_key text = lv_text ) TO et_opt.
     ENDLOOP.
