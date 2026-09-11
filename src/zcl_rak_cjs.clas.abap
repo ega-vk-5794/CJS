@@ -4213,21 +4213,34 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
 *   === authored, stored, but not read by the engine ==========================
     LOOP AT mt_fields INTO DATA(nh).
-      IF nh-width IS NOT INITIAL.
+*     WIDTH is read now - ZCL_RAK_JOURNEY_UTIL=>CTRL_WIDTH( ) returns it ahead
+*     of the per-type default - so "it has no effect" is only true when
+*     CSS_WIDTH( ) refuses the value. Ask the one validator rather than
+*     restating its rule here, so the two cannot drift apart.
+      IF nh-width IS NOT INITIAL
+         AND zcl_rak_journey_util=>css_width( nh-width ) IS INITIAL.
         APPEND VALUE #( type = 'Warning'
-          text = |{ nh-step_id }/{ nh-field_name }: Width is saved but the engine sizes controls by type — it has no effect| ) TO rt.
+          text = |{ nh-step_id }/{ nh-field_name }: Width '{ nh-width }' is not a % or rem value — refused, the per-type default applies| ) TO rt.
       ENDIF.
       IF to_int( nh-att_maxmb ) > 0
          AND nh-has_attach = abap_false AND to_upper( nh-ftype ) <> 'UPLOAD'.
         APPEND VALUE #( type = 'Warning'
           text = |{ nh-step_id }/{ nh-field_name }: Attach max MB is set but this field has no attachment| ) TO rt.
       ENDIF.
+*     R18-1. The two lists below mirror the two mechanisms exactly: the
+*     control-bound ftypes, and the submit gate in
+*     ZCL_RAK_JOURNEY_RULES->VALIDATE_STEP( ) (NUMBER/CURRENCY/INPUT/COUNT,
+*     plus the separate DATE range check). INPUT and COUNT were missing from
+*     both the condition and the sentence, so a COUNT with MAX_VAL '9' was
+*     told to remove a constraint that works. Add an ftype to the gate, add
+*     it here.
       IF ( nh-min_val IS NOT INITIAL OR nh-max_val IS NOT INITIAL )
          AND to_upper( nh-ftype ) <> 'SLIDER'   AND to_upper( nh-ftype ) <> 'STEPPER'
          AND to_upper( nh-ftype ) <> 'RATING'   AND to_upper( nh-ftype ) <> 'NUMBER'
-         AND to_upper( nh-ftype ) <> 'CURRENCY' AND to_upper( nh-ftype ) <> 'DATE'.
+         AND to_upper( nh-ftype ) <> 'CURRENCY' AND to_upper( nh-ftype ) <> 'DATE'
+         AND to_upper( nh-ftype ) <> 'INPUT'    AND to_upper( nh-ftype ) <> 'COUNT'.
         APPEND VALUE #( type = 'Warning'
-          text = |{ nh-step_id }/{ nh-field_name }: min/max value has no effect on { nh-ftype } — enforced on submit for NUMBER/CURRENCY/DATE, a control bound on SLIDER/STEPPER/RATING| ) TO rt.
+          text = |{ nh-step_id }/{ nh-field_name }: min/max value has no effect on { nh-ftype } — a control bound on SLIDER/STEPPER/RATING; checked on submit for NUMBER/CURRENCY/INPUT/COUNT/DATE| ) TO rt.
       ENDIF.
     ENDLOOP.
 
