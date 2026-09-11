@@ -331,8 +331,29 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   created - but it is still an ending, and the auto-draw on the last step has to
 *   agree with the terminal gate in RENDER( ) or the two disagree about whether the
 *   journey is over.
-    IF mo_e->mv_submitted = abap_true OR mo_e->mv_closed = abap_true
-       OR mo_e->mv_case_number IS NOT INITIAL.
+*   A CASE NUMBER IS NOT AN ENDING, and testing it as one put "Application
+*   submitted" on the last step of a journey nobody had submitted - with the
+*   case number printed underneath as the reference, which is what made it
+*   convincing.
+*
+*   MV_CASE_NUMBER is published by TAKE_CASE( ) the moment the backend names
+*   a case, and that is the FIRST READ on a resumed journey and the load-time
+*   BACKEND_CREATE( ) on a new one. So it is set long before the citizen has
+*   filled anything in. This is the same trap CASE_MODE( ) documents and
+*   avoids - "a case guid exists almost immediately, because BACKEND_CREATE( )
+*   runs on load, so a case exists would have locked the entire first pass" -
+*   and the reasoning was never carried across to here.
+*
+*   SUBMITTED AND CLOSED ARE ENDINGS. Both are set by the citizen's own press
+*   and neither can be true on a journey still being filled in.
+*
+*   WHAT THIS GIVES UP, deliberately: a genuinely finished case reopened in a
+*   NEW session no longer shows the result card, because MV_SUBMITTED is
+*   instance state and a fresh session starts false. Getting that right needs
+*   the case's status from the backend, which nothing here reads. Showing the
+*   card too early on every resumed case is the worse of the two - it tells a
+*   citizen their application is in when it is not.
+    IF mo_e->mv_submitted = abap_true OR mo_e->mv_closed = abap_true.
       rv = abap_true.
       RETURN.
     ENDIF.
@@ -3173,8 +3194,12 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       lv_i = lv_i + 1.
     ENDWHILE.
 
-    DATA(lv_done) = xsdbool( lv_paid = abap_true OR mo_e->mv_submitted = abap_true
-                             OR mo_e->mv_case_number IS NOT INITIAL ).
+*   NO MV_CASE_NUMBER HERE EITHER - see JOURNEY_DONE( ) for why. This test
+*   picks the WORDING rather than whether to draw, so on a configured RESULT
+*   field it was the half that said "Application submitted" in green on a
+*   case the citizen had not submitted. The two tests are the same question
+*   and were answered differently in two places; they now agree.
+    DATA(lv_done) = xsdbool( lv_paid = abap_true OR mo_e->mv_submitted = abap_true ).
 
     DATA lv_col   TYPE string.
     DATA lv_head  TYPE string.
