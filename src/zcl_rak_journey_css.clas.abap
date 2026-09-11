@@ -357,6 +357,31 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *       so a blanket font-family would replace every icon in the app with the
 *       literal characters behind them.
           |.sapUiBody,.sapUiBody *:not(.sapUiIcon)\{font-family:{ f }!important;\}| &&
+*         R16-1. PUT BACK THE BOLD THE LINE ABOVE TAKES AWAY - the same
+*         companion rule as the Arabic branch, and the same mechanism.
+*
+*         The rule above declares the FAMILY and nothing else, with
+*         !important, so it beats every theme declaration that reaches
+*         bold by naming a bold FACE ('72-Bold' rather than '72') and
+*         leaves no weight behind to restore it. This branch has exactly
+*         two weights of its own - 800 on .rakHdrTitle/.rakHdr .sapMTitle
+*         and 600 on .rakLbl - and both survive because they are weights.
+*         Everything PORTAL bolds by face does not.
+*
+*         NO LANGUAGE TEST HERE, and that is the difference from R15-2
+*         rather than an oversight: this branch has none either, so PORTAL
+*         has been losing the same emphasis in English as well as Arabic.
+*
+*         THE SAME SELECTOR LIST, TRANSPLANTED UNCHANGED, including its
+*         two omissions. No bare .sapMTitle: PORTAL's own 800 above is
+*         exactly the header a later !important would downgrade to 700,
+*         and a :not( ) guard carries its argument's specificity and so
+*         outranks the rule it was written to spare. A dialog header is
+*         never inside .rakHdr, so the scoped form below cannot collide.
+*         No .sapMListTblHeaderCell either - it has a weight of its own.
+          |.sapMDialogTitle,.sapMDialog .sapMIBar .sapMTitle,| &&
+          |.sapMPanelHdr,.sapMLabelBold,b,strong,th| &&
+          |\{font-weight:700!important;\}| &&
           |.sapUiBody,.sapMPage,.sapMShell\{background:#F5F6F8!important;\}| &&
           |.rakHdr,.rakHdrTitle,.rakSub,.rakBlkTitle,.sapMTitle| &&
           |\{text-transform:none!important;\}| &&
