@@ -840,6 +840,31 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakCard .sapMMultiComboBox,.rakCard .sapMDP,.rakCard .sapMDTP,| &&
         |.rakCard .sapMTP\{width:100%;\}| &&
 
+*     A COMBOBOX SUGGESTION LONGER THAN THE BOX WAS CUT, and unlike the
+*     Select there is no property for it. sap.m.Select has WRAPITEMSTEXT
+*     and the renderer now passes it; sap.m.ComboBox has nothing
+*     equivalent - the z2ui5 wrapper exposes WIDTH and no more - so the
+*     typable dropdown went on truncating "Environment Protection &
+*     Development Aut" with no ellipsis to say it had been cut. On the
+*     e-complaints agency list several entries differ only past that
+*     point, so the citizen chooses between lines that look identical.
+*
+*     Three declarations because one is not enough: the text has to be
+*     allowed to wrap, the ellipsis has to stop clipping it, and the
+*     LIST ITEM has to be allowed to grow - UI5 gives it a fixed height
+*     and wrapped text inside a fixed-height row is hidden rather than
+*     shown, which looks exactly like the rule not being applied.
+*
+*     SCOPED TO THE PICKER POPOVER. .sapMComboBoxBasePicker is the
+*     dropdown's own root, so nothing on the form itself is touched and
+*     no other list in the app can match this.
+        |.sapMComboBoxBasePicker .sapMLIB\{height:auto;min-height:2rem;\}| &&
+        |.sapMComboBoxBasePicker .sapMSLITitleOnly,| &&
+        |.sapMComboBoxBasePicker .sapMSLITitle,| &&
+        |.sapMComboBoxBasePicker .sapMSelectListItem| &&
+        |\{white-space:normal;overflow:visible;text-overflow:clip;| &&
+        |line-height:1.35;\}| &&
+
 *     UPLOAD CELLS. The multi-column Documents layout itself is NOT a defect and
 *     is not touched here: render_step packs consecutive UPLOAD fields into a
 *     rakRow when the step sets COLUMNS 2..4, on purpose, so a twelve-file step
