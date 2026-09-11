@@ -1738,7 +1738,17 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   same fact, resolved a few lines above. Read through NAV_LOCKED( ) so the
 *   footer, the stepper dots, the tab strip and the event handler cannot
 *   disagree about it.
-    IF iv_linear = abap_true AND mo_e->mv_step > 0 AND mo_e->nav_locked( ) = abap_false.
+*   MV_ENTRY_STEP, NOT ZERO. A launch that landed past step 0 through
+*   &step= has a floor: the steps before it were never drawn, never filled
+*   and never posted, so Back would offer the citizen a page they have not
+*   been on. On D004 that is the licence picker with nothing picked - the
+*   page the deep link exists to skip. Zero on every ordinary launch, so
+*   nothing changes there.
+*
+*   The BACK event refuses below the same floor. Both read one number
+*   because a hidden button is not an unreachable event.
+    IF iv_linear = abap_true AND mo_e->mv_step > mo_e->mv_entry_step
+       AND mo_e->nav_locked( ) = abap_false.
       lo_box->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-back iv_default = 'Back' )
                       icon  = 'sap-icon://nav-back'
                       class = mo_e->mo_css->cls( 'BTN_ALT' )

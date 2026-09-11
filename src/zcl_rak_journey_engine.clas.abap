@@ -398,6 +398,26 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   it out on the first round trip.
     DATA mv_resumed TYPE abap_bool.
 
+*   THE FLOOR BACK CANNOT GO BELOW - the step an explicit &step= landed on,
+*   and zero on every ordinary launch.
+*
+*   Back exists to undo a move the citizen made. On a launch that lands at
+*   step 2 from a portal action they made no move: steps 0 and 1 were never
+*   drawn, never filled and never posted, so Back offered a screen they had
+*   not been on. On D004 that screen is the licence picker with nothing
+*   picked - the exact page the deep link exists to skip, and one that reads
+*   as "choose a licence" on a case that already has one.
+*
+*   ONLY FOR AN EXPLICIT &step=. The PAY_ONLY landing also moves the entry
+*   step, and it deliberately does NOT raise this floor: there the citizen is
+*   coming back to their own application and may legitimately want to read
+*   what they filled in earlier. That path keeps today's behaviour exactly.
+*
+*   PUBLIC because RENDER_FOOTER( ) decides whether to draw the button and
+*   the BACK event decides whether to honour it - and both have to read the
+*   same number. A hidden button is not an unreachable event.
+    DATA mv_entry_step TYPE i.
+
     METHODS case_mode RETURNING VALUE(rv) TYPE string.
 *   Index of the step carrying the PAYFEE control, -1 when the journey has
 *   none. Matched on FTYPE, not on the field being called PAYFEE.
@@ -1039,7 +1059,16 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         WHEN 'BACK'.
           IF nav_locked( ) = abap_true.
             nav_locked_msg( ).
-          ELSEIF mv_step > 0.
+*         MV_ENTRY_STEP, NOT ZERO. On a launch that landed past step 0 the
+*         floor is where it landed - the earlier steps were never drawn,
+*         never filled and never posted, so going "back" to one shows the
+*         citizen a page they have not been on. Zero on every ordinary
+*         launch, so this reads as it always did there.
+*
+*         Checked here as well as in RENDER_FOOTER( ), which stops drawing
+*         the button at the same floor: a hidden button is not an
+*         unreachable event, and a stale tab can still post BACK.
+          ELSEIF mv_step > mv_entry_step.
             mv_step = mv_step - 1.
 *           RE-READ, the way ADVANCE_STEP( ) does. Going back used to move
 *           the index and nothing else, so the citizen saw the last state
@@ -1360,6 +1389,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     DATA(lv_entry) = param_step( ).
     IF lv_entry >= 0.
       mv_step = lv_entry.
+*     AND THE FLOOR WITH IT. See MV_ENTRY_STEP: the citizen made no move to
+*     get here, so there is nothing behind them to go back to.
+      mv_entry_step = lv_entry.
       trace( |entry step { mv_step } from &step= · screen | &&
              |{ VALUE #( ms_config-steps[ mv_step + 1 ]-bknd_screen OPTIONAL ) }| ).
     ENDIF.
