@@ -595,6 +595,18 @@ These raise nothing and render nothing. They account for most of the bugs found 
   names: a field with **both** `REGEX` and `MIN_VAL`/`MAX_VAL` that configures only
   `FORMAT:` silently shows the catalogue's "&1 must be a valid number" instead. Write
   `NUMBER:` as well as `FORMAT:` on any field that has both.
+- **`MIN_VAL`/`MAX_VAL` do two different jobs, and which one you get is the ftype.**
+  On `SLIDER`, `STEPPER` and `RATING` they bound the **control** — the citizen cannot
+  leave the range because the widget won't let them. On `NUMBER`, `CURRENCY`, `INPUT` and
+  `COUNT` they are a **submit check** in `VALIDATE_STEP( )`, because those are the
+  free-entry types where the value arrives typed. `COUNT` was missing from that second list
+  for four rounds: the column was read by the repository, loaded into the field's validation
+  structure, and never looked at — and a `NUMBER:` clause in that field's `MSG` was
+  unreachable with it. **`MAX_LEN` does not substitute on a `COUNT`**: the mask bounds the
+  *length*, not the value, so `MAX_LEN 2` with `MAX_VAL 30` accepted 99 — through a
+  `MaskInput` that had told the citizen every keystroke was fine. Every other omission in
+  that gate is argued in a comment beside it; if you add an ftype that takes a typed number,
+  add it there too.
 - **Config before code.** Show/hide belongs in `ZRAK_T_JNY_RULE`, options in `ZRAK_T_JNY_OPT`.
   Write ABAP for payment routing, live BP search, cross-container side effects.
 - **Migrating a legacy screen?** Drive `ZCL_RAK_MIGRATOR`. Do not hand-author `ZRAK_T_JNY*`

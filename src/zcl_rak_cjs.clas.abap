@@ -2510,8 +2510,18 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     f->label( 'Regex' ).      f->input( value = mo_client->_bind_edit( fv_regex ) ).
     f->label( 'Min length' ). f->input( value = mo_client->_bind_edit( fv_minlen ) ).
     f->label( 'Max length' ). f->input( value = mo_client->_bind_edit( fv_maxlen ) ).
-    f->label( 'Min value' ).  f->input( value = mo_client->_bind_edit( fv_minval ) placeholder = 'slider/stepper/number floor' ).
-    f->label( 'Max value' ).  f->input( value = mo_client->_bind_edit( fv_maxval ) placeholder = 'slider/stepper/rating ceiling' ).
+*   TWO DIFFERENT JOBS BEHIND ONE PAIR OF COLUMNS, and the old placeholders
+*   named only the first. On SLIDER, STEPPER and RATING these bound the
+*   CONTROL - the citizen cannot leave the range because the widget will not
+*   let them. On NUMBER, CURRENCY, INPUT and COUNT they are a SUBMIT check in
+*   VALIDATE_STEP( ), because those are the free-entry types where the value
+*   arrives typed. Naming only slider/stepper/rating read as the list of
+*   ftypes that honour the column at all, which is how COUNT went four rounds
+*   configured and unchecked.
+    f->label( 'Min value' ).  f->input( value = mo_client->_bind_edit( fv_minval )
+    placeholder = 'floor - slider/stepper/rating bound the control; number/currency/input/count are checked on submit' ).
+    f->label( 'Max value' ).  f->input( value = mo_client->_bind_edit( fv_maxval )
+    placeholder = 'ceiling - same four types checked on submit; on COUNT this is the VALUE, MAX_LEN is the length' ).
 *   One column, several checks - so it may be written per check. Plain text
 *   still goes to every check that reads MSG, exactly as before; the keyed form
 *   REQUIRED:.. ;FORMAT:.. ;RANGE:.. ;NUMBER:.. ;LEN:.. ;*:.. answers each one

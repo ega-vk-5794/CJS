@@ -572,7 +572,25 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
 *     dump, so configuring MIN_VAL/MAX_VAL on a genuinely textual INPUT field
 *     is now the failure mode - the citizen is loudly told, not silently
 *     ignored as before.
-      IF ( ls_f-type = 'NUMBER' OR ls_f-type = 'CURRENCY' OR ls_f-type = 'INPUT' )
+*
+*     COUNT belongs here and was missing, which is the one omission in this
+*     method with no reason written next to it. It is a free-entry numeric
+*     type - RENDER_ONE( )'s own branch calls it "a bounded whole number" -
+*     so it is excluded by neither half of the rule above: its bounds are not
+*     enforced by its control the way SLIDER/STEPPER/RATING are.
+*
+*     MAX_LEN DOES NOT SUBSTITUTE, and on a COUNT that is worse than it
+*     sounds. The mask bounds the LENGTH, not the value: a field configured
+*     MAX_LEN 2 with MAX_VAL 30 accepts 99, and accepts it through a
+*     MaskInput that has told the citizen every keystroke was fine. A 'NUMBER:'
+*     clause in that field's MSG was unreachable for the same reason.
+*
+*     Safe by the time it gets here: NORM_MASKED( ) has already stripped the
+*     mask's placeholder characters, once per round trip and before every
+*     read below it, so the value this sees is digits or nothing - and
+*     nothing CONTINUEs at the blank test above.
+      IF ( ls_f-type = 'NUMBER' OR ls_f-type = 'CURRENCY' OR ls_f-type = 'INPUT'
+           OR ls_f-type = 'COUNT' )
          AND ( lv_v-min_val IS NOT INITIAL OR lv_v-max_val IS NOT INITIAL ).
         TRY.
             DATA(lv_num) = CONV decfloat34( lv_val ).
