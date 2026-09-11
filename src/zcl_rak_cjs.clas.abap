@@ -2939,8 +2939,18 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   Disabled rather than deleted: the column still exists in ZRAK_T_JNY_COL and
 *   journeys already carry values in it. Removing the control would leave those
 *   values on rows with nothing on screen to explain where they came from.
-    f->label( 'Pinned (not supported)' ).
+*
+*   AND IT NOW POINTS SOMEWHERE. What an author ticking PINNED wants is a
+*   heading that survives scrolling, and that exists: every table draws with
+*   STICKY = 'ColumnHeaders' in both renderers, with no configuration to find
+*   and nothing to tick. Saying only "not supported" left them looking for the
+*   feature they had already been given.
+    f->label( 'Pinned (not supported - see below)' ).
     f->checkbox( selected = mo_client->_bind_edit( cv_pinned ) enabled = abap_false ).
+    f->label( '' ).
+    f->text( text = 'A frozen column is not a sap.m.Table feature. The column HEADINGS ' &&
+                    'already stay in view on every table while the rows scroll - that is ' &&
+                    'on by default and needs nothing set here.' ).
     f->label( 'Read only' ).     f->checkbox( selected = mo_client->_bind_edit( cv_readonly ) ).
 *   ENFORCED, unlike PINNED and DECIMALS either side of it. The label said
 *   "not enforced yet" long after it was wired up, which is the more damaging
