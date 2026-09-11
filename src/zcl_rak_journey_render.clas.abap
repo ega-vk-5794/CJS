@@ -514,12 +514,32 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
     DATA(lv_count) = render_chips( io_box = lo_box iv_field = is_field-name ).
 
+*   ONE FILE PER UPLOADER, AND ATTACH_MULTI NO LONGER OVERRIDES IT.
+*
+*   The backend creates one attachment per TYPE. GET_ATTACHMENT( )
+*   de-duplicates on (objsrc, diffcrt, objsrctype, objtrgtype), and two
+*   files on one field share a field and therefore share a type - so the
+*   second and third were being discarded on the way in. The uploader was
+*   offering something the backend has never accepted: the citizen picked
+*   three documents, saw three chips, and one arrived.
+*
+*   So the condition is now the chip count alone. A field that has a file
+*   draws no picker; delete the chip and the picker comes back, which is
+*   how a citizen replaces the wrong document.
+*
+*   ATTACH_MULTI IS LEFT IN DDIC AND IGNORED, deliberately. Seven feeders
+*   set it - D009, E014, E015, E027, E028, E029 and Notary - and dropping
+*   the column would break every one of them on load for a flag that was
+*   never honoured end to end anyway. Making it inert is the change; the
+*   column stays until someone retires it deliberately, which is the same
+*   conversation PINNED is waiting on.
+*
 *   A FROZEN CASE TAKES NO MORE FILES. Making the field readonly is not
-*   enough on its own: whether the uploader is drawn is decided here, from
-*   ATTACH_MULTI and the chip count, and neither of those knows the case
-*   has been paid for. Without this the citizen can still attach to - and
-*   delete from - an application they can no longer edit.
-    IF ( is_field-attach_multi = abap_true OR lv_count = 0 )
+*   enough on its own: whether the uploader is drawn is decided here, and
+*   the chip count does not know the case has been paid for. Without this
+*   the citizen can still attach to - and delete from - an application
+*   they can no longer edit.
+    IF lv_count = 0
        AND mo_e->case_mode( ) = mo_e->c_mode_edit.
       render_uploader( io_box   = lo_box
                        iv_field = is_field-name

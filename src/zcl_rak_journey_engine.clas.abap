@@ -944,6 +944,33 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
               EXIT.
             ENDIF.
           ENDLOOP.
+*         ONE FILE PER UPLOADER, ENFORCED HERE AND NOT ONLY DRAWN.
+*
+*         RENDER_ATTACH( ) stops drawing the picker once a chip exists, but
+*         a hidden control is not an unreachable event: a stale tab, a
+*         second window on the same journey, or a handler-drawn uploader in
+*         a popup can all still post a file. Without this the count the
+*         renderer trusts and the table it counts disagree.
+*
+*         REPLACE RATHER THAN REFUSE. The citizen picked a file for a field
+*         that already has one, and the only thing they can mean by that is
+*         "use this one instead" - refusing with a message would leave the
+*         old document in place while telling them the new one failed. The
+*         old file is dropped from the store as well, so nothing is left
+*         orphaned in ZRAK_CJ_ATTX.
+*
+*         KEYED ON FIELD AND OCCURRENCE. OKEY is what separates one owner's
+*         Emirates ID copy from another's on a repeating uploader, so
+*         replacing on FIELD alone would let a second owner's upload delete
+*         the first owner's document.
+          LOOP AT mt_attach INTO DATA(ls_att_old)
+               WHERE field = lv_att_field AND okey = lv_att_key.
+            zcl_rak_cj_att_store=>delete( ls_att_old-guid ).
+            trace( |ATTACH  { lv_att_field } replaced { ls_att_old-name } with { mv_att_name } | &&
+                   |- one file per uploader| ).
+          ENDLOOP.
+          DELETE mt_attach WHERE field = lv_att_field AND okey = lv_att_key.
+
           APPEND VALUE #( field = lv_att_field
                           tech  = lv_att_tech
                           name  = mv_att_name
