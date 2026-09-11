@@ -240,6 +240,16 @@ INTERFACE zif_rak_journey
     BEGIN OF ty_table,
       columns TYPE tt_string,
       rows    TYPE STANDARD TABLE OF tt_string WITH EMPTY KEY,
+"     R18-2. HOW MANY ROWS EXIST, not how many are in ROWS. Only the
+"     handler knows it, and the pager cannot say "showing 501-600 of
+"     2,431" without it.
+"
+"     ZERO MEANS THE HANDLER DID NOT SAY, and that is a legitimate answer
+"     rather than an error: a handler that fills COLUMNS and ROWS by name
+"     and ignores this leaves it at zero, and the pager falls back to
+"     Previous / Next with no count. Adding the component is therefore
+"     source-compatible with all 32 GET_TABLE( ) implementations.
+      total   TYPE i,
     END OF ty_table.
   TYPES:
     BEGIN OF ty_attach,

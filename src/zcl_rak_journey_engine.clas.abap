@@ -418,6 +418,29 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   same number. A hidden button is not an unreachable event.
     DATA mv_entry_step TYPE i.
 
+*   R18-2. WHERE EACH PAGED TABLE'S WINDOW STARTS, keyed on the field.
+*
+*   Per field rather than one number, because a step can carry two long
+*   tables and paging one must not move the other. Public because
+*   RENDER_BLOCK( ) reads it to build the window and to draw the pager,
+*   and it rides the serialized instance so a page survives a round trip
+*   the way MV_STEP does.
+*
+*   An absent entry is offset zero, which is every table that has never
+*   been paged - so nothing here changes a table whose GROW_THRESH is
+*   blank, and there is no state to initialise.
+    DATA mt_page TYPE zif_rak_journey=>tt_kv.
+
+*   Move one page of IV_FIELD. IV_DIR is +1 or -1. Clamped at zero and at
+*   the last page the total allows; with no total it simply refuses to go
+*   below zero, which is all the information available.
+    METHODS page_move IMPORTING iv_field TYPE string
+                                iv_dir   TYPE i.
+
+*   The window offset for a field, zero when it has never been paged.
+    METHODS page_offset IMPORTING iv_field  TYPE string
+                        RETURNING VALUE(rv) TYPE i.
+
     METHODS case_mode RETURNING VALUE(rv) TYPE string.
 *   Index of the step carrying the PAYFEE control, -1 when the journey has
 *   none. Matched on FTYPE, not on the field being called PAYFEE.
@@ -740,6 +763,20 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
           mv_close_page = abap_true.
         ENDIF.
       ENDIF.
+
+*   R18-2. THE PAGER. Two events, one per direction, carrying the field
+*   they belong to - the same shape as ROWPICK_ below and for the same
+*   reason: a step can hold two paged tables and the event has to say
+*   which one moved.
+*
+*   CP rather than an offset, per the standing rule about IV_EVENT: it is
+*   a STRING and a short event name makes an offset throw
+*   CX_SY_RANGE_OUT_OF_BOUNDS. A pattern match cannot run off the end.
+    ELSEIF lv_event CP 'PAGEPREV_*'.
+      page_move( iv_field = substring( val = lv_event off = 9 ) iv_dir = -1 ).
+
+    ELSEIF lv_event CP 'PAGENEXT_*'.
+      page_move( iv_field = substring( val = lv_event off = 9 ) iv_dir = 1 ).
 
     ELSEIF strlen( lv_event ) > 8 AND substring( val = lv_event len = 8 ) = 'ROWPICK_'.
       SPLIT substring( val = lv_event off = 8 ) AT '~' INTO DATA(lv_rpf) DATA(lv_rpk).
@@ -2624,6 +2661,46 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   IV_CARRY for the two guards that keep it safe: filled values only, and
 *   no TECHNICALNAME that the journey does not already send anyway.
     mo_be->backend_read( iv_step = mv_step iv_carry = abap_true ).
+  ENDMETHOD.
+
+
+  METHOD page_offset.
+    rv = CONV i( VALUE string( mt_page[ key = to_upper( iv_field ) ]-value DEFAULT '0' ) ).
+    IF rv < 0.
+      rv = 0.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD page_move.
+*   THE PAGE SIZE IS THE FIELD'S OWN GROW_THRESH, read here rather than
+*   passed in, so the event and the renderer cannot disagree about how big
+*   a page is - one column, one reader.
+    DATA(ls_f) = safe_field( iv_field ).
+    IF ls_f-grow_thresh <= 0.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_new) = page_offset( iv_field ) + iv_dir * ls_f-grow_thresh.
+    IF lv_new < 0.
+      lv_new = 0.
+    ENDIF.
+
+*   NO UPPER CLAMP HERE, and that is deliberate rather than missing. The
+*   total belongs to the handler and is only known once GET_TABLE( ) has
+*   answered, which happens during the render that follows this event. The
+*   renderer clamps against the total it was given and writes the clamped
+*   value back, so a Next pressed on the last page corrects itself on the
+*   same round trip instead of needing the total to be fetched twice.
+    DATA(lv_key) = to_upper( iv_field ).
+    READ TABLE mt_page ASSIGNING FIELD-SYMBOL(<pg>) WITH KEY key = lv_key.
+    IF sy-subrc = 0.
+      <pg>-value = |{ lv_new }|.
+    ELSE.
+      APPEND VALUE #( key = lv_key value = |{ lv_new }| ) TO mt_page.
+    ENDIF.
+
+    trace( |PAGE    { lv_key } offset { lv_new } (size { ls_f-grow_thresh })| ).
   ENDMETHOD.
 
 

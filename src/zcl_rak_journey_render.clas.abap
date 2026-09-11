@@ -935,9 +935,22 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       WHEN 'TABLE'.
         io_parent->title( text = zcl_rak_journey_util=>esc( is_field-label ) class = |{ mo_e->mo_css->cls( 'SECTION' ) } rakBlkTitle| ).
         DATA ls_data TYPE zif_rak_journey=>ty_table.
+
+*       R18-2. THE WINDOW. GROW_THRESH is the page size - the column
+*       already exists, is read by the repository, is on TY_FIELD and its
+*       Studio input already says "Rows before More", which is precisely a
+*       page size. Blank or zero is no window, which is every table
+*       configured today.
+        DATA(lv_psize) = is_field-grow_thresh.
+        DATA(lv_poff)  = COND i( WHEN lv_psize > 0
+                                 THEN mo_e->page_offset( is_field-name ) ).
+
         IF mo_e->mo_logic IS BOUND.
           TRY.
-              ls_data = mo_e->mo_logic->get_table( io_ctx = mo_e iv_name = is_field-name ).
+              ls_data = mo_e->mo_logic->get_table( io_ctx       = mo_e
+                                                   iv_name      = is_field-name
+                                                   iv_offset    = lv_poff
+                                                   iv_page_size = lv_psize ).
             CATCH cx_root INTO DATA(lx_tab).
               mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
                 text = |Table { is_field-label } unavailable: { lx_tab->get_text( ) }| ) ).
@@ -947,6 +960,58 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
         IF ls_data-rows IS INITIAL.
           ls_data = mo_e->zif_rak_journey~get_backend_table( is_field-name ).
+        ENDIF.
+
+*       ---- R18-2. THE WINDOW IS A REQUEST, SO THE ENGINE ENFORCES IT ----
+*       A handler that ignores IV_PAGE_SIZE hands back every row. Without
+*       this the pager would say "showing 1-100 of 2,431" with all 2,431
+*       drawn underneath it - a page count that does not match the page,
+*       which is worse than no pager at all. Windowed here, and traced, so
+*       such a handler is merely not saving the payload rather than lying
+*       about it.
+        DATA lv_ptot TYPE i.
+        lv_ptot = ls_data-total.
+        IF lv_psize > 0.
+
+*         NO TOTAL FROM THE HANDLER MEANS IT DID NOT SAY, and the honest
+*         reading depends on whether it windowed. A handler that returned
+*         more than a page clearly did not, so the row count IS the total;
+*         one that returned a page or less has told us nothing about what
+*         lies beyond it, and the pager falls back to Previous / Next with
+*         no count.
+          IF lv_ptot <= 0 AND lines( ls_data-rows ) > lv_psize.
+            lv_ptot = lines( ls_data-rows ).
+          ENDIF.
+
+          IF lines( ls_data-rows ) > lv_psize.
+            mo_e->trace( |PAGE    { to_upper( is_field-name ) } handler returned | &&
+                         |{ lines( ls_data-rows ) } rows for a window of { lv_psize } | &&
+                         |- windowed in the renderer. The rows still travelled.| ).
+            DATA(lt_pwin) = ls_data-rows.
+            CLEAR ls_data-rows.
+            DATA lv_pix TYPE i.
+            LOOP AT lt_pwin INTO DATA(lt_prow).
+              lv_pix = lv_pix + 1.
+              IF lv_pix <= lv_poff.
+                CONTINUE.
+              ENDIF.
+              IF lines( ls_data-rows ) >= lv_psize.
+                EXIT.
+              ENDIF.
+              APPEND lt_prow TO ls_data-rows.
+            ENDLOOP.
+          ENDIF.
+
+*         A NEXT PRESSED PAST THE END CORRECTS ITSELF HERE. PAGE_MOVE( )
+*         deliberately does not clamp upwards - the total is the handler's
+*         and is only known once it has answered, which is now. Writing the
+*         corrected offset back means the citizen sees the last page rather
+*         than an empty one, on the same round trip.
+          IF ls_data-rows IS INITIAL AND lv_poff > 0.
+            mo_e->page_move( iv_field = is_field-name iv_dir = -1 ).
+            lv_poff = mo_e->page_offset( is_field-name ).
+            mo_e->trace( |PAGE    { to_upper( is_field-name ) } past the end - back to offset { lv_poff }| ).
+          ENDIF.
         ENDIF.
 
         DATA(lv_chk) = xsdbool( is_field-default CP 'CHK:*' ).
@@ -1252,6 +1317,50 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             ENDIF.
           ENDIF.
         ENDLOOP.
+
+*       ---- R18-2. THE PAGER, drawn by the engine, under the table ------
+*       Only when the field asked for a window. Blank or zero GROW_THRESH
+*       draws nothing, which is every table that exists today.
+        IF lv_psize > 0 AND ( lv_poff > 0 OR lines( ls_data-rows ) >= lv_psize ).
+          DATA(lo_pbar) = io_parent->hbox( justifycontent = 'End'
+                                           alignitems     = 'Center'
+                                           class          = 'sapUiSmallMarginBeginEnd sapUiTinyMarginBottom' ).
+
+*         THE COUNT ONLY WHERE THERE IS ONE. Without a total from the
+*         handler the pager says nothing about how far the list runs
+*         rather than guessing - "showing 501-600" with no "of" is honest,
+*         "of 600" would not be.
+          DATA(lv_from) = lv_poff + 1.
+          DATA(lv_to)   = lv_poff + lines( ls_data-rows ).
+          lo_pbar->text(
+            text  = COND string(
+                      WHEN lv_ptot > 0 THEN |{ lv_from }-{ lv_to } / { lv_ptot }|
+                      ELSE |{ lv_from }-{ lv_to }| )
+            class = 'sapUiSmallMarginEnd' ).
+
+*         THE CATALOGUE'S OWN BACK / NEXT PAIR, not a new one. They are
+*         already bilingual, they are the pair the footer uses, and
+*         IV_DEFAULT here says 'Back' rather than 'Previous' because the
+*         catalogue row wins - a default the catalogue overrides is a
+*         comment that disagrees with the screen.
+          lo_pbar->button(
+            text    = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-back iv_default = 'Back' )
+            icon    = 'sap-icon://navigation-left-arrow'
+            enabled = xsdbool( lv_poff > 0 )
+            class   = 'sapUiTinyMarginEnd'
+            press   = mo_e->mo_client->_event( |PAGEPREV_{ is_field-name }| ) ).
+
+*         NEXT IS OFF ON A SHORT PAGE. A page holding fewer rows than the
+*         window is the last one, whatever the total says - that test
+*         needs no total and cannot disagree with one.
+          lo_pbar->button(
+            text      = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-next iv_default = 'Next' )
+            icon      = 'sap-icon://navigation-right-arrow'
+            iconfirst = abap_false
+            enabled   = xsdbool( lines( ls_data-rows ) >= lv_psize
+                                 AND ( lv_ptot <= 0 OR lv_to < lv_ptot ) )
+            press     = mo_e->mo_client->_event( |PAGENEXT_{ is_field-name }| ) ).
+        ENDIF.
     ENDCASE.
   ENDMETHOD.
 

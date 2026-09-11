@@ -63,9 +63,41 @@ INTERFACE zif_rak_journey_logic
     IMPORTING io_ctx    TYPE REF TO zif_rak_journey
               iv_field  TYPE string
     RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
+  " R18-2. THE ENGINE ASKS FOR A WINDOW AND THE HANDLER ANSWERS WITH A
+  " WINDOW. Neither half works alone: the engine cannot make the payload
+  " small if the handler still assembles every row, and the handler cannot
+  " draw a pager the engine owns.
+  "
+  " IV_PAGE_SIZE zero means "no window - return everything", which is
+  " every table configured today and every handler written before this
+  " existed. IV_OFFSET is the zero-based first row the engine wants.
+  "
+  " IN THE SIGNATURE RATHER THAN ON IO_CTX, deliberately. A reader on the
+  " context is invisible: a handler that does not know to call it returns
+  " every row, the pager says "page 1 of 20", and all two thousand rows
+  " render underneath it - nothing errors. That is the
+  " read-as-configured, behave-as-unconfigured shape this project keeps
+  " meeting. In the signature, an author implementing GET_TABLE( ) sees
+  " the window in the method they are writing.
+  "
+  " ADDING AN OPTIONAL PARAMETER COSTS NO SOURCE CHANGE anywhere. Neither
+  " an implementation nor a redefinition restates the signature, so the 32
+  " classes that implement this and the 5 that INTERFACE it need
+  " re-activation, not editing.
+  "
+  " THE WINDOW IS A REQUEST, NOT A GUARANTEE. A handler that ignores it
+  " and returns everything still renders correctly - RENDER_BLOCK( )
+  " windows the excess itself and says so on the trace. It simply does not
+  " save the payload, which is the whole point of the exercise.
+  "
+  " RE-READING PER PAGE HAS A COST and it is the handler's to solve. A
+  " handler that queries per call runs its query again for page 3; cache
+  " it, or park the result, but know that it happens.
   METHODS get_table
     IMPORTING io_ctx         TYPE REF TO zif_rak_journey
               iv_name        TYPE string
+              iv_offset      TYPE i DEFAULT 0
+              iv_page_size   TYPE i DEFAULT 0
     RETURNING VALUE(rs_data) TYPE zif_rak_journey=>ty_table.
 
   " RESERVED - not yet called by the engine. These are the landing pads for
