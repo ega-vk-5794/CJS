@@ -65,9 +65,27 @@ CLASS lcl_app DEFINITION FINAL.
            END OF ty_pair.
     TYPES ty_t_pair TYPE HASHED TABLE OF ty_pair WITH UNIQUE KEY en.
 
+*   FOUR MAPS, NOT TWO: an EXACT one and a NORMALISED one per table.
+*
+*   Normalising alone was wrong, and the legacy data says so plainly:
+*
+*     DOKSL_ND001_1_3_CYCLE_1   "Cycle 1"   الدورة الأولى
+*     DOKSL_ND001_2_4_CYCLE_1   "CYCLE 1"   المرحلة الأولى
+*
+*   Two rows, different Arabic, distinguished ONLY by case. Exactly they
+*   are two keys and each matches its own journey correctly - which is
+*   what the first run did. Upper-cased they collide, disagree, and both
+*   become AMBIG: a working fill turned into manual work.
+*
+*   So exact wins and normalised is the fallback. A journey whose English
+*   matches a legacy row character for character takes that row's Arabic;
+*   only a text that matches nothing exactly falls through to the loose
+*   key, which is where "Teacher Flag" and "Documents:" are recovered.
     CLASS-METHODS legacy_pairs
-      EXPORTING et_lbl TYPE ty_t_pair
-                et_val TYPE ty_t_pair.
+      EXPORTING et_lbl     TYPE ty_t_pair
+                et_val     TYPE ty_t_pair
+                et_lbl_nrm TYPE ty_t_pair
+                et_val_nrm TYPE ty_t_pair.
 
 *   THE MATCH KEY, applied to BOTH sides so they cannot drift.
 *
@@ -86,6 +104,15 @@ CLASS lcl_app DEFINITION FINAL.
     CLASS-METHODS norm
       IMPORTING iv_txt        TYPE clike
       RETURNING VALUE(rv_key) TYPE string.
+
+*   Insert a pair, or mark the key ambiguous when a second row disagrees.
+*   One method because the same three lines were being written four times
+*   - twice per table, once per map - which is how two of them end up
+*   deciding ambiguity differently.
+    CLASS-METHODS add_pair
+      IMPORTING iv_en   TYPE string
+                iv_ar   TYPE string
+      CHANGING  ct_pair TYPE ty_t_pair.
 
     CLASS-METHODS do_backfill
       IMPORTING it_journey TYPE zif_rak_cj_text_src=>ty_t_journey.
@@ -189,6 +216,24 @@ CLASS lcl_app IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD add_pair.
+    IF iv_en IS INITIAL OR iv_ar IS INITIAL.
+      RETURN.
+    ENDIF.
+    READ TABLE ct_pair ASSIGNING FIELD-SYMBOL(<p>) WITH TABLE KEY en = iv_en.
+    IF sy-subrc = 0.
+*     A SECOND ROW THAT AGREES IS NOT AMBIGUITY. Most duplicates are the
+*     same caption on two screens with the same Arabic, and marking those
+*     would refuse work for no reason.
+      IF <p>-ar <> iv_ar.
+        <p>-amb = abap_true.
+      ENDIF.
+    ELSE.
+      INSERT VALUE #( en = iv_en ar = iv_ar ) INTO TABLE ct_pair.
+    ENDIF.
+  ENDMETHOD.
+
+
   METHOD legacy_pairs.
 
 *   ENGLISH IS THE JOIN KEY, and it is a sound one rather than a
@@ -205,7 +250,7 @@ CLASS lcl_app IMPLEMENTATION.
 *   says so, because picking one at random would put the wrong Arabic on
 *   a citizen's form and nothing downstream would ever flag it. Where the
 *   duplicates agree, which is most of them, it is not ambiguous at all.
-    CLEAR: et_lbl, et_val.
+    CLEAR: et_lbl, et_val, et_lbl_nrm, et_val_nrm.
 
     SELECT spras, label_code, labeltext FROM /qnv/sb_labelt
       INTO TABLE @DATA(lt_l).                             "#EC CI_NOWHERE
@@ -216,7 +261,7 @@ CLASS lcl_app IMPLEMENTATION.
     DATA lv_ar TYPE string.
 
     LOOP AT lt_l INTO DATA(ls_l) WHERE spras = 'E'.
-      lv_en = norm( ls_l-labeltext ).
+      lv_en = condense( CONV string( ls_l-labeltext ) ).
       CHECK lv_en IS NOT INITIAL.
       READ TABLE lt_l INTO DATA(ls_la) WITH KEY spras = 'A' label_code = ls_l-label_code.
       IF sy-subrc <> 0.
@@ -225,18 +270,12 @@ CLASS lcl_app IMPLEMENTATION.
       lv_ar = condense( CONV string( ls_la-labeltext ) ).
       CHECK lv_ar IS NOT INITIAL.
 
-      READ TABLE et_lbl ASSIGNING FIELD-SYMBOL(<p>) WITH TABLE KEY en = lv_en.
-      IF sy-subrc = 0.
-        IF <p>-ar <> lv_ar.
-          <p>-amb = abap_true.
-        ENDIF.
-      ELSE.
-        INSERT VALUE #( en = lv_en ar = lv_ar ) INTO TABLE et_lbl.
-      ENDIF.
+      add_pair( EXPORTING iv_en = lv_en           iv_ar = lv_ar CHANGING ct_pair = et_lbl ).
+      add_pair( EXPORTING iv_en = norm( lv_en )   iv_ar = lv_ar CHANGING ct_pair = et_lbl_nrm ).
     ENDLOOP.
 
     LOOP AT lt_v INTO DATA(ls_v) WHERE spras = 'E'.
-      lv_en = norm( ls_v-value_desc ).
+      lv_en = condense( CONV string( ls_v-value_desc ) ).
       CHECK lv_en IS NOT INITIAL.
       READ TABLE lt_v INTO DATA(ls_va) WITH KEY spras = 'A' value_code = ls_v-value_code.
       IF sy-subrc <> 0.
@@ -245,14 +284,8 @@ CLASS lcl_app IMPLEMENTATION.
       lv_ar = condense( CONV string( ls_va-value_desc ) ).
       CHECK lv_ar IS NOT INITIAL.
 
-      READ TABLE et_val ASSIGNING <p> WITH TABLE KEY en = lv_en.
-      IF sy-subrc = 0.
-        IF <p>-ar <> lv_ar.
-          <p>-amb = abap_true.
-        ENDIF.
-      ELSE.
-        INSERT VALUE #( en = lv_en ar = lv_ar ) INTO TABLE et_val.
-      ENDIF.
+      add_pair( EXPORTING iv_en = lv_en         iv_ar = lv_ar CHANGING ct_pair = et_val ).
+      add_pair( EXPORTING iv_en = norm( lv_en ) iv_ar = lv_ar CHANGING ct_pair = et_val_nrm ).
     ENDLOOP.
 
   ENDMETHOD.
@@ -260,7 +293,10 @@ CLASS lcl_app IMPLEMENTATION.
 
   METHOD do_backfill.
 
-    legacy_pairs( IMPORTING et_lbl = DATA(lt_lbl) et_val = DATA(lt_val) ).
+    legacy_pairs( IMPORTING et_lbl     = DATA(lt_lbl)
+                            et_val     = DATA(lt_val)
+                            et_lbl_nrm = DATA(lt_lbl_n)
+                            et_val_nrm = DATA(lt_val_n) ).
 
     IF lt_lbl IS INITIAL AND lt_val IS INITIAL.
       MESSAGE '/QNV/SB_LABELT and /QNV/SB_VALUET returned no EN/AR pairs in this client' TYPE 'E'.
@@ -291,13 +327,29 @@ CLASS lcl_app IMPLEMENTATION.
 *       Two READ TABLEs rather than one over a chosen table: READ TABLE
 *       takes a table, not an expression, and copying a hashed table to
 *       pick between them would cost more than the branch.
-        DATA(lv_key) = norm( ls_t-text_en ).
+*       EXACT FIRST, NORMALISED ONLY IF NOTHING MATCHED EXACTLY.
+*
+*       "Cycle 1" and "CYCLE 1" are two legacy rows with DIFFERENT Arabic
+*       - الدورة الأولى and المرحلة الأولى - separated only by case. Going
+*       straight to the normalised map collides them, marks both AMBIG and
+*       loses two fills that the exact compare gets right. So the loose key
+*       is a fallback for texts nothing matched, not a replacement.
+        DATA(lv_exact) = condense( ls_t-text_en ).
+        DATA(lv_key)   = norm( ls_t-text_en ).
+        DATA(lv_opt)   = xsdbool( ls_t-txt_kind = zcl_rak_cj_text_src_cfg=>c_kind-option ).
         DATA ls_p TYPE ty_pair.
         CLEAR ls_p.
-        IF ls_t-txt_kind = zcl_rak_cj_text_src_cfg=>c_kind-option.
-          READ TABLE lt_val INTO ls_p WITH TABLE KEY en = lv_key.
+
+        IF lv_opt = abap_true.
+          READ TABLE lt_val INTO ls_p WITH TABLE KEY en = lv_exact.
+          IF sy-subrc <> 0.
+            READ TABLE lt_val_n INTO ls_p WITH TABLE KEY en = lv_key.
+          ENDIF.
         ELSE.
-          READ TABLE lt_lbl INTO ls_p WITH TABLE KEY en = lv_key.
+          READ TABLE lt_lbl INTO ls_p WITH TABLE KEY en = lv_exact.
+          IF sy-subrc <> 0.
+            READ TABLE lt_lbl_n INTO ls_p WITH TABLE KEY en = lv_key.
+          ENDIF.
         ENDIF.
 
         IF sy-subrc <> 0.
