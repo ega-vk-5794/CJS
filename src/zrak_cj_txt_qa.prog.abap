@@ -35,6 +35,17 @@ PARAMETERS p_path TYPE string LOWER CASE DEFAULT 'C:\temp\cjs_texts.xls'.
 *   what the real one would do.
 PARAMETERS p_test AS CHECKBOX DEFAULT 'X'.
 
+*   BACKFILL ONLY, AND OFF BY DEFAULT. Assemble a caption the legacy
+*   tables do not hold from the parts they do: "Grade 2 - Uniform Fee" is
+*   not a row anywhere, but "Grade 2" and "Uniform Fee" both are.
+*
+*   It is the one thing in this report that PRODUCES Arabic rather than
+*   reading it. Composing two of the department's own rows is not a hand
+*   translation, but it is not a lookup either - so it stays a deliberate
+*   tick, and every row it fills is logged as COMPOSED rather than CHANGE
+*   so a reviewer can see exactly what was assembled.
+PARAMETERS p_comp AS CHECKBOX DEFAULT ' '.
+
 
 CLASS lcl_app DEFINITION FINAL.
 
@@ -81,11 +92,53 @@ CLASS lcl_app DEFINITION FINAL.
 *   matches a legacy row character for character takes that row's Arabic;
 *   only a text that matches nothing exactly falls through to the loose
 *   key, which is where "Teacher Flag" and "Documents:" are recovered.
-    CLASS-METHODS legacy_pairs
-      EXPORTING et_lbl     TYPE ty_t_pair
-                et_val     TYPE ty_t_pair
-                et_lbl_nrm TYPE ty_t_pair
-                et_val_nrm TYPE ty_t_pair.
+*   THE FOUR MAPS AS STATE, not as four exporting parameters threaded
+*   through every caller. LOOKUP( ) needs all four and COMPOSE( ) needs
+*   LOOKUP( ), and passing them down two levels was four parameters that
+*   could be passed in the wrong order.
+    CLASS-DATA gt_lbl     TYPE ty_t_pair.
+    CLASS-DATA gt_val     TYPE ty_t_pair.
+    CLASS-DATA gt_lbl_nrm TYPE ty_t_pair.
+    CLASS-DATA gt_val_nrm TYPE ty_t_pair.
+
+    CLASS-METHODS legacy_pairs.
+
+*   ONE ENGLISH TEXT, LOOKED FOR EVERYWHERE IT COULD BE.
+*
+*   Four attempts in order: the kind's own table exactly, the OTHER table
+*   exactly, then the same two normalised. IV_OPT only decides which table
+*   is tried FIRST - it no longer decides which table is tried at all.
+*
+*   That split was wrong and the /QNV/SB_VALUET dump is what showed it:
+*   "Books Fee", "Uniform Fee" and "School Fee" are all VALUET rows, and
+*   every one of them is a LABEL on the CJS side. Searching LABELT alone
+*   for a label meant they could never be found, however the key was
+*   normalised.
+    CLASS-METHODS lookup
+      IMPORTING iv_en        TYPE string
+                iv_opt       TYPE abap_bool
+      RETURNING VALUE(rs_p)  TYPE ty_pair.
+
+*   A COMPOSED CAPTION, ASSEMBLED FROM PARTS THAT ARE THEMSELVES REAL ROWS.
+*
+*   "Grade 2 - Uniform Fee" was never a legacy row and never will be: the
+*   legacy screen drew a fee TABLE, with the grades down the side and the
+*   fee kinds across the top, and the migration flattened it into one
+*   caption per cell. Both halves exist though - "Grade 2" in SB_LABELT,
+*   "Uniform Fee" in SB_VALUET - so the Arabic can be assembled from the
+*   department's own words rather than invented.
+*
+*   OFF BY DEFAULT AND LOGGED APART. This is the one thing in this report
+*   that PRODUCES Arabic rather than reading it, and the standing rule is
+*   that migrated wording is read and never hand-translated. Composing two
+*   real rows is not a hand translation, but it is not a lookup either -
+*   so it needs a human to turn it on and a separate action code in the
+*   log to review. Every part must resolve; one miss and the whole caption
+*   is left as NOTFOUND rather than half-filled.
+    CLASS-METHODS compose
+      IMPORTING iv_en       TYPE string
+                iv_opt      TYPE abap_bool
+      RETURNING VALUE(rv_ar) TYPE string.
 
 *   THE MATCH KEY, applied to BOTH sides so they cannot drift.
 *
@@ -234,6 +287,66 @@ CLASS lcl_app IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD lookup.
+    CLEAR rs_p.
+    DATA(lv_exact) = condense( iv_en ).
+    DATA(lv_key)   = norm( iv_en ).
+
+*   EXACT BEFORE NORMALISED, ALWAYS - "Cycle 1" and "CYCLE 1" carry
+*   different Arabic and only the exact compare tells them apart. The
+*   kind's own table is tried first at each level, so an OPTION still
+*   prefers SB_VALUET and a label still prefers SB_LABELT; the other
+*   table is a fallback rather than a competitor.
+    IF iv_opt = abap_true.
+      READ TABLE gt_val     INTO rs_p WITH TABLE KEY en = lv_exact.
+      IF sy-subrc <> 0. READ TABLE gt_lbl     INTO rs_p WITH TABLE KEY en = lv_exact. ENDIF.
+      IF sy-subrc <> 0. READ TABLE gt_val_nrm INTO rs_p WITH TABLE KEY en = lv_key.   ENDIF.
+      IF sy-subrc <> 0. READ TABLE gt_lbl_nrm INTO rs_p WITH TABLE KEY en = lv_key.   ENDIF.
+    ELSE.
+      READ TABLE gt_lbl     INTO rs_p WITH TABLE KEY en = lv_exact.
+      IF sy-subrc <> 0. READ TABLE gt_val     INTO rs_p WITH TABLE KEY en = lv_exact. ENDIF.
+      IF sy-subrc <> 0. READ TABLE gt_lbl_nrm INTO rs_p WITH TABLE KEY en = lv_key.   ENDIF.
+      IF sy-subrc <> 0. READ TABLE gt_val_nrm INTO rs_p WITH TABLE KEY en = lv_key.   ENDIF.
+    ENDIF.
+
+    IF sy-subrc <> 0.
+      CLEAR rs_p.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD compose.
+    CLEAR rv_ar.
+
+*   ONLY A HYPHEN-SEPARATED CAPTION. " - " with spaces, not a bare
+*   hyphen: "Pre-KG" and "Non Teaching" must not be torn in half, and a
+*   spaced hyphen is what the migration used to join the two parts.
+    IF iv_en NS ' - '.
+      RETURN.
+    ENDIF.
+
+    SPLIT iv_en AT ' - ' INTO TABLE DATA(lt_part).
+    IF lines( lt_part ) < 2.
+      RETURN.
+    ENDIF.
+
+    DATA lv_out TYPE string.
+    LOOP AT lt_part INTO DATA(lv_part).
+      DATA(ls_part) = lookup( iv_en = condense( lv_part ) iv_opt = iv_opt ).
+*     ALL OR NOTHING. A caption half in Arabic and half in English is
+*     worse than one still in English: it reads as a bug to the citizen
+*     and it hides from this report, because the row stops being blank.
+      IF ls_part-ar IS INITIAL OR ls_part-amb = abap_true.
+        CLEAR rv_ar.
+        RETURN.
+      ENDIF.
+      lv_out = COND #( WHEN lv_out IS INITIAL THEN ls_part-ar ELSE |{ lv_out } - { ls_part-ar }| ).
+    ENDLOOP.
+
+    rv_ar = lv_out.
+  ENDMETHOD.
+
+
   METHOD legacy_pairs.
 
 *   ENGLISH IS THE JOIN KEY, and it is a sound one rather than a
@@ -250,7 +363,7 @@ CLASS lcl_app IMPLEMENTATION.
 *   says so, because picking one at random would put the wrong Arabic on
 *   a citizen's form and nothing downstream would ever flag it. Where the
 *   duplicates agree, which is most of them, it is not ambiguous at all.
-    CLEAR: et_lbl, et_val, et_lbl_nrm, et_val_nrm.
+    CLEAR: gt_lbl, gt_val, gt_lbl_nrm, gt_val_nrm.
 
     SELECT spras, label_code, labeltext FROM /qnv/sb_labelt
       INTO TABLE @DATA(lt_l).                             "#EC CI_NOWHERE
@@ -270,8 +383,8 @@ CLASS lcl_app IMPLEMENTATION.
       lv_ar = condense( CONV string( ls_la-labeltext ) ).
       CHECK lv_ar IS NOT INITIAL.
 
-      add_pair( EXPORTING iv_en = lv_en           iv_ar = lv_ar CHANGING ct_pair = et_lbl ).
-      add_pair( EXPORTING iv_en = norm( lv_en )   iv_ar = lv_ar CHANGING ct_pair = et_lbl_nrm ).
+      add_pair( EXPORTING iv_en = lv_en         iv_ar = lv_ar CHANGING ct_pair = gt_lbl ).
+      add_pair( EXPORTING iv_en = norm( lv_en ) iv_ar = lv_ar CHANGING ct_pair = gt_lbl_nrm ).
     ENDLOOP.
 
     LOOP AT lt_v INTO DATA(ls_v) WHERE spras = 'E'.
@@ -284,8 +397,8 @@ CLASS lcl_app IMPLEMENTATION.
       lv_ar = condense( CONV string( ls_va-value_desc ) ).
       CHECK lv_ar IS NOT INITIAL.
 
-      add_pair( EXPORTING iv_en = lv_en         iv_ar = lv_ar CHANGING ct_pair = et_val ).
-      add_pair( EXPORTING iv_en = norm( lv_en ) iv_ar = lv_ar CHANGING ct_pair = et_val_nrm ).
+      add_pair( EXPORTING iv_en = lv_en         iv_ar = lv_ar CHANGING ct_pair = gt_val ).
+      add_pair( EXPORTING iv_en = norm( lv_en ) iv_ar = lv_ar CHANGING ct_pair = gt_val_nrm ).
     ENDLOOP.
 
   ENDMETHOD.
@@ -293,12 +406,9 @@ CLASS lcl_app IMPLEMENTATION.
 
   METHOD do_backfill.
 
-    legacy_pairs( IMPORTING et_lbl     = DATA(lt_lbl)
-                            et_val     = DATA(lt_val)
-                            et_lbl_nrm = DATA(lt_lbl_n)
-                            et_val_nrm = DATA(lt_val_n) ).
+    legacy_pairs( ).
 
-    IF lt_lbl IS INITIAL AND lt_val IS INITIAL.
+    IF gt_lbl IS INITIAL AND gt_val IS INITIAL.
       MESSAGE '/QNV/SB_LABELT and /QNV/SB_VALUET returned no EN/AR pairs in this client' TYPE 'E'.
     ENDIF.
 
@@ -324,40 +434,10 @@ CLASS lcl_app IMPLEMENTATION.
 
 *       OPTION texts come from the VALUE table, everything else from the
 *       LABEL table - the same split LOAD_TEXT_CACHES( ) makes.
-*       Two READ TABLEs rather than one over a chosen table: READ TABLE
-*       takes a table, not an expression, and copying a hashed table to
-*       pick between them would cost more than the branch.
-*       EXACT FIRST, NORMALISED ONLY IF NOTHING MATCHED EXACTLY.
-*
-*       "Cycle 1" and "CYCLE 1" are two legacy rows with DIFFERENT Arabic
-*       - الدورة الأولى and المرحلة الأولى - separated only by case. Going
-*       straight to the normalised map collides them, marks both AMBIG and
-*       loses two fills that the exact compare gets right. So the loose key
-*       is a fallback for texts nothing matched, not a replacement.
-        DATA(lv_exact) = condense( ls_t-text_en ).
-        DATA(lv_key)   = norm( ls_t-text_en ).
-        DATA(lv_opt)   = xsdbool( ls_t-txt_kind = zcl_rak_cj_text_src_cfg=>c_kind-option ).
-        DATA ls_p TYPE ty_pair.
-        CLEAR ls_p.
-
-        IF lv_opt = abap_true.
-          READ TABLE lt_val INTO ls_p WITH TABLE KEY en = lv_exact.
-          IF sy-subrc <> 0.
-            READ TABLE lt_val_n INTO ls_p WITH TABLE KEY en = lv_key.
-          ENDIF.
-        ELSE.
-          READ TABLE lt_lbl INTO ls_p WITH TABLE KEY en = lv_exact.
-          IF sy-subrc <> 0.
-            READ TABLE lt_lbl_n INTO ls_p WITH TABLE KEY en = lv_key.
-          ENDIF.
-        ENDIF.
-
-        IF sy-subrc <> 0.
-          APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
-                          action  = 'NOTFOUND'   new_en  = ls_t-text_en
-                          message = |No { ls_t-txt_kind } row in the legacy text table with this English| ) TO lt_log.
-          CONTINUE.
-        ENDIF.
+        DATA(lv_opt) = xsdbool( ls_t-txt_kind = zcl_rak_cj_text_src_cfg=>c_kind-option ).
+        DATA(ls_p)   = lookup( iv_en = ls_t-text_en iv_opt = lv_opt ).
+        DATA lv_act TYPE c LENGTH 10.
+        lv_act = 'CHANGE'.
 
         IF ls_p-amb = abap_true.
           APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
@@ -366,9 +446,30 @@ CLASS lcl_app IMPLEMENTATION.
           CONTINUE.
         ENDIF.
 
+*       COMPOSITION IS THE LAST RESORT AND ONLY WHEN ASKED FOR. A whole
+*       caption that exists as a legacy row always wins over one assembled
+*       from halves - the department's own wording for the whole thing is
+*       better than our joining of its parts, and it is only reached when
+*       nothing matched at all.
+        IF ls_p-ar IS INITIAL AND p_comp = abap_true.
+          ls_p-ar = compose( iv_en = ls_t-text_en iv_opt = lv_opt ).
+          IF ls_p-ar IS NOT INITIAL.
+            lv_act = 'COMPOSED'.
+          ENDIF.
+        ENDIF.
+
+        IF ls_p-ar IS INITIAL.
+          APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
+                          action  = 'NOTFOUND'   new_en  = ls_t-text_en
+                          message = |No row in either legacy text table with this English| ) TO lt_log.
+          CONTINUE.
+        ENDIF.
+
         APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
-                        action  = 'CHANGE'      new_en  = ls_t-text_en
-                        new_ar  = ls_p-ar ) TO lt_log.
+                        action  = lv_act       new_en  = ls_t-text_en
+                        new_ar  = ls_p-ar
+                        message = COND #( WHEN lv_act = 'COMPOSED'
+                                          THEN |Assembled from the legacy Arabic of each part - review before committing| ) ) TO lt_log.
 
         ls_t-text_ar = ls_p-ar.
         APPEND ls_t TO lt_write.
@@ -455,9 +556,15 @@ CLASS lcl_app IMPLEMENTATION.
                                  NEXT n = COND #( WHEN l2-action = 'NOTFOUND' THEN n + 1 ELSE n ) ).
         DATA(lv_amb) = REDUCE i( INIT n = 0 FOR l3 IN it_log
                                  NEXT n = COND #( WHEN l3-action = 'AMBIG' THEN n + 1 ELSE n ) ).
+*       COMPOSED IS COUNTED APART FROM CHANGE, because it is the only
+*       figure in this line that somebody has to look at rather than
+*       accept. A run of 300 CHANGE is a lookup; 300 COMPOSED is 300
+*       captions this report assembled.
+        DATA(lv_cmp) = REDUCE i( INIT n = 0 FOR l4 IN it_log
+                                 NEXT n = COND #( WHEN l4-action = 'COMPOSED' THEN n + 1 ELSE n ) ).
         DATA(lv_rest) = COND string(
-          WHEN lv_nf > 0 OR lv_amb > 0
-          THEN | · { lv_nf } not in the legacy tables, { lv_amb } ambiguous| ).
+          WHEN lv_nf > 0 OR lv_amb > 0 OR lv_cmp > 0
+          THEN | · { lv_cmp } composed from parts · { lv_nf } not in the legacy tables, { lv_amb } ambiguous| ).
 
         lo_alv->get_display_settings( )->set_list_header(
           COND #( WHEN p_test = abap_true
