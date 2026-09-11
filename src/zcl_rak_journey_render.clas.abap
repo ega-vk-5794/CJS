@@ -2303,6 +2303,53 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
               CONTINUE.
             ENDIF.
 
+*           A SELECTOR GRID IS REVIEWED AS THE SELECTION, NOT AS THE
+*           CATALOGUE IT WAS PICKED FROM.
+*
+*           D004's first step is a list of twenty-two licences the citizen
+*           chooses ONE of. Reviewed row by row like an ordinary grid it
+*           printed all twenty-two under "License Selection" on the last
+*           page - the picker, not the answer - which reads as the review
+*           being broken rather than as a grid being long.
+*
+*           The key is column 1 and the chosen key(s) live in the pick
+*           target, which is the same convention GRID_SEL_COLLECT( ) writes
+*           and GRID_SEL_SYNC( ) reads back. No new data and no new rule:
+*           if the two ever disagree they disagree everywhere at once,
+*           rather than here only.
+*
+*           NOTHING PICKED MEANS NOTHING TO REVIEW, so the grid is skipped
+*           entirely rather than shown empty. An ordinary grid - no SEL:
+*           directive - has no target, falls past this untouched, and
+*           still lists every row, which is right: there the rows ARE the
+*           citizen's answer.
+            DATA lv_rvmode TYPE string.
+            DATA lv_rvtgt  TYPE string.
+            CLEAR: lv_rvmode, lv_rvtgt.
+            mo_e->mo_grid->grid_sel( EXPORTING is_field  = ls_rvg
+                                     IMPORTING ev_mode   = lv_rvmode
+                                               ev_target = lv_rvtgt ).
+            IF lv_rvmode IS NOT INITIAL AND lv_rvtgt IS NOT INITIAL.
+              SPLIT mo_e->val_get( lv_rvtgt ) AT ',' INTO TABLE DATA(lt_rvwant).
+              LOOP AT lt_rvwant ASSIGNING FIELD-SYMBOL(<rvw>).
+                <rvw> = condense( <rvw> ).
+              ENDLOOP.
+              DELETE lt_rvwant WHERE table_line IS INITIAL.
+
+              DATA lt_rvkeep LIKE ls_rvgd-rows.
+              CLEAR lt_rvkeep.
+              LOOP AT ls_rvgd-rows INTO DATA(lt_rvsel).
+                DATA(lv_rvkey) = condense( VALUE string( lt_rvsel[ 1 ] OPTIONAL ) ).
+                IF line_exists( lt_rvwant[ table_line = lv_rvkey ] ).
+                  APPEND lt_rvsel TO lt_rvkeep.
+                ENDIF.
+              ENDLOOP.
+              ls_rvgd-rows = lt_rvkeep.
+              IF ls_rvgd-rows IS INITIAL.
+                CONTINUE.
+              ENDIF.
+            ENDIF.
+
             lo_rvc->label( text  = zcl_rak_journey_util=>esc( |{ ls_rvg-label }:| )
                            class = 'rakRevL sapUiTinyMarginTop' ).
 
