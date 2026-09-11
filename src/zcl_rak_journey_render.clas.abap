@@ -22,13 +22,6 @@ CLASS zcl_rak_journey_render DEFINITION
                                        iv_index  TYPE i.
     METHODS render_one       IMPORTING io_form  TYPE REF TO z2ui5_cl_xml_view
                                        is_field TYPE zif_rak_journey=>ty_field.
-*   The framework's own review block on the last step. Called from BOTH of
-*   RENDER_STEP( )'s exits - the laid-out branch returns early - so a
-*   Design-tab step gets one too. Self-guarding: it returns unless this is
-*   the last step, the journey is still editable, and the step does not
-*   already configure a REVIEW field of its own.
-    METHODS auto_review      IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view
-                                       is_step   TYPE zif_rak_journey=>ty_step.
 *   THE FIELD'S OPTION LIST, from wherever that field's list comes from -
 *   configured ZRAK_T_JNY_OPT rows, the handler's ON_VALUE_HELP( ), an API:
 *   directive, or the DDIC resolver, tried in that order.
@@ -330,52 +323,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     ENDLOOP.
 
     rv_is = lv_any.
-  ENDMETHOD.
-
-
-  METHOD auto_review.
-*   ---- THE REVIEW BLOCK, DRAWN BY THE FRAMEWORK ------------------------
-*   No journey configured a REVIEW field, so no journey had a review
-*   page: the ftype has been complete for a long time and nothing ever
-*   seeded it. Rather than adding a row to twenty-one feeders and still
-*   leaving every table-only journey without one, the last step draws it
-*   itself.
-*
-*   ONE METHOD, TWO CALLERS, WRITTEN THAT WAY FIRST. RENDER_STEP( ) has
-*   two exits - the laid-out branch returns early - and this is called
-*   from both. The alternative was the same four lines twice, which is
-*   how PICK_SPEC( ) came to exist after the fact rather than before.
-*
-*   THE SHAPE IS THE AUTO-RESULT BLOCK'S, including its opt-out: a step
-*   that already carries a REVIEW field gets nothing added and the author
-*   keeps control of placement. That is why this needs no new column on
-*   ZRAK_T_JNY - configuring a REVIEW field IS the override, exactly as
-*   configuring a RESULT field is for that one.
-*
-*   JOURNEY_DONE( ) = FALSE MIRRORS the auto-result condition rather than
-*   copying it. RESULT draws when the journey is over; a review draws
-*   while it can still be changed. On a submitted or closed journey every
-*   field is read-only and the review's Edit links would offer a step
-*   nobody can edit.
-*
-*   IT GOES THROUGH RENDER_ONE( ) rather than being called directly the
-*   way RENDER_RESULT( ) is, and that is deliberate: a configured REVIEW
-*   field and an automatic one then take literally the same code path -
-*   the handler's RENDER_FIELD( ) hook included - so there is no second
-*   behaviour to keep in step with the first. RENDER_RESULT( ) is called
-*   directly only because it predates that method.
-    IF mo_e->mv_step <> lines( mo_e->ms_config-steps ) - 1.
-      RETURN.
-    ENDIF.
-    IF journey_done( ) = abap_true.
-      RETURN.
-    ENDIF.
-    READ TABLE is_step-fields TRANSPORTING NO FIELDS WITH KEY type = 'REVIEW'.
-    IF sy-subrc = 0.
-      RETURN.
-    ENDIF.
-    render_one( io_form  = io_parent
-                is_field = VALUE #( name = '' type = 'REVIEW' ) ).
   ENDMETHOD.
 
 
@@ -3441,8 +3388,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *     introduces, and it is left alone deliberately: adding it would
 *     change what laid-out steps of already-submitted journeys look like,
 *     which is not what was asked for. Reported rather than fixed.
-      auto_review( io_parent = io_parent is_step = is_step ).
-
       IF mo_e->mo_logic IS BOUND.
         TRY.
             mo_e->mo_logic->on_render_end( io_ctx = mo_e io_view = io_parent ).
@@ -3675,11 +3620,6 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   behaviour to keep in step. RENDER_RESULT( ) is called directly only
 *   because it predates that method.
 *
-*   AFTER THE FIELD LOOP, BEFORE ON_RENDER_END( ). A review belongs under
-*   the form it summarises, and a handler drawing its own trailing
-*   content still gets to draw it last.
-    auto_review( io_parent = io_parent is_step = is_step ).
-
     IF mo_e->mo_logic IS BOUND.
       TRY.
           mo_e->mo_logic->on_render_end( io_ctx = mo_e io_view = io_parent ).
