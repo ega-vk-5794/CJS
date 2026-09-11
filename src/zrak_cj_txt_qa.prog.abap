@@ -434,6 +434,29 @@ CLASS lcl_app IMPLEMENTATION.
 
 *       OPTION texts come from the VALUE table, everything else from the
 *       LABEL table - the same split LOAD_TEXT_CACHES( ) makes.
+*       NOT EVERY "ENGLISH TEXT" IS A CAPTION, and the ones that are not
+*       must never be filled.
+*
+*       The first run surfaced GS_DATA-STAFF-PARTNER, DD/MM/YYYY, DDMMYYYY
+*       and fields whose whole label is their own technical name. Those are
+*       CJS configuration defects - a tech name or a placeholder mask that
+*       leaked into ZLABEL - and giving them Arabic makes them worse in two
+*       ways: the citizen still sees a technical string, and the row stops
+*       being blank, so it disappears from this report and from the
+*       coverage summary. A defect that hides is worse than one that shows.
+*
+*       Reported rather than skipped silently, because each one is a real
+*       config row somebody should fix.
+        DATA(lv_up) = to_upper( condense( ls_t-text_en ) ).
+        IF lv_up CS 'GS_DATA-' OR lv_up CS '[]'
+           OR lv_up = 'DD/MM/YYYY' OR lv_up = 'DDMMYYYY' OR lv_up = 'DD.MM.YYYY'
+           OR lv_up = to_upper( condense( CONV string( ls_t-elem_id ) ) ).
+          APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
+                          action  = 'TECHNAME'   new_en  = ls_t-text_en
+                          message = |Not a caption - a technical name or input mask in the text column. Fix the configuration, do not translate it| ) TO lt_log.
+          CONTINUE.
+        ENDIF.
+
         DATA(lv_opt) = xsdbool( ls_t-txt_kind = zcl_rak_cj_text_src_cfg=>c_kind-option ).
         DATA(ls_p)   = lookup( iv_en = ls_t-text_en iv_opt = lv_opt ).
         DATA lv_act TYPE c LENGTH 10.
@@ -562,9 +585,12 @@ CLASS lcl_app IMPLEMENTATION.
 *       captions this report assembled.
         DATA(lv_cmp) = REDUCE i( INIT n = 0 FOR l4 IN it_log
                                  NEXT n = COND #( WHEN l4-action = 'COMPOSED' THEN n + 1 ELSE n ) ).
+        DATA(lv_tec) = REDUCE i( INIT n = 0 FOR l5 IN it_log
+                                 NEXT n = COND #( WHEN l5-action = 'TECHNAME' THEN n + 1 ELSE n ) ).
         DATA(lv_rest) = COND string(
-          WHEN lv_nf > 0 OR lv_amb > 0 OR lv_cmp > 0
-          THEN | · { lv_cmp } composed from parts · { lv_nf } not in the legacy tables, { lv_amb } ambiguous| ).
+          WHEN lv_nf > 0 OR lv_amb > 0 OR lv_cmp > 0 OR lv_tec > 0
+          THEN | · { lv_cmp } composed · { lv_nf } not in the legacy tables · { lv_amb } ambiguous · | &&
+               |{ lv_tec } not captions| ).
 
         lo_alv->get_display_settings( )->set_list_header(
           COND #( WHEN p_test = abap_true
