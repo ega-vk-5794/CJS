@@ -69,6 +69,24 @@ CLASS lcl_app DEFINITION FINAL.
       EXPORTING et_lbl TYPE ty_t_pair
                 et_val TYPE ty_t_pair.
 
+*   THE MATCH KEY, applied to BOTH sides so they cannot drift.
+*
+*   An exact, case-sensitive compare left most of the first run's misses
+*   on the table for no good reason: a legacy caption written "Teacher
+*   Flag" or "Documents:" is the same text as the journey's "Teacher flag"
+*   and "Documents", and refusing to fill the Arabic over a colon helps
+*   nobody. Upper-cased, condensed, and stripped of the trailing
+*   punctuation a caption carries and a value never does.
+*
+*   IT CAN ONLY CREATE AMBIGUITY, NEVER A WRONG ANSWER - which is what
+*   makes loosening it safe. Two legacy rows that normalise together and
+*   disagree in Arabic are marked AMBIG and skipped exactly as before, so
+*   the worst case is a row that used to be NOTFOUND becoming one a human
+*   is asked about.
+    CLASS-METHODS norm
+      IMPORTING iv_txt        TYPE clike
+      RETURNING VALUE(rv_key) TYPE string.
+
     CLASS-METHODS do_backfill
       IMPORTING it_journey TYPE zif_rak_cj_text_src=>ty_t_journey.
 
@@ -157,6 +175,20 @@ CLASS lcl_app IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD norm.
+    rv_key = to_upper( condense( CONV string( iv_txt ) ) ).
+*   Trailing caption punctuation only, and one pass is enough: a caption
+*   carries at most a colon, an asterisk for required, or both.
+    WHILE strlen( rv_key ) > 0
+      AND ( substring( val = rv_key off = strlen( rv_key ) - 1 ) = ':'
+         OR substring( val = rv_key off = strlen( rv_key ) - 1 ) = '*'
+         OR substring( val = rv_key off = strlen( rv_key ) - 1 ) = ' ' ).
+      rv_key = substring( val = rv_key len = strlen( rv_key ) - 1 ).
+    ENDWHILE.
+    rv_key = condense( rv_key ).
+  ENDMETHOD.
+
+
   METHOD legacy_pairs.
 
 *   ENGLISH IS THE JOIN KEY, and it is a sound one rather than a
@@ -184,7 +216,7 @@ CLASS lcl_app IMPLEMENTATION.
     DATA lv_ar TYPE string.
 
     LOOP AT lt_l INTO DATA(ls_l) WHERE spras = 'E'.
-      lv_en = condense( CONV string( ls_l-labeltext ) ).
+      lv_en = norm( ls_l-labeltext ).
       CHECK lv_en IS NOT INITIAL.
       READ TABLE lt_l INTO DATA(ls_la) WITH KEY spras = 'A' label_code = ls_l-label_code.
       IF sy-subrc <> 0.
@@ -204,7 +236,7 @@ CLASS lcl_app IMPLEMENTATION.
     ENDLOOP.
 
     LOOP AT lt_v INTO DATA(ls_v) WHERE spras = 'E'.
-      lv_en = condense( CONV string( ls_v-value_desc ) ).
+      lv_en = norm( ls_v-value_desc ).
       CHECK lv_en IS NOT INITIAL.
       READ TABLE lt_v INTO DATA(ls_va) WITH KEY spras = 'A' value_code = ls_v-value_code.
       IF sy-subrc <> 0.
@@ -259,7 +291,7 @@ CLASS lcl_app IMPLEMENTATION.
 *       Two READ TABLEs rather than one over a chosen table: READ TABLE
 *       takes a table, not an expression, and copying a hashed table to
 *       pick between them would cost more than the branch.
-        DATA(lv_key) = condense( ls_t-text_en ).
+        DATA(lv_key) = norm( ls_t-text_en ).
         DATA ls_p TYPE ty_pair.
         CLEAR ls_p.
         IF ls_t-txt_kind = zcl_rak_cj_text_src_cfg=>c_kind-option.
@@ -362,10 +394,23 @@ CLASS lcl_app IMPLEMENTATION.
 *       REJECT lines are reported and written nowhere.
         DATA(lv_chg) = REDUCE i( INIT n = 0 FOR ls IN it_log
                                  NEXT n = COND #( WHEN ls-action = 'CHANGE' THEN n + 1 ELSE n ) ).
+*       THE OTHER TWO OUTCOMES BELONG IN THE TITLE TOO. A run that fills
+*       230 and leaves 400 unmatched is a different result from one that
+*       fills 230 and leaves none, and the first list scrolls too far to
+*       see which you got. NOTFOUND wants a translator; AMBIG wants a
+*       person to choose - so they are counted apart rather than lumped.
+        DATA(lv_nf)  = REDUCE i( INIT n = 0 FOR l2 IN it_log
+                                 NEXT n = COND #( WHEN l2-action = 'NOTFOUND' THEN n + 1 ELSE n ) ).
+        DATA(lv_amb) = REDUCE i( INIT n = 0 FOR l3 IN it_log
+                                 NEXT n = COND #( WHEN l3-action = 'AMBIG' THEN n + 1 ELSE n ) ).
+        DATA(lv_rest) = COND string(
+          WHEN lv_nf > 0 OR lv_amb > 0
+          THEN | · { lv_nf } not in the legacy tables, { lv_amb } ambiguous| ).
+
         lo_alv->get_display_settings( )->set_list_header(
           COND #( WHEN p_test = abap_true
-                  THEN |TEST RUN - { lv_chg } text(s) WOULD change. Nothing written.|
-                  ELSE |{ lv_chg } text(s) written.| ) ).
+                  THEN |TEST RUN - { lv_chg } text(s) WOULD change. Nothing written.{ lv_rest }|
+                  ELSE |{ lv_chg } text(s) written.{ lv_rest }| ) ).
 
         lo_alv->display( ).
       CATCH cx_salv_msg.
