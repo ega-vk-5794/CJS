@@ -2029,9 +2029,28 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *         that item is selected either way. The ComboBox branch below is
 *         untouched - sap.m.ComboBox has no forceSelection and never had this
 *         behaviour.
+*         WRAPITEMSTEXT, and it is the same trap as FORCESELECTION one
+*         paragraph up, read the other way round. sap.m.Select's
+*         wrapItemsText defaults to FALSE, so an option longer than the
+*         dropdown is CUT - "Ras Al Khaimah Tourism Development Autho",
+*         with no ellipsis to say it was cut. On the e-complaints
+*         Government Agency list that is several agencies whose names
+*         differ only past the truncation point, so the citizen picks
+*         between two identical-looking lines.
+*
+*         Widening the control was the wrong lever: the list is as wide as
+*         the field, and a field wide enough for the longest agency name
+*         would be wrong on every other step. Wrapping costs a second line
+*         on the few long entries and nothing anywhere else.
+*
+*         Passed explicitly for the reason spelled out above - an
+*         unsupplied OPTIONAL is dropped from the markup, so leaving it out
+*         is not "false", it is "whatever UI5 defaults to". Here the
+*         default happens to be the value we are correcting.
           DATA(lo_sel) = io_form->select( selectedkey    = lv_bind
                                           enabled        = lv_edit
                                           forceselection = abap_false
+                                          wrapitemstext  = abap_true
                                           change         = mo_e->opt_evt( is_field-name )
                                           valuestate     = lv_vs
                                           valuestatetext = lv_vst
