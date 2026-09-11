@@ -51,6 +51,10 @@ public section.
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
     redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_AFTER_FIELD
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_POPUP_EVENT
+    redefinition .
 protected section.
 
   constants C_LIST  type STRING value 'BP_LIST' ##NO_TEXT.
@@ -72,6 +76,11 @@ private section.
               IV_FIRST type STRING
               IV_LAST  type STRING
     returning value(RV) type STRING .
+
+*   Back to page one. Two callers - the Search press and the Clear press -
+*   so it is a method before it has two, not after.
+  methods RESET_PAGE
+    importing IO_CTX type ref to ZIF_RAK_JOURNEY .
 ENDCLASS.
 
 
@@ -84,6 +93,77 @@ CLASS ZCL_DEMO_BP_PAGE_LOGIC IMPLEMENTATION.
     IF rv IS INITIAL.
       rv = condense( |{ iv_first } { iv_last }| ).
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_render_after_field.
+*   A SEARCH BUTTON, BECAUSE TYPING DOES NOT ROUND-TRIP.
+*
+*   This is not a preference. OPT_EVT( ) raises CHANGE on a TYPED control
+*   only when a ZRAK_T_JNY_RULE names that field as SRC_FIELD, and the
+*   reason is documented at that method: a round trip on every blur
+*   re-renders the view and drops focus, so the first Tab out of a text
+*   field appears to do nothing. Without a rule or a button, a citizen
+*   types "test", nothing happens, and the list they are looking at is
+*   still the one from the last event - which is exactly what it looked
+*   like.
+*
+*   THE BUTTON IS THE BETTER OF THE TWO OPT-INS. A rule row would make
+*   every blur a round trip and bring the focus problem with it; a button
+*   makes the search deliberate, which is what a citizen expects from a
+*   search box and what JP1 already does on screen.
+    CHECK to_upper( is_field-name ) = to_upper( c_group ).
+
+    DATA(lo_row) = io_view->hbox( class = 'sapUiSmallMarginBegin sapUiSmallMarginBottom' ).
+
+    lo_row->button( text  = 'Search'
+                    type  = 'Emphasized'
+                    icon  = 'sap-icon://search'
+                    class = 'sapUiTinyMarginEnd'
+                    press = io_ctx->event( 'BPSEARCH' ) ).
+
+    lo_row->button( text  = 'Clear'
+                    icon  = 'sap-icon://clear-filter'
+                    press = io_ctx->event( 'BPCLEAR' ) ).
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_popup_event.
+*   IO_CTX->EVENT( ) EMITS HPOP_, WHICH LANDS HERE EVEN FROM THE MAIN
+*   VIEW - the engine has one dispatch for a handler-drawn button and it
+*   is this one, popup or not. D001's partner search uses the same route.
+*
+*   CP, NOT AN OFFSET. IV_EVENT is a STRING and these names are short;
+*   iv_event(8) on a six-character name raises CX_SY_RANGE_OUT_OF_BOUNDS,
+*   which the engine turns into an unexplained warning on a successful
+*   press. A pattern match cannot run off the end.
+    CASE abap_true.
+      WHEN xsdbool( iv_event CP 'BPSEARCH' ).
+        reset_page( io_ctx ).
+
+      WHEN xsdbool( iv_event CP 'BPCLEAR' ).
+        io_ctx->set_val( iv_name = c_find  iv_value = `` ).
+        io_ctx->set_val( iv_name = c_group iv_value = `` ).
+*       AND THE PICK WITH THEM. Leaving BP_SEL set would keep the address
+*       table showing a partner that is no longer in the list.
+        io_ctx->set_val( iv_name = c_sel   iv_value = `` ).
+        reset_page( io_ctx ).
+
+      WHEN OTHERS.
+        super->zif_rak_journey_logic~on_popup_event( io_ctx   = io_ctx
+                                                     iv_id    = iv_id
+                                                     iv_event = iv_event ).
+    ENDCASE.
+  ENDMETHOD.
+
+
+  METHOD reset_page.
+*   BACK TO PAGE ONE, on a large negative step rather than a reset method:
+*   PAGE_MOVE( ) clamps at zero, so this is the same floor a citizen
+*   pressing Back repeatedly would reach and there is no second entry
+*   point to keep in step with the first.
+    CAST zcl_rak_journey_engine( io_ctx )->page_move( iv_field = c_list
+                                                      iv_dir   = -999999 ).
   ENDMETHOD.
 
 
@@ -100,11 +180,16 @@ CLASS ZCL_DEMO_BP_PAGE_LOGIC IMPLEMENTATION.
 *   because the engine clamps at zero and there is no state here worth a
 *   second entry point. It is the same clamp a citizen pressing Back
 *   repeatedly would hit.
+*   KEPT, THOUGH THE BUTTON IS THE PATH THAT RUNS TODAY. ON_CHANGE( )
+*   fires for a typed field only where a ZRAK_T_JNY_RULE names it as
+*   SRC_FIELD - see ON_RENDER_AFTER_FIELD( ) - so this is dead on this
+*   journey as configured. It stays because adding such a rule is a
+*   supported way to make the search live, and a live search that then
+*   answered from page 7 would be the bug this method exists to prevent.
     CHECK to_upper( iv_field ) = to_upper( c_find )
        OR to_upper( iv_field ) = to_upper( c_group ).
 
-    DATA(lo_e) = CAST zcl_rak_journey_engine( io_ctx ).
-    lo_e->page_move( iv_field = c_list iv_dir = -999999 ).
+    reset_page( io_ctx ).
   ENDMETHOD.
 
 
