@@ -137,23 +137,27 @@ CLASS ZCL_DEMO_BP_PAGE_LOGIC IMPLEMENTATION.
 *   iv_event(8) on a six-character name raises CX_SY_RANGE_OUT_OF_BOUNDS,
 *   which the engine turns into an unexplained warning on a successful
 *   press. A pattern match cannot run off the end.
-    CASE abap_true.
-      WHEN xsdbool( iv_event CP 'BPSEARCH' ).
-        reset_page( io_ctx ).
+*   IF / ELSEIF, NOT A CASE ON ABAP_TRUE. WHEN takes a constant, so
+*   WHEN xsdbool( iv_event CP '...' ) is refused with "string calculation
+*   not permitted here" - a message that names neither CASE nor the
+*   pattern match. A CASE over iv_event itself would work but only with
+*   equality, and equality is what the CP is here to avoid.
+    IF iv_event CP 'BPSEARCH'.
+      reset_page( io_ctx ).
 
-      WHEN xsdbool( iv_event CP 'BPCLEAR' ).
-        io_ctx->set_val( iv_name = c_find  iv_value = `` ).
-        io_ctx->set_val( iv_name = c_group iv_value = `` ).
-*       AND THE PICK WITH THEM. Leaving BP_SEL set would keep the address
-*       table showing a partner that is no longer in the list.
-        io_ctx->set_val( iv_name = c_sel   iv_value = `` ).
-        reset_page( io_ctx ).
+    ELSEIF iv_event CP 'BPCLEAR'.
+      io_ctx->set_val( iv_name = c_find  iv_value = `` ).
+      io_ctx->set_val( iv_name = c_group iv_value = `` ).
+*     AND THE PICK WITH THEM. Leaving BP_SEL set would keep the address
+*     table showing a partner that is no longer in the list.
+      io_ctx->set_val( iv_name = c_sel   iv_value = `` ).
+      reset_page( io_ctx ).
 
-      WHEN OTHERS.
-        super->zif_rak_journey_logic~on_popup_event( io_ctx   = io_ctx
-                                                     iv_id    = iv_id
-                                                     iv_event = iv_event ).
-    ENDCASE.
+    ELSE.
+      super->zif_rak_journey_logic~on_popup_event( io_ctx   = io_ctx
+                                                   iv_id    = iv_id
+                                                   iv_event = iv_event ).
+    ENDIF.
   ENDMETHOD.
 
 
