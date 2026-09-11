@@ -25,6 +25,26 @@ CLASS zcl_rak_cj_txt_io DEFINITION
       IMPORTING it_journey    TYPE zif_rak_cj_text_src=>ty_t_journey
       RETURNING VALUE(rv_xstr) TYPE xstring.
 
+*   The row writer EXPORT( ) is built on, exposed so a caller with its own
+*   selection of rows - the gap export, which sends only the texts nothing
+*   could fill - produces a file in exactly the same format. IMPORT( )
+*   parses one shape, so one method must emit it.
+    METHODS export_rows
+      IMPORTING it_txt         TYPE zif_rak_cj_text_src=>ty_t_txt
+      RETURNING VALUE(rv_xstr) TYPE xstring.
+
+*   A TWO-COLUMN ENGLISH/ARABIC GLOSSARY, in the same encoding.
+*
+*   It travels beside a gap file and is the whole reason a translation of
+*   that file comes back consistent: the legacy tables ARE the department's
+*   terminology, and a translator - human or otherwise - who does not see
+*   them will write defensible Arabic that contradicts the screen the
+*   citizen already knows. School Fee is الرسوم المدرسية on this product,
+*   whatever else it could be.
+    METHODS export_glossary
+      IMPORTING it_pair        TYPE zif_rak_cj_text_src=>ty_t_txt
+      RETURNING VALUE(rv_xstr) TYPE xstring.
+
     METHODS import
       IMPORTING iv_xstr       TYPE xstring
                 iv_commit     TYPE abap_bool DEFAULT abap_false
@@ -65,29 +85,66 @@ CLASS ZCL_RAK_CJ_TXT_IO IMPLEMENTATION.
 
   METHOD export.
 
+    DATA lt_all TYPE zif_rak_cj_text_src=>ty_t_txt.
+
+    LOOP AT it_journey ASSIGNING FIELD-SYMBOL(<lv_j>).
+      DATA(lt_txt) = mo_src->read_journey( <lv_j> ).
+      SORT lt_txt BY step_id ASCENDING block_id ASCENDING elem_id ASCENDING.
+      APPEND LINES OF lt_txt TO lt_all.
+    ENDLOOP.
+
+*   THROUGH THE ROW WRITER, so the file this produces and the file the gap
+*   export produces are the same file in the same format - written once
+*   rather than described twice. IMPORT( ) parses one shape; there must be
+*   one place that emits it.
+    rv_xstr = export_rows( lt_all ).
+
+  ENDMETHOD.
+
+
+  METHOD export_rows.
+
     DATA lv_body TYPE string.
 
     lv_body = |JOURNEY{ c_tab }STEP{ c_tab }BLOCK{ c_tab }ELEMENT{ c_tab }KIND{ c_tab }ENGLISH{ c_tab }ARABIC|
            && cl_abap_char_utilities=>cr_lf.
 
-    LOOP AT it_journey ASSIGNING FIELD-SYMBOL(<lv_j>).
+    LOOP AT it_txt ASSIGNING FIELD-SYMBOL(<ls_t>).
+      lv_body = lv_body
+             && |{ <ls_t>-journey }{ c_tab }|
+             && |{ <ls_t>-step_id }{ c_tab }|
+             && |{ <ls_t>-block_id }{ c_tab }|
+             && |{ <ls_t>-elem_id }{ c_tab }|
+             && |{ <ls_t>-txt_kind }{ c_tab }|
+             && |{ esc( <ls_t>-text_en ) }{ c_tab }|
+             && |{ esc( <ls_t>-text_ar ) }|
+             && cl_abap_char_utilities=>cr_lf.
+    ENDLOOP.
 
-      DATA(lt_txt) = mo_src->read_journey( <lv_j> ).
+*   UTF-16LE WITH A BOM, and IMPORT( ) strips the same BOM back off. It is
+*   the encoding Excel writes for "Unicode Text (*.txt)", which is what a
+*   translator hands back - so the round trip survives a spreadsheet.
+    DATA lv_bom TYPE xstring VALUE 'FFFE'.
 
-      SORT lt_txt BY step_id ASCENDING block_id ASCENDING elem_id ASCENDING.
+    DATA(lo_conv) = cl_abap_conv_codepage=>create_out( codepage = 'UTF-16LE' ).
+    DATA(lv_dat)  = lo_conv->convert( source = lv_body ).
 
-      LOOP AT lt_txt ASSIGNING FIELD-SYMBOL(<ls_t>).
-        lv_body = lv_body
-               && |{ <ls_t>-journey }{ c_tab }|
-               && |{ <ls_t>-step_id }{ c_tab }|
-               && |{ <ls_t>-block_id }{ c_tab }|
-               && |{ <ls_t>-elem_id }{ c_tab }|
-               && |{ <ls_t>-txt_kind }{ c_tab }|
-               && |{ esc( <ls_t>-text_en ) }{ c_tab }|
-               && |{ esc( <ls_t>-text_ar ) }|
-               && cl_abap_char_utilities=>cr_lf.
-      ENDLOOP.
+    CONCATENATE lv_bom lv_dat INTO rv_xstr IN BYTE MODE.
 
+  ENDMETHOD.
+
+
+  METHOD export_glossary.
+
+    DATA lv_body TYPE string.
+
+    lv_body = |ENGLISH{ c_tab }ARABIC| && cl_abap_char_utilities=>cr_lf.
+
+    LOOP AT it_pair ASSIGNING FIELD-SYMBOL(<ls_p>).
+      lv_body = lv_body
+             && |{ esc( <ls_p>-text_en ) }{ c_tab }|
+             && |{ esc( <ls_p>-text_ar ) }|
+             && cl_abap_char_utilities=>cr_lf.
     ENDLOOP.
 
     DATA lv_bom TYPE xstring VALUE 'FFFE'.

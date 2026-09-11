@@ -23,6 +23,13 @@ PARAMETERS p_impt RADIOBUTTON GROUP g1.
 *   So this mode does not translate anything. It looks the Arabic up and
 *   fills it in, for every selected journey at once.
 PARAMETERS p_fill RADIOBUTTON GROUP g1.
+*   THE SIXTH MODE, and the one to hand to whoever does the translating.
+*   Backfill first, then this: it exports ONLY what backfill could not
+*   fill - no legacy row anywhere - so the file is the real remaining work
+*   rather than every text on the journey. Beside it goes a glossary of
+*   every English/Arabic pair the legacy tables hold, which is what keeps
+*   the answer consistent with the screens the citizen already knows.
+PARAMETERS p_gap  RADIOBUTTON GROUP g1.
 
 PARAMETERS p_path TYPE string LOWER CASE DEFAULT 'C:\temp\cjs_texts.xls'.
 
@@ -167,8 +174,28 @@ CLASS lcl_app DEFINITION FINAL.
                 iv_ar   TYPE string
       CHANGING  ct_pair TYPE ty_t_pair.
 
+*   THE ONE SCAN BOTH BACKFILL AND THE GAP EXPORT RUN.
+*
+*   ET_GAP is exactly the rows that ended NOTFOUND - no legacy Arabic
+*   anywhere - which is what makes the gap file the real remaining work
+*   rather than a re-export of everything. Written as one method so the
+*   two modes cannot disagree about what a gap is: the list a translator
+*   is sent is by construction the list backfill could not close.
+    CLASS-METHODS scan_journeys
+      IMPORTING it_journey TYPE zif_rak_cj_text_src=>ty_t_journey
+      EXPORTING et_log     TYPE zcl_rak_cj_txt_io=>ty_t_imp_log
+                et_write   TYPE zif_rak_cj_text_src=>ty_t_txt
+                et_gap     TYPE zif_rak_cj_text_src=>ty_t_txt.
+
     CLASS-METHODS do_backfill
       IMPORTING it_journey TYPE zif_rak_cj_text_src=>ty_t_journey.
+
+    CLASS-METHODS do_gaps
+      IMPORTING it_journey TYPE zif_rak_cj_text_src=>ty_t_journey.
+
+    CLASS-METHODS write_file
+      IMPORTING iv_path TYPE string
+                iv_xstr TYPE xstring.
 
     CLASS-METHODS show_import
       IMPORTING it_log TYPE zcl_rak_cj_txt_io=>ty_t_imp_log.
@@ -230,27 +257,12 @@ CLASS lcl_app IMPLEMENTATION.
 
   METHOD do_export.
 
-    DATA lt_bin  TYPE solix_tab.
-    DATA lv_len  TYPE i.
-
-    DATA(lo_io)   = NEW zcl_rak_cj_txt_io( ).
-    DATA(lv_xstr) = lo_io->export( it_journey ).
-
-    lv_len = xstrlen( lv_xstr ).
-    lt_bin = cl_bcs_convert=>xstring_to_solix( lv_xstr ).
-
-    cl_gui_frontend_services=>gui_download(
-      EXPORTING bin_filesize = lv_len
-                filename     = p_path
-                filetype     = 'BIN'
-      CHANGING  data_tab     = lt_bin
-      EXCEPTIONS OTHERS      = 1 ).
-
-    IF sy-subrc = 0.
-      MESSAGE |Exported to { p_path }| TYPE 'S'.
-    ELSE.
-      MESSAGE 'Download failed' TYPE 'E'.
-    ENDIF.
+*   Through WRITE_FILE( ), the same one the gap export uses. Three modes
+*   now put a file on disk and there is one method that does it.
+    DATA(lo_io) = NEW zcl_rak_cj_txt_io( ).
+    write_file( iv_path = p_path
+                iv_xstr = lo_io->export( it_journey ) ).
+    MESSAGE |Exported to { p_path }| TYPE 'S'.
 
   ENDMETHOD.
 
@@ -404,7 +416,9 @@ CLASS lcl_app IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD do_backfill.
+  METHOD scan_journeys.
+
+    CLEAR: et_log, et_write, et_gap.
 
     legacy_pairs( ).
 
@@ -485,6 +499,11 @@ CLASS lcl_app IMPLEMENTATION.
           APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
                           action  = 'NOTFOUND'   new_en  = ls_t-text_en
                           message = |No row in either legacy text table with this English| ) TO lt_log.
+*         THE GAP SET IS THE ROW AS IT STANDS - English filled, Arabic
+*         blank - so the file the gap export writes is the file IMPORT( )
+*         reads back. The translator fills one column and nothing about
+*         the key changes.
+          APPEND ls_t TO et_gap.
           CONTINUE.
         ENDIF.
 
@@ -500,6 +519,19 @@ CLASS lcl_app IMPLEMENTATION.
       ENDLOOP.
     ENDLOOP.
 
+    et_log   = lt_log.
+    et_write = lt_write.
+
+  ENDMETHOD.
+
+
+  METHOD do_backfill.
+
+    scan_journeys( EXPORTING it_journey = it_journey
+                   IMPORTING et_log     = DATA(lt_log)
+                             et_write   = DATA(lt_write)
+                             et_gap     = DATA(lt_gap) ).
+
     IF lt_log IS INITIAL.
       MESSAGE 'Nothing missing - every selected journey already has its Arabic' TYPE 'S'.
       RETURN.
@@ -509,10 +541,75 @@ CLASS lcl_app IMPLEMENTATION.
 *   text and a translated one land the same way and there is one writer
 *   rather than two.
     IF p_test = abap_false AND lt_write IS NOT INITIAL.
-      lo_src->zif_rak_cj_text_src~write( lt_write ).
+      DATA(lo_wsrc) = NEW zcl_rak_cj_text_src_cfg( ).
+      lo_wsrc->zif_rak_cj_text_src~write( lt_write ).
     ENDIF.
 
     show_import( lt_log ).
+
+  ENDMETHOD.
+
+
+  METHOD do_gaps.
+
+    scan_journeys( EXPORTING it_journey = it_journey
+                   IMPORTING et_log     = DATA(lt_log)
+                             et_write   = DATA(lt_write)
+                             et_gap     = DATA(lt_gap) ).
+
+    IF lt_gap IS INITIAL.
+      MESSAGE 'No gaps - everything either has its Arabic or can be backfilled. Run Backfill.' TYPE 'S'.
+      RETURN.
+    ENDIF.
+
+*   THE GLOSSARY IS EVERY PAIR THE LEGACY TABLES HOLD, exact keys only.
+*   Not the normalised maps: those are a matching aid, and a glossary
+*   listing the same term twice under two spellings helps nobody.
+    DATA lt_gloss TYPE zif_rak_cj_text_src=>ty_t_txt.
+    LOOP AT gt_lbl INTO DATA(ls_g).
+      CHECK ls_g-amb = abap_false.
+      APPEND VALUE #( text_en = ls_g-en text_ar = ls_g-ar ) TO lt_gloss.
+    ENDLOOP.
+    LOOP AT gt_val INTO ls_g.
+      CHECK ls_g-amb = abap_false.
+      APPEND VALUE #( text_en = ls_g-en text_ar = ls_g-ar ) TO lt_gloss.
+    ENDLOOP.
+    SORT lt_gloss BY text_en ASCENDING.
+    DELETE ADJACENT DUPLICATES FROM lt_gloss COMPARING text_en text_ar.
+
+    DATA(lo_io) = NEW zcl_rak_cj_txt_io( ).
+
+    write_file( iv_path = p_path
+                iv_xstr = lo_io->export_rows( lt_gap ) ).
+
+*   A SECOND FILE, NOT A SECOND SHEET. The gap file has to stay parseable
+*   by IMPORT( ) exactly as it is - seven columns, one header - and a
+*   glossary block appended to it would arrive as rows whose keys the
+*   system does not have and be rejected one by one.
+    write_file( iv_path = |{ p_path }.glossary.txt|
+                iv_xstr = lo_io->export_glossary( lt_gloss ) ).
+
+    MESSAGE |{ lines( lt_gap ) } gap(s) written to { p_path }, | &&
+            |{ lines( lt_gloss ) } glossary pair(s) beside it| TYPE 'S'.
+
+  ENDMETHOD.
+
+
+  METHOD write_file.
+
+    DATA(lv_len) = xstrlen( iv_xstr ).
+    DATA(lt_bin) = cl_bcs_convert=>xstring_to_solix( iv_xstr ).
+
+    cl_gui_frontend_services=>gui_download(
+      EXPORTING bin_filesize = lv_len
+                filename     = iv_path
+                filetype     = 'BIN'
+      CHANGING  data_tab     = lt_bin
+      EXCEPTIONS OTHERS      = 1 ).
+
+    IF sy-subrc <> 0.
+      MESSAGE |Could not write { iv_path }| TYPE 'E'.
+    ENDIF.
 
   ENDMETHOD.
 
@@ -635,6 +732,8 @@ CLASS lcl_app IMPLEMENTATION.
         do_export( lt_journey ).
       WHEN p_fill.
         do_backfill( lt_journey ).
+      WHEN p_gap.
+        do_gaps( lt_journey ).
       WHEN p_summ.
         show_summary( lo_qa->summarise( lt_journey ) ).
       WHEN OTHERS.
