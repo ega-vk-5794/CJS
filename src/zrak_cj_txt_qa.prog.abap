@@ -13,6 +13,16 @@ PARAMETERS p_expt RADIOBUTTON GROUP g1.
 *   be exported for a translator and there was no way to put the Arabic
 *   back except field by field in the Studio.
 PARAMETERS p_impt RADIOBUTTON GROUP g1.
+*   THE FIFTH MODE. Every label, section heading, message, placeholder and
+*   option text on a MIGRATED screen already exists in both languages in
+*   the legacy text tables - that is the standing rule, "migrated wording
+*   is READ, never written, and never hand-translated". A journey missing
+*   its Arabic does not need a translator; it needs the row the department
+*   already owns.
+*
+*   So this mode does not translate anything. It looks the Arabic up and
+*   fills it in, for every selected journey at once.
+PARAMETERS p_fill RADIOBUTTON GROUP g1.
 
 PARAMETERS p_path TYPE string LOWER CASE DEFAULT 'C:\temp\cjs_texts.xls'.
 
@@ -47,6 +57,20 @@ CLASS lcl_app DEFINITION FINAL.
       IMPORTING it_journey TYPE zif_rak_cj_text_src=>ty_t_journey.
 
     CLASS-METHODS do_import.
+
+    TYPES: BEGIN OF ty_pair,
+             en  TYPE string,
+             ar  TYPE string,
+             amb TYPE abap_bool,
+           END OF ty_pair.
+    TYPES ty_t_pair TYPE HASHED TABLE OF ty_pair WITH UNIQUE KEY en.
+
+    CLASS-METHODS legacy_pairs
+      EXPORTING et_lbl TYPE ty_t_pair
+                et_val TYPE ty_t_pair.
+
+    CLASS-METHODS do_backfill
+      IMPORTING it_journey TYPE zif_rak_cj_text_src=>ty_t_journey.
 
     CLASS-METHODS show_import
       IMPORTING it_log TYPE zcl_rak_cj_txt_io=>ty_t_imp_log.
@@ -129,6 +153,158 @@ CLASS lcl_app IMPLEMENTATION.
     ELSE.
       MESSAGE 'Download failed' TYPE 'E'.
     ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD legacy_pairs.
+
+*   ENGLISH IS THE JOIN KEY, and it is a sound one rather than a
+*   convenience. The migrator copied these texts OUT of these same tables
+*   into ZRAK_T_JNY*, verbatim - LOAD_TEXT_CACHES( ) reads exactly the two
+*   selects below - so the English sitting on a migrated field IS a
+*   /QNV/ labeltext, character for character. Nothing else links the two:
+*   the migrator keeps the resolved text and not the LABEL_CODE it came
+*   from, so there is no id to join on.
+*
+*   AMBIGUITY IS RECORDED, NOT RESOLVED. Two label codes can share an
+*   English text and carry DIFFERENT Arabic - "Name" is the obvious one.
+*   Where that happens the pair is marked and the backfill skips it and
+*   says so, because picking one at random would put the wrong Arabic on
+*   a citizen's form and nothing downstream would ever flag it. Where the
+*   duplicates agree, which is most of them, it is not ambiguous at all.
+    CLEAR: et_lbl, et_val.
+
+    SELECT spras, label_code, labeltext FROM /qnv/sb_labelt
+      INTO TABLE @DATA(lt_l).                             "#EC CI_NOWHERE
+    SELECT spras, value_code, value_desc FROM /qnv/sb_valuet
+      INTO TABLE @DATA(lt_v).                             "#EC CI_NOWHERE
+
+    DATA lv_en TYPE string.
+    DATA lv_ar TYPE string.
+
+    LOOP AT lt_l INTO DATA(ls_l) WHERE spras = 'E'.
+      lv_en = condense( CONV string( ls_l-labeltext ) ).
+      CHECK lv_en IS NOT INITIAL.
+      READ TABLE lt_l INTO DATA(ls_la) WITH KEY spras = 'A' label_code = ls_l-label_code.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+      lv_ar = condense( CONV string( ls_la-labeltext ) ).
+      CHECK lv_ar IS NOT INITIAL.
+
+      READ TABLE et_lbl ASSIGNING FIELD-SYMBOL(<p>) WITH TABLE KEY en = lv_en.
+      IF sy-subrc = 0.
+        IF <p>-ar <> lv_ar.
+          <p>-amb = abap_true.
+        ENDIF.
+      ELSE.
+        INSERT VALUE #( en = lv_en ar = lv_ar ) INTO TABLE et_lbl.
+      ENDIF.
+    ENDLOOP.
+
+    LOOP AT lt_v INTO DATA(ls_v) WHERE spras = 'E'.
+      lv_en = condense( CONV string( ls_v-value_desc ) ).
+      CHECK lv_en IS NOT INITIAL.
+      READ TABLE lt_v INTO DATA(ls_va) WITH KEY spras = 'A' value_code = ls_v-value_code.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+      lv_ar = condense( CONV string( ls_va-value_desc ) ).
+      CHECK lv_ar IS NOT INITIAL.
+
+      READ TABLE et_val ASSIGNING <p> WITH TABLE KEY en = lv_en.
+      IF sy-subrc = 0.
+        IF <p>-ar <> lv_ar.
+          <p>-amb = abap_true.
+        ENDIF.
+      ELSE.
+        INSERT VALUE #( en = lv_en ar = lv_ar ) INTO TABLE et_val.
+      ENDIF.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD do_backfill.
+
+    legacy_pairs( IMPORTING et_lbl = DATA(lt_lbl) et_val = DATA(lt_val) ).
+
+    IF lt_lbl IS INITIAL AND lt_val IS INITIAL.
+      MESSAGE '/QNV/SB_LABELT and /QNV/SB_VALUET returned no EN/AR pairs in this client' TYPE 'E'.
+    ENDIF.
+
+    DATA(lo_src) = NEW zcl_rak_cj_text_src_cfg( ).
+    DATA lt_log   TYPE zcl_rak_cj_txt_io=>ty_t_imp_log.
+    DATA lt_write TYPE zif_rak_cj_text_src=>ty_t_txt.
+
+    DATA lt_txt TYPE zif_rak_cj_text_src=>ty_t_txt.
+
+    LOOP AT it_journey INTO DATA(lv_j).
+*     Into a variable first: LOOP AT does not take a method call as its
+*     source.
+      lt_txt = lo_src->zif_rak_cj_text_src~read_journey( lv_j ).
+      LOOP AT lt_txt INTO DATA(ls_t).
+
+*       ONLY A GAP IS FILLED. An Arabic text already on the journey is
+*       left alone whatever the legacy table says - somebody may have
+*       corrected it since, and overwriting a correction with the row it
+*       was correcting is the one way this could destroy work.
+        IF ls_t-text_ar IS NOT INITIAL OR ls_t-text_en IS INITIAL.
+          CONTINUE.
+        ENDIF.
+
+*       OPTION texts come from the VALUE table, everything else from the
+*       LABEL table - the same split LOAD_TEXT_CACHES( ) makes.
+*       Two READ TABLEs rather than one over a chosen table: READ TABLE
+*       takes a table, not an expression, and copying a hashed table to
+*       pick between them would cost more than the branch.
+        DATA(lv_key) = condense( ls_t-text_en ).
+        DATA ls_p TYPE ty_pair.
+        CLEAR ls_p.
+        IF ls_t-txt_kind = zcl_rak_cj_text_src_cfg=>c_kind-option.
+          READ TABLE lt_val INTO ls_p WITH TABLE KEY en = lv_key.
+        ELSE.
+          READ TABLE lt_lbl INTO ls_p WITH TABLE KEY en = lv_key.
+        ENDIF.
+
+        IF sy-subrc <> 0.
+          APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
+                          action  = 'NOTFOUND'   new_en  = ls_t-text_en
+                          message = |No { ls_t-txt_kind } row in the legacy text table with this English| ) TO lt_log.
+          CONTINUE.
+        ENDIF.
+
+        IF ls_p-amb = abap_true.
+          APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
+                          action  = 'AMBIG'      new_en  = ls_t-text_en
+                          message = |This English has more than one Arabic in the legacy table - fill it by hand| ) TO lt_log.
+          CONTINUE.
+        ENDIF.
+
+        APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
+                        action  = 'CHANGE'      new_en  = ls_t-text_en
+                        new_ar  = ls_p-ar ) TO lt_log.
+
+        ls_t-text_ar = ls_p-ar.
+        APPEND ls_t TO lt_write.
+
+      ENDLOOP.
+    ENDLOOP.
+
+    IF lt_log IS INITIAL.
+      MESSAGE 'Nothing missing - every selected journey already has its Arabic' TYPE 'S'.
+      RETURN.
+    ENDIF.
+
+*   THE WRITE GOES THROUGH THE SAME SOURCE THE IMPORT USES, so a backfilled
+*   text and a translated one land the same way and there is one writer
+*   rather than two.
+    IF p_test = abap_false AND lt_write IS NOT INITIAL.
+      lo_src->zif_rak_cj_text_src~write( lt_write ).
+    ENDIF.
+
+    show_import( lt_log ).
 
   ENDMETHOD.
 
@@ -227,6 +403,8 @@ CLASS lcl_app IMPLEMENTATION.
           MESSAGE 'Select at least one journey to export' TYPE 'E'.
         ENDIF.
         do_export( lt_journey ).
+      WHEN p_fill.
+        do_backfill( lt_journey ).
       WHEN p_summ.
         show_summary( lo_qa->summarise( lt_journey ) ).
       WHEN OTHERS.
