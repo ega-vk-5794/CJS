@@ -2770,6 +2770,29 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   says what happened for anyone looking.
     TRY.
         MODIFY zdt_hm_feedback FROM ls_fb.
+
+*       AND COMMIT, WHICH THE FIRST VERSION DID NOT AND IS WHY NOTHING
+*       WAS SAVED. A MODIFY in an ICF request that nobody commits is rolled
+*       back when the request ends: the trace said "saved", the table stayed
+*       empty, and the two disagreed with no error anywhere.
+*
+*       EVERY CJS CLASS THAT WRITES COMMITS ITS OWN - ZCL_RAK_CJ_LOG and
+*       ZCL_RAK_CJ_ATT_STORE both do. ZCL_RAK_CJ_EVT deliberately does not,
+*       and its reason is the one to check against: a COMMIT WORK
+*       mid-journey persists whatever else the request had pending, which
+*       can mean half a case written because somebody wanted a counter.
+*
+*       THAT REASON DOES NOT APPLY HERE, and this is the whole argument for
+*       the line. FBSEND is terminal: the citizen has already submitted,
+*       the backend call for that submit committed through its own
+*       BAPI_TRANSACTION_COMMIT on an earlier round trip, and this request
+*       does nothing but record an answer to an optional question. There is
+*       no half-finished business transaction for this to close early -
+*       the same test ZCL_RAK_CJ_LOG applies to itself, and the same
+*       warning applies: do not call SAVE_FEEDBACK( ) from anywhere but
+*       FBSEND without revisiting it.
+        COMMIT WORK.
+
         trace( |HAPPY   saved rating { ls_fb-feedback } for case { ls_fb-caseid } | &&
                |({ ls_fb-casetype })| ).
       CATCH cx_root INTO DATA(lx_fb).
