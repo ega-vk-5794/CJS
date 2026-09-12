@@ -638,6 +638,42 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
 *     cannot parse unambiguously, so an unexpected/month-first format is SKIPPED
 *     rather than wrongly rejected. This reads the model value only - it does not
 *     change what is posted to the backend.
+*     ---- IS IT A DATE AT ALL. Before any range, and without needing one.
+*
+*     32.13.2026 was accepted by the whole chain and reached the backend
+*     BLANK. sap.m.DatePicker does not discard input it cannot parse - it
+*     flags its own valueState and still writes the typed characters
+*     through the two-way binding - so the model held it, nothing here
+*     looked at it, and the BAdI's date branch computed 20261332, which a
+*     D field turns into 00000000. The citizen typed a date, the form
+*     accepted it, and the case was created without one.
+*
+*     THE RANGE CHECK COULD NOT HAVE CAUGHT IT, twice over. It only runs
+*     when MIN_VAL or MAX_VAL is configured, which most date fields are
+*     not; and where it does run it SKIPS a value TO_DATS( ) cannot parse,
+*     deliberately, so as not to reject a format it does not know. That
+*     skip is right for a range comparison and wrong as the only test -
+*     "I cannot read this" and "this is within range" are different
+*     answers and were being given the same one.
+*
+*     A FILLED DATE THAT DOES NOT PARSE IS AN ERROR. A blank one is not
+*     touched here: whether a date is required is the required check's
+*     question and it has already run above.
+      IF ls_f-type = 'DATE' AND lv_val IS NOT INITIAL
+         AND zcl_rak_journey_util=>to_dats( lv_val ) IS INITIAL.
+        DATA(lv_dbad) = zcl_rak_journey_util=>msg_for( iv_msg     = lv_v-msg
+                                                       iv_check   = 'FORMAT'
+                                                       iv_journey = mo_e->ms_config-journey_id ).
+        IF lv_dbad IS INITIAL.
+          lv_dbad = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-date_bad
+                                       iv_default = `&1 is not a valid date`
+                                       iv_v1      = ls_f-label ).
+        ENDIF.
+        APPEND VALUE #( type = 'Error' text = lv_dbad ) TO rt_msg.
+        mo_e->set_field_state( iv_name = ls_f-name iv_state = 'Error' iv_text = lv_dbad ).
+        CONTINUE.
+      ENDIF.
+
       IF ls_f-type = 'DATE'
          AND ( lv_v-min_val IS NOT INITIAL OR lv_v-max_val IS NOT INITIAL ).
         DATA(lv_dv) = zcl_rak_journey_util=>to_dats( lv_val ).

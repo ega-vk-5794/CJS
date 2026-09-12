@@ -254,6 +254,11 @@ CLASS zcl_rak_text DEFINITION
 *       Studio, and it tells the one reader who might legitimately be
 *       stuck what to do next.
         not_auth_hint       TYPE symsgno VALUE '140',
+*       A date the framework cannot read. Named DATE_BAD rather than
+*       DATE_FORMAT because the commonest case is not a format at all -
+*       32.13.2026 is written exactly the way the picker asks for and is
+*       still not a date.
+        date_bad            TYPE symsgno VALUE '141',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -591,7 +596,10 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
         ar = `غير مصرح.` )
       ( msgno = c_no-not_auth_hint
         en = `Contact your administrator if you need access.`
-        ar = `يرجى التواصل مع المسؤول إذا كنت بحاجة إلى الوصول.` ) ).
+        ar = `يرجى التواصل مع المسؤول إذا كنت بحاجة إلى الوصول.` )
+      ( msgno = c_no-date_bad
+        en = `&1 is not a valid date`
+        ar = `&1 ليس تاريخاً صحيحاً` ) ).
   ENDMETHOD.
 
 

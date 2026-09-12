@@ -1011,7 +1011,34 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
     IF lv_y CO '0123456789' AND lv_m CO '0123456789' AND lv_d CO '0123456789'.
       DATA(lv_mm) = CONV i( lv_m ).
       DATA(lv_dd) = CONV i( lv_d ).
-      IF lv_mm BETWEEN 1 AND 12 AND lv_dd BETWEEN 1 AND 31.
+      DATA(lv_yy) = CONV i( lv_y ).
+
+*     DAYS IN THAT MONTH, NOT 31 IN EVERY MONTH.
+*
+*     "lv_dd BETWEEN 1 AND 31" let 31.02.2026 through as 20260231, which
+*     is not a date. Assigned to a D field it becomes 00000000, so the
+*     value reached the backend BLANK - the citizen typed something, the
+*     form accepted it, and the case was created without it. Same ending
+*     as 32.13.2026 and one step harder to spot, because 31 February
+*     passes every test that only looks at the number.
+*
+*     ARITHMETIC RATHER THAN DATE_CHECK_PLAUSIBILITY( ). Twelve lengths
+*     and one leap rule are deterministic and need nothing outside this
+*     class; the FM would be a dependency in a method the DOB parser, the
+*     range check and the read path all sit on.
+      DATA(lv_max) = SWITCH i( lv_mm
+                               WHEN 1 OR 3 OR 5 OR 7 OR 8 OR 10 OR 12 THEN 31
+                               WHEN 4 OR 6 OR 9 OR 11                 THEN 30
+                               WHEN 2 THEN COND i(
+*                                THE FULL GREGORIAN RULE, not "divisible by
+*                                four". 2100 is not a leap year and a birth
+*                                or expiry date can legitimately reach it.
+                                 WHEN ( lv_yy MOD 4 = 0 AND lv_yy MOD 100 <> 0 )
+                                   OR lv_yy MOD 400 = 0
+                                 THEN 29 ELSE 28 )
+                               ELSE 0 ).
+
+      IF lv_mm BETWEEN 1 AND 12 AND lv_dd BETWEEN 1 AND lv_max.
         rv = |{ lv_y }{ lv_m }{ lv_d }|.
       ENDIF.
     ENDIF.
