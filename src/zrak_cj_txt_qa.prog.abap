@@ -119,6 +119,17 @@ CLASS lcl_app DEFINITION FINAL.
     CLASS-DATA gt_lbl_nrm TYPE ty_t_pair.
     CLASS-DATA gt_val_nrm TYPE ty_t_pair.
 
+*   EVERY PAIR, AMBIGUOUS ONES INCLUDED AND KEPT APART.
+*
+*   The four maps above are keyed on the English, so a term with two
+*   different Arabic keeps the first and a flag - which is all the
+*   backfill needs, since it refuses to choose either way. The GLOSSARY
+*   needs the opposite: the moment a term is ambiguous is exactly the
+*   moment a reviewer has to see both candidates and pick one. This keeps
+*   them, and the export dedupes on the PAIR rather than on the English,
+*   so an unambiguous term still appears once.
+    CLASS-DATA gt_all     TYPE zif_rak_cj_text_src=>ty_t_txt.
+
     CLASS-METHODS legacy_pairs.
 
 *   ONE ENGLISH TEXT, LOOKED FOR EVERYWHERE IT COULD BE.
@@ -405,7 +416,7 @@ CLASS lcl_app IMPLEMENTATION.
 *   says so, because picking one at random would put the wrong Arabic on
 *   a citizen's form and nothing downstream would ever flag it. Where the
 *   duplicates agree, which is most of them, it is not ambiguous at all.
-    CLEAR: gt_lbl, gt_val, gt_lbl_nrm, gt_val_nrm.
+    CLEAR: gt_lbl, gt_val, gt_lbl_nrm, gt_val_nrm, gt_all.
 
     SELECT spras, label_code, labeltext FROM /qnv/sb_labelt
       INTO TABLE @DATA(lt_l).                             "#EC CI_NOWHERE
@@ -425,6 +436,7 @@ CLASS lcl_app IMPLEMENTATION.
       lv_ar = condense( CONV string( ls_la-labeltext ) ).
       CHECK lv_ar IS NOT INITIAL.
 
+      APPEND VALUE #( text_en = lv_en text_ar = lv_ar ) TO gt_all.
       add_pair( EXPORTING iv_en = lv_en         iv_ar = lv_ar CHANGING ct_pair = gt_lbl ).
       add_pair( EXPORTING iv_en = norm( lv_en ) iv_ar = lv_ar CHANGING ct_pair = gt_lbl_nrm ).
     ENDLOOP.
@@ -439,6 +451,7 @@ CLASS lcl_app IMPLEMENTATION.
       lv_ar = condense( CONV string( ls_va-value_desc ) ).
       CHECK lv_ar IS NOT INITIAL.
 
+      APPEND VALUE #( text_en = lv_en text_ar = lv_ar ) TO gt_all.
       add_pair( EXPORTING iv_en = lv_en         iv_ar = lv_ar CHANGING ct_pair = gt_val ).
       add_pair( EXPORTING iv_en = norm( lv_en ) iv_ar = lv_ar CHANGING ct_pair = gt_val_nrm ).
     ENDLOOP.
@@ -491,10 +504,28 @@ CLASS lcl_app IMPLEMENTATION.
 *
 *       Reported rather than skipped silently, because each one is a real
 *       config row somebody should fix.
-        DATA(lv_up) = to_upper( condense( ls_t-text_en ) ).
+*       MATCHING THE FIELD NAME IS NOT ENOUGH, AND THE FIRST RUN PROVED
+*       IT. This test used to be "the text equals the technical name",
+*       full stop, and it refused half the DOK backlog: CURRICULUM
+*       captioned "Curriculum", LOCATION "Location", EMAIL "Email",
+*       OWNERS "Owners", DESTINATION "Destination". Those are not
+*       technical names that leaked - they are the right caption for a
+*       well-named field, and every one of them has Arabic sitting in the
+*       legacy table. Flagged as TECHNAME they were skipped by the
+*       backfill, left out of the gap file, and could never be closed by
+*       any route this report offers.
+*
+*       SO THE TEXT HAS TO LOOK TECHNICAL AS WELL AS MATCH. An underscore
+*       or a dash is the signal - RAK_PRIVATE_SCHOOL, OUTSIDE_RAK_SCHOOL,
+*       APPOINTMENT_TEMPORARY are all still caught, because a caption
+*       written for a citizen does not carry them. Prose that happens to
+*       equal its field name goes on to the lookup, which is where it
+*       always belonged.
+        DATA(lv_up)   = to_upper( condense( ls_t-text_en ) ).
+        DATA(lv_elem) = to_upper( condense( CONV string( ls_t-elem_id ) ) ).
         IF lv_up CS 'GS_DATA-' OR lv_up CS '[]'
            OR lv_up = 'DD/MM/YYYY' OR lv_up = 'DDMMYYYY' OR lv_up = 'DD.MM.YYYY'
-           OR lv_up = to_upper( condense( CONV string( ls_t-elem_id ) ) ).
+           OR ( lv_up = lv_elem AND ( lv_up CS '_' OR lv_up CS '-' ) ).
           APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
                           action  = 'TECHNAME'   new_en  = ls_t-text_en
                           message = |Not a caption - a technical name or input mask in the text column. Fix the configuration, do not translate it| ) TO lt_log.
@@ -509,7 +540,21 @@ CLASS lcl_app IMPLEMENTATION.
         IF ls_p-amb = abap_true.
           APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
                           action  = 'AMBIG'      new_en  = ls_t-text_en
-                          message = |This English has more than one Arabic in the legacy table - fill it by hand| ) TO lt_log.
+                          message = |This English has more than one Arabic in the legacy table - | &&
+                                    |pick one in the gap file, both are listed in the glossary| ) TO lt_log.
+
+*         AND IT IS A GAP, WHICH IT WAS NOT BEFORE. An ambiguous row was
+*         skipped by the backfill AND left out of the gap export - the
+*         export took only NOTFOUND - so under the documented process
+*         "fill it by hand" meant field by field in the Studio, once per
+*         journey, for a term like "Mobile number" that appears on eight
+*         of them. There was no route that closed it.
+*
+*         It belongs in the file for the same reason NOTFOUND does: the
+*         Arabic is not decided, and a person has to decide it. The
+*         difference is only that here the candidates already exist,
+*         which the glossary beside the file now shows.
+          APPEND ls_t TO et_gap.
           CONTINUE.
         ENDIF.
 
@@ -592,19 +637,23 @@ CLASS lcl_app IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-*   THE GLOSSARY IS EVERY PAIR THE LEGACY TABLES HOLD, exact keys only.
-*   Not the normalised maps: those are a matching aid, and a glossary
-*   listing the same term twice under two spellings helps nobody.
+*   THE GLOSSARY IS EVERY PAIR THE LEGACY TABLES HOLD - AMBIGUOUS TERMS
+*   INCLUDED, AND THAT IS THE CHANGE THAT MAKES THE FILE USABLE.
+*
+*   It used to be built from the four keyed maps with the ambiguous
+*   entries dropped, which had it exactly backwards: an unambiguous term
+*   needs no glossary because the backfill already filled it, and the one
+*   term a reviewer genuinely has to look up - two Arabic, pick one - was
+*   the one deliberately left out. They got a gap file asking for a
+*   decision and nothing to decide from.
+*
+*   Built from the raw pairs instead, deduped on the PAIR. An ordinary
+*   term still appears once however many legacy rows carry it; an
+*   ambiguous one appears once per distinct Arabic, side by side, which
+*   is the whole point.
     DATA lt_gloss TYPE zif_rak_cj_text_src=>ty_t_txt.
-    LOOP AT gt_lbl INTO DATA(ls_g).
-      CHECK ls_g-amb = abap_false.
-      APPEND VALUE #( text_en = ls_g-en text_ar = ls_g-ar ) TO lt_gloss.
-    ENDLOOP.
-    LOOP AT gt_val INTO ls_g.
-      CHECK ls_g-amb = abap_false.
-      APPEND VALUE #( text_en = ls_g-en text_ar = ls_g-ar ) TO lt_gloss.
-    ENDLOOP.
-    SORT lt_gloss BY text_en ASCENDING.
+    lt_gloss = gt_all.
+    SORT lt_gloss BY text_en ASCENDING text_ar ASCENDING.
     DELETE ADJACENT DUPLICATES FROM lt_gloss COMPARING text_en text_ar.
 
     DATA(lo_io) = NEW zcl_rak_cj_txt_io( ).
