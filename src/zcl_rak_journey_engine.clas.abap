@@ -93,6 +93,12 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   Write the happiness rating to the department's own feedback table.
 *   Called by the engine on FBSEND, never by a handler - see there.
     METHODS save_feedback.
+
+*   ZDT_HM_FEEDBACK-DEPARTMENTID for this journey, blank when the journey
+*   is not on the portal's department map. The domain ZDO_DEPARTMENTID
+*   fixes the codes: 1 EPDA, 2 Municipality, 3 Courts, 4 Public
+*   Prosecution (incl. the lawyer committee), 5 Department of Knowledge.
+    METHODS fb_department RETURNING VALUE(rv) TYPE zdt_hm_feedback-departmentid.
 *   THE JOURNEY KEY, AND IT IS NEVER A GUID. This was called MV_CASE_GUID
 *   and the name was wrong twice over.
 *
@@ -2829,6 +2835,10 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ls_fb-crtime   = |{ sy-uzeit+0(2) }:{ sy-uzeit+2(2) }:{ sy-uzeit+4(2) }|.
     ls_fb-step     = '2'.
 
+*   THE DEPARTMENT, which every report on this table groups by. A row
+*   without one counts as feedback for nobody.
+    ls_fb-departmentid = fb_department( ).
+
 *   CATCH CX_ROOT AND CARRY ON, which is RAKHAPPY_SAVE( )'s own choice and
 *   the right one here too. The citizen has finished their application and
 *   pressed Send on an optional question; a short dump at that moment
@@ -2860,9 +2870,88 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         COMMIT WORK.
 
         trace( |HAPPY   saved rating { ls_fb-feedback } for case { ls_fb-caseid } | &&
-               |({ ls_fb-casetype })| ).
+               |({ ls_fb-casetype }) department { ls_fb-departmentid }| ).
       CATCH cx_root INTO DATA(lx_fb).
         trace( |HAPPY   NOT saved - { lx_fb->get_text( ) }| ).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+  METHOD fb_department.
+
+*   WHICH DEPARTMENT THIS FEEDBACK BELONGS TO.
+*
+*   The portal knows it because the citizen pressed a departent's tile and
+*   the UI5 app posts DEPARTMENT in the HappyMeter payload, which
+*   HAPPYMETERSET_CREATE_ENTITY turns into the code. A CJS journey is
+*   launched by URL and no department travels on it - GETSCREENSET builds
+*   the CJS link with journey, case, login BP, role BP and role, and
+*   nothing else - so the engine has to resolve it from the journey.
+*
+*   IT IS RESOLVED FROM THE DEPARTMENT'S OWN MAP, not from the journey id.
+*   ZEGA_T_CJ_GRP is the table the portal reads to decide which department
+*   a tile appears under, and ZEGA_T_CJ_DEPT turns its numeric role into
+*   the code ('MUN', 'EPDA', 'DOK', 'COURT', 'PP'). Reading the same two
+*   tables means a journey moved between departments moves here too, with
+*   no CJS change and nothing to keep in step. Guessing from the journey
+*   id's first letter would have been simpler and wrong: 'E' is EPDA and
+*   'EC' is not, and nothing on the CJS side records which is which.
+*
+*   READ ONLY. Nothing here writes to the legacy namespace.
+    DATA lv_jny TYPE zrak_t_jny-journey_id.
+    lv_jny = ms_config-journey_id.
+
+    TRY.
+*       THE TILE CODE FIRST, BECAUSE THAT IS THE KEY THE PORTAL USES.
+*       ZRAK_T_JNY-JOURNEY_ID is the CJS key and TILE_CODE is the legacy
+*       one they are the same string on most journeys and deliberately
+*       different on some, which is the whole reason the column exists.
+        SELECT SINGLE tile_code FROM zrak_t_jny
+          WHERE journey_id = @lv_jny
+          INTO @DATA(lv_tile).
+
+        DATA lv_key TYPE zega_t_cj_grp-journeyid.
+        lv_key = COND #( WHEN lv_tile IS NOT INITIAL THEN lv_tile ELSE lv_jny ).
+
+*       SELECT SINGLE on purpose. A journey can be listed under several
+*       ROLES of one department - owner, consultant, contractor all point
+*       at MUN - so more than one row is the normal case and they agree on
+*       the answer. A journey listed under two DEPARTMENTS would be a
+*       portal configuration question, not something to average here.
+        SELECT SINGLE d~department FROM zega_t_cj_grp AS g
+          INNER JOIN zega_t_cj_dept AS d ON d~role = g~department
+          WHERE g~journeyid = @lv_key
+          INTO @DATA(lv_code).
+
+        rv = SWITCH #( to_upper( CONV string( lv_code ) )
+               WHEN 'EPDA'  THEN '1'
+               WHEN 'MUN'   THEN '2'
+               WHEN 'COURT' THEN '3'
+               WHEN 'PP'    THEN '4'
+*              DOK IS 5 ON THE DOMAIN AND HAS NO BRANCH IN THE PORTAL'S
+*              OWN CASE STATEMENT, which is why every DOK row written
+*              through HAPPYMETERSET_CREATE_ENTITY has a blank department.
+*              Ours does not. Reported, not fixed - the legacy side is
+*              theirs.
+               WHEN 'DOK'   THEN '5'
+               ELSE space ).
+
+        IF rv IS INITIAL.
+*         BLANK, AND SAID OUT LOUD. A wrong department is worse than none:
+*         it moves one department's satisfaction score onto another's
+*         report and nothing anywhere shows where it came from. The trace
+*         names the key that missed, which is what an author needs to add
+*         the row.
+          trace( |HAPPY   no department for tile '{ lv_key }' | &&
+                 |(ZEGA_T_CJ_GRP answered '{ lv_code }') - saved without one| ).
+        ENDIF.
+
+      CATCH cx_root INTO DATA(lx_dep).
+*       NEVER FAILS THE FEEDBACK. The citizen answered a survey; a missing
+*       or renamed legacy table is not a reason to lose their answer.
+        CLEAR rv.
+        trace( |HAPPY   department lookup failed - { lx_dep->get_text( ) }| ).
     ENDTRY.
 
   ENDMETHOD.
