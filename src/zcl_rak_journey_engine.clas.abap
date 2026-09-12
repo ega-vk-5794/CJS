@@ -2959,7 +2959,46 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *              Ours does not. Reported, not fixed - the legacy side is
 *              theirs.
                WHEN 'DOK'   THEN '5'
+*              EE IS E-COMPLAINTS AND IT IS A DEPARTMENT IN ITS OWN RIGHT
+*              - confirmed against ZEGA_CJ_DEPART, and it is where every
+*              EC journey sits. ZDO_DEPARTMENTID stops at 5, so 6 is the
+*              next free value and is what this writes. The DOMAIN DOES
+*              NOT HAVE IT YET, which the check below handles: the value
+*              is refused until somebody adds it, so this branch is
+*              correct now and starts working the moment they do, with no
+*              change here. Adding it is not ours - ZDO_DEPARTMENTID and
+*              ZDT_HM_FEEDBACK belong to the happiness meter, not CJS.
+               WHEN 'EE'    THEN '6'
                ELSE space ).
+
+*       THE DOMAIN IS THE AUTHORITY, NOT THIS SWITCH.
+*
+*       Nothing at database level enforces a domain's fixed values, so a
+*       code the domain has never heard of writes perfectly happily and
+*       then reads as an untranslated key on every report - which is a
+*       worse failure than blank, because blank at least looks like
+*       missing data instead of looking like a department.
+*
+*       So the answer is checked against DD07L before it is used. Today
+*       that refuses 6 and the row saves blank with a trace line naming
+*       what is missing. The day E-Complaints is added to the domain the
+*       same code starts filling it in, with nothing to redeploy - which
+*       is the point of asking the domain rather than hard-coding what we
+*       believe it contains.
+        IF rv IS NOT INITIAL.
+          DATA lv_dv TYPE dd07l-domvalue_l.
+          lv_dv = rv.
+          SELECT SINGLE @abap_true FROM dd07l
+            WHERE domname = 'ZDO_DEPARTMENTID' AND as4local = 'A' AND domvalue_l = @lv_dv
+            INTO @DATA(lv_known).
+          IF lv_known <> abap_true.
+            trace( |HAPPY   department '{ lv_dept }' resolves to code '{ rv }', which is not a | &&
+                   |fixed value of ZDO_DEPARTMENTID - saved blank. Add it to the domain and | &&
+                   |this fills itself in.| ).
+            CLEAR rv.
+            RETURN.
+          ENDIF.
+        ENDIF.
 
         IF rv IS INITIAL.
 *         BLANK, AND SAID OUT LOUD. A wrong department is worse than none:
