@@ -468,6 +468,31 @@ CLASS zcl_rak_journey_engine DEFINITION
     METHODS page_offset IMPORTING iv_field  TYPE string
                         RETURNING VALUE(rv) TYPE i.
 
+*   R18-3. WHICH COLUMN OF WHICH TABLE THE CITIZEN SORTED BY, keyed on the
+*   field for the same reason MT_PAGE is - a step can carry two tables and
+*   sorting one must not reorder the other. The value is '<column>:<order>'
+*   with the order already in sap.ui.core.SortOrder spelling, so the renderer
+*   hands it straight to SORTINDICATOR and nothing has to translate twice.
+*
+*   It rides the serialized instance, so a sort survives a round trip the way
+*   a page does. An absent entry is no sort at all, which is every table that
+*   has never been sorted - so there is nothing to initialise and no table
+*   configured today behaves differently.
+    DATA mt_sort TYPE zif_rak_journey=>tt_kv.
+
+*   The sort a field is under. EV_COL is the one-based column index as the
+*   handler returned it (before hidden columns are dropped); EV_ORDER is
+*   'Ascending' or 'Descending'. Both blank/zero when the field is unsorted.
+    METHODS sort_state IMPORTING iv_field TYPE string
+                       EXPORTING ev_col   TYPE i
+                                 ev_order TYPE string.
+
+*   Record a sort. IV_ORDER is 'ASC' or 'DESC' as it travels in the event;
+*   it is normalised here so only one spelling ever reaches MT_SORT.
+    METHODS sort_set IMPORTING iv_field TYPE string
+                               iv_col   TYPE i
+                               iv_order TYPE string.
+
     METHODS case_mode RETURNING VALUE(rv) TYPE string.
 *   Index of the step carrying the PAYFEE control, -1 when the journey has
 *   none. Matched on FTYPE, not on the field being called PAYFEE.
@@ -804,6 +829,29 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     ELSEIF lv_event CP 'PAGENEXT_*'.
       page_move( iv_field = substring( val = lv_event off = 9 ) iv_dir = 1 ).
+
+*   R18-3. A COLUMN HEADER MENU'S SORT. 'TSORT_<field>~<column>~<ASC|DESC>',
+*   the same shape as ROWPICK_ and for the same reason - the event has to say
+*   which table and which column, because a step can hold more than one.
+*
+*   THE ORDER TRAVELS IN THE EVENT NAME rather than being read back off the
+*   control. sap.m.table.columnmenu.QuickSort reports its choice in the event
+*   payload, and there is no reading of a z2ui5 event payload that does not
+*   depend on the frontend's own parameter names; a menu of plain ActionItems,
+*   one per direction, each carrying its answer in its own event, cannot be
+*   read wrong. It is also why the renderer draws two entries rather than a
+*   toggle - a toggle would need to know what it is toggling from.
+    ELSEIF lv_event CP 'TSORT_*'.
+      DATA lv_tsf  TYPE string.
+      DATA lv_tsc  TYPE string.
+      DATA lv_tso  TYPE string.
+      SPLIT substring( val = lv_event off = 6 ) AT '~' INTO lv_tsf lv_tsc lv_tso.
+      IF lv_tsf IS NOT INITIAL AND lv_tsc CO '0123456789'
+         AND lv_tsc IS NOT INITIAL AND strlen( lv_tsc ) <= 4.
+        sort_set( iv_field = lv_tsf
+                  iv_col   = CONV i( lv_tsc )
+                  iv_order = lv_tso ).
+      ENDIF.
 
     ELSEIF strlen( lv_event ) > 8 AND substring( val = lv_event len = 8 ) = 'ROWPICK_'.
       SPLIT substring( val = lv_event off = 8 ) AT '~' INTO DATA(lv_rpf) DATA(lv_rpk).
@@ -2863,6 +2911,53 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     trace( |PAGE    { lv_key } offset { lv_new } (size { lv_size }| &&
            |{ COND string( WHEN ls_f-grow_thresh <= 0 THEN ` - safety net, no GROW_THRESH` ) })| ).
+  ENDMETHOD.
+
+
+  METHOD sort_state.
+    CLEAR: ev_col, ev_order.
+    DATA(lv_v) = VALUE string( mt_sort[ key = to_upper( iv_field ) ]-value DEFAULT `` ).
+    IF lv_v IS INITIAL.
+      RETURN.
+    ENDIF.
+    DATA lv_c TYPE string.
+    SPLIT lv_v AT ':' INTO lv_c ev_order.
+*   GUARDED RATHER THAN CONVERTED BLIND. The value is written by SORT_SET( )
+*   and cannot be anything else today, but it rides a serialized instance -
+*   and CONV i( ) on a non-numeric string raises CX_SY_CONVERSION_NO_NUMBER,
+*   which on a render path is the whole app rather than one unsorted table.
+    IF lv_c CO '0123456789' AND lv_c IS NOT INITIAL AND strlen( lv_c ) <= 4.
+      ev_col = CONV i( lv_c ).
+    ELSE.
+      CLEAR ev_order.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD sort_set.
+    DATA(lv_key) = to_upper( iv_field ).
+    DATA(lv_ord) = COND string( WHEN to_upper( iv_order ) CP 'DESC*' THEN 'Descending'
+                                ELSE 'Ascending' ).
+    DATA(lv_val) = |{ iv_col }:{ lv_ord }|.
+
+*   THE PAGE GOES BACK TO THE TOP. A reorder that left the window where it was
+*   would answer "sort by name" with page four of the new order, which reads as
+*   the sort having done nothing - the citizen is looking at names that are
+*   still not the first ones. Only where the field is actually paged; an
+*   unpaged table has no entry and gains none.
+    READ TABLE mt_page ASSIGNING FIELD-SYMBOL(<pg>) WITH KEY key = lv_key.
+    IF sy-subrc = 0.
+      <pg>-value = '0'.
+    ENDIF.
+
+    READ TABLE mt_sort ASSIGNING FIELD-SYMBOL(<so>) WITH KEY key = lv_key.
+    IF sy-subrc = 0.
+      <so>-value = lv_val.
+    ELSE.
+      APPEND VALUE #( key = lv_key value = lv_val ) TO mt_sort.
+    ENDIF.
+
+    trace( |SORT    { lv_key } by column { iv_col } { lv_ord }| ).
   ENDMETHOD.
 
 

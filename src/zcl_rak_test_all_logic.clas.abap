@@ -598,21 +598,44 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 
   METHOD owners.
 *   Plain TABLE: no DEFAULT_VAL on the field, so no selection column.
-    rs-columns = VALUE #( ( `Name` ) ( `Nationality` ) ( `Share %` ) ( `Mobile` ) ).
+*
+*   R18-3 IS EXERCISED HERE, and this is the one table in the bed that can do
+*   it: the column spec is what carries the new properties, and a spec only
+*   reaches the renderer through GET_TABLE( ). The field has no GROW_THRESH,
+*   so the engine holds all three rows and the header menu is offered - which
+*   is the condition the renderer tests, not a property of this test bed.
+*
+*     'Name|||SORT'          sortable, no width and no alignment. The empty
+*                            middle parts prove a spec can ask for the fourth
+*                            token without inventing values for the first two.
+*     'Share %|8rem|End|SORT=DESC'
+*                            sortable, right aligned, and the arrow starts
+*                            pointing down. It is also the numeric-sort case -
+*                            sorted as text, 9.00 would land after 51.00.
+*     'Status|10rem||RICH'   drawn with FORMATTED_TEXT( ), so the markup below
+*                            is rendered rather than escaped.
+    rs-columns = VALUE #( ( `Name|||SORT` )
+                          ( `Nationality` )
+                          ( `Share %|8rem|End|SORT=DESC` )
+                          ( `Mobile` )
+                          ( `Status|10rem||RICH` ) ).
     addrow( EXPORTING iv1    = `Ahmed Al Nuaimi`
                       iv2    = `United Arab Emirates`
                       iv3    = `51.00`
                       iv4    = `0501234567`
+                      iv5    = `<strong>Majority</strong>`
             CHANGING  cs_tab = rs ).
     addrow( EXPORTING iv1    = `Fatima Al Zaabi`
                       iv2    = `United Arab Emirates`
-                      iv3    = `29.00`
+                      iv3    = `9.00`
                       iv4    = `0559876543`
+                      iv5    = `<em>Minority</em>`
             CHANGING  cs_tab = rs ).
     addrow( EXPORTING iv1    = `John Smith`
                       iv2    = `United Kingdom`
-                      iv3    = `20.00`
+                      iv3    = `40.00`
                       iv4    = `0561122334`
+                      iv5    = `<em>Minority</em>`
             CHANGING  cs_tab = rs ).
   ENDMETHOD.
 

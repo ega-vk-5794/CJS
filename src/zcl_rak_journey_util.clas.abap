@@ -175,7 +175,40 @@ CLASS zcl_rak_journey_util DEFINITION
 *                                else the browser drops without a word, which
 *                                looks exactly like the alignment never
 *                                arriving. See CSS_ALIGN( ).
-                                 ev_align TYPE string.
+                                 ev_align TYPE string
+*                                R18-3. A FOURTH PART, and it is a comma
+*                                separated list of KEYWORDS rather than one
+*                                more positional value:
+*                                'Filed|13%|End|SORT=ASC,RICH'.
+*
+*                                Positional ran out of room. The sap.m.Column
+*                                properties the z2ui5 wrapper exposes and CJS
+*                                was not passing are not one more thing, they
+*                                are several, and a fifth and a sixth bar
+*                                would make every spec count separators to
+*                                read - which is how a width lands in the
+*                                alignment.
+*
+*                                Returned RAW and upper-cased; COL_FLAG( )
+*                                reads one keyword out of it. Blank for every
+*                                column authored before this, which is all of
+*                                them.
+                                 ev_flags TYPE string.
+
+*   One keyword out of the flags part of a column spec. 'X' for a keyword that
+*   stands on its own ('RICH'), and the text after the '=' for one that carries
+*   a value ('SORT=ASC' answers 'ASC'). Blank when absent, so every reader gets
+*   "nothing was authored" for free and renders as it does today.
+    CLASS-METHODS col_flag IMPORTING iv_flags  TYPE string
+                                     iv_key    TYPE string
+                           RETURNING VALUE(rv) TYPE string.
+
+*   sap.ui.core.SortOrder, validated the way CSS_ALIGN( ) validates HALIGN and
+*   for the same reason - an unknown value is dropped by the browser without a
+*   word, which looks exactly like the property never arriving. ASC/ASCENDING
+*   and DESC/DESCENDING are both taken, because a column spec is typed by hand.
+    CLASS-METHODS css_sort IMPORTING iv_value  TYPE string
+                           RETURNING VALUE(rv) TYPE string.
 
 *   Language fallback (Arabic when IV_LANG = 'A' and the Arabic text is
 *   filled, English otherwise) plus OTR:<alias> resolution, lifted out of
@@ -577,16 +610,59 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
   METHOD col_spec.
     DATA lv_w TYPE string.
     DATA lv_a TYPE string.
-    CLEAR: ev_text, ev_width, ev_align.
-*   THREE PARTS NOW, and SPLIT into three targets rather than two. A spec
-*   with only two parts leaves LV_A blank, which CSS_ALIGN( ) refuses, so
-*   every column authored before this renders exactly as it did.
-    SPLIT iv_col AT '|' INTO ev_text lv_w lv_a.
+    DATA lv_f TYPE string.
+    CLEAR: ev_text, ev_width, ev_align, ev_flags.
+*   FOUR PARTS NOW, and SPLIT into four targets rather than three. A spec with
+*   fewer parts leaves the trailing targets blank - which CSS_ALIGN( ) refuses
+*   and COL_FLAG( ) reads as nothing - so every column authored before this
+*   renders exactly as it did.
+    SPLIT iv_col AT '|' INTO ev_text lv_w lv_a lv_f.
 *   The width is validated, never passed through. A refused value leaves the
 *   column exactly as it renders today rather than emitting a length the
 *   browser discards silently - which would look like the width never arrived.
     ev_width = css_width( lv_w ).
     ev_align = css_align( lv_a ).
+    ev_flags = to_upper( condense( lv_f ) ).
+  ENDMETHOD.
+
+
+  METHOD col_flag.
+    DATA lt_f TYPE string_table.
+    IF iv_flags IS INITIAL.
+      RETURN.
+    ENDIF.
+    SPLIT iv_flags AT ',' INTO TABLE lt_f.
+    DATA(lv_key) = to_upper( condense( iv_key ) ).
+    LOOP AT lt_f INTO DATA(lv_one).
+      lv_one = condense( lv_one ).
+      IF lv_one = lv_key.
+*       PRESENT ON ITS OWN ANSWERS 'X', NOT BLANK, so a caller tests the answer
+*       rather than testing whether the answer is blank. A keyword written as
+*       'SORT=' with nothing behind it would otherwise read as absent, which is
+*       the FORCESELECTION shape again - configured, and behaving unconfigured.
+        rv = 'X'.
+        RETURN.
+      ENDIF.
+      IF lv_one CP |{ lv_key }=*|.
+        rv = condense( substring( val = lv_one off = strlen( lv_key ) + 1 ) ).
+        IF rv IS INITIAL.
+          rv = 'X'.
+        ENDIF.
+        RETURN.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD css_sort.
+    DATA(lv_s) = to_upper( condense( iv_value ) ).
+    rv = SWITCH string( lv_s
+           WHEN 'ASC'        THEN 'Ascending'
+           WHEN 'ASCENDING'  THEN 'Ascending'
+           WHEN 'DESC'       THEN 'Descending'
+           WHEN 'DESCENDING' THEN 'Descending'
+           WHEN 'NONE'       THEN 'None'
+           ELSE space ).
   ENDMETHOD.
 
 

@@ -416,6 +416,24 @@ These raise nothing and render nothing. They account for most of the bugs found 
   The engine also `TRACE_GATE( )`s a pick target that is not a field on the journey, which
   is the general form of this — and catches the older shape, a `DEFAULT_VAL` still naming a
   field somebody renamed.
+- **A `GET_TABLE( )` column header is a four-part spec, and the fourth part is KEYWORDS.**
+  `'Filed|13%|End|SORT=ASC,RICH'` — text, width, `hAlign`, then a comma-separated list read
+  by `ZCL_RAK_JOURNEY_UTIL=>COL_FLAG( )`. It went keyed rather than positional because the
+  `sap.m.Column` properties the z2ui5 wrapper exposes and CJS was not passing are several,
+  and a fifth and sixth bar makes every spec count separators to read. `SORT` makes the
+  column sortable (`SORT=ASC`/`=DESC` also sets the starting arrow); `RICH` draws that
+  column's cells with `FORMATTED_TEXT( )` instead of `TEXT( )` — **unescaped, deliberately**,
+  which is why it is per column and never a default. Everything is opt-in, so a spec with
+  no fourth part renders exactly as it did. **Interactive sort is offered only where
+  `GROW_THRESH` is blank**: with a window configured the engine holds one page, and ordering
+  a page among itself and presenting it as the sorted table is a plausible wrong answer,
+  worse than no menu — a `SORT` on a paged column gets the indicator, no menu, and a trace
+  line saying so. The sort itself runs in the renderer *before* the C_PAGE_MAX safety net
+  slices, and the chosen column/direction lives in `ZCL_RAK_JOURNEY_ENGINE-MT_SORT`, keyed
+  per field the way `MT_PAGE` is. `headerMenu` is an **association**, not an aggregation, so
+  the menu control goes in the column's `DEPENDENTS( )` and is referenced by id; a menu
+  written as a child of the column lands in its header aggregation and draws where the
+  heading goes.
 - **`SECTION` used to work on one render path and not the other.** The unlaid path opens a
   panel per `ZRAK_T_JNY_FLD-SECTION`; `RENDER_BLOCK_LAID_OUT( )` opened exactly one card and
   planned every field into it, so on a step drawn in the Design tab the column saved and did

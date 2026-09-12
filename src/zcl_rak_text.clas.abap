@@ -259,6 +259,12 @@ CLASS zcl_rak_text DEFINITION
 *       32.13.2026 is written exactly the way the picker asks for and is
 *       still not a date.
         date_bad            TYPE symsgno VALUE '141',
+*       R18-3. The two entries of a sortable column's header menu. Two rather
+*       than one toggle, because a menu entry that reads "Sort" has to say
+*       what it would sort to, and a toggle would have to know what it is
+*       toggling from.
+        sort_asc            TYPE symsgno VALUE '142',
+        sort_desc           TYPE symsgno VALUE '143',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -599,7 +605,9 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
         ar = `يرجى التواصل مع المسؤول إذا كنت بحاجة إلى الوصول.` )
       ( msgno = c_no-date_bad
         en = `&1 is not a valid date`
-        ar = `&1 ليس تاريخاً صحيحاً` ) ).
+        ar = `&1 ليس تاريخاً صحيحاً` )
+      ( msgno = c_no-sort_asc  en = `Sort Ascending`  ar = `ترتيب تصاعدي` )
+      ( msgno = c_no-sort_desc en = `Sort Descending` ar = `ترتيب تنازلي` ) ).
   ENDMETHOD.
 
 

@@ -150,6 +150,25 @@ CLASS zcl_rak_journey_render DEFINITION
 *   to know it.
     METHODS wide_field IMPORTING is_field     TYPE zif_rak_journey=>ty_field
                        RETURNING VALUE(rv_on) TYPE abap_bool.
+*   R18-3. REORDER THE ROWS THE ENGINE IS HOLDING, by the column and direction
+*   the citizen chose from a column header menu.
+*
+*   Called ONLY where the engine has the whole set - a field with no
+*   GROW_THRESH, so the handler was never given a window and returned
+*   everything. On a handler-paged table the engine holds one page, and
+*   sorting a page would put the rows of page four in order among themselves
+*   and call the result sorted. That is why the renderer offers the menu on an
+*   unpaged table only, and why the sort runs BEFORE the safety net slices.
+    METHODS sort_rows IMPORTING iv_col   TYPE i
+                                iv_order TYPE string
+                      CHANGING  ct_rows  TYPE zif_rak_journey=>ty_table-rows.
+*   A cell's value turned into something that sorts the way a reader expects.
+*   Text sorts case-insensitively; a number sorts by size rather than by first
+*   digit ('9' before '10'); a dd.MM.yyyy date sorts by date. Everything else
+*   falls through to the upper-cased text, which is the old behaviour of a
+*   plain SORT and is never worse than not sorting at all.
+    METHODS sort_key IMPORTING iv_value  TYPE string
+                     RETURNING VALUE(rv) TYPE string.
     METHODS pay_field IMPORTING iv_index       TYPE i
                       RETURNING VALUE(rv_name) TYPE string.
 *   {FIELDNAME} in a resolved LONG_TEXT( ) - e.g. a declaration reading
@@ -962,6 +981,39 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           ls_data = mo_e->zif_rak_journey~get_backend_table( is_field-name ).
         ENDIF.
 
+*       ---- R18-3. THE SORT, AND IT RUNS BEFORE ANYTHING SLICES ---------
+*       The citizen picked a column and a direction from that column's header
+*       menu; MT_SORT on the engine remembers it across the round trip the way
+*       MT_PAGE remembers a page.
+*
+*       ONLY WHERE THE ENGINE HOLDS THE WHOLE SET, which is a field with no
+*       GROW_THRESH: the handler was never given a window, so what came back
+*       is everything. On a handler-paged field the engine holds one page, and
+*       ordering a page among itself is not sorting the table - it is a
+*       plausible-looking wrong answer, which is worse than no menu. That is
+*       why the column loop below offers the menu on an unpaged table only,
+*       and the two conditions are deliberately the same test.
+*
+*       BEFORE THE SAFETY NET, necessarily. The net slices a long table down
+*       to C_PAGE_MAX for the browser's sake, and slicing first would sort the
+*       first two hundred rows and show them as the table.
+        DATA lv_sortcol TYPE i.
+        DATA lv_sortord TYPE string.
+*       CLEARED, and it matters. A method-level DATA survives the loop that
+*       renders the step, so a step carrying two tables would otherwise draw
+*       the second one's arrow from the first one's sort.
+        CLEAR: lv_sortcol, lv_sortord.
+        IF is_field-grow_thresh <= 0.
+          mo_e->sort_state( EXPORTING iv_field = is_field-name
+                            IMPORTING ev_col   = lv_sortcol
+                                      ev_order = lv_sortord ).
+          IF lv_sortcol > 0.
+            sort_rows( EXPORTING iv_col   = lv_sortcol
+                                 iv_order = lv_sortord
+                       CHANGING  ct_rows  = ls_data-rows ).
+          ENDIF.
+        ENDIF.
+
 *       ---- R18-2. THE WINDOW IS A REQUEST, SO THE ENGINE ENFORCES IT ----
 *       A handler that ignores IV_PAGE_SIZE hands back every row. Without
 *       this the pager would say "showing 1-100 of 2,431" with all 2,431
@@ -1223,6 +1275,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                          class              = 'sapUiSmallMarginBeginEnd' ).
 
         DATA lt_thide TYPE STANDARD TABLE OF i WITH EMPTY KEY.
+        DATA lt_trich TYPE STANDARD TABLE OF i WITH EMPTY KEY.
         DATA(lv_tnc) = lines( ls_data-columns ).
         IF lv_tnc > 0.
           DATA(lv_talign) = abap_true.
@@ -1238,16 +1291,25 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             DATA lv_thtxt TYPE string.
             DATA lv_thw   TYPE string.
             DATA lv_tha   TYPE string.
+            DATA lv_thf   TYPE string.
 *           Through COL_SPEC( ) so the hide test judges the HEADER TEXT and not
 *           the width or alignment tokens behind it - '-|14rem|End' is still a
 *           hidden column, and a header blank apart from them still hides.
             zcl_rak_journey_util=>col_spec( EXPORTING iv_col   = lv_thdr
                                             IMPORTING ev_text  = lv_thtxt
                                                       ev_width = lv_thw
-                                                      ev_align = lv_tha ).
+                                                      ev_align = lv_tha
+                                                      ev_flags = lv_thf ).
             DATA(lv_tht) = condense( lv_thtxt ).
             IF lv_tht IS INITIAL OR lv_tht = '-'.
               APPEND lv_thx TO lt_thide.
+            ENDIF.
+*           R18-3. WHICH COLUMNS DRAW THEIR CELLS AS RICH TEXT, collected here
+*           because this is the loop that already runs COL_SPEC( ) over every
+*           header - the cell loop is per ROW and would re-parse the whole
+*           spec once per cell.
+            IF zcl_rak_journey_util=>col_flag( iv_flags = lv_thf iv_key = 'RICH' ) IS NOT INITIAL.
+              APPEND lv_thx TO lt_trich.
             ENDIF.
           ENDLOOP.
 
@@ -1290,17 +1352,80 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           DATA lv_colt TYPE string.
           DATA lv_colw TYPE string.
           DATA lv_cola TYPE string.
+          DATA lv_colf TYPE string.
           zcl_rak_journey_util=>col_spec( EXPORTING iv_col   = lv_col
                                           IMPORTING ev_text  = lv_colt
                                                     ev_width = lv_colw
-                                                    ev_align = lv_cola ).
+                                                    ev_align = lv_cola
+                                                    ev_flags = lv_colf ).
+
+*         ---- R18-3. SORTINDICATOR AND HEADERMENU -----------------------
+*         Both are properties Z2UI5_CL_XML_VIEW->COLUMN( ) has always
+*         exposed and CJS has never passed. The column asks for them with
+*         SORT in its flags: 'Filed|13%|End|SORT' is sortable and starts
+*         unsorted, 'SORT=ASC' is sortable and starts with the arrow up.
+*
+*         THE ARROW IS DRAWN FROM WHAT THE ENGINE ACTUALLY DID, not from
+*         what config asked for, wherever the citizen has chosen - so it
+*         cannot claim an order the rows are not in. Only before anyone has
+*         chosen does the configured value show, which is the one case where
+*         it is the author asserting how the handler already ordered them.
+          DATA(lv_sflag) = zcl_rak_journey_util=>col_flag( iv_flags = lv_colf iv_key = 'SORT' ).
+          DATA(lv_cind)  = COND string( WHEN lv_sortcol = lv_tcx AND lv_sortord IS NOT INITIAL
+                                        THEN lv_sortord
+                                        ELSE zcl_rak_journey_util=>css_sort( lv_sflag ) ).
+
+*         THE MENU IS OFFERED ONLY WHERE THE ENGINE CAN HONOUR IT - the same
+*         test the sort above uses. On a handler-paged table the engine holds
+*         one page, so a menu there would reorder that page and present it as
+*         the sorted table. Refused, and said out loud on the trace rather
+*         than silently: an author who put SORT on a paged column has asked
+*         for something and is entitled to know it did not happen.
+          DATA(lv_cmenu) = ``.
+          IF lv_sflag IS NOT INITIAL.
+            IF is_field-grow_thresh <= 0.
+              lv_cmenu = |RAKCM{ lv_tcx }{ to_upper( is_field-name ) }|.
+            ELSE.
+              mo_e->trace( |SORT    { to_upper( is_field-name ) } column { lv_tcx } asks for | &&
+                           |SORT, but the field is paged (GROW_THRESH { is_field-grow_thresh }) | &&
+                           |so the engine holds one page and cannot order the table. Indicator | &&
+                           |only, no menu.| ).
+            ENDIF.
+          ENDIF.
+
 *         HALIGN, and note the line two below: this same branch has always
 *         passed it for the pick button's column. It was only ever absent on
 *         a DATA column, which is why a list of dates does not share an edge
 *         and a count of days reads as prose. Blank leaves it off, so every
 *         table authored before this renders identically.
-          lo_cols->column( width  = lv_colw
-                           halign = lv_cola )->text( zcl_rak_journey_util=>esc( lv_colt ) ).
+          DATA(lo_colc) = lo_cols->column( width         = lv_colw
+                                           halign        = lv_cola
+                                           sortindicator = lv_cind
+                                           headermenu    = lv_cmenu ).
+          lo_colc->text( zcl_rak_journey_util=>esc( lv_colt ) ).
+
+          IF lv_cmenu IS NOT INITIAL.
+*           THE MENU ITSELF, in DEPENDENTS. HEADERMENU is an ASSOCIATION, not
+*           an aggregation - it names a control by id and does not contain it -
+*           so a Menu written as a child of the Column would land in the
+*           Column's own header aggregation and draw the menu where the
+*           heading goes. DEPENDENTS is the aggregation for a control that
+*           belongs to another one and renders nowhere itself.
+*
+*           ACTIONITEMS RATHER THAN A QUICKSORT, deliberately: an ActionItem
+*           raises a plain press whose whole meaning is in the event name,
+*           and a QuickSort reports its choice in an event payload this side
+*           cannot read without depending on the frontend's parameter names.
+            DATA(lo_cmen) = lo_colc->dependents( )->column_menu( id = lv_cmenu ).
+            lo_cmen->column_menu_action_item(
+              label = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-sort_asc iv_default = 'Sort Ascending' )
+              icon  = 'sap-icon://sort-ascending'
+              press = mo_e->mo_client->_event( |TSORT_{ is_field-name }~{ lv_tcx }~ASC| ) ).
+            lo_cmen->column_menu_action_item(
+              label = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-sort_desc iv_default = 'Sort Descending' )
+              icon  = 'sap-icon://sort-descending'
+              press = mo_e->mo_client->_event( |TSORT_{ is_field-name }~{ lv_tcx }~DESC| ) ).
+          ENDIF.
         ENDLOOP.
         IF lv_pick IS NOT INITIAL.
           lo_cols->column( halign = 'End' )->text( '' ).
@@ -1326,7 +1451,22 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             IF line_exists( lt_thide[ table_line = lv_tdx ] ).
               CONTINUE.
             ENDIF.
-            lo_cells->text( zcl_rak_journey_util=>esc( lv_cell ) ).
+*           R18-3. A RICH CELL, where the column's flags asked for one.
+*
+*           NOT ESCAPED, and that is the entire point of the flag rather than
+*           an oversight: sap.m.FormattedText renders the subset of HTML it
+*           allows and strips everything else, so a handler can put a coloured
+*           status or a bold total in a cell instead of beside the table. It
+*           is opt-in per column for exactly that reason - a table whose cells
+*           carry citizen-typed text must stay on TEXT( ), where ESC( ) is
+*           what keeps a stray angle bracket from being read as markup.
+*
+*           TEXT( ) IS STILL THE DEFAULT, so no table that exists today moves.
+            IF line_exists( lt_trich[ table_line = lv_tdx ] ).
+              lo_cells->formatted_text( htmltext = lv_cell ).
+            ELSE.
+              lo_cells->text( zcl_rak_journey_util=>esc( lv_cell ) ).
+            ENDIF.
           ENDLOOP.
           IF lv_pick IS NOT INITIAL AND lt_row IS NOT INITIAL.
             IF lv_sel = abap_true.
@@ -1495,6 +1635,100 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
     ENDLOOP.
 
+  ENDMETHOD.
+
+
+  METHOD sort_key.
+    DATA lv_d TYPE string.
+    DATA lv_m TYPE string.
+    DATA lv_y TYPE string.
+
+    DATA(lv_v) = condense( iv_value ).
+    IF lv_v IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   A DATE FIRST, because '01.12.2025' is also not a number and would otherwise
+*   sort by its DAY. dd.MM.yyyy only - it is the one format the engine itself
+*   renders a date in (UI_DATE( ) and the picker's own display), so a cell in
+*   any other shape is the handler's own text and is left as text.
+    IF strlen( lv_v ) = 10 AND lv_v+2(1) = '.' AND lv_v+5(1) = '.'.
+      lv_d = lv_v(2).
+      lv_m = lv_v+3(2).
+      lv_y = lv_v+6(4).
+      IF lv_d CO '0123456789' AND lv_m CO '0123456789' AND lv_y CO '0123456789'.
+        rv = |{ lv_y }{ lv_m }{ lv_d }|.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+*   A NUMBER PADDED TO A COMMON WIDTH, so it sorts by size. Without this a
+*   column of amounts reads 1, 10, 100, 2 - which looks like the sort is
+*   broken rather than like the sort being alphabetical.
+*
+*   THE DECIMAL PART IS THE POINT, not a refinement. A share column holds
+*   9.00 and 51.00, and it is the WHOLE part that has to be padded - pad the
+*   string and 9.00 still sorts after 51.00, which is the same wrong answer
+*   with more work behind it. Only the whole part is padded and the fraction
+*   is left as written, which orders correctly for any two values carrying
+*   the same number of decimals - the shape a column of amounts has.
+*
+*   Anything else is text: a thousands separator, a currency, a sign, a range.
+*   Text is a fine answer and never worse than not sorting.
+    DATA(lv_num) = lv_v.
+    REPLACE ALL OCCURRENCES OF ',' IN lv_num WITH '.'.
+    FIND REGEX '^[0-9]+(\.[0-9]+)?$' IN lv_num.
+    IF sy-subrc = 0 AND strlen( lv_num ) <= 30.
+      DATA lv_int TYPE string.
+      DATA lv_fra TYPE string.
+      SPLIT lv_num AT '.' INTO lv_int lv_fra.
+      IF strlen( lv_int ) <= 20.
+        rv = |{ lv_int ALIGN = RIGHT WIDTH = 20 PAD = '0' }.{ lv_fra }|.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+*   CASE-FOLDED, because a table half of whose values are capitalised would
+*   otherwise sort in two blocks with every capital ahead of every lower case.
+    rv = to_upper( lv_v ).
+  ENDMETHOD.
+
+
+  METHOD sort_rows.
+    TYPES: BEGIN OF ty_sk,
+             ix  TYPE i,
+             key TYPE string,
+           END OF ty_sk.
+    DATA lt_sk TYPE STANDARD TABLE OF ty_sk WITH EMPTY KEY.
+    DATA lt_out LIKE ct_rows.
+
+    IF iv_col <= 0 OR ct_rows IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    LOOP AT ct_rows INTO DATA(lt_row).
+      DATA(lv_ix) = sy-tabix.
+*     A ROW SHORTER THAN THE SORT COLUMN SORTS AS BLANK rather than being
+*     dropped or throwing. Ragged rows are a real shape here - the hidden
+*     column probe above exists because of them - and losing a row to a
+*     reorder would be the worst possible answer to "sort this".
+      DATA(lv_cell) = COND string( WHEN lines( lt_row ) >= iv_col THEN lt_row[ iv_col ] ELSE `` ).
+      APPEND VALUE #( ix = lv_ix key = sort_key( lv_cell ) ) TO lt_sk.
+    ENDLOOP.
+
+*   IX IS THE TIE-BREAKER, so rows that share a value keep the order the
+*   handler put them in. A sort that shuffles equal rows differently on every
+*   round trip makes a paged list unreadable.
+    IF iv_order = 'Descending'.
+      SORT lt_sk BY key DESCENDING ix ASCENDING.
+    ELSE.
+      SORT lt_sk BY key ASCENDING ix ASCENDING.
+    ENDIF.
+
+    LOOP AT lt_sk INTO DATA(ls_sk).
+      APPEND ct_rows[ ls_sk-ix ] TO lt_out.
+    ENDLOOP.
+    ct_rows = lt_out.
   ENDMETHOD.
 
 
