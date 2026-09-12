@@ -89,6 +89,10 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   never required - see the FBSKIP branch.
     DATA mv_fb_skip    TYPE abap_bool.
     DATA mv_fb_rating  TYPE string.
+
+*   Write the happiness rating to the department's own feedback table.
+*   Called by the engine on FBSEND, never by a handler - see there.
+    METHODS save_feedback.
 *   THE JOURNEY KEY, AND IT IS NEVER A GUID. This was called MV_CASE_GUID
 *   and the name was wrong twice over.
 *
@@ -901,6 +905,21 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDIF.
 
     ELSEIF lv_event = 'FBSEND'.
+*     SAVED BY THE ENGINE, BEFORE THE HOOK, AND NOT BY THE HOOK.
+*
+*     The base ON_FEEDBACK( ) is empty, so until now every journey whose
+*     handler did not redefine it collected a rating from the citizen and
+*     threw it away - the meter drew, the citizen pressed Send, and
+*     nothing anywhere was written.
+*
+*     PUTTING THE WRITE IN THE BASE HOOK WOULD HAVE BEEN WORSE. A handler
+*     redefining ON_FEEDBACK( ) replaces the base body, so it would become
+*     a fifth hook whose empty redefinition silently removes something -
+*     the trap that lost E128 its PAID gate and D020 its fee card. In the
+*     engine it cannot be redefined away, and a handler that wants to do
+*     something else with the rating still can.
+      save_feedback( ).
+
       IF mo_logic IS BOUND.
         TRY.
             mo_logic->on_feedback( io_ctx = me iv_rating = mv_fb_rating iv_comment = mv_fb_comment ).
@@ -2684,6 +2703,79 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   IV_CARRY for the two guards that keep it safe: filled values only, and
 *   no TECHNICALNAME that the journey does not already send anyway.
     mo_be->backend_read( iv_step = mv_step iv_carry = abap_true ).
+  ENDMETHOD.
+
+
+  METHOD save_feedback.
+
+*   ONE ROW IN ZDT_HM_FEEDBACK, exactly as Z2UI5_CL_EXT_WIDGETS=>
+*   RAKHAPPY_SAVE( ) writes it. The table is the department's, the
+*   reporting on it already exists, and a second store would mean two
+*   numbers for one question.
+*
+*   THE CODES ARE COPIED, NOT REASONED ABOUT, and they do not form a
+*   scale: Excellent 1, Very Poor 2, Average 3, Good 4, Poor 5. That
+*   looks like a mistake and is not ours to correct - whatever reads this
+*   table reads it with those codes, and "improving" them here would put
+*   CJS rows on a different scale from every ShapeIt row beside them.
+*   Copied from RAKHAPPY_SAVE( ) line for line.
+    CHECK mv_fb_rating IS NOT INITIAL.
+
+    DATA ls_fb TYPE zdt_hm_feedback.
+
+    CASE to_upper( mv_fb_rating ).
+      WHEN 'EX'. ls_fb-feedback = '1'.
+      WHEN 'GD'. ls_fb-feedback = '4'.
+      WHEN 'AV'. ls_fb-feedback = '3'.
+      WHEN 'PR'. ls_fb-feedback = '5'.
+      WHEN 'VP'. ls_fb-feedback = '2'.
+      WHEN OTHERS.
+*       A rating the renderer does not draw. Nothing is written rather
+*       than a row with a blank score, which would count as feedback in
+*       every report that reads this table.
+        trace( |HAPPY   rating '{ mv_fb_rating }' is not one of EX/GD/AV/PR/VP - not saved| ).
+        RETURN.
+    ENDCASE.
+
+    TRY.
+        ls_fb-sessionid = NEW cl_random_number( )->if_random_number~get_random_int( i_limit = 1000000000 ).
+      CATCH cx_root.
+    ENDTRY.
+
+*   CASETYPE IS THE BACKEND CATEGORY where the journey has one, and the
+*   journey id where it does not. A journey with no backend still has an
+*   identity worth reporting on, and leaving it blank would put every
+*   such row in one unnamed bucket.
+    ls_fb-casetype = COND #( WHEN ms_config-backend-category IS NOT INITIAL
+                             THEN ms_config-backend-category
+                             ELSE ms_config-journey_id ).
+
+*   THE CASE NUMBER FIRST, THE JOURNEY KEY SECOND. A report joining this
+*   table to a case wants the case; MV_INTRENO is the fallback because on
+*   Municipality it is an INTRENO and no case number may exist yet, and a
+*   row that names neither cannot be traced back to anything.
+    ls_fb-caseid = COND #( WHEN mv_case_number IS NOT INITIAL
+                           THEN mv_case_number ELSE mv_intreno ).
+
+    ls_fb-uname    = sy-uname.
+    ls_fb-comments = mv_fb_comment.
+    ls_fb-crdate   = sy-datum.
+    ls_fb-crtime   = |{ sy-uzeit+0(2) }:{ sy-uzeit+2(2) }:{ sy-uzeit+4(2) }|.
+    ls_fb-step     = '2'.
+
+*   CATCH CX_ROOT AND CARRY ON, which is RAKHAPPY_SAVE( )'s own choice and
+*   the right one here too. The citizen has finished their application and
+*   pressed Send on an optional question; a short dump at that moment
+*   would lose them the confirmation page over a survey row. The trace
+*   says what happened for anyone looking.
+    TRY.
+        MODIFY zdt_hm_feedback FROM ls_fb.
+        trace( |HAPPY   saved rating { ls_fb-feedback } for case { ls_fb-caseid } | &&
+               |({ ls_fb-casetype })| ).
+      CATCH cx_root INTO DATA(lx_fb).
+        trace( |HAPPY   NOT saved - { lx_fb->get_text( ) }| ).
+    ENDTRY.
+
   ENDMETHOD.
 
 
