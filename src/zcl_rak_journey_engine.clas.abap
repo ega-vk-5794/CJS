@@ -2750,12 +2750,30 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                              THEN ms_config-backend-category
                              ELSE ms_config-journey_id ).
 
-*   THE CASE NUMBER FIRST, THE JOURNEY KEY SECOND. A report joining this
-*   table to a case wants the case; MV_INTRENO is the fallback because on
-*   Municipality it is an INTRENO and no case number may exist yet, and a
-*   row that names neither cannot be traced back to anything.
-    ls_fb-caseid = COND #( WHEN mv_case_number IS NOT INITIAL
-                           THEN mv_case_number ELSE mv_intreno ).
+*   THE CASE NUMBER FIRST, THE JOURNEY KEY SECOND, AND NEITHER IF IT WILL
+*   NOT FIT.
+*
+*   CASEID is CHAR(12) and MV_INTRENO is not always a case. On a journey
+*   with no case yet it is the GUID_22 INDX buffer id - 0298oqJ{7z6hjPMRHuI6uG
+*   - which CLAUDE.md describes as existing only until the first real key
+*   appears. Assigned to a CHAR(12) it truncates in silence to
+*   "0298oqJ{7z6h", which matches nothing, joins to nothing, and cannot
+*   even be recognised as the thing it was cut from. That was observed in
+*   the debugger on an ECOMP feedback row.
+*
+*   A BLANK CASEID IS BETTER THAN A TRUNCATED ONE. Blank reads as "this
+*   feedback is not against a case", which is true of a journey that
+*   never created one; twelve characters of a discarded buffer id reads
+*   as a case reference and is not.
+    DATA(lv_key) = COND string( WHEN mv_case_number IS NOT INITIAL
+                                THEN mv_case_number ELSE mv_intreno ).
+
+    IF strlen( lv_key ) <= 12.
+      ls_fb-caseid = lv_key.
+    ELSE.
+      trace( |HAPPY   key '{ lv_key }' is { strlen( lv_key ) } characters and CASEID | &&
+             |holds 12 - saved without a case reference rather than truncated| ).
+    ENDIF.
 
     ls_fb-uname    = sy-uname.
     ls_fb-comments = mv_fb_comment.
