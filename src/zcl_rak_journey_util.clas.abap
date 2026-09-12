@@ -11,6 +11,27 @@ CLASS zcl_rak_journey_util DEFINITION
     CLASS-METHODS esc IMPORTING iv TYPE string RETURNING VALUE(rv) TYPE string.
     CLASS-METHODS esc_js IMPORTING iv TYPE string RETURNING VALUE(rv) TYPE string.
     CLASS-METHODS to_dats IMPORTING iv TYPE string RETURNING VALUE(rv) TYPE string.
+
+*   A DATE IN THE FORMAT SAP.M.DATEPICKER WAS TOLD TO EXPECT.
+*
+*   The picker is rendered with VALUEFORMAT = 'yyyy-MM-dd', which is a
+*   statement about the MODEL value, not the display. A backend that
+*   answers a DATS - 20260926, which is what the D0xx BAdI returns -
+*   hands UI5 a string it cannot parse against that format, and the
+*   citizen gets ".0..0.26.." in the field: the display format applied to
+*   a value the parser gave up on. Nothing errors and the date looks
+*   corrupted rather than unparsed.
+*
+*   TO_DATS( ) IS THE PARSER, this is only the formatter, so the two
+*   directions cannot disagree about what a date looks like. Anything
+*   TO_DATS( ) accepts - DATS, ISO, dd.mm.yyyy, dd/mm/yyyy, dd-mm-yyyy -
+*   comes back as ISO.
+*
+*   AN UNPARSEABLE VALUE IS RETURNED UNCHANGED, never blanked. A date the
+*   framework does not recognise is still the citizen's data and still
+*   worth showing them; erasing it would lose a value on a resumed case
+*   and look like the backend returned nothing.
+    CLASS-METHODS ui_date IMPORTING iv TYPE string RETURNING VALUE(rv) TYPE string.
     CLASS-METHODS opt_text
       IMPORTING iv_key    TYPE string
                 iv_text   TYPE string
@@ -939,6 +960,27 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
     IF strlen( lv_grp ) > 4 AND lv_grp(4) = 'ROW:'.
       rv = lv_grp.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD ui_date.
+    rv = iv.
+
+    DATA(lv_dats) = to_dats( iv ).
+    IF strlen( lv_dats ) <> 8.
+      RETURN.
+    ENDIF.
+
+*   00000000 IS "NO DATE", NOT THE YEAR ZERO. A DATS component the backend
+*   never filled comes back as eight zeroes; formatted it would put
+*   "0000-00-00" in the picker, which the citizen then has to clear before
+*   they can enter anything.
+    IF lv_dats = '00000000'.
+      CLEAR rv.
+      RETURN.
+    ENDIF.
+
+    rv = |{ lv_dats(4) }-{ lv_dats+4(2) }-{ lv_dats+6(2) }|.
   ENDMETHOD.
 
 

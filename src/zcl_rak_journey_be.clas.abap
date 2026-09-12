@@ -635,6 +635,29 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
       DATA(ls_gf) = mo_e->safe_field( ls_v-key ).
       IF ls_gf-type = 'EDITABLE_TABLE'.
         mo_e->mo_grid->grid_from_json( iv_field = ls_v-key iv_json = ls_v-value ).
+
+*     A DATE IS NORMALISED ON THE WAY IN, and this is the one place a
+*     backend value becomes a model value so it is the one place that can
+*     do it.
+*
+*     RENDER_ONE( ) draws a DATE with VALUEFORMAT = 'yyyy-MM-dd', which is
+*     a statement about the MODEL value. The D0xx BAdI answers a DATS -
+*     20260926 - so a journey opened on a case put a string UI5 cannot
+*     parse into a picker that had been told to expect ISO, and the
+*     citizen saw ".0..0.26..": the display format applied to a value the
+*     parser gave up on. Reported from the landing page as "date format
+*     issue", and it is only reachable that way because a date the citizen
+*     types is already in the picker's own format.
+*
+*     UI_DATE( ) FORMATS WHAT TO_DATS( ) PARSES, so the read direction and
+*     the validation direction cannot disagree about what a date is - and
+*     a value neither recognises is passed through untouched rather than
+*     blanked, because a date the framework does not understand is still
+*     the citizen's data.
+      ELSEIF to_upper( ls_gf-type ) = 'DATE'.
+        mo_e->val_set( iv_name  = ls_v-key
+                       iv_value = zcl_rak_journey_util=>ui_date( ls_v-value ) ).
+
       ELSE.
         mo_e->val_set( iv_name = ls_v-key iv_value = ls_v-value ).
       ENDIF.
