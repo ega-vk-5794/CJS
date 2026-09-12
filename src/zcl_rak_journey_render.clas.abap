@@ -969,6 +969,28 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       which is worse than no pager at all. Windowed here, and traced, so
 *       such a handler is merely not saving the payload rather than lying
 *       about it.
+*       ---- THE SAFETY NET, and it can only run here ------------------
+*       A table with no GROW_THRESH that comes back over C_PAGE_MAX is
+*       paged anyway. Not a preference: four thousand rows of controls is
+*       a frozen tab, and an author who never thought about paging should
+*       not be able to produce one by accident.
+*
+*       AFTER THE READ, NECESSARILY. The engine cannot know a table is
+*       long until it has the rows - which is also why this saves the
+*       RENDERING and none of the payload. The handler has already
+*       fetched and built all four thousand by the time we get here. Only
+*       GROW_THRESH plus a handler that honours IV_PAGE_SIZE saves the
+*       payload; this is the floor under that, not a replacement for it.
+        DATA(lv_pauto) = abap_false.
+        IF lv_psize <= 0 AND lines( ls_data-rows ) > mo_e->c_page_max.
+          lv_pauto = abap_true.
+          lv_psize = mo_e->c_page_max.
+          lv_poff  = mo_e->page_offset( is_field-name ).
+          mo_e->trace( |PAGE    { to_upper( is_field-name ) } has no GROW_THRESH and returned | &&
+                       |{ lines( ls_data-rows ) } rows - paged at { lv_psize } to keep the page | &&
+                       |usable. Set GROW_THRESH and window it in the handler to save the payload too.| ).
+        ENDIF.
+
         DATA lv_ptot TYPE i.
         lv_ptot = ls_data-total.
         IF lv_psize > 0.
@@ -984,9 +1006,15 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           ENDIF.
 
           IF lines( ls_data-rows ) > lv_psize.
-            mo_e->trace( |PAGE    { to_upper( is_field-name ) } handler returned | &&
-                         |{ lines( ls_data-rows ) } rows for a window of { lv_psize } | &&
-                         |- windowed in the renderer. The rows still travelled.| ).
+*           NOT A COMPLAINT WHEN THE SAFETY NET ASKED FOR IT. The handler
+*           was never given a window in that case - GROW_THRESH is blank -
+*           so reporting it as one that ignored the window would send the
+*           reader looking for a fault in a handler doing nothing wrong.
+            IF lv_pauto = abap_false.
+              mo_e->trace( |PAGE    { to_upper( is_field-name ) } handler returned | &&
+                           |{ lines( ls_data-rows ) } rows for a window of { lv_psize } | &&
+                           |- windowed in the renderer. The rows still travelled.| ).
+            ENDIF.
             DATA(lt_pwin) = ls_data-rows.
             CLEAR ls_data-rows.
             DATA lv_pix TYPE i.

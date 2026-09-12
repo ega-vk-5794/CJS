@@ -431,6 +431,29 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   blank, and there is no state to initialise.
     DATA mt_page TYPE zif_rak_journey=>tt_kv.
 
+*   THE SAFETY NET. A table that comes back with more rows than this and
+*   has NO GROW_THRESH is paged anyway, at this size.
+*
+*   Because a four-thousand-row table is not a slow page, it is an
+*   unusable one - the browser builds four thousand rows of controls and
+*   the citizen gets a frozen tab. An author who has not thought about
+*   paging should not be able to produce that by accident, and "nobody
+*   configured it" is not a reason to render it.
+*
+*   IT ONLY FIXES WHAT IS DRAWN, NOT WHAT IS CARRIED, and the difference
+*   matters when reading the trace. By the time the engine sees the rows
+*   the handler has already fetched and built all of them; slicing here
+*   saves the rendering and none of the payload. Only a handler that
+*   honours IV_PAGE_SIZE saves the payload, which is why GROW_THRESH plus
+*   a cooperating handler stays the real answer and this is the floor
+*   under it.
+*
+*   200 IS DELIBERATELY HIGH. It is a crash guard, not a page size - low
+*   enough that no browser struggles, high enough that it does not quietly
+*   start paging tables that are working today. A journey that wants
+*   twenty-five per page says so in GROW_THRESH.
+    CONSTANTS c_page_max TYPE i VALUE 200.
+
 *   Move one page of IV_FIELD. IV_DIR is +1 or -1. Clamped at zero and at
 *   the last page the total allows; with no total it simply refuses to go
 *   below zero, which is all the information available.
@@ -2676,12 +2699,17 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   THE PAGE SIZE IS THE FIELD'S OWN GROW_THRESH, read here rather than
 *   passed in, so the event and the renderer cannot disagree about how big
 *   a page is - one column, one reader.
-    DATA(ls_f) = safe_field( iv_field ).
-    IF ls_f-grow_thresh <= 0.
-      RETURN.
-    ENDIF.
+*   THE SAME FALLBACK THE RENDERER USES, so the pager's step and the
+*   pager's page are the same number. A field with no GROW_THRESH can
+*   still be paged - the safety net does that when a table comes back
+*   over C_PAGE_MAX - and if this method had kept its old "no threshold,
+*   no move" guard, those tables would have drawn Back and Next buttons
+*   that did nothing.
+    DATA(ls_f)   = safe_field( iv_field ).
+    DATA(lv_size) = COND i( WHEN ls_f-grow_thresh > 0
+                            THEN ls_f-grow_thresh ELSE c_page_max ).
 
-    DATA(lv_new) = page_offset( iv_field ) + iv_dir * ls_f-grow_thresh.
+    DATA(lv_new) = page_offset( iv_field ) + iv_dir * lv_size.
     IF lv_new < 0.
       lv_new = 0.
     ENDIF.
@@ -2700,7 +2728,8 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       APPEND VALUE #( key = lv_key value = |{ lv_new }| ) TO mt_page.
     ENDIF.
 
-    trace( |PAGE    { lv_key } offset { lv_new } (size { ls_f-grow_thresh })| ).
+    trace( |PAGE    { lv_key } offset { lv_new } (size { lv_size }| &&
+           |{ COND string( WHEN ls_f-grow_thresh <= 0 THEN ` - safety net, no GROW_THRESH` ) })| ).
   ENDMETHOD.
 
 
