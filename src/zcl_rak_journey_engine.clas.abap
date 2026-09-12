@@ -2924,7 +2924,31 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
           WHERE g~journeyid = @lv_key
           INTO @DATA(lv_code).
 
-        rv = SWITCH #( to_upper( CONV string( lv_code ) )
+*       SECOND SOURCE, AND IT IS NOT A GUESS - it is the other key the
+*       portal itself uses. ZEGA_T_CJ_ICONS-CATEGORY on a TYPE '1' row is
+*       a department code, which the DPC settles by joining it straight
+*       to ZEGA_CJ_DEPART-DEPARTMENT when it builds the EPDA draft list.
+*
+*       IT MATTERS FOR EXACTLY THE JOURNEYS THE FIRST SOURCE MISSES. A
+*       journey reachable only by a deep link - EC01..EC06 are the ones
+*       in front of us - was never put on a department's tile list, so
+*       ZEGA_T_CJ_GRP has no row for it and never will, while the icons
+*       row exists because something had to draw its card.
+        DATA(lv_dept) = CONV string( lv_code ).
+
+        IF lv_dept IS INITIAL.
+*         ITS OWN VARIABLE, NOT THE ONE ABOVE. CATEGORY and DEPARTMENT are
+*         two different DDIC types, and SELECTing the wider one INTO the
+*         narrower host field truncates in silence - 'COURT' arriving as
+*         'COUR' would match no branch below and read exactly like a
+*         journey with no department at all.
+          SELECT SINGLE category FROM zega_t_cj_icons
+            WHERE id = @lv_key AND type = '1'
+            INTO @DATA(lv_cat).
+          lv_dept = lv_cat.
+        ENDIF.
+
+        rv = SWITCH #( to_upper( lv_dept )
                WHEN 'EPDA'  THEN '1'
                WHEN 'MUN'   THEN '2'
                WHEN 'COURT' THEN '3'
@@ -2943,8 +2967,12 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *         report and nothing anywhere shows where it came from. The trace
 *         names the key that missed, which is what an author needs to add
 *         the row.
-          trace( |HAPPY   no department for tile '{ lv_key }' | &&
-                 |(ZEGA_T_CJ_GRP answered '{ lv_code }') - saved without one| ).
+*         BOTH ANSWERS ON THE LINE, because which source was empty is the
+*         whole diagnosis: no GRP row and no ICONS row means the journey
+*         is on neither list, and a filled one nobody recognises means the
+*         SWITCH below needs a branch.
+          trace( |HAPPY   no department for tile '{ lv_key }' (ZEGA_T_CJ_GRP | &&
+                 |'{ lv_code }', ZEGA_T_CJ_ICONS '{ lv_cat }') - saved without one| ).
         ENDIF.
 
       CATCH cx_root INTO DATA(lx_dep).
