@@ -319,6 +319,24 @@ CLASS zcl_rak_test_all_logic DEFINITION
                       RETURNING VALUE(rv)  TYPE string.
     METHODS bp_opts   IMPORTING iv_subject TYPE string
                       RETURNING VALUE(rs)  TYPE zcl_rak_bp_search=>ty_req.
+*   R20-1 and R20-2, exercised by making the TWO SUBJECTS DIFFER.
+*
+*   LESSOR keeps the four ID types and the lenient form - which is every
+*   caller written before round 20, so the bed still proves that path.
+*   LESSEE takes one type and IV_STRICT, which is the shape a real service
+*   asks for: natural persons only, and the verification fields required
+*   rather than collected and ignored.
+*
+*   ONE READER EACH, called from BOTH on_render_popup( ) and
+*   on_popup_event( ). The popup is constructed twice per round trip and the
+*   two constructions must agree: a form drawn with one type and validated
+*   leniently, or drawn leniently and validated strictly, is worse than
+*   either behaviour on its own. That is PICK_SPEC( )'s lesson in a
+*   constructor argument.
+    METHODS bp_types  IMPORTING iv_subject TYPE string
+                      RETURNING VALUE(rt)  TYPE string_table.
+    METHODS bp_strict IMPORTING iv_subject TYPE string
+                      RETURNING VALUE(rv)  TYPE abap_bool.
     METHODS seed_fees IMPORTING io_ctx TYPE REF TO zif_rak_journey.
 *   The reference example for FTYPE = 'PDF' - see the method for the two
 *   config shapes a developer can copy.
@@ -787,6 +805,32 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
            WHEN 'LESSEE'     THEN 'Partner Search - lessee (looked up, no MOI call)'
            WHEN 'LESSOR'     THEN 'Partner Search - lessor (fully verified)'
            ELSE 'Partner Search' ).
+  ENDMETHOD.
+
+
+  METHOD bp_types.
+*   R20-2. LESSEE accepts an Emirates ID and nothing else, so its dropdown
+*   has one item - and the popup pre-selects it, which is the behaviour to
+*   watch for: the form must open on the number field rather than on a
+*   dropdown with one answer and no way forward.
+*
+*   LESSOR returns blank, which is the four types, which is every caller
+*   written before this parameter existed.
+    IF to_upper( iv_subject ) = 'LESSEE'.
+      rt = VALUE #( ( zcl_rak_bp_popup=>c_eid ) ).
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD bp_strict.
+*   R20-1. Date of birth and nationality REQUIRED on LESSEE, because they are
+*   what VALIDATE( )'s MOI cross-check compares against - the popup collects
+*   them on every identity branch and, left blank, has nothing to compare.
+*
+*   LESSOR stays lenient. Two subjects, two answers, so one run of this bed
+*   shows both: press Search empty on LESSOR and one message names the ID
+*   number; press it empty on LESSEE and three messages arrive together.
+    rv = xsdbool( to_upper( iv_subject ) = 'LESSEE' ).
   ENDMETHOD.
 
 
@@ -1367,7 +1411,26 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
   METHOD vehicles.
 *   Single-pick TABLE: column 1 is the key written into the field named in
 *   DEFAULT_VAL (VEHICLE_SEL).
-    rs-columns = VALUE #( ( `Plate` ) ( `Type` ) ( `Model` ) ( `Year` ) ).
+*
+*   R19-1 IS EXERCISED HERE, AND IT IS THE REFUSAL HALF - OWNERS( ) is the
+*   half that works. This table asks for SORT and must NOT get a menu.
+*
+*   IT WINDOWS ON ITS OWN, which is the shape JP1 has and the shape the old
+*   guard could not see: TOTAL says twelve, three rows come back, and the
+*   field carries no GROW_THRESH because nobody told this handler to page -
+*   it decided to. Testing GROW_THRESH alone, the engine called this unpaged
+*   and would have sorted three rows of twelve and drawn an arrow over them.
+*
+*   WHAT TO LOOK FOR: the Plate column shows a sort indicator and NO header
+*   menu, and under &trace=x the engine says why - "the handler answered 3
+*   rows of 12 and windows on its own". If a menu appears on this table, the
+*   second condition is not live.
+*
+*   TOTAL IS SAFE TO SET HERE. The pager only reads it when GROW_THRESH is
+*   configured, so a windowing handler that reports its total gets the sort
+*   guard right and the pager unchanged.
+    rs-total   = 12.
+    rs-columns = VALUE #( ( `Plate|||SORT` ) ( `Type` ) ( `Model` ) ( `Year` ) ).
     addrow( EXPORTING iv1    = `RAK-A-12345`
                       iv2    = `Pickup`
                       iv3    = `Toyota Hilux`
@@ -1973,9 +2036,15 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *   each round trip is the same instance.
     IF iv_event CP 'BPP_*' AND io_ctx->get_val( 'BP_ACTIVE_SUBJECT' ) IS NOT INITIAL.
       DATA(lv_asubj) = io_ctx->get_val( 'BP_ACTIVE_SUBJECT' ).
+*     THE SAME TWO ANSWERS THE RENDER USED. IT_TYPES decides what the form
+*     drew and IV_STRICT decides what VALIDATE_FORM( ) refuses, so a
+*     construction here that disagreed with the one in on_render_popup( )
+*     would validate a form the citizen was never shown.
       NEW zcl_rak_bp_popup( io_ctx     = io_ctx
                             iv_subject = lv_asubj
-                            is_search  = bp_opts( bp_rules( io_ctx ) ) )->handle( iv_event ).
+                            is_search  = bp_opts( bp_rules( io_ctx ) )
+                            it_types   = bp_types( lv_asubj )
+                            iv_strict  = bp_strict( lv_asubj ) )->handle( iv_event ).
       RETURN.
     ENDIF.
 
@@ -2352,7 +2421,9 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
       NEW zcl_rak_bp_popup( io_ctx     = io_ctx
                             iv_subject = lv_subj
                             iv_title   = bp_title( io_ctx )
-                            is_search  = bp_opts( bp_rules( io_ctx ) ) )->render( io_popup ).
+                            is_search  = bp_opts( bp_rules( io_ctx ) )
+                            it_types   = bp_types( lv_subj )
+                            iv_strict  = bp_strict( lv_subj ) )->render( io_popup ).
       RETURN.
     ENDIF.
 
