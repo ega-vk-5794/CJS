@@ -986,24 +986,64 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       menu; MT_SORT on the engine remembers it across the round trip the way
 *       MT_PAGE remembers a page.
 *
-*       ONLY WHERE THE ENGINE HOLDS THE WHOLE SET, which is a field with no
-*       GROW_THRESH: the handler was never given a window, so what came back
-*       is everything. On a handler-paged field the engine holds one page, and
-*       ordering a page among itself is not sorting the table - it is a
-*       plausible-looking wrong answer, which is worse than no menu. That is
-*       why the column loop below offers the menu on an unpaged table only,
-*       and the two conditions are deliberately the same test.
+*       ONLY WHERE THE ENGINE HOLDS THE WHOLE SET. On a windowed field the
+*       engine holds one page, and ordering a page among itself is not
+*       sorting the table - it is a plausible-looking wrong answer, which is
+*       worse than no menu.
+*
+*       R19-1. GROW_THRESH IS NOT THAT QUESTION, AND TESTING IT ALONE LET THE
+*       EXACT FAILURE THROUGH. It asks whether the AUTHOR configured a window.
+*       A handler can page on its own - JP1 does, and did so before R18-2
+*       existed, so it sets none - and for that field GROW_THRESH is blank,
+*       the engine called the table unpaged, and SORT_ROWS( ) would have been
+*       handed the twenty-five row window and presented it under an indicator
+*       as the sorted table. Found by the reviewer reading the guard, not by
+*       anyone being bitten: JP1 sets no SORT keyword, so nothing draws today.
+*
+*       THE SECOND TEST IS ONE THE ENGINE ALREADY HAS. A handler is windowing
+*       when it answers fewer rows than it reports:
+*
+*           TOTAL > lines( ROWS )
+*
+*       true for a handler that pages however it was told to, false for one
+*       that answers in full. The same value drives the pager and the
+*       over-answer trace, so nothing new is carried.
+*
+*       BOTH, NOT EITHER, AND NOT TOTAL ALONE. A handler that windows and
+*       reports no TOTAL leaves it zero - "did not say" - and zero is greater
+*       than nothing, so TOTAL alone would re-open the menu for exactly the
+*       handler that cannot afford it. Either condition refuses; the trace
+*       says which. A handler that windows AND sets no total AND has no
+*       GROW_THRESH is still invisible to this, and there is no signal that
+*       would catch it - it looks identical to a short table.
+*
+*       EVALUATED ONCE, HERE, AND READ AGAIN BY THE COLUMN LOOP. Not
+*       recomputed there: by then the safety net may have sliced ROWS itself,
+*       so TOTAL > lines( ROWS ) would have turned true for a table the
+*       engine really did hold in full and sorted correctly, and the menu
+*       would vanish from the one case that works.
 *
 *       BEFORE THE SAFETY NET, necessarily. The net slices a long table down
 *       to C_PAGE_MAX for the browser's sake, and slicing first would sort the
 *       first two hundred rows and show them as the table.
         DATA lv_sortcol TYPE i.
         DATA lv_sortord TYPE string.
+        DATA lv_pgd_why TYPE string.
 *       CLEARED, and it matters. A method-level DATA survives the loop that
 *       renders the step, so a step carrying two tables would otherwise draw
 *       the second one's arrow from the first one's sort.
-        CLEAR: lv_sortcol, lv_sortord.
-        IF is_field-grow_thresh <= 0.
+        CLEAR: lv_sortcol, lv_sortord, lv_pgd_why.
+
+        IF is_field-grow_thresh > 0.
+          lv_pgd_why = |GROW_THRESH { is_field-grow_thresh }|.
+        ELSEIF ls_data-total > lines( ls_data-rows ).
+          lv_pgd_why = |the handler answered { lines( ls_data-rows ) } rows | &&
+                       |of { ls_data-total } and windows on its own|.
+        ENDIF.
+
+        DATA(lv_holds_all) = xsdbool( lv_pgd_why IS INITIAL ).
+
+        IF lv_holds_all = abap_true.
           mo_e->sort_state( EXPORTING iv_field = is_field-name
                             IMPORTING ev_col   = lv_sortcol
                                       ev_order = lv_sortord ).
@@ -1381,15 +1421,19 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *         the sorted table. Refused, and said out loud on the trace rather
 *         than silently: an author who put SORT on a paged column has asked
 *         for something and is entitled to know it did not happen.
+*         THE SAME ANSWER THE SORT USED, READ NOT RECOMPUTED. LV_HOLDS_ALL
+*         was decided above, before the safety net could slice ROWS - see
+*         there for why recomputing it here would refuse the menu on the one
+*         paged case that sorts correctly. Two tests that must agree, kept as
+*         one value, which is the lesson PICK_SPEC( ) cost.
           DATA(lv_cmenu) = ``.
           IF lv_sflag IS NOT INITIAL.
-            IF is_field-grow_thresh <= 0.
+            IF lv_holds_all = abap_true.
               lv_cmenu = |RAKCM{ lv_tcx }{ to_upper( is_field-name ) }|.
             ELSE.
               mo_e->trace( |SORT    { to_upper( is_field-name ) } column { lv_tcx } asks for | &&
-                           |SORT, but the field is paged (GROW_THRESH { is_field-grow_thresh }) | &&
-                           |so the engine holds one page and cannot order the table. Indicator | &&
-                           |only, no menu.| ).
+                           |SORT, but the field is windowed ({ lv_pgd_why }) so the engine | &&
+                           |holds one page and cannot order the table. Indicator only, no menu.| ).
             ENDIF.
           ENDIF.
 
