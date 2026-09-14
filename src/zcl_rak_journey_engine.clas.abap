@@ -2808,6 +2808,75 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     lv_id = mv_intreno.
 
+*   ---- WHICH OF THE THREE SHAPES IS THIS KEY? -------------------------
+*
+*   GS_DATA-CASEID ARRIVES BLANK IN ZCL_EGA_CJ_DOK_ABS->CASE_UPDATE_V2, and
+*   there are two reasons for that with two different fixes. Nothing on the
+*   CJS side can read SCMG_T_CASE_ATTR from a design session, so the launch
+*   reports which one it is rather than the next round being another guess.
+*
+*   That class fills GS_DATA-CASEID in exactly one place - ZIF_EGA_FW_CJI~
+*   GET_SCREEN, which the CJS path never reaches, because
+*   GETSCREENSET_GET_ENTITYSET returns the CJS launch URL before the
+*   GET_SCREEN BAdI call is made. So there is no INDX(CJ) row for MAPPER's
+*   RETRIVE_DATA( ) to restore, and everything downstream depends on the one
+*   remaining chance: READ calls READ_CASE( iv_draft = gv_guid ) - as
+*   IV_DRAFT, never IV_CASE_ID - and that branch sets CASEID only when its
+*   ALPHA-converted SELECT on SCMG_T_CASE_ATTR-EXT_KEY hits. On a miss it
+*   files the value as GS_DATA-DRAFTID instead, silently, and
+*   CASE_UPDATE_V2 has no fallback of its own.
+*
+*   A HIT means the key IS a real case and the fix belongs in the BAdI.
+*   A MISS means CJS is being handed the wrong value and the fix is in
+*   whatever the landing page puts in the launch URL. VIBDRO is asked as
+*   well because that is the third shape PARAM1 can legally be, and a hit
+*   there names the mistake exactly: a real-estate INTRENO where a case
+*   was meant.
+*
+*   BOTH SELECTS ARE WRAPPED, for the reason CASE_KEY_OF( ) is wrapped: a
+*   journey key can be a GUID_22 carrying punctuation, and comparing one
+*   against SCMG_EXT_KEY raises CX_SY_OPEN_SQL_DATA_ERROR rather than
+*   simply missing. BOTH HOST VARIABLES ARE TYPED, because MV_INTRENO is a
+*   STRING and a STRING host variable is a LOB in ABAP SQL. AND IT RUNS
+*   UNDER &trace=x ONLY - two selects per keyed launch buy nothing when
+*   nobody is reading the answer.
+    IF mv_trace = abap_true.
+      DATA lv_ek   TYPE scmg_ext_key.
+      DATA lv_ro   TYPE vibdro-intreno.
+      DATA lv_vcas TYPE string.
+      DATA lv_vro  TYPE string.
+
+      lv_vcas = `MISS - READ_CASE files this as DRAFTID and CASEID stays blank`.
+      lv_vro  = `miss`.
+
+      TRY.
+          lv_ek = |{ CONV scmg_ext_key( mv_intreno ) ALPHA = IN }|.
+          SELECT SINGLE ext_key FROM scmg_t_case_attr
+            WHERE ext_key = @lv_ek
+            INTO @DATA(lv_hcas).
+          IF sy-subrc = 0 AND lv_hcas IS NOT INITIAL.
+            lv_vcas = `HIT - a real case, and READ still passes it as IV_DRAFT`.
+          ENDIF.
+        CATCH cx_root INTO DATA(lx_cas).
+          lv_vcas = |refused - { lx_cas->get_text( ) }|.
+      ENDTRY.
+
+      TRY.
+          lv_ro = mv_intreno.
+          SELECT SINGLE intreno FROM vibdro
+            WHERE intreno = @lv_ro
+            INTO @DATA(lv_hro).
+          IF sy-subrc = 0 AND lv_hro IS NOT INITIAL.
+            lv_vro = `HIT - a real-estate object, not a case`.
+          ENDIF.
+        CATCH cx_root INTO DATA(lx_ro).
+          lv_vro = |refused - { lx_ro->get_text( ) }|.
+      ENDTRY.
+
+      trace( |KEYSHAP '{ mv_intreno }' alpha '{ lv_ek }' · | &&
+             |SCMG_T_CASE_ATTR { lv_vcas } · VIBDRO { lv_vro }| ).
+    ENDIF.
+
     TRY.
         DELETE FROM DATABASE indx(cj) ID lv_id.
         trace( |BUFFER  INDX(CJ) id '{ lv_id }' cleared before the entry read | &&
