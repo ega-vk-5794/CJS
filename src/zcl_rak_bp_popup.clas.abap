@@ -785,7 +785,7 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
         ( suffix = `PPFROM`     label = t( iv_no = zcl_rak_text=>c_no-bpp_pp_issue    iv_default = 'Date of passport Issue' ) )
         ( suffix = `PPPLACE`    label = t( iv_no = zcl_rak_text=>c_no-bpp_pp_country  iv_default = 'Country of passport Issue' ) )
         ( suffix = `PPTO`       label = t( iv_no = zcl_rak_text=>c_no-bpp_pp_exp      iv_default = 'Passport Expiry Date' ) )
-        ( suffix = `NAT`        label = t( iv_no = zcl_rak_text=>c_no-bpp_nat         iv_default = 'Nationality' ) )
+        ( suffix = `NATV`       label = t( iv_no = zcl_rak_text=>c_no-bpp_nat         iv_default = 'Nationality' ) )
         ( suffix = `OCC`        label = t( iv_no = zcl_rak_text=>c_no-bpp_occupation  iv_default = 'Occupation' ) )
         ( suffix = `DOBV`       label = t( iv_no = zcl_rak_text=>c_no-bpp_dob         iv_default = 'Date of Birth' ) ) ) ).
 
@@ -932,6 +932,15 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *     mismatch rather than a format one.
       lo_form->date_picker( value        = mo_ctx->bind( fld( 'DOB' ) )
                             width         = '100%'
+*                           A PLAUSIBLE BIRTH DATE AS THE PLACEHOLDER.
+*                           sap.m.DatePicker derives its own from the display
+*                           format and TODAY, so an unfilled date of birth
+*                           suggested 31.12 of the current year - the one
+*                           answer that cannot be a date of birth, and the one
+*                           a journey adding its own future-date guard would
+*                           then refuse. Digits only, so it reads the same in
+*                           both languages and needs no catalogue row.
+                            placeholder   = '01.01.1990'
                             displayformat = 'dd.MM.yyyy'
                             valueformat   = 'yyyyMMdd' ).
     ENDIF.
@@ -1190,6 +1199,31 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
     set_detail( is_bp = ls_bp iv_suffix = 'STREET'     iv_names = 'STREET_INTL,STREET' ).
     set_detail( is_bp = ls_bp iv_suffix = 'HOUSE'      iv_names = 'HOUSE_NUMBER,BUILDING' ).
     set_detail( is_bp = ls_bp iv_suffix = 'POBOX'      iv_names = 'POBOX' ).
+
+*   NATIONALITY IS TWO FIELDS, THE WAY DATE OF BIRTH ALREADY IS. <S>_NAT is
+*   the QUESTION - bound to the search select, read into LS_REQ-NATIONALITY -
+*   and the card was drawing it, so it reported what the citizen PICKED rather
+*   than what the partner IS. Two symptoms followed: it showed the raw key (KM
+*   for Comoros) beside a dropdown that had just rendered the description, and
+*   it read blank on any journey passing IV_ASK_NAT = ABAP_FALSE, where nothing
+*   ever fills the field. NATV is the ANSWER; nothing that reads NAT changes.
+*
+*   WRITING THE ANSWER INTO NAT WAS THE OTHER OPTION AND IT IS WORSE: the
+*   select is bound to that field, so its SELECTEDKEY would hold a description
+*   matching no key and Resume Search would open on a blank nationality.
+*
+*   AND IT IS STORED AS THE DESCRIPTION, which is what the rest of this card
+*   already does - PPPLACE prefers ISSUEPLACEEN to a code, GENDER prefers
+*   GENDER_DESCRIPTION to SEX. NATIONALITIES( ) is the same T005T list the
+*   dropdown drew from, so this is a lookup we have rather than one we add. A
+*   code with no T005T row falls back to ITSELF rather than to blank: showing
+*   KM beats showing nothing for a partner who has a nationality.
+    DATA(lv_natv) = pick( is_bp = ls_bp iv_names = 'NATIONALITY' ).
+    IF lv_natv IS NOT INITIAL.
+      DATA(lt_nat) = nationalities( ).
+      lv_natv = VALUE #( lt_nat[ key = lv_natv ]-text DEFAULT lv_natv ).
+    ENDIF.
+    mo_ctx->set_val( iv_name = fld( 'NATV' ) iv_value = lv_natv ).
   ENDMETHOD.
 
 
@@ -1199,6 +1233,14 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *   that could be configured down to nothing would be a found-partner
 *   card showing no partner.
     IF iv_suffix = 'PHONE' OR iv_suffix = 'EMAIL'.
+      rv = abap_true.
+      RETURN.
+    ENDIF.
+
+*   A JOURNEY THAT CONFIGURED 'NAT' STILL GETS ITS ROW. The card's nationality
+*   row moved from NAT to NATV in round 22, and a caller passing the old
+*   suffix would otherwise lose the row with nothing to say so.
+    IF iv_suffix = 'NATV' AND line_exists( mt_detail[ table_line = 'NAT' ] ).
       rv = abap_true.
       RETURN.
     ENDIF.
