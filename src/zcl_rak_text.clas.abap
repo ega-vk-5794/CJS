@@ -263,7 +263,14 @@ CLASS zcl_rak_text DEFINITION
 *       system and no client - the same rule the refusal page follows,
 *       and for the same reason: whoever is reading it has not been
 *       identified, and the landscape's shape is not theirs to learn.
-        cjs_read_only       TYPE symsgno VALUE '142',
+*       144 BECAUSE 142 AND 143 ARE TAKEN, and this constant was briefly
+*       142 - which collided with SORT_ASC and raised
+*       CX_SY_ITAB_DUPLICATE_KEY the moment the catalogue was built, so
+*       the Studio AND every journey died on start with an uncaught
+*       exception. The number is a UNIQUE KEY and nothing checks it at
+*       compile time; read the highest in use numerically before adding
+*       one, not off the tail of a filtered list.
+        cjs_read_only       TYPE symsgno VALUE '144',
 *       R18-3. The two entries of a sortable column's header menu. Two rather
 *       than one toggle, because a menu entry that reads "Sort" has to say
 *       what it would sort to, and a toggle would have to know what it is
