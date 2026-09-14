@@ -1053,6 +1053,9 @@ super->zif_rak_journey_logic~on_render_popup(
     lv_val = ls_bp-birthdt.
     io_ctx->set_val( iv_name = c_dob iv_value = lv_val  ).
     CLEAR lv_val.
+    lv_val = ls_bp-partner.
+    io_ctx->set_val( iv_name = 'OWNER_PARTNER' iv_value = lv_val  ).
+    CLEAR lv_val.
 **    LOOP AT ls_school-partner INTO DATA(ls_partner).
 **      lv_val = ls_partner-bp_name_en.
 **      io_ctx->set_val( iv_name = 'NAME_POP' iv_value = lv_val  ).

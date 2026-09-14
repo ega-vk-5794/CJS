@@ -15,6 +15,8 @@ CLASS zcl_c061_judgement_publ_logic DEFINITION
       REDEFINITION .
     METHODS zif_rak_journey_logic~on_render_start
       REDEFINITION .
+    METHODS zif_rak_journey_logic~on_render_before_field
+      REDEFINITION .
     METHODS zif_rak_journey_logic~on_render_after_field
       REDEFINITION .
     METHODS zif_rak_journey_logic~render_field
@@ -24,6 +26,7 @@ CLASS zcl_c061_judgement_publ_logic DEFINITION
     METHODS zif_rak_journey_logic~wants_feedback
       REDEFINITION .
 
+protected section.
   PRIVATE SECTION.
 
 *&---------------------------------------------------------------------*
@@ -96,15 +99,56 @@ CLASS zcl_c061_judgement_publ_logic DEFINITION
 *   WHILE lv_year > 2013, so 2014 is the last year in the list.
     CONSTANTS c_first_year TYPE i VALUE 2014.
 
-*   How many result rows are rendered. THIS IS NEW, and it is not a limit
-*   copied from the WD - the ALV held every row the search returned and
-*   scrolled ten at a time. The engine's FTYPE 'TABLE' has no paging: it
-*   emits one sap.m.ColumnListItem per row into the view XML, so a search
-*   on Court Type and Year alone - which is all the two mandatory fields
-*   demand - would put every judgment of that year on one page. The citizen
-*   is TOLD when the cut bites and asked to narrow the search, which is the
-*   honest version of a list that silently stops.
-    CONSTANTS c_max_rows TYPE i VALUE 200.
+*   THERE IS NO ROW CAP, and its absence is the point of FETCH_ROWS( ).
+*
+*   THERE USED TO BE ONE - 200, then 500 - and it existed because the whole
+*   result was packed into a hidden model field that crossed the wire on
+*   every click. That made the cap a bound on the PAYLOAD, so raising it to
+*   cover a four-thousand-row court year would have meant 800KB per press.
+*   The rows are re-read per request now and the model carries one number,
+*   so the cap has nothing left to protect and is gone: a search returns
+*   what the court has, fifty are drawn, and the citizen pages or filters.
+*
+*   THE WD HAD NO CAP EITHER. Its ALV held every row the search returned and
+*   scrolled ten at a time, so this is the legacy behaviour restored rather
+*   than a new liberty taken.
+
+*   How many of those rows are DRAWN at once. The cap above bounds what the
+*   search keeps; this bounds what the page builds, and they are different
+*   questions - 500 rows in the model is cheap, 500 rows of markup is not.
+*   Paging is done here rather than with the table's own GROWING because
+*   sap.m pages a BOUND items aggregation and the engine emits one static
+*   row per record; see R17-2. Every page is ordinary static rows carrying
+*   their own keys, so the row-pick event is untouched by any of this.
+*   The page size the citizen has not chosen. PAGE_SIZE( ) reads JUD_PSIZE
+*   and falls back to this, so a citizen who never opens the picker gets
+*   this and nothing else.
+*
+*   TWENTY-FIVE, DOWN FROM FIFTY. Fifty rows is more than a screen at any
+*   window height, so the citizen who never touches the picker was always
+*   scrolling to see the end of their own page. Twenty-five is closer to a
+*   screenful, and the four choices in the picker mean anyone who wants the
+*   longer page can still have it.
+    CONSTANTS c_page_size TYPE i VALUE 25.
+
+*   THE READ, CACHED AGAINST THE CRITERIA THAT PRODUCED IT. FETCH_ROWS( )
+*   is called by GET_TABLE( ), by both renderers and by ROW_CELLS( ), which
+*   would be four reads of the same data in one round trip.
+*
+*   KEYED ON THE CRITERIA RATHER THAN ON THE REQUEST, and that is
+*   deliberate. A per-request flag would need the handler to be discarded
+*   between round trips, and it is NOT: ENSURE_PARTS( ) clears the engine's
+*   five helpers and MO_PCL before serializing, and MO_LOGIC is not among
+*   them. A signature is correct either way - if the handler survives, the
+*   read happens once per distinct search; if it does not, once per round
+*   trip, which is what ZCL_RAK_CJ_PARCEL does.
+    DATA mt_fetch  TYPE zif_rak_journey=>tt_string.
+    DATA mv_fetch_sig TYPE string.
+*   THE READ FAILED, as distinct from the read finding nothing. Without it
+*   DO_SEARCH( ) reads an empty result as "no data was found" and prints
+*   that under the function module's own error - two messages, one of them
+*   contradicting the other, and the citizen with no way to tell which.
+    DATA mv_fetch_bad TYPE abap_bool.
 
 *   Model fields. The first five are the citizen's search criteria; JUD_ROWS
 *   and SEL_GUID carry the result and the picked row; the JD_* group is
@@ -119,7 +163,48 @@ CLASS zcl_c061_judgement_publ_logic DEFINITION
     CONSTANTS c_f_casenum  TYPE string VALUE 'CASE_NUMBER'.
     CONSTANTS c_f_list     TYPE string VALUE 'JUD_LIST'.
     CONSTANTS c_f_sel      TYPE string VALUE 'SEL_GUID'.
-    CONSTANTS c_f_rows     TYPE string VALUE 'JUD_ROWS'.
+*   HOW MANY THE LAST SEARCH FOUND, and nothing else. This replaced
+*   JUD_ROWS, which carried the whole packed result and crossed the wire on
+*   every round trip - a hidden field of 100KB at the old 500-row cap, and
+*   the reason that cap existed. The rows are re-read per request now
+*   (FETCH_ROWS( )) and the model carries one number.
+*
+*   IT IS ALSO THE "HAS A SEARCH BEEN RUN" FLAG. Blank means never searched
+*   or cleared, which is what hides the table and the filter box. A search
+*   that legitimately finds nothing never gets that far - DO_SEARCH( )
+*   reports the WD's own EI 057 and leaves the list hidden.
+    CONSTANTS c_f_hits     TYPE string VALUE 'JUD_HITS'.
+*   The pager's memory. A hidden INPUT on SRCH holding the zero-based index
+*   of the first row currently drawn.
+*
+*   A MODEL FIELD RATHER THAN AN INSTANCE ATTRIBUTE, and the reason is not
+*   the one first written here. That said the engine re-instantiates the
+*   handler every round trip, which is NOT established: ENSURE_PARTS( )
+*   CLEARs MO_CSS, MO_GRID, MO_RENDER, MO_BE, MO_RULES and MO_PCL before
+*   serializing and MO_LOGIC is not in that list, and it is only created
+*   IF MO_LOGIC IS INITIAL - so a handler attribute may well survive, which
+*   is exactly how ZCL_RAK_CJ_PARCEL keeps its own page and search term.
+*   The real reason is that a field works either way, costs a few bytes for
+*   a scalar, and is the same place this journey already keeps JUD_ROWS and
+*   SEL_GUID. One store for the journey's memory, not two.
+    CONSTANTS c_f_page     TYPE string VALUE 'JUD_PAGE'.
+*   The in-table filter's text. A model field for the same reason as
+*   JUD_PAGE - it has to survive the round trip the Search event causes.
+    CONSTANTS c_f_filt     TYPE string VALUE 'JUD_FILT'.
+*   The opening tag a filter match is wrapped in - see HL( ), which explains
+*   why it is a span carrying a STYLE and not a class, a <mark> or a
+*   <strong>. Here rather than inline because a literal this long inside the
+*   concatenation in HL( ) pushes that statement past what is comfortable to
+*   read, and because the colour is the one thing in it anybody will ever
+*   want to change.
+    CONSTANTS c_hl_open TYPE string
+              VALUE '<span style="background-color:#FFF2A8;font-weight:bold">'.
+*   The sort column, as the 1-based index of a cell in the packed row, and
+*   the direction. Index rather than name because the columns are declared
+*   in GET_TABLE( ) and have no config row to be named from.
+    CONSTANTS c_f_sort     TYPE string VALUE 'JUD_SORT'.
+    CONSTANTS c_f_dir      TYPE string VALUE 'JUD_DIR'.
+    CONSTANTS c_f_psize    TYPE string VALUE 'JUD_PSIZE'.
     CONSTANTS c_f_jdcourt  TYPE string VALUE 'JD_COURT'.
     CONSTANTS c_f_title2   TYPE string VALUE 'JD_TITLE2'.
     CONSTANTS c_f_head1    TYPE string VALUE 'JD_HEAD1'.
@@ -141,6 +226,14 @@ CLASS zcl_c061_judgement_publ_logic DEFINITION
     CONSTANTS c_ev_search TYPE string VALUE 'JPSEARCH'.
     CONSTANTS c_ev_clear  TYPE string VALUE 'JPCLEAR'.
     CONSTANTS c_ev_pdf    TYPE string VALUE 'JPPDF'.
+    CONSTANTS c_ev_prev   TYPE string VALUE 'JPPREV'.
+    CONSTANTS c_ev_next   TYPE string VALUE 'JPNEXT'.
+    CONSTANTS c_ev_filt   TYPE string VALUE 'JPFILT'.
+    CONSTANTS c_ev_fclr   TYPE string VALUE 'JPFCLR'.
+    CONSTANTS c_ev_sort   TYPE string VALUE 'JPSORT'.
+    CONSTANTS c_ev_dir    TYPE string VALUE 'JPDIR'.
+    CONSTANTS c_ev_xls    TYPE string VALUE 'JPXLS'.
+    CONSTANTS c_ev_psize  TYPE string VALUE 'JPPSIZE'.
 
 *   PACKING. JUD_ROWS holds the whole result as one string because the
 *   model is the only store that survives a round-trip. Rows are separated
@@ -278,6 +371,75 @@ CLASS zcl_c061_judgement_publ_logic DEFINITION
     METHODS do_clear
       IMPORTING io_ctx TYPE REF TO zif_rak_journey.
 
+    METHODS all_rows
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+      RETURNING VALUE(rt) TYPE zif_rak_journey=>ty_table-rows.
+
+    METHODS fetch_rows
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+      RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_string.
+
+    METHODS crit_sig
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+      RETURNING VALUE(rv) TYPE string.
+
+    METHODS page_off
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+      RETURNING VALUE(rv) TYPE i.
+
+    METHODS page_size
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+      RETURNING VALUE(rv) TYPE i.
+
+    METHODS page_move
+      IMPORTING io_ctx TYPE REF TO zif_rak_journey
+                iv_by  TYPE i.
+
+    METHODS render_pager
+      IMPORTING io_ctx  TYPE REF TO zif_rak_journey
+                io_view TYPE REF TO z2ui5_cl_xml_view.
+
+    METHODS render_filter
+      IMPORTING io_ctx  TYPE REF TO zif_rak_journey
+                io_view TYPE REF TO z2ui5_cl_xml_view.
+
+    METHODS hl
+      IMPORTING iv_text   TYPE string
+                iv_filt   TYPE string
+      RETURNING VALUE(rv) TYPE string.
+
+    METHODS rich_esc
+      IMPORTING iv        TYPE string
+      RETURNING VALUE(rv) TYPE string.
+
+    METHODS sort_rows
+      IMPORTING io_ctx TYPE REF TO zif_rak_journey
+      CHANGING  ct     TYPE zif_rak_journey=>ty_table-rows.
+
+    METHODS col_labels
+      RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_string.
+
+    METHODS export_xls
+      IMPORTING io_ctx TYPE REF TO zif_rak_journey.
+
+    METHODS xml_esc
+      IMPORTING iv        TYPE string
+      RETURNING VALUE(rv) TYPE string.
+
+    METHODS xlsx_bytes
+      IMPORTING it_row    TYPE zif_rak_journey=>ty_table-rows
+      RETURNING VALUE(rv) TYPE xstring.
+
+    METHODS utf8
+      IMPORTING iv        TYPE string
+      RETURNING VALUE(rv) TYPE xstring.
+
+    METHODS cell_ref
+      IMPORTING iv_col    TYPE i
+                iv_row    TYPE i
+      RETURNING VALUE(rv) TYPE string.
+
+
     METHODS load_judgment
       IMPORTING io_ctx TYPE REF TO zif_rak_journey.
 
@@ -323,7 +485,7 @@ ENDCLASS.
 
 
 
-CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
+CLASS ZCL_C061_JUDGEMENT_PUBL_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_init.
@@ -525,6 +687,16 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
           class = 'sapUiSmallMarginTop'
           press = io_ctx->event( c_ev_pdf ) ).
 
+      WHEN c_f_list.
+*       THE PAGER, under the result table. This branch reaches a BLOCK field,
+*       which is worth stating because the hooks differ: RENDER_FIELD( ) is
+*       NOT called for a block type, so the judgment's DISPLAY route is not
+*       available here - but AFTER_FIELD( ) is called for every field,
+*       block or not (ZCL_RAK_JOURNEY_RENDER ~3560, RENDER_BLOCK( ) followed
+*       immediately by AFTER_FIELD( )), and IO_VIEW is the block's own
+*       container. So the buttons land under the table rather than beside it.
+        render_pager( io_ctx = io_ctx io_view = io_view ).
+
       WHEN OTHERS.
     ENDCASE.
   ENDMETHOD.
@@ -544,6 +716,42 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
         do_clear( io_ctx ).
       WHEN c_ev_pdf.
         open_pdf( io_ctx ).
+      WHEN c_ev_prev.
+        page_move( io_ctx = io_ctx iv_by = -1 ).
+      WHEN c_ev_next.
+        page_move( io_ctx = io_ctx iv_by = 1 ).
+      WHEN c_ev_filt.
+*       The text itself arrived with the round trip, committed by the button
+*       press that moved focus out of the input. All this has to do is go
+*       back to page one: the citizen who filters while on page 6 of the
+*       unfiltered list would otherwise be shown a window past the end of a
+*       much shorter one.
+        io_ctx->set_val( iv_name = c_f_page iv_value = '0' ).
+      WHEN c_ev_fclr.
+        io_ctx->set_val( iv_name = c_f_filt iv_value = '' ).
+        io_ctx->set_val( iv_name = c_f_page iv_value = '0' ).
+      WHEN c_ev_sort.
+*       BACK TO PAGE ONE ON A SORT TOO, and for a sharper reason than the
+*       filter's. The row count does not change, so the offset stays valid -
+*       but the rows at it are completely different ones, and a citizen who
+*       sorts while on page 40 lands in the middle of an order they have not
+*       seen the start of.
+        io_ctx->set_val( iv_name = c_f_page iv_value = '0' ).
+      WHEN c_ev_xls.
+        export_xls( io_ctx ).
+      WHEN c_ev_psize.
+*       THE OFFSET IS LEFT WHERE IT IS, deliberately. Snapping back to page
+*       one would throw away the citizen's place in four thousand rows for a
+*       change that does not reorder anything - the row they were looking at
+*       is still in the result and still at the same index. The offset need
+*       not be a multiple of the new size: the pager reads it directly, so
+*       "Showing 2001-2010 of 4000" is as true as any other window, and
+*       paging back still walks down to zero without skipping a row.
+      WHEN c_ev_dir.
+        io_ctx->set_val( iv_name = c_f_dir
+                         iv_value = COND string( WHEN io_ctx->get_val( c_f_dir ) = 'D'
+                                                 THEN 'A' ELSE 'D' ) ).
+        io_ctx->set_val( iv_name = c_f_page iv_value = '0' ).
       WHEN OTHERS.
         super->zif_rak_journey_logic~on_popup_event(
           io_ctx = io_ctx iv_id = iv_id iv_event = iv_event ).
@@ -627,42 +835,77 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   RICH ON ALL FIVE VISIBLE COLUMNS - R18-3, engine commit 5e29503. The
+*   fourth part of the spec, behind the same separator as the width and the
+*   alignment, asks the renderer to draw that column's cells with
+*   FORMATTED_TEXT( ) instead of TEXT( ). It is what makes HL( ) able to mark
+*   the part of a value the filter matched.
+*
+*   ALL FIVE RATHER THAN THE TWO TEXT ONES, because the filter matches across
+*   every visible cell: filter on 2026 and the hit is in the dates, so
+*   marking only the reference and the court would highlight some matches and
+*   silently not others, which reads as the highlighting being broken.
+*
+*   THE PRICE IS THAT THESE CELLS ARE NO LONGER ESCAPED BY THE ENGINE. The
+*   TEXT( ) path runs ESC( ) over every value; the FORMATTED_TEXT( ) path
+*   deliberately does not, because escaping is the thing a rich cell exists
+*   to avoid. HL( ) therefore escapes every value itself - HTML entities AND
+*   the braces abap2UI5 reads as bindings - before it inserts any markup. A
+*   RICH column whose values are not passed through HL( ) is a defect.
     rs_data-columns = VALUE zif_rak_journey=>tt_string(
       ( `-` )
-      ( zcl_rak_text=>pick( iv_base = `Case No.`          iv_ar = |رقم القضية| )    && `|34%` )
-      ( zcl_rak_text=>pick( iv_base = `Court`             iv_ar = |المحكمة| )       && `|15%` )
-      ( zcl_rak_text=>pick( iv_base = `Registration Date` iv_ar = |تاريخ التسجيل| ) && `|13%|End` )
-      ( zcl_rak_text=>pick( iv_base = `Judgment Date`     iv_ar = |تاريخ الحكم| )   && `|13%|End` )
-      ( zcl_rak_text=>pick( iv_base = `Litigation Period` iv_ar = |مدة التقاضي| )   && `|13%|End` ) ).
+      ( zcl_rak_text=>pick( iv_base = `Case No.`          iv_ar = |رقم القضية| )    && `|34%||RICH` )
+      ( zcl_rak_text=>pick( iv_base = `Court`             iv_ar = |المحكمة| )       && `|15%||RICH` )
+      ( zcl_rak_text=>pick( iv_base = `Registration Date` iv_ar = |تاريخ التسجيل| ) && `|13%|End|RICH` )
+      ( zcl_rak_text=>pick( iv_base = `Judgment Date`     iv_ar = |تاريخ الحكم| )   && `|13%|End|RICH` )
+      ( zcl_rak_text=>pick( iv_base = `Litigation Period` iv_ar = |مدة التقاضي| )   && `|13%|End|RICH` ) ).
 
-    DATA lt_cell  TYPE zif_rak_journey=>tt_string.
-    DATA lt_show  TYPE zif_rak_journey=>tt_string.
-    DATA lv_one   TYPE string.
-    DATA lv_ix    TYPE i.
-    DATA lv_shown TYPE i.
-
-    DATA(lt_packed) = text_lines( io_ctx->get_val( c_f_rows ) ).
-    LOOP AT lt_packed INTO DATA(lv_packed).
-      CLEAR: lt_cell, lt_show.
-      SPLIT lv_packed AT c_cell_sep INTO TABLE lt_cell.
-*     A row that does not carry all seven packed cells is dropped rather
-*     than padded. The renderer hides column 1 BY POSITION and refuses to
-*     hide anything at all once the rows stop agreeing on their width, so
-*     one short row would expose every case GUID on the page.
-      IF lines( lt_cell ) <> c_cells.
-        CONTINUE.
+*   ONE PAGE, NOT THE WHOLE RESULT. ALL_ROWS( ) unpacks everything the
+*   search kept; this returns only the window the citizen is looking at, and
+*   RENDER_PAGER( ) draws Previous / Next underneath. The row-pick event is
+*   unaffected because every drawn row still carries its own GUID in cell 1 -
+*   paging changes which rows are built, never how one is identified.
+    DATA(lt_all) = all_rows( io_ctx ).
+    DATA(lv_off) = page_off( io_ctx ).
+*   CLAMPED AT RENDER TIME, NOT ONLY WHEN A BUTTON IS PRESSED. PAGE_MOVE( )
+*   already clamps, but the result can SHRINK under a stationary offset -
+*   the filter is the obvious way, and the citizen never pressed a pager
+*   button to get there. ZCL_RAK_CJ_PARCEL clamps in the same place and for
+*   the same reason; taken from there rather than found here.
+    IF lv_off >= lines( lt_all ) AND lines( lt_all ) > 0.
+      lv_off = ( ( lines( lt_all ) - 1 ) DIV page_size( io_ctx ) ) * page_size( io_ctx ).
+      io_ctx->set_val( iv_name = c_f_page iv_value = |{ lv_off }| ).
+    ENDIF.
+    DATA(lv_ix)  = lv_off + 1.
+    DATA(lv_end) = lv_off + page_size( io_ctx ).
+    IF lv_end > lines( lt_all ).
+      lv_end = lines( lt_all ).
+    ENDIF.
+*   MARKED HERE AND NOWHERE ELSE, which is the point of doing it in
+*   GET_TABLE( ) rather than in ALL_ROWS( ). ALL_ROWS( ) is also what
+*   EXPORT_XLS( ) reads and what the pager counts, and a spreadsheet full of
+*   <strong> tags would be the obvious consequence of marking one level down.
+*   Only the rows actually drawn are touched.
+*
+*   CELL 1 IS LEFT ALONE. It is the case GUID, hidden by the renderer and not
+*   a RICH column, so escaping it as rich text would be wrong in both
+*   directions - it is neither shown nor safe to mark.
+    DATA(lv_filt) = condense( io_ctx->get_val( c_f_filt ) ).
+    WHILE lv_ix <= lv_end.
+      READ TABLE lt_all INTO DATA(lt_one) INDEX lv_ix.
+      IF sy-subrc = 0.
+        DATA(lv_cx) = 0.
+        LOOP AT lt_one ASSIGNING FIELD-SYMBOL(<cell>).
+          lv_cx = lv_cx + 1.
+          IF lv_cx = 1.
+            CONTINUE.
+          ENDIF.
+          <cell> = hl( iv_text = <cell> iv_filt = lv_filt ).
+        ENDLOOP.
+        APPEND lt_one TO rs_data-rows.
       ENDIF.
-*     Six of the seven. The seventh is the case type, which load_judgment( )
-*     needs and no column shows.
-      lv_shown = lines( rs_data-columns ).
-      lv_ix    = 1.
-      WHILE lv_ix <= lv_shown.
-        READ TABLE lt_cell INTO lv_one INDEX lv_ix.
-        APPEND lv_one TO lt_show.
-        lv_ix = lv_ix + 1.
-      ENDWHILE.
-      APPEND lt_show TO rs_data-rows.
-    ENDLOOP.
+      lv_ix = lv_ix + 1.
+    ENDWHILE.
   ENDMETHOD.
 
 
@@ -839,59 +1082,33 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
 *   so a sap.m.Select is the only control drawn and there is nothing to type
 *   into. Put the guard back if CLOSED_LIST is ever taken off again.
 
-    DATA lv_num TYPE zadtel00008n.
-    DATA lv_yr  TYPE zadtel00008r.
-    DATA lt_jdg TYPE zfm_judgement_publisher_t.
-
-    lv_num = io_ctx->get_val( c_f_casenum ).
-    lv_yr  = lv_year.
-
-    DATA(lt_range) = case_range( io_ctx ).
-
-*   IV_LANGU IS 'A', UNCONDITIONALLY, BECAUSE THE WD ASKED THAT WAY. What this
-*   FM composes into CASE_TEXT is "0 / 2026 مدني كلي" - a case number, a year
-*   and the case type's description - and that reference is DOCUMENT DATA. It
-*   is printed on the judgment, on the Adobe form and in the result list, and
-*   the legacy screen shows all three in Arabic whatever the logon language.
-*
-*   This asked in the CITIZEN's language and fell back to Arabic only when
-*   EVERY row came back with a blank CASE_TEXT. The fallback never fired,
-*   because CRM does hold an English text - so an English session read
-*   "0 / 2026 Total Civil Case" on a page that is otherwise an Arabic document,
-*   and the same string went into the PDF. The fallback is removed with it:
-*   it existed only to cover asking in a language that might have no text.
-
-*   A LOCAL CALL, and the same is true of the other two function modules in
-*   this class. The WD passed DESTINATION, resolved through
-*   ZFKK_RFC_DETERMINATION; CJS runs on the system that owns this data, so
-*   there is no RFC scenario and both are dropped. The wd2class skill states
-*   that as a rule and its generator strips them, so reintroducing them here
-*   would be a defect rather than fidelity to the source.
-*
-*   Two consequences worth spelling out. SYSTEM_FAILURE and
-*   COMMUNICATION_FAILURE must NOT be declared: they are implicit only on a
-*   call WITH DESTINATION, and on a local call the syntax check rejects an
-*   exception that is not in the FM's interface. And a class-based exception
-*   raised inside the FM does propagate to the caller, which is what the TRY
-*   is for - on an RFC call it would not have.
-    TRY.
-        CALL FUNCTION 'ZFM_JUDGEMENT_PUBLICATION'
-          EXPORTING
-            iv_case_number = lv_num
-            iv_case_year   = lv_yr
-            iv_case_type   = lt_range
-            iv_langu       = zcl_rak_text=>c_langu_ar
-          IMPORTING
-            et_zjdg        = lt_jdg.
-      CATCH cx_root INTO DATA(lx_srch).
-        io_ctx->add_msg( iv_type = 'Error' iv_text = lx_srch->get_text( ) ).
-        RETURN.
-    ENDTRY.
+*   THE READ ITSELF LIVES IN FETCH_ROWS( ), because it is no longer only
+*   this method's. The rows are re-read on the round trips that need them -
+*   a page press, a filter, opening a judgment - so the FM call, the court
+*   text and the litigation-period arithmetic all belong somewhere both this
+*   and those can reach. What stays here is what only a SEARCH does:
+*   refusing blank criteria above, reporting an empty result, and resetting
+*   the page, the filter and the picked row.
+*   THE CACHE IS DROPPED FIRST. A Search press means "read it again", even
+*   when the criteria have not moved - the citizen pressing the button a
+*   second time is asking for a fresh answer, and after a failed read it is
+*   the only way back to one.
+    CLEAR: mt_fetch, mv_fetch_sig, mv_fetch_bad.
+    DATA(lt_hit) = fetch_rows( io_ctx ).
 
     io_ctx->set_val( iv_name = c_f_sel  iv_value = '' ).
-    io_ctx->set_val( iv_name = c_f_rows iv_value = '' ).
 
-    IF lt_jdg IS INITIAL.
+*   A FAILED READ IS NOT AN EMPTY ONE. FETCH_ROWS( ) has already reported
+*   the function module's own error; saying "no data was found" underneath
+*   it would contradict it, and the citizen would have two sentences and no
+*   way to tell which one happened.
+    IF mv_fetch_bad = abap_true.
+      io_ctx->set_val( iv_name = c_f_hits iv_value = '' ).
+      io_ctx->set_hidden( iv_field = c_f_list iv_on = abap_true ).
+      RETURN.
+    ENDIF.
+
+    IF lt_hit IS INITIAL.
 *     The WD's own no-results message, read from T100 the way it read it:
 *     EI 057, built with MESSAGE_TEXT_BUILD there and FORMAT_MESSAGE here.
 *     The message exists in both languages - confirmed - but T100 rows are
@@ -900,6 +1117,7 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
 *     no text blocks the citizen with nothing on screen to explain it. It
 *     carries the SAME wording as the T100 row, so a gap in one language
 *     cannot produce a differently worded error from the other.
+      io_ctx->set_val( iv_name = c_f_hits iv_value = '' ).
       io_ctx->set_hidden( iv_field = c_f_list iv_on = abap_true ).
       DATA(lv_none) = t100_text( iv_id = 'EI' iv_no = '057' ).
       IF lv_none IS INITIAL.
@@ -911,71 +1129,17 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-*   Pack the rows. The court text is resolved through ZDT_EGA_JUD_PUBL
-*   exactly as the WD resolved it: ET_ZJDG carries the case type, the
-*   config table maps that to a court type, and the domain supplies the
-*   text. AGE is the WD's own arithmetic - judgment date minus registration
-*   date plus one - but only when BOTH dates are filled: on one missing
-*   date the subtraction produces a six-digit number, which the WD would
-*   have printed as the litigation period.
-    DATA(lt_cfg)  = jud_cfg( ).
-    DATA lv_rows  TYPE string.
-    DATA lv_count TYPE i.
-    DATA lv_age   TYPE i.
-    DATA(lv_cut)  = abap_false.
-
-    LOOP AT lt_jdg INTO DATA(ls_jdg).
-      IF lv_count >= c_max_rows.
-        lv_cut = abap_true.
-        EXIT.
-      ENDIF.
-
-      DATA(lv_court_txt) = ``.
-      READ TABLE lt_cfg INTO DATA(ls_map) WITH KEY case_type = ls_jdg-case_type.
-      IF sy-subrc = 0.
-        lv_court_txt = dom_text( iv_domain = c_dom_court
-                                 iv_key    = CONV string( ls_map-court_type ) ).
-      ENDIF.
-
-*     THE LITIGATION PERIOD IS COMPUTED UNCONDITIONALLY, as the WD computed it.
-*     This carried a guard - both dates filled or the cell stayed blank - written
-*     to avoid the six-digit number one missing date produces. The guard was
-*     wrong, and wrong in the only case the live data actually exercises: with
-*     BOTH dates empty the arithmetic is 0 - 0 + 1 = 1, which is what the legacy
-*     screen prints and what the citizen sees there. Suppressing it left our
-*     column blank against the WD's 1 on the same case.
-*     The six-digit case is real and stays: the WD printed it too, and inventing
-*     a blank the legacy screen never showed is the larger error of the two.
-      lv_age = ls_jdg-zzafld00005j - ls_jdg-zzafld000073 + 1.
-      DATA(lv_age_txt) = |{ lv_age }|.
-
-      DATA(lv_line) = |{ ls_jdg-guid }{ c_cell_sep }{ ls_jdg-case_text }|
-                   && |{ c_cell_sep }{ lv_court_txt }|
-                   && |{ c_cell_sep }{ date_ext( ls_jdg-zzafld000073 ) }|
-                   && |{ c_cell_sep }{ date_ext( ls_jdg-zzafld00005j ) }|
-                   && |{ c_cell_sep }{ lv_age_txt }|
-                   && |{ c_cell_sep }{ ls_jdg-case_type }|.
-
-      IF lv_rows IS INITIAL.
-        lv_rows = lv_line.
-      ELSE.
-        lv_rows = lv_rows && cl_abap_char_utilities=>newline && lv_line.
-      ENDIF.
-      lv_count = lv_count + 1.
-    ENDLOOP.
-
-    io_ctx->set_val( iv_name = c_f_rows iv_value = lv_rows ).
+    io_ctx->set_val( iv_name = c_f_hits iv_value = |{ lines( lt_hit ) }| ).
+*   A NEW SEARCH STARTS AT PAGE ONE, AND THE FILTER GOES WITH IT. A filter
+*   left over from the previous result would silently hide most of a new
+*   search - the citizen would see the criteria they typed next to a result
+*   that does not match them - and an offset left at page six would open a
+*   window past the end of a shorter one.
+    io_ctx->set_val( iv_name = c_f_page iv_value = '0' ).
+    io_ctx->set_val( iv_name = c_f_filt iv_value = '' ).
+    io_ctx->set_val( iv_name = c_f_sort iv_value = '' ).
+    io_ctx->set_val( iv_name = c_f_dir  iv_value = '' ).
     io_ctx->set_hidden( iv_field = c_f_list iv_on = abap_false ).
-
-    IF lv_cut = abap_true.
-      io_ctx->add_msg(
-        iv_type = 'Warning'
-        iv_text = zcl_rak_text=>pick(
-                    iv_base = |Only the first { c_max_rows } judgments are shown. | &&
-                              |Add a Case/File Type or a Case/File No. to narrow the search.|
-                    iv_ar   = |يتم عرض أول { c_max_rows } حكم فقط. | &&
-                              |أضف نوع القضية أو رقم القضية لتضييق نطاق البحث.| ) ).
-    ENDIF.
   ENDMETHOD.
 
 
@@ -1031,21 +1195,1049 @@ CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
     io_ctx->set_val( iv_name = c_f_casetype iv_value = '' ).
     io_ctx->set_val( iv_name = c_f_caseyear iv_value = '' ).
     io_ctx->set_val( iv_name = c_f_casenum  iv_value = '' ).
-    io_ctx->set_val( iv_name = c_f_rows     iv_value = '' ).
+    io_ctx->set_val( iv_name = c_f_hits     iv_value = '' ).
     io_ctx->set_val( iv_name = c_f_sel      iv_value = '' ).
     io_ctx->set_hidden( iv_field = c_f_list iv_on = abap_true ).
+    io_ctx->set_val( iv_name = c_f_page iv_value = '0' ).
+    io_ctx->set_val( iv_name = c_f_filt iv_value = '' ).
+    io_ctx->set_val( iv_name = c_f_sort iv_value = '' ).
+    io_ctx->set_val( iv_name = c_f_dir  iv_value = '' ).
+  ENDMETHOD.
+
+
+  METHOD fetch_rows.
+*&---------------------------------------------------------------------*
+*& fetch_rows — the search, run again, packed one row to a line.
+*&
+*& WHY THE READ IS REPEATED RATHER THAN THE RESULT KEPT. The result used to
+*& live in a hidden model field, which meant every row crossed the wire on
+*& every round trip - a press of Next, a filter, opening a judgment - and
+*& that is what made a row cap necessary. Reading again costs one call to a
+*& function module that was going to be called anyway; carrying the answer
+*& costs the whole result on every click for as long as the citizen is on
+*& the step. ZCL_RAK_CJ_PARCEL reached the same conclusion for a 677-row
+*& list: "read once per round trip... holding them in the serialized app
+*& state instead would put them on the wire twice per click".
+*&
+*& CACHED ON THE CRITERIA. Four callers want these rows in one round trip -
+*& GET_TABLE( ), the pager, the filter box and ROW_CELLS( ) - and the
+*& signature stops that being four reads. Keyed on the criteria rather than
+*& on the request because the handler is not reliably discarded between
+*& round trips; see the note at MT_FETCH.
+*&
+*& AND IT IS A READ-ONLY SEARCH, which is what makes repeating it safe. The
+*& worst a re-read can do is pick up a judgment published since the citizen
+*& pressed Search, and a list that is one round trip fresher is not a defect.
+*&---------------------------------------------------------------------*
+    DATA(lv_sig) = crit_sig( io_ctx ).
+    IF mv_fetch_sig = lv_sig AND lv_sig IS NOT INITIAL.
+      rt = mt_fetch.
+      RETURN.
+    ENDIF.
+    CLEAR: mt_fetch, mv_fetch_sig, mv_fetch_bad.
+
+    DATA lv_num TYPE zadtel00008n.
+    DATA lv_yr  TYPE zadtel00008r.
+    DATA lt_jdg TYPE zfm_judgement_publisher_t.
+
+    lv_num = io_ctx->get_val( c_f_casenum ).
+    lv_yr  = io_ctx->get_val( c_f_caseyear ).
+
+    DATA(lt_range) = case_range( io_ctx ).
+
+*   IV_LANGU IS 'A', UNCONDITIONALLY, BECAUSE THE WD ASKED THAT WAY. What this
+*   FM composes into CASE_TEXT is "0 / 2026 مدني كلي" - a case number, a year
+*   and the case type's description - and that reference is DOCUMENT DATA. It
+*   is printed on the judgment, on the Adobe form and in the result list, and
+*   the legacy screen shows all three in Arabic whatever the logon language.
+*
+*   This asked in the CITIZEN's language and fell back to Arabic only when
+*   EVERY row came back with a blank CASE_TEXT. The fallback never fired,
+*   because CRM does hold an English text - so an English session read
+*   "0 / 2026 Total Civil Case" on a page that is otherwise an Arabic document,
+*   and the same string went into the PDF. The fallback is removed with it:
+*   it existed only to cover asking in a language that might have no text.
+
+*   A LOCAL CALL, and the same is true of the other two function modules in
+*   this class. The WD passed DESTINATION, resolved through
+*   ZFKK_RFC_DETERMINATION; CJS runs on the system that owns this data, so
+*   there is no RFC scenario and both are dropped. The wd2class skill states
+*   that as a rule and its generator strips them, so reintroducing them here
+*   would be a defect rather than fidelity to the source.
+*
+*   Two consequences worth spelling out. SYSTEM_FAILURE and
+*   COMMUNICATION_FAILURE must NOT be declared: they are implicit only on a
+*   call WITH DESTINATION, and on a local call the syntax check rejects an
+*   exception that is not in the FM's interface. And a class-based exception
+*   raised inside the FM does propagate to the caller, which is what the TRY
+*   is for - on an RFC call it would not have.
+    TRY.
+        CALL FUNCTION 'ZFM_JUDGEMENT_PUBLICATION'
+          EXPORTING
+            iv_case_number = lv_num
+            iv_case_year   = lv_yr
+            iv_case_type   = lt_range
+            iv_langu       = zcl_rak_text=>c_langu_ar
+          IMPORTING
+            et_zjdg        = lt_jdg.
+
+        DATA : ls_case  TYPE LINE OF zfm_judgement_publisher_t.
+
+        DO 4000 TIMES.
+          CLEAR ls_case.
+
+          ls_case-object_id    = |{ sy-index WIDTH = 10 ALIGN = RIGHT PAD = '0' }|.     " 0000000001 ...
+          ls_case-case_type    = 'ZDUM'.
+          ls_case-zzafld00000o = sy-index.                                             " NUMC 0001 ...
+          ls_case-stat         = 'E0001'.
+          ls_case-posting_date = sy-datum - sy-index.
+          ls_case-description  = |Dummy description { sy-index }|.
+          ls_case-txt30        = |Dummy status TEXT { sy-index }|.
+          ls_case-case_id      = |CASE{ sy-index WIDTH = 8 ALIGN = RIGHT PAD = '0' }|.  " CASE00000001
+          ls_case-case_text    = |Dummy CASE TEXT FOR test entry NUMBER { sy-index }|.
+          ls_case-zzafld000073 = sy-datum + sy-index.
+          ls_case-zzafld00005j = sy-datum.
+
+          TRY.
+              ls_case-guid = cl_system_uuid=>create_uuid_x16_static( ).
+            CATCH cx_uuid_error.
+              CLEAR ls_case-guid.
+          ENDTRY.
+
+          APPEND ls_case TO lt_jdg.
+        ENDDO.
+
+      CATCH cx_root INTO DATA(lx_srch).
+*       THE SIGNATURE IS STAMPED ON A FAILURE TOO, and that is not tidiness.
+*       Four callers reach this method in one render; without the stamp each
+*       would retry the failed call and add its own copy of the same error,
+*       and the citizen would get the same sentence four times over an empty
+*       table. Stamped, the first failure is reported once and the rest of
+*       the round trip sees an empty result.
+*
+*       IT DOES NOT STICK, because DO_SEARCH( ) drops the cache before it
+*       reads. A transient failure therefore costs one search, not the rest
+*       of the session - which would otherwise be indistinguishable from
+*       "no data found" and a great deal harder to report.
+        mv_fetch_sig = lv_sig.
+        mv_fetch_bad = abap_true.
+        io_ctx->add_msg( iv_type = 'Error' iv_text = lx_srch->get_text( ) ).
+        RETURN.
+    ENDTRY.
+
+*   Pack the rows. The court text is resolved through ZDT_EGA_JUD_PUBL
+*   exactly as the WD resolved it: ET_ZJDG carries the case type, the
+*   config table maps that to a court type, and the domain supplies the
+*   text. AGE is the WD's own arithmetic - judgment date minus registration
+*   date plus one - but only when BOTH dates are filled: on one missing
+*   date the subtraction produces a six-digit number, which the WD would
+*   have printed as the litigation period.
+    DATA(lt_cfg)  = jud_cfg( ).
+    DATA lv_age   TYPE i.
+
+    LOOP AT lt_jdg INTO DATA(ls_jdg).
+      DATA(lv_court_txt) = ``.
+      READ TABLE lt_cfg INTO DATA(ls_map) WITH KEY case_type = ls_jdg-case_type.
+      IF sy-subrc = 0.
+        lv_court_txt = dom_text( iv_domain = c_dom_court
+                                 iv_key    = CONV string( ls_map-court_type ) ).
+      ENDIF.
+
+*     THE LITIGATION PERIOD IS COMPUTED UNCONDITIONALLY, as the WD computed it.
+*     This carried a guard - both dates filled or the cell stayed blank - written
+*     to avoid the six-digit number one missing date produces. The guard was
+*     wrong, and wrong in the only case the live data actually exercises: with
+*     BOTH dates empty the arithmetic is 0 - 0 + 1 = 1, which is what the legacy
+*     screen prints and what the citizen sees there. Suppressing it left our
+*     column blank against the WD's 1 on the same case.
+*     The six-digit case is real and stays: the WD printed it too, and inventing
+*     a blank the legacy screen never showed is the larger error of the two.
+      lv_age = ls_jdg-zzafld00005j - ls_jdg-zzafld000073 + 1.
+      DATA(lv_age_txt) = |{ lv_age }|.
+
+      DATA(lv_line) = |{ ls_jdg-guid }{ c_cell_sep }{ ls_jdg-case_text }|
+                   && |{ c_cell_sep }{ lv_court_txt }|
+                   && |{ c_cell_sep }{ date_ext( ls_jdg-zzafld000073 ) }|
+                   && |{ c_cell_sep }{ date_ext( ls_jdg-zzafld00005j ) }|
+                   && |{ c_cell_sep }{ lv_age_txt }|
+                   && |{ c_cell_sep }{ ls_jdg-case_type }|.
+
+      APPEND lv_line TO rt.
+    ENDLOOP.
+
+    mt_fetch     = rt.
+    mv_fetch_sig = lv_sig.
+  ENDMETHOD.
+
+
+  METHOD crit_sig.
+*&---------------------------------------------------------------------*
+*& crit_sig — the five search criteria as one string.
+*&
+*& The cache key. Two searches with the same criteria return the same rows,
+*& so the read can be skipped; change any criterion and the signature moves
+*& and the rows are read again. The separator is the cell separator already
+*& used for packing, so a value containing it cannot make two different
+*& criteria sets collide - it would have to contain a NEWLINE to do that,
+*& and none of the five can.
+*&---------------------------------------------------------------------*
+    rv = io_ctx->get_val( c_f_court )    && c_cell_sep &&
+         io_ctx->get_val( c_f_classify ) && c_cell_sep &&
+         io_ctx->get_val( c_f_casetype ) && c_cell_sep &&
+         io_ctx->get_val( c_f_caseyear ) && c_cell_sep &&
+         io_ctx->get_val( c_f_casenum ).
+  ENDMETHOD.
+
+
+  METHOD all_rows.
+*&---------------------------------------------------------------------*
+*& all_rows — every result row unpacked, in the shape GET_TABLE( ) hands
+*& back. Split out of GET_TABLE( ) when paging arrived so that the window
+*& and the pager's row count come from ONE reading of JUD_ROWS. Counting
+*& packed lines separately would have been the shorter change and would
+*& have drifted the first time a row was dropped below.
+*&---------------------------------------------------------------------*
+    DATA lt_cell TYPE zif_rak_journey=>tt_string.
+    DATA lt_show TYPE zif_rak_journey=>tt_string.
+    DATA lv_one  TYPE string.
+    DATA lv_ix   TYPE i.
+    DATA lv_hay  TYPE string.
+
+*   UPPER-CASED ONCE, not per row. TO_UPPER on Arabic is a no-op, so an
+*   Arabic filter matches by exact characters and an English one matches
+*   whatever case the citizen typed.
+    DATA(lv_filt) = to_upper( condense( io_ctx->get_val( c_f_filt ) ) ).
+
+    DATA(lt_packed) = fetch_rows( io_ctx ).
+    LOOP AT lt_packed INTO DATA(lv_packed).
+      CLEAR: lt_cell, lt_show.
+      SPLIT lv_packed AT c_cell_sep INTO TABLE lt_cell.
+*     A row that does not carry all seven packed cells is dropped rather
+*     than padded. The renderer hides column 1 BY POSITION and refuses to
+*     hide anything at all once the rows stop agreeing on their width, so
+*     one short row would expose every case GUID on the page.
+      IF lines( lt_cell ) <> c_cells.
+        CONTINUE.
+      ENDIF.
+*     Six of the seven. The seventh is the case type, which load_judgment( )
+*     needs and no column shows.
+      lv_ix = 1.
+      WHILE lv_ix <= c_cells - 1.
+        READ TABLE lt_cell INTO lv_one INDEX lv_ix.
+        APPEND lv_one TO lt_show.
+        lv_ix = lv_ix + 1.
+      ENDWHILE.
+*     THE IN-TABLE FILTER, applied HERE rather than in GET_TABLE( ) so that
+*     the pager counts what the citizen can actually see. Filtering after the
+*     window is picked would page through the unfiltered result and show two
+*     matches on page 1 and none on page 2.
+*
+*     THE HAYSTACK SKIPS CELL 1, the case GUID. It is a hidden column, so a
+*     filter that matched it would leave the citizen with rows that contain
+*     their text nowhere on screen.
+      IF lv_filt IS NOT INITIAL.
+        CLEAR lv_hay.
+        LOOP AT lt_show INTO DATA(lv_hcell) FROM 2.
+          lv_hay = lv_hay && ` ` && lv_hcell.
+        ENDLOOP.
+        IF NOT to_upper( lv_hay ) CS lv_filt.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+      APPEND lt_show TO rt.
+    ENDLOOP.
+
+*   SORTED AFTER FILTERING AND BEFORE THE WINDOW IS PICKED, which is the
+*   only order that makes sense: sorting first would be work thrown away on
+*   rows the filter drops, and sorting after the window would order fifty
+*   rows among themselves while leaving the other three thousand where they
+*   were - a "sort" that moves nothing between pages.
+    sort_rows( EXPORTING io_ctx = io_ctx CHANGING ct = rt ).
+  ENDMETHOD.
+
+
+  METHOD page_off.
+*&---------------------------------------------------------------------*
+*& page_off — the zero-based index of the first row now drawn.
+*&
+*& GUARDED, because JUD_PAGE is a model field and a model field is a string
+*& that something else could have written. CONV i( ) on a non-numeric
+*& string raises CX_SY_CONVERSION_NO_NUMBER and would take the whole step
+*& down over a pager; anything unreadable is treated as the first page,
+*& which is the state the citizen can always recover from.
+*&---------------------------------------------------------------------*
+    DATA(lv_raw) = condense( io_ctx->get_val( c_f_page ) ).
+    IF lv_raw IS INITIAL OR lv_raw CN '0123456789'.
+      RETURN.
+    ENDIF.
+    rv = CONV i( lv_raw ).
+  ENDMETHOD.
+
+
+  METHOD page_size.
+*&---------------------------------------------------------------------*
+*& page_size — how many rows the citizen wants drawn at once.
+*&
+*& ONLY THE FOUR OFFERED VALUES ARE ACCEPTED. JUD_PSIZE is a model field,
+*& so its content is a string something else could have written, and an
+*& arbitrary number reaching here would be a way to ask the server to build
+*& four thousand rows of markup - which is the exact cost paging exists to
+*& avoid. Anything not on the list reads as the default.
+*&
+*& THE DEFAULT IS THE OLD CONSTANT, so a citizen who never opens the picker
+*& sees what they saw before, and a journey that copies this one without
+*& drawing the picker needs no configuration.
+*&---------------------------------------------------------------------*
+    rv = c_page_size.
+    DATA(lv_raw) = condense( io_ctx->get_val( c_f_psize ) ).
+    IF lv_raw = '10' OR lv_raw = '25' OR lv_raw = '50' OR lv_raw = '100'.
+      rv = CONV i( lv_raw ).
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD page_move.
+*&---------------------------------------------------------------------*
+*& page_move — one page back or forward, clamped at both ends.
+*&
+*& CLAMPED HERE RATHER THAN TRUSTED FROM THE BUTTONS. RENDER_PAGER( )
+*& already disables Previous on the first page and Next on the last, but a
+*& button's ENABLED state is a statement about the screen and not about the
+*& model - the event can still arrive from a stale page. An offset past the
+*& end would render an empty table with no way back to the rows.
+*&---------------------------------------------------------------------*
+    DATA(lv_total) = lines( all_rows( io_ctx ) ).
+    DATA(lv_off)   = page_off( io_ctx ) + iv_by * page_size( io_ctx ).
+    IF lv_off >= lv_total.
+      lv_off = lv_off - page_size( io_ctx ).
+    ENDIF.
+    IF lv_off < 0.
+      lv_off = 0.
+    ENDIF.
+    io_ctx->set_val( iv_name = c_f_page iv_value = |{ lv_off }| ).
+  ENDMETHOD.
+
+
+  METHOD render_pager.
+*&---------------------------------------------------------------------*
+*& render_pager — Previous / Next and the position line, under the table.
+*&
+*& NOTHING IS DRAWN FOR A SINGLE PAGE. A pager under a list that fits is
+*& noise, and worse, it implies there is somewhere else to go.
+*&
+*& THE POSITION LINE IS THE POINT, not the buttons. "Showing 51-100 of 500"
+*& is what tells the citizen the list did not stop; a bare Next says only
+*& that something more exists. It also makes the cap visible - when the
+*& search hit C_MAX_ROWS the total here and the warning strip above agree.
+*&
+*& BILINGUAL through PICK( ), which follows the ENGINE's resolved language
+*& rather than SY-LANGU, so the pager cannot end up in a different language
+*& from the table it sits under.
+*&
+*& EMPHASIZED, NOT TRANSPARENT, and this is the second time on this screen.
+*& 'Transparent' is sap.m's default weight for a secondary action and it
+*& renders as coloured text with no button behind it - on the theme's red
+*& accent it reads as a link. Clear was drawn that way first and was changed
+*& for the same reason; the pager repeated the mistake and is corrected the
+*& same way, so all four buttons on the step now carry one weight.
+*&
+*& CENTRED WITH A MARGIN ON THE TEXT, not spread with SpaceBetween. The hbox
+*& is only as wide as its content, so SpaceBetween had no space to
+*& distribute and put both buttons hard against the label.
+*&---------------------------------------------------------------------*
+    DATA(lv_total) = lines( all_rows( io_ctx ) ).
+
+*   A FILTER THAT MATCHES NOTHING NEEDS SAYING SO. Without this the citizen
+*   gets column headings over blank space and no clue whether the search
+*   failed, the filter is too narrow, or the screen is broken. Borrowed from
+*   ZCL_RAK_CJ_PARCEL, which draws the same thing for the same reason.
+    IF lv_total = 0 AND io_ctx->get_val( c_f_filt ) IS NOT INITIAL.
+      io_view->illustrated_message(
+        illustrationtype = 'sapIllus-NoFilterResults'
+        illustrationsize = 'Spot'
+        title            = zcl_rak_text=>pick( iv_base = `No judgment matches`
+                                               iv_ar   = |لا يوجد حكم مطابق| )
+        description      = zcl_rak_text=>pick(
+          iv_base = `Clear the filter to see the whole result again.`
+          iv_ar   = |امسح التصفية لعرض النتيجة كاملة مرة أخرى.| ) ).
+      RETURN.
+    ENDIF.
+
+    IF lv_total <= page_size( io_ctx ).
+      RETURN.
+    ENDIF.
+
+    DATA(lv_off)   = page_off( io_ctx ).
+    DATA(lv_from)  = lv_off + 1.
+    DATA(lv_to)    = lv_off + page_size( io_ctx ).
+    IF lv_to > lv_total.
+      lv_to = lv_total.
+    ENDIF.
+
+    DATA(lo_bar) = io_view->hbox( justifycontent = 'Center'
+                                  alignitems     = 'Center'
+                                  class          = 'sapUiSmallMarginTop' ).
+    lo_bar->button(
+      text     = zcl_rak_text=>pick( iv_base = `Previous` iv_ar = |السابق| )
+      icon     = 'sap-icon://navigation-left-arrow'
+      type     = 'Emphasized'
+      enabled  = xsdbool( lv_off > 0 )
+      press    = io_ctx->event( c_ev_prev ) ).
+    lo_bar->text(
+      class = 'sapUiMediumMarginBeginEnd'
+      text  = zcl_rak_text=>pick(
+                iv_base = |Showing { lv_from }-{ lv_to } of { lv_total }|
+                iv_ar   = |عرض { lv_from }-{ lv_to } من { lv_total }| ) ).
+    lo_bar->button(
+      text      = zcl_rak_text=>pick( iv_base = `Next` iv_ar = |التالي| )
+      icon      = 'sap-icon://navigation-right-arrow'
+      iconfirst = abap_false
+      type      = 'Emphasized'
+      enabled   = xsdbool( lv_to < lv_total )
+      press     = io_ctx->event( c_ev_next ) ).
+
+*   ---- rows per page --------------------------------------------------
+*   BESIDE THE PAGER, NOT WITH THE FILTER. It answers "how big is a page",
+*   which is a question about this bar; the filter bar answers "which rows",
+*   which is a different one. A citizen looking for it will look here.
+*
+*   IT IS ONLY DRAWN WITH THE PAGER, so a result that fits on one page
+*   offers no way to change a page size that is not doing anything.
+    DATA(lo_ps) = lo_bar->select(
+      selectedkey = io_ctx->bind( c_f_psize )
+      width       = '7rem'
+      class       = 'sapUiMediumMarginBegin'
+      change      = io_ctx->event( c_ev_psize ) ).
+    LOOP AT VALUE zif_rak_journey=>tt_string( ( `10` ) ( `25` ) ( `50` ) ( `100` ) )
+         INTO DATA(lv_ps).
+      lo_ps->item( key  = lv_ps
+                   text = zcl_rak_text=>pick( iv_base = |{ lv_ps } per page|
+                                              iv_ar   = |{ lv_ps } لكل صفحة| ) ).
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_render_before_field.
+*&---------------------------------------------------------------------*
+*& on_render_before_field — the in-table filter, above the result table.
+*&
+*& BEFORE_FIELD( ) is called for a BLOCK field just as AFTER_FIELD( ) is -
+*& ZCL_RAK_JOURNEY_RENDER ~3559, before_field( ) then render_block( ) then
+*& after_field( ) - with IO_VIEW set to the block's own container. So the
+*& filter lands above the table and the pager below it, which is the order
+*& a reader expects and not a coincidence of the hooks.
+*&---------------------------------------------------------------------*
+    IF to_upper( is_field-name ) = c_f_list.
+      render_filter( io_ctx = io_ctx io_view = io_view ).
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD col_labels.
+*&---------------------------------------------------------------------*
+*& col_labels — the five sortable column headings, in cell order.
+*&
+*& CELL 1 IS NOT HERE. It is the case GUID, hidden by the renderer, and a
+*& sort on it would look random. So index 1 in this list is cell 2, and
+*& SORT_ROWS( ) adds the one back.
+*&
+*& THE SAME WORDS AS THE COLUMN HEADERS, deliberately duplicated rather
+*& than parsed back out of GET_TABLE( )'s spec strings - those carry the
+*& width and alignment tokens behind a '|' and picking them apart to get a
+*& label would break the moment a token is added.
+*&---------------------------------------------------------------------*
+    rt = VALUE #(
+      ( zcl_rak_text=>pick( iv_base = `Case No.`          iv_ar = |رقم القضية| ) )
+      ( zcl_rak_text=>pick( iv_base = `Court`             iv_ar = |المحكمة| ) )
+      ( zcl_rak_text=>pick( iv_base = `Registration Date` iv_ar = |تاريخ التسجيل| ) )
+      ( zcl_rak_text=>pick( iv_base = `Judgment Date`     iv_ar = |تاريخ الحكم| ) )
+      ( zcl_rak_text=>pick( iv_base = `Litigation Period` iv_ar = |مدة التقاضي| ) ) ).
+  ENDMETHOD.
+
+
+  METHOD render_filter.
+*&---------------------------------------------------------------------*
+*& render_filter — filter and sort, above the result table.
+*&
+*& A PLAIN INPUT AND A BUTTON, NOT A SEARCHFIELD, and the change is the fix
+*& for "the filter does nothing". A two-way binding commits on the
+*& control's CHANGE event, and sap.m.SearchField raises SEARCH when its
+*& magnifier is clicked WITHOUT the field having been left - so the event
+*& reached the server carrying the previous value, which on the first use
+*& is blank. Pressing Enter happened to work, clicking the glass did not,
+*& and the two look identical to the citizen.
+*&
+*& A BUTTON CANNOT HAVE THAT PROBLEM: pressing it moves focus out of the
+*& input, CHANGE fires, the binding commits, and only then does the event
+*& go. It is the same shape as Search and Clear on the criteria above,
+*& where a typed CASE_NUMBER has always reached DO_SEARCH( ) correctly -
+*& so this is the mechanism already proven on this screen rather than a
+*& second one. SUBMIT keeps the Enter key working, which is the habit
+*& anyone typing in a box beside a magnifier already has.
+*&
+*& THE ENGINE TEAM HIT THE SAME WALL from the other side (commit 8638be3,
+*& "the demo's search did nothing, because typing does not round-trip")
+*& and answered it with an explicit button too.
+*&
+*& NOTHING IS DRAWN UNTIL THERE IS A RESULT - the field is hidden with the
+*& table and after Clear, so this would otherwise offer to narrow nothing.
+*&---------------------------------------------------------------------*
+    IF io_ctx->get_val( c_f_hits ) IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   ---- ICON ONLY, AND PUSHED TO THE RIGHT ------------------------------
+*   THE TOOLBAR OF A SMART TABLE, which is the shape a court user has seen
+*   in every other SAP list they have ever used: the actions sit top-right
+*   of the table they act on, as icons, and the words live in the tooltip.
+*   Five labelled buttons in a row were reading as a form to fill in rather
+*   than as a toolbar, and the longest of them - "Export to Excel" - was
+*   setting the height of the whole bar for a control nobody reads twice.
+*
+*   TOOLTIP IS NOT OPTIONAL HERE. Dropping TEXT drops the only thing naming
+*   the button, so every one of them gains a TOOLTIP in the same two
+*   languages the text used to carry. An icon-only button with no tooltip
+*   is a guess, and it is a guess a screen reader cannot make at all.
+*
+*   WIDTH '100%' IS WHAT MAKES JUSTIFYCONTENT DO ANYTHING. An hbox is as
+*   wide as what it holds unless it is told otherwise, and 'End' on a box
+*   with no spare room has nothing to push against - the same mistake that
+*   was made once on the pager and is worth not making twice.
+*
+*   TYPE 'Default', NOT 'Transparent'. Transparent is what a real smart
+*   table uses, and this screen has already shown once (the Clear button,
+*   round 18) that a transparent button on a white card reads as absent
+*   rather than as quiet. A bordered button is one shade louder and cannot
+*   be missed.
+    DATA(lo_bar) = io_view->hbox( alignitems     = 'Center'
+                                  wrap           = 'Wrap'
+                                  width          = '100%'
+                                  justifycontent = 'End'
+                                  class          = 'sapUiSmallMarginBottom' ).
+
+    lo_bar->input(
+      value          = io_ctx->bind( c_f_filt )
+      placeholder    = zcl_rak_text=>pick( iv_base = `Filter in these results`
+                                           iv_ar   = |تصفية ضمن هذه النتائج| )
+      showclearicon  = abap_true
+      width          = '18rem'
+      submit         = io_ctx->event( c_ev_filt ) ).
+*   THE BUTTON STAYS, EVEN THOUGH ENTER NOW WORKS. SUBMIT covers the person
+*   who types and presses Enter; it does nothing at all for the person who
+*   types and reaches for the mouse, and that person currently has nothing
+*   to click. It is also the button that made the filter work in the first
+*   place - see the note above on SearchField - so removing it would be
+*   removing the mechanism and keeping only the shortcut.
+    lo_bar->button(
+      icon    = 'sap-icon://filter'
+      tooltip = zcl_rak_text=>pick( iv_base = `Filter` iv_ar = |تصفية| )
+      type    = 'Default'
+      class   = 'sapUiTinyMarginBegin'
+      press   = io_ctx->event( c_ev_filt ) ).
+    lo_bar->button(
+      icon    = 'sap-icon://clear-filter'
+      tooltip = zcl_rak_text=>pick( iv_base = `Clear filter` iv_ar = |مسح التصفية| )
+      type    = 'Default'
+      class   = 'sapUiTinyMarginBegin'
+      enabled = xsdbool( io_ctx->get_val( c_f_filt ) IS NOT INITIAL )
+      press   = io_ctx->event( c_ev_fclr ) ).
+
+*   ---- sort -----------------------------------------------------------
+*   A SELECT AND A DIRECTION TOGGLE, not clickable column headers. The
+*   engine's TABLE branch builds every sap.m.Column itself out of
+*   RS_DATA-COLUMNS and exposes no header press, so a heading cannot be
+*   made to do anything from here. SAP.M.COLUMN does carry SORTINDICATOR,
+*   but the engine passes only width and alignment through COL_SPEC( ), so
+*   even the arrow is out of reach without an engine change. This is the
+*   affordance that CAN be built locally, and it is the one the legacy ALV
+*   offered too.
+    DATA(lo_sel) = lo_bar->select(
+      selectedkey = io_ctx->bind( c_f_sort )
+      width       = '12rem'
+      class       = 'sapUiMediumMarginBegin'
+      change      = io_ctx->event( c_ev_sort ) ).
+*   ITEM( ) STRAIGHT ON THE SELECT, not through ITEMS( ) - that is how
+*   RENDER_ONE( ) builds every dropdown in the engine, and the aggregation
+*   is implicit.
+    lo_sel->item( key  = ''
+                  text = zcl_rak_text=>pick( iv_base = `Sort by - none`
+                                             iv_ar   = |الترتيب - بدون| ) ).
+    DATA(lt_lbl) = col_labels( ).
+    DATA(lv_ci)  = 0.
+    LOOP AT lt_lbl INTO DATA(lv_lbl).
+      lv_ci = lv_ci + 1.
+      lo_sel->item( key = |{ lv_ci }| text = lv_lbl ).
+    ENDLOOP.
+
+*   THE DIRECTION TOGGLE IS THE ONE BUTTON THAT LOSES SOMETHING by shedding
+*   its text, so it keeps saying which way it is pointing - in the tooltip
+*   now instead of beside the icon. The icon already carries the answer, and
+*   the tooltip repeats it in words for anyone the arrow does not reach.
+    lo_bar->button(
+      icon    = COND string( WHEN io_ctx->get_val( c_f_dir ) = 'D'
+                             THEN 'sap-icon://sort-descending'
+                             ELSE 'sap-icon://sort-ascending' )
+      tooltip = COND string( WHEN io_ctx->get_val( c_f_dir ) = 'D'
+                             THEN zcl_rak_text=>pick( iv_base = `Descending` iv_ar = |تنازلي| )
+                             ELSE zcl_rak_text=>pick( iv_base = `Ascending`  iv_ar = |تصاعدي| ) )
+      type    = 'Default'
+      class   = 'sapUiTinyMarginBegin'
+      enabled = xsdbool( io_ctx->get_val( c_f_sort ) IS NOT INITIAL )
+      press   = io_ctx->event( c_ev_dir ) ).
+
+*   ---- export ---------------------------------------------------------
+*   EVERY ROW, NOT THE PAGE. See EXPORT_XLS( ) for what "every" means when a
+*   filter is on.
+    lo_bar->button(
+      icon    = 'sap-icon://excel-attachment'
+      tooltip = zcl_rak_text=>pick( iv_base = `Export to Excel` iv_ar = |تصدير إلى إكسل| )
+      type    = 'Default'
+      class   = 'sapUiMediumMarginBegin'
+      press   = io_ctx->event( c_ev_xls ) ).
+  ENDMETHOD.
+
+
+  METHOD rich_esc.
+*&---------------------------------------------------------------------*
+*& rich_esc — a value made safe to put in a FORMATTED_TEXT( ) cell.
+*&
+*& TWO ESCAPES, NOT ONE, and missing either is a different failure.
+*&
+*&   THE HTML ENTITIES, because a rich cell is not escaped by the renderer.
+*&   Without them a court name containing an ampersand or an angle bracket
+*&   would be read as markup - swallowed at best, and at worst the citizen's
+*&   own data deciding how the page is drawn.
+*&
+*&   THE BRACES, because the TEXT( ) path this replaces ran ESC( ) and the
+*&   FORMATTED_TEXT( ) path does not. { and } are abap2UI5's binding
+*&   delimiters, so a value carrying one would be read as a model path
+*&   rather than as text. This is the escape it is easiest to forget,
+*&   because nothing on screen says a binding was attempted.
+*&
+*& AMPERSAND FIRST, or the escaping escapes itself and < becomes &amp;lt;.
+*&---------------------------------------------------------------------*
+    rv = iv.
+    REPLACE ALL OCCURRENCES OF `&` IN rv WITH `&amp;`.
+    REPLACE ALL OCCURRENCES OF `<` IN rv WITH `&lt;`.
+    REPLACE ALL OCCURRENCES OF `>` IN rv WITH `&gt;`.
+    REPLACE ALL OCCURRENCES OF `{` IN rv WITH `\{`.
+    REPLACE ALL OCCURRENCES OF `}` IN rv WITH `\}`.
+  ENDMETHOD.
+
+
+  METHOD hl.
+*&---------------------------------------------------------------------*
+*& hl — one cell, with every occurrence of the filter text marked.
+*&
+*& THE MATCH IS FOUND IN THE RAW VALUE AND THE PIECES ARE ESCAPED AFTER,
+*& which is the only order that works. Escaping first would move every
+*& offset the moment a value contained an ampersand - & becomes five
+*& characters - and the mark would land beside the match rather than on it.
+*&
+*& A COLOURED SPAN, AND THE COLOUR IS THE PART THAT HAD TO BE CHECKED.
+*& sap.m.FormattedText does not render arbitrary HTML - it sanitises
+*& HTMLTEXT against a fixed list - so the list was read in OpenUI5's own
+*& FormattedText.js rather than guessed at on the screen:
+*&
+*&   SPAN is allowed, and so are its STYLE and CLASS attributes, in BOTH
+*&   the default rule set and the limited one the control uses when it
+*&   carries controls of its own. So this survives either.
+*&
+*&   MARK IS IN NEITHER LIST, which is why the first cut of this used
+*&   <strong>: a <mark> would have vanished silently, leaving a filter
+*&   that highlighted nothing and no clue on screen as to why.
+*&
+*& STYLE RATHER THAN CLASS, and not out of preference. A class would have
+*& to be defined somewhere, and the stylesheet is ZCL_RAK_JOURNEY_CSS -
+*& an engine class we do not touch - so there is nowhere for this journey
+*& to put one. STYLE is the half of the pair we can actually reach.
+*&
+*& THE DOUBLE QUOTES ARE SAFE. This string leaves as an XML attribute
+*& value, and Z2UI5_CL_XML_VIEW passes every attribute through
+*& ESCAPE( FORMAT = CL_ABAP_FORMAT=>E_XML_ATTR ), so a quote travels as
+*& &quot; and reaches the sanitiser as a quote again. Braces get no such
+*& help from anyone, which is why RICH_ESC( ) still has to do them.
+*&
+*& THE BOLD IS KEPT, inside the span rather than wrapped around it. On a
+*& light table row the background alone is the weaker of the two signals,
+*& and one tag per match is less to go wrong than two.
+*&
+*& EVERY OCCURRENCE, not the first. A citizen filtering on a year sees it in
+*& the reference and in both dates, and marking one of the three reads as
+*& the other two not being matches.
+*&
+*& IGNORING CASE, to agree with the filter itself - ALL_ROWS( ) compares
+*& upper-cased, so a cell that was kept because it matched must be marked on
+*& the same terms or a lower-case hit would be kept and not shown.
+*&---------------------------------------------------------------------*
+    IF iv_filt IS INITIAL OR iv_text IS INITIAL.
+      rv = rich_esc( iv_text ).
+      RETURN.
+    ENDIF.
+
+    DATA(lv_rest) = iv_text.
+    DATA lv_off  TYPE i.
+    DATA lv_len  TYPE i.
+
+    WHILE lv_rest IS NOT INITIAL.
+      FIND FIRST OCCURRENCE OF iv_filt IN lv_rest
+           IGNORING CASE MATCH OFFSET lv_off MATCH LENGTH lv_len.
+      IF sy-subrc <> 0.
+        rv = rv && rich_esc( lv_rest ).
+        EXIT.
+      ENDIF.
+
+*     A ZERO-LENGTH MATCH CANNOT HAPPEN - the caller has already tested that
+*     the filter is not blank - but a WHILE that trusts that and is wrong
+*     never ends, and a hung round trip is a far worse failure than a
+*     missing highlight.
+      IF lv_len <= 0.
+        rv = rv && rich_esc( lv_rest ).
+        EXIT.
+      ENDIF.
+
+      rv = rv && rich_esc( substring( val = lv_rest off = 0 len = lv_off ) )
+              && c_hl_open
+              && rich_esc( substring( val = lv_rest off = lv_off len = lv_len ) )
+              && `</span>`.
+      lv_rest = substring( val = lv_rest off = lv_off + lv_len ).
+    ENDWHILE.
+  ENDMETHOD.
+
+
+  METHOD sort_rows.
+*&---------------------------------------------------------------------*
+*& sort_rows — order the filtered rows by one column.
+*&
+*& SORTED ON A KEY, NOT ON THE CELL. Three of the five columns do not sort
+*& correctly as the text they display:
+*&
+*&   The two dates read dd.MM.yyyy, so as strings they order by DAY - every
+*&   1st of every month together, then every 2nd. The key reverses them to
+*&   yyyyMMdd, which is the only form that sorts.
+*&
+*&   The litigation period is a number and can be NEGATIVE - the six-digit
+*&   and minus cases are both real, see the note in FETCH_ROWS( ). As a
+*&   string '-198' sorts beside '-1' and after '9'. The key is an integer
+*&   field, guarded with CO so a cell that is not a number cannot dump.
+*&
+*&   The case reference and the court are text and sort as text, upper-cased
+*&   so an English filter's case does not split the order.
+*&
+*& STABLE ENOUGH: SORT on one key leaves equal rows in the order the
+*& function module returned them, which is the order the citizen saw before
+*& they sorted. Rows with an unparseable key collect at one end rather than
+*& scattering.
+*&---------------------------------------------------------------------*
+    DATA(lv_raw) = condense( io_ctx->get_val( c_f_sort ) ).
+    IF lv_raw IS INITIAL OR lv_raw CN '0123456789'.
+      RETURN.
+    ENDIF.
+    DATA(lv_col) = CONV i( lv_raw ).
+    IF lv_col < 1 OR lv_col > lines( col_labels( ) ).
+      RETURN.
+    ENDIF.
+
+*   +1 because cell 1 is the hidden GUID and COL_LABELS( ) starts at cell 2.
+    DATA(lv_cell) = lv_col + 1.
+    DATA(lv_num)  = xsdbool( lv_col = 5 ).
+    DATA(lv_date) = xsdbool( lv_col = 3 OR lv_col = 4 ).
+
+    TYPES: BEGIN OF ty_k,
+             ks  TYPE string,
+             kn  TYPE i,
+             row TYPE zif_rak_journey=>tt_string,
+           END OF ty_k.
+    DATA lt_k TYPE STANDARD TABLE OF ty_k WITH EMPTY KEY.
+    DATA ls_k TYPE ty_k.
+
+    LOOP AT ct INTO DATA(lt_row).
+      CLEAR ls_k.
+      ls_k-row = lt_row.
+      READ TABLE lt_row INTO DATA(lv_v) INDEX lv_cell.
+      IF sy-subrc <> 0.
+        CLEAR lv_v.
+      ENDIF.
+      lv_v = condense( lv_v ).
+
+      IF lv_num = abap_true.
+        DATA(lv_sign) = 1.
+        DATA(lv_dig)  = lv_v.
+        IF strlen( lv_dig ) > 0 AND lv_dig(1) = '-'.
+          lv_sign = -1.
+          lv_dig  = lv_dig+1.
+        ENDIF.
+        IF lv_dig IS NOT INITIAL AND lv_dig CO '0123456789'.
+          ls_k-kn = CONV i( lv_dig ) * lv_sign.
+        ENDIF.
+      ELSEIF lv_date = abap_true AND strlen( lv_v ) = 10.
+*       dd.MM.yyyy -> yyyyMMdd. Anything else keeps a blank key and
+*       collects at one end; a blank judgment date is a real row.
+        ls_k-ks = lv_v+6(4) && lv_v+3(2) && lv_v(2).
+      ELSE.
+        ls_k-ks = to_upper( lv_v ).
+      ENDIF.
+      APPEND ls_k TO lt_k.
+    ENDLOOP.
+
+    DATA(lv_desc) = xsdbool( io_ctx->get_val( c_f_dir ) = 'D' ).
+    IF lv_num = abap_true.
+      IF lv_desc = abap_true.
+        SORT lt_k BY kn DESCENDING.
+      ELSE.
+        SORT lt_k BY kn ASCENDING.
+      ENDIF.
+    ELSE.
+      IF lv_desc = abap_true.
+        SORT lt_k BY ks DESCENDING.
+      ELSE.
+        SORT lt_k BY ks ASCENDING.
+      ENDIF.
+    ENDIF.
+
+    CLEAR ct.
+    LOOP AT lt_k INTO ls_k.
+      APPEND ls_k-row TO ct.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD xml_esc.
+*&---------------------------------------------------------------------*
+*& xml_esc — the five XML character entities.
+*&
+*& NOT ZCL_RAK_JOURNEY_UTIL=>ESC( ), which was the first thing reached for
+*& here and is the wrong tool: it escapes { and } because those are
+*& abap2UI5's binding delimiters, and it does not touch & or < at all. One
+*& ampersand in a court name would have produced a document Excel refuses
+*& to open, with nothing on screen to say why.
+*&
+*& AMPERSAND FIRST, or the escaping escapes itself and < becomes &amp;lt;.
+*&---------------------------------------------------------------------*
+    rv = iv.
+    REPLACE ALL OCCURRENCES OF `&` IN rv WITH `&amp;`.
+    REPLACE ALL OCCURRENCES OF `<` IN rv WITH `&lt;`.
+    REPLACE ALL OCCURRENCES OF `>` IN rv WITH `&gt;`.
+    REPLACE ALL OCCURRENCES OF `"` IN rv WITH `&quot;`.
+    REPLACE ALL OCCURRENCES OF `'` IN rv WITH `&apos;`.
+  ENDMETHOD.
+
+
+  METHOD utf8.
+*&---------------------------------------------------------------------*
+*& utf8 — a string as UTF-8 bytes.
+*& Every part of the package is declared UTF-8 in its own XML prologue,
+*& so every part has to be written in it. CONVERT_TO( ) defaults to UTF-8
+*& and the default is named here rather than relied on silently.
+*&---------------------------------------------------------------------*
+    rv = cl_abap_codepage=>convert_to( source = iv codepage = `UTF-8` ).
+  ENDMETHOD.
+
+
+  METHOD cell_ref.
+*&---------------------------------------------------------------------*
+*& cell_ref — A1, B1, C1 ... for a 1-based column and row.
+*&
+*& SINGLE LETTER ONLY, and that is a decision rather than a limitation
+*& nobody noticed: this sheet has five columns. Past Z the reference would
+*& need two letters, so rather than write arithmetic that is never
+*& exercised, the caller omits the attribute entirely - which the format
+*& allows, and Excel infers position from order.
+*&---------------------------------------------------------------------*
+    IF iv_col < 1 OR iv_col > 26.
+      RETURN.
+    ENDIF.
+    rv = |{ substring( val = `ABCDEFGHIJKLMNOPQRSTUVWXYZ` off = iv_col - 1 len = 1 ) }{ iv_row }|.
+  ENDMETHOD.
+
+
+  METHOD xlsx_bytes.
+*&---------------------------------------------------------------------*
+*& xlsx_bytes — the result as a real .xlsx.
+*&
+*& AN XLSX IS A ZIP OF XML PARTS, not one document, which is the whole
+*& reason this is longer than what it replaces. The previous export wrote
+*& SpreadsheetML 2003 and called it .xls: Excel opened it, but newer
+*& versions first warn that "the file format and extension don't match",
+*& because the extension promises a ZIP and the bytes are XML. That
+*& warning is the reason for this change - the file was always readable
+*& and always looked broken.
+*&
+*& FIVE PARTS, WHICH IS THE MINIMUM THAT OPENS. Content types, the package
+*& relationship, the workbook, the workbook's relationship to its sheet,
+*& and the sheet. Drop any one and Excel reports the file as corrupt
+*& rather than saying which part is missing.
+*&
+*& INLINE STRINGS, SO THERE IS NO SIXTH PART. A normal xlsx keeps its text
+*& in xl/sharedStrings.xml and each cell holds an index into it - smaller
+*& for a sheet that repeats values, and an extra part and an extra
+*& indirection for one that does not. t="inlineStr" puts the text in the
+*& cell, which for a few thousand unique case references is both smaller
+*& and much harder to get wrong.
+*&
+*& EVERY CELL IS A STRING, deliberately, exactly as in the version this
+*& replaces: it is what stops a case reference like "0 / 2026" being read
+*& as a date and a litigation period of -198 as a formula.
+*&---------------------------------------------------------------------*
+    DATA(lv_sheet) = |<?xml version="1.0" encoding="UTF-8" standalone="yes"?>| &&
+      |<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">| &&
+      |<sheetData>|.
+
+    DATA(lv_r) = 0.
+
+    DATA(lt_lbl) = col_labels( ).
+    lv_r = 1.
+    lv_sheet = lv_sheet && |<row r="{ lv_r }">|.
+    DATA(lv_c) = 0.
+    LOOP AT lt_lbl INTO DATA(lv_lbl).
+      lv_c = lv_c + 1.
+      lv_sheet = lv_sheet && |<c r="{ cell_ref( iv_col = lv_c iv_row = lv_r ) }" t="inlineStr">| &&
+                 |<is><t>| && xml_esc( lv_lbl ) && |</t></is></c>|.
+    ENDLOOP.
+    lv_sheet = lv_sheet && |</row>|.
+
+    LOOP AT it_row INTO DATA(lt_cell).
+      lv_r = lv_r + 1.
+      lv_sheet = lv_sheet && |<row r="{ lv_r }">|.
+      lv_c = 0.
+*     FROM 2 - cell one is the case GUID, which the table hides and nobody
+*     reading a spreadsheet of judgments has any use for.
+      LOOP AT lt_cell INTO DATA(lv_cell) FROM 2.
+        lv_c = lv_c + 1.
+        lv_sheet = lv_sheet && |<c r="{ cell_ref( iv_col = lv_c iv_row = lv_r ) }" t="inlineStr">| &&
+                   |<is><t>| && xml_esc( lv_cell ) && |</t></is></c>|.
+      ENDLOOP.
+      lv_sheet = lv_sheet && |</row>|.
+    ENDLOOP.
+
+    lv_sheet = lv_sheet && |</sheetData></worksheet>|.
+
+    DATA(lv_ct) = |<?xml version="1.0" encoding="UTF-8" standalone="yes"?>| &&
+      |<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">| &&
+      |<Default Extension="rels" | &&
+      |ContentType="application/vnd.openxmlformats-package.relationships+xml"/>| &&
+      |<Default Extension="xml" ContentType="application/xml"/>| &&
+      |<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxml| &&
+      |formats-officedocument.spreadsheetml.sheet.main+xml"/>| &&
+      |<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxml| &&
+      |formats-officedocument.spreadsheetml.worksheet+xml"/>| &&
+      |</Types>|.
+
+    DATA(lv_rels) = |<?xml version="1.0" encoding="UTF-8" standalone="yes"?>| &&
+      |<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">| &&
+      |<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/| &&
+      |2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>|.
+
+    DATA(lv_wb) = |<?xml version="1.0" encoding="UTF-8" standalone="yes"?>| &&
+      |<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" | &&
+      |xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">| &&
+      |<sheets><sheet name="Judgments" sheetId="1" r:id="rId1"/></sheets></workbook>|.
+
+    DATA(lv_wbr) = |<?xml version="1.0" encoding="UTF-8" standalone="yes"?>| &&
+      |<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">| &&
+      |<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/| &&
+      |2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>|.
+
+    DATA(lo_zip) = NEW cl_abap_zip( ).
+    lo_zip->add( name = `[Content_Types].xml`     content = utf8( lv_ct ) ).
+    lo_zip->add( name = `_rels/.rels`             content = utf8( lv_rels ) ).
+    lo_zip->add( name = `xl/workbook.xml`         content = utf8( lv_wb ) ).
+    lo_zip->add( name = `xl/_rels/workbook.xml.rels` content = utf8( lv_wbr ) ).
+    lo_zip->add( name = `xl/worksheets/sheet1.xml` content = utf8( lv_sheet ) ).
+    rv = lo_zip->save( ).
+  ENDMETHOD.
+
+
+  METHOD export_xls.
+*&---------------------------------------------------------------------*
+*& export_xls — the whole result as a spreadsheet.
+*&
+*& EVERY ROW, NEVER THE PAGE. Paging is a property of the screen and an
+*& export that honoured it would be a silent trap - the citizen who exports
+*& from page three would get fifty rows and no indication that the other
+*& three thousand were left behind.
+*&
+*& THE FILTER AND THE SORT DO APPLY, and that is deliberate rather than an
+*& oversight. ALL_ROWS( ) is what the table represents, so the file matches
+*& what the citizen is looking at, in the order they put it in. A filter is
+*& something they asked for; a page is something the screen imposed. Clear
+*& the filter and export again for the unnarrowed result.
+*&
+*& A REAL .XLSX, BUILT IN XLSX_BYTES( ). This wrote SpreadsheetML 2003
+*& under an .xls name first. Excel opened it, and then warned every time
+*& that "the file format and extension don't match" - because the extension
+*& promises a ZIP and the bytes were XML. The file was always readable and
+*& always looked broken, which is the worst combination to hand a citizen.
+*&
+*& DELIVERED THE WAY THE PDF IS, because the mechanism is already proven on
+*& this screen: park the bytes in ZRAK_CJ_ATTX as a data URL and open the
+*& relative ICF path that streams them. See OPEN_PDF( ) and the note on
+*& OPEN_URL( ) - a browser refuses a top-level data: navigation, so the
+*& URL cannot be handed over directly.
+*&---------------------------------------------------------------------*
+    DATA(lt_row) = all_rows( io_ctx ).
+    IF lt_row IS INITIAL.
+      io_ctx->add_msg(
+        iv_type = 'Warning'
+        iv_text = zcl_rak_text=>pick( iv_base = `There is nothing to export.`
+                                      iv_ar   = |لا يوجد ما يمكن تصديره.| ) ).
+      RETURN.
+    ENDIF.
+
+    DATA lv_x TYPE xstring.
+    TRY.
+        lv_x = xlsx_bytes( lt_row ).
+      CATCH cx_root INTO DATA(lx_xl).
+        io_ctx->add_msg( iv_type = 'Error' iv_text = lx_xl->get_text( ) ).
+        RETURN.
+    ENDTRY.
+    IF lv_x IS INITIAL.
+      io_ctx->add_msg(
+        iv_type = 'Error'
+        iv_text = zcl_rak_text=>pick( iv_base = `The export could not be built.`
+                                      iv_ar   = |تعذر إنشاء ملف التصدير.| ) ).
+      RETURN.
+    ENDIF.
+
+*   THE MIME TYPE MUST MATCH THE EXTENSION, which is the whole point of the
+*   change from SpreadsheetML. Excel checks one against the other and warns
+*   when they disagree.
+    DATA(lv_b64) = |data:application/vnd.openxmlformats-officedocument.| &&
+                   |spreadsheetml.sheet;base64,| &&
+                   z2ui5_cl_util=>conv_encode_x_base64( lv_x ).
+    DATA(lv_name) = zcl_rak_text=>pick( iv_base = `Judgments`
+                                        iv_ar   = |الأحكام| ).
+    DATA lv_guid TYPE string.
+    DATA lv_msg  TYPE string.
+    CALL METHOD zcl_rak_cj_att_store=>put
+      EXPORTING
+        iv_name = |{ lv_name }.xlsx|
+        iv_b64  = lv_b64
+      IMPORTING
+        ev_msg  = lv_msg
+      RECEIVING
+        rv_guid = lv_guid.
+    IF lv_guid IS INITIAL.
+      io_ctx->add_msg( iv_type = 'Error' iv_text = lv_msg ).
+      RETURN.
+    ENDIF.
+
+    io_ctx->open_url( zcl_rak_journey_util=>att_url( lv_guid ) ).
   ENDMETHOD.
 
 
   METHOD row_cells.
 *&---------------------------------------------------------------------*
 *& row_cells — the packed cells of one result row, found by its GUID.
-*& Empty when the row is not in JUD_ROWS, which can only happen if the
-*& model was tampered with, so every caller has to cope with it.
+*&
+*& SERVED FROM FETCH_ROWS( ), so the picked row is looked up in the result
+*& as it is NOW rather than as it was packed into the model. Empty when the
+*& GUID is not in the result, which a stale press can genuinely produce -
+*& every caller has to cope with it.
 *&---------------------------------------------------------------------*
     DATA lt_cell TYPE zif_rak_journey=>tt_string.
 
-    DATA(lt_rows) = text_lines( io_ctx->get_val( c_f_rows ) ).
+    DATA(lt_rows) = fetch_rows( io_ctx ).
     LOOP AT lt_rows INTO DATA(lv_row).
       CLEAR lt_cell.
       SPLIT lv_row AT c_cell_sep INTO TABLE lt_cell.

@@ -1511,6 +1511,23 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     rt = super->zif_rak_journey_logic~on_custom_validate(
     io_ctx = io_ctx iv_step = iv_step ).
 
+*   NO DATE-FORMAT GUARD HERE ANY MORE, AND THAT IS THE POINT OF R18-4.
+*
+*   There was one: BAD_DATES( ) refused any date field TO_DATS( ) could not
+*   read, because VALIDATE_STEP's DATE branch ran only when MIN_VAL or
+*   MAX_VAL was set and skipped an unparseable value inside it - so 37122010
+*   passed every check and reached the backend as BLANK.
+*
+*   THE ENGINE ASKS THE QUESTION ITSELF NOW, on every DATE field whether or
+*   not it carries a range, with a DATE_BAD catalogue message a field's
+*   FORMAT: clause can override. TO_DATS( ) also learned the calendar in the
+*   same round, so 31.02.2026 is refused as well - which our guard never
+*   caught, because it only asked TO_DATS( ) and TO_DATS( ) checked the shape
+*   rather than the days in the month.
+*
+*   KEEPING IT WOULD HAVE BEEN THE DEFECT. Both checks append, so one bad
+*   date would have drawn TWO error lines - the thing the guard's own comment
+*   warned against.
     DATA(lv_today) = |{ sy-datum }|.
     CASE iv_step.
       WHEN c_step_marr.

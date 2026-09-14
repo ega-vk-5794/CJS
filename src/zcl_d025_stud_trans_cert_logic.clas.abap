@@ -24,7 +24,7 @@ private section.
 
   constants C_MIN_SEARCH_LEN type I value 3 ##NO_TEXT.
   constants C_DEFAULT_IDTYPE type STRING value 'YFS002' ##NO_TEXT.
-  constants C_LOGIN_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
+  constants C_LOGIN_BP type STRING value 'OWNER_BP' ##NO_TEXT.
 ENDCLASS.
 
 
@@ -171,15 +171,15 @@ CLASS ZCL_D025_STUD_TRANS_CERT_LOGIC IMPLEMENTATION.
 
   METHOD zif_rak_journey_logic~on_search.
 
-    CHECK to_upper( iv_field ) = 'STUDENTID'.
+    CHECK to_upper( iv_field ) = 'STUDENT_1'.
 
-    DATA(lv_eid) = condense( io_ctx->get_val( 'STUDENTID' ) ).
+    DATA(lv_eid) = condense( io_ctx->get_val( 'STUDENT_1' ) ).
 
     DATA: lv_emirates_id TYPE bu_id_number,
           lv_student_id  TYPE char12.
 
 
-    DATA(lv_idtype) = io_ctx->get_val( 'STUDENTID_IDTYPE' ).
+    DATA(lv_idtype) = io_ctx->get_val( 'STUDENT_1_IDTYPE' ).
     IF lv_idtype IS INITIAL.
       io_ctx->add_msg( iv_type = 'Warning'
                        iv_text = |Select ID Type (Emirates ID or Student SIS ID) to search| ).
@@ -195,7 +195,9 @@ CLASS ZCL_D025_STUD_TRANS_CERT_LOGIC IMPLEMENTATION.
     IF lt_student IS INITIAL.
       io_ctx->add_msg( iv_type = 'Error'
                        iv_text = |No Student found for given search| ).
+      return.
     ENDIF.
+
     CHECK lt_student[] IS NOT INITIAL.
 
     SORT lt_student BY academic_year DESCENDING.

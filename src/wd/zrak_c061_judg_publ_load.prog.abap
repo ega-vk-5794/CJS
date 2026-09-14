@@ -236,14 +236,74 @@ START-OF-SELECTION.
 *   being a column and becomes a labelled line inside its own row instead of
 *   six columns squeezed side by side. Six columns is exactly the case it is
 *   for. Blank is what the phone does today, so this is the opt-in.
+*
+*   NO GROW_THRESH, AND THAT IS A DECISION RATHER THAN AN OMISSION. R16-2 added
+*   the column and we set it to 50 here; on 205 rows nothing paged, and the
+*   cause was not the configuration - the engine hands GROWING to
+*   Z2UI5_CL_XML_VIEW as the ABAP flag 'X' where the markup needs the string
+*   true, and behind that sap.m pages a BOUND items aggregation while this
+*   renderer emits one static row per record. Withdrawn as R17-2 rather than
+*   chased, because the second half is a renderer redesign that collides with
+*   ROWPICK carrying the row key in its event name.
+*
+*   WHAT HOLDS THE LINE INSTEAD is the handler's C_MAX_ROWS cap of 200 with its
+*   message telling the citizen to narrow by Case/File Type or No., and STICKY =
+*   'ColumnHeaders', which both renderers now pass by default - so a long result
+*   keeps its headings while it scrolls. If paging is ever wanted here, set the
+*   column; nothing else in this row has to change.
   ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'JUD_LIST' seqnr = 60
   ftype = 'TABLE' hidden = 'X' default_val = 'SEL_GUID|View|عرض' popin = 'X'
   zsection = 'Search Result' zsection_ar = |نتيجة البحث| )
 *   ---- the journey's memory, all hidden ---------------------------
   ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'SEL_GUID' seqnr = 100
   ftype = 'INPUT' hidden = 'X' zlabel = 'Selected case GUID' )
-  ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'JUD_ROWS' seqnr = 110
-  ftype = 'INPUT' hidden = 'X' zlabel = 'Packed search result' )
+*   HOW MANY THE LAST SEARCH FOUND - one number, where this row used to
+*   carry the whole packed result. JUD_ROWS crossed the wire on every round
+*   trip, which is what forced a row cap; the handler re-reads per request
+*   now (FETCH_ROWS( )) and there is no cap. Blank is also the "no search
+*   has been run" state that keeps the table and the filter box hidden.
+  ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'JUD_HITS' seqnr = 110
+  ftype = 'INPUT' hidden = 'X' zlabel = 'Result count' )
+*   THE PAGER'S MEMORY. The zero-based index of the first row currently
+*   drawn. Hidden, like JUD_HITS and SEL_GUID, and for the same reason - it
+*   is the journey's memory rather than anything the citizen fills in. Why a
+*   field rather than a handler attribute is argued at the constant in the
+*   handler; the short version is that it works either way and this keeps
+*   one store rather than two.
+  ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'JUD_PAGE' seqnr = 115
+  ftype = 'INPUT' hidden = 'X' zlabel = 'Result page offset' )
+*   THE IN-TABLE FILTER'S TEXT. Hidden like the two above, and for the same
+*   reason - the citizen does type into it, but through a SearchField the
+*   handler draws in ON_RENDER_BEFORE_FIELD( ), not through the engine's own
+*   rendering of this row. The row exists so the value has a model member to
+*   bind to; without it IO_CTX->BIND( ) has nothing to write into and the
+*   text is lost on the round trip the Search event causes.
+*
+*   THE SEARCH EVENT IS WHAT MAKES IT WORK, not the typing. A value reaches
+*   the server on a ROUND TRIP and typing is not one - the engine team hit
+*   exactly this on their own demo (commit 8638be3, "the demo's search did
+*   nothing, because typing does not round-trip") and answered it with an
+*   explicit Search button. SearchField's own magnifier and Enter key raise
+*   SEARCH, which is that same deliberate press, so this needs no separate
+*   button - but a plain INPUT here would have been silently dead.
+  ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'JUD_FILT' seqnr = 117
+  ftype = 'INPUT' hidden = 'X' zlabel = 'Result filter text' )
+*   THE SORT COLUMN AND ITS DIRECTION. Same shape and the same reason as the
+*   two above - the handler draws the Select and the toggle, and these rows
+*   exist so the values have model members to bind to. The column is held as
+*   a 1-based cell index rather than a name because the result columns are
+*   declared in GET_TABLE( ) and have no config row to be named from.
+  ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'JUD_SORT' seqnr = 118
+  ftype = 'INPUT' hidden = 'X' zlabel = 'Result sort column' )
+  ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'JUD_DIR' seqnr = 119
+  ftype = 'INPUT' hidden = 'X' zlabel = 'Result sort direction' )
+*   ROWS PER PAGE, as the citizen chose it. Blank means the handler's own
+*   default of fifty, so this row existing changes nothing until somebody
+*   uses the picker. PAGE_SIZE( ) accepts only 10, 25, 50 and 100 - a model
+*   field is a string anything could have written, and an arbitrary number
+*   here would be a way to ask for four thousand rows of markup.
+  ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'JUD_PSIZE' seqnr = 120
+  ftype = 'INPUT' hidden = 'X' zlabel = 'Rows per page' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'JD_COURT' seqnr = 120
   ftype = 'INPUT' hidden = 'X' zlabel = 'Court type of the picked case' )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'SRCH' field_name = 'JD_TITLE2' seqnr = 130

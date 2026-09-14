@@ -11,6 +11,213 @@
     <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
    </VSEOCLASS>
+   <DESCRIPTIONS>
+    <SEOCOMPOTX>
+     <CMPNAME>ALL_ROWS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Every result row, unpacked, filtered and sorted</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BASE_CASE_TEXT</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The contested judgment&apos;s own case reference</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>CASE_DESC</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Case type descriptions, from ZJDG_CASE_TYPES</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>CASE_RANGE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>IV_CASE_TYPE for ZFM_JUDGEMENT_PUBLICATION</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>CASE_TYPE_OPTS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Case/file type options for the chosen court type</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>CELL_REF</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>A1, B1, C1 ... for a 1-based column and row</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>COL_LABELS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The five sortable column headings, in cell order</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>CRIT_SIG</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The five search criteria as one signature string</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>DATE_EXT</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>A date in the user&apos;s own external format</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>DOM_OPTS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>A domain&apos;s fixed values as key/text options</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>DOM_TEXT</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>One domain value&apos;s text, blank if the key is unknown</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>DO_CLEAR</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Clear the five criteria and the result</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>DO_SEARCH</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Run the search and reset paging, filter and sort</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>EXPORT_XLS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Export every result row as a spreadsheet</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>FETCH_ROWS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Run the search FM, cached on the criteria</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>FLD_LABEL</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>A field&apos;s label, from the resolved configuration</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>HEAD_TXT_1</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The judgment heading block, three lines</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>HEAD_TXT_2</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The hearing line, with the judgment date</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>HL</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>One cell, with every filter match highlighted</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>JUD_CFG</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>ZDT_EGA_JUD_PUBL rows behind the search criteria</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>LOAD_JUDGMENT</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Load the judgment the citizen clicked</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>LOG_VIEW</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Write the ZDT_CRT_PBJD_LOG view row</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>OPEN_PDF</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Render and open the Adobe form for the judgment</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>OTR</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>One OTR alias, always resolved in Arabic</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>PAGE_MOVE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>One page back or forward, clamped at both ends</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>PAGE_OFF</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Zero-based index of the first row now drawn</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>PAGE_SIZE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Rows per page the citizen chose, else the default</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>PARTNER_NAMES</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Every full name carrying one partner function</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>PARTY_BLOCK</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The two party functions shown for this case</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>PDF_FAILED</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The message shown when the form cannot be built</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>RENDER_FILTER</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The filter, sort and export toolbar above the table</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>RENDER_PAGER</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Previous/Next and the position line, under the table</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>RICH_ESC</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>A value made safe for a FORMATTED_TEXT( ) cell</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>ROW_CELLS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The packed cells of one result row, by its GUID</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>SORT_ROWS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Order the filtered rows by one column</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>T100_TEXT</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>A T100 message&apos;s text in the logon language</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>TEXT_LINES</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Split a stored text block into its lines</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>UTF8</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>A string as UTF-8 bytes</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>XLSX_BYTES</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The result rows as a real .xlsx file</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>XML_ESC</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The five XML character entities</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>YEAR_OPTS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Case year options, this year down to C_FIRST_YEAR</DESCRIPT>
+    </SEOCOMPOTX>
+   </DESCRIPTIONS>
   </asx:values>
  </asx:abap>
 </abapGit>

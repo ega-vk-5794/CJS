@@ -1,7 +1,7 @@
-CLASS zcl_rak_grant_logic DEFINITION
-  PUBLIC
-  INHERITING FROM zcl_rak_mun_logic
-  CREATE PUBLIC.
+class ZCL_RAK_GRANT_LOGIC definition
+  public
+  inheriting from ZCL_RAK_MUN_LOGIC
+  create public .
 
 *&---------------------------------------------------------------------*
 *& The GRANTS family (M018, M019, M020 - and M021/M022 when they come).
@@ -43,35 +43,29 @@ CLASS zcl_rak_grant_logic DEFINITION
 *& that screen. So the inherited fee-total gate on the Pay press applies
 *& unchanged, and every feeder here needs its TOTALVALUE carrier.
 *&---------------------------------------------------------------------*
-
-  PUBLIC SECTION.
+public section.
 
 *   ---- the grants party note ------------------------------------------
 *   CJ03 on an MML journey is the OWNER characteristic; on a grants
 *   journey it is the note carrying the whole party list, hyphen
 *   separated, which CREATE_DUMMY_CASE( ) splits into CASE-BP_LIST. Named
 *   here so a subclass reads it rather than re-deriving it.
-    CONSTANTS c_note_parties TYPE string VALUE 'CJ03'.
-
+  constants C_NOTE_PARTIES type STRING value 'CJ03' ##NO_TEXT.
 *   The role the grants DPC filter wants, in the OData spelling. Not
 *   ZTR080 - that is what the DPC translates it to internally.
-    CONSTANTS c_role_grants  TYPE string VALUE 'YTR080'.
-
+  constants C_ROLE_GRANTS type STRING value 'YTR080' ##NO_TEXT.
 *   ---- what every grants journey shares on screen ---------------------
 *   JUST_DETAILS is the grants abstract's own name for the long text that
 *   rides characteristic CJ11 and the RE note - the MML family calls the
 *   same thing PLOTLONGTEXT. Confirmed in
 *   ZCL_EGA_CJ_FW_RO_GRANT_ABS_V1->READ( )'s CASE on TECHNICALNAME.
-    CONSTANTS c_fld_just     TYPE string VALUE 'JUST_DETAILS'.
-
+  constants C_FLD_JUST type STRING value 'JUST_DETAILS' ##NO_TEXT.
 *   Set by the abstract's READ( ) from the ZTR080 partner. Read-only on
 *   screen everywhere it appears.
-    CONSTANTS c_fld_account  TYPE string VALUE 'ACCOUNT'.
-
+  constants C_FLD_ACCOUNT type STRING value 'ACCOUNT' ##NO_TEXT.
 *   The container case id, from characteristic CJ12. The abstract's
 *   READ( ) fills it and strips its leading zeros.
-    CONSTANTS c_fld_case_id  TYPE string VALUE 'CASE_ID'.
-
+  constants C_FLD_CASE_ID type STRING value 'CASE_ID' ##NO_TEXT.
 *   ---- loan status, and the three fields it governs -------------------
 *   M018's Program Details and M019's Grant status both draw a With Loan
 *   / Without Loan toggle and three fields that only mean anything under
@@ -79,12 +73,14 @@ CLASS zcl_rak_grant_logic DEFINITION
 *   only that the control is a two-option toggle - so a subclass that
 *   learns the real keys should override these two rather than let the
 *   comparison drift.
-    CONSTANTS c_loan_with    TYPE string VALUE 'RB1'.   " WITH_LOAN
-    CONSTANTS c_loan_without TYPE string VALUE 'RB2'.   " NO_LOAN
+  constants C_LOAN_WITH type STRING value 'RB1' ##NO_TEXT. " WITH_LOAN
+  constants C_LOAN_WITHOUT type STRING value 'RB2' ##NO_TEXT. " NO_LOAN
 
-    METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
-
-  PROTECTED SECTION.
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+protected section.
 
 *   Is the loan section answered - the toggle set to With Loan and all
 *   three dependent fields filled. PROTECTED so M018 and M019 share one
@@ -94,19 +90,21 @@ CLASS zcl_rak_grant_logic DEFINITION
 *   put the same three fields under different legacy names, and guessing
 *   one shared set would break the field-control chain that keys on the
 *   legacy FIELD_NAME.
-    METHODS loan_incomplete
-      IMPORTING io_ctx      TYPE REF TO zif_rak_journey
-                iv_status   TYPE string
-                iv_value    TYPE string
-                iv_from     TYPE string
-                iv_to       TYPE string
-      RETURNING VALUE(rv)   TYPE abap_bool.
-
+  methods LOAN_INCOMPLETE
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IV_STATUS type STRING
+      !IV_VALUE type STRING
+      !IV_FROM type STRING
+      !IV_TO type STRING
+    returning
+      value(RV) type ABAP_BOOL .
+private section.
 ENDCLASS.
 
 
 
-CLASS zcl_rak_grant_logic IMPLEMENTATION.
+CLASS ZCL_RAK_GRANT_LOGIC IMPLEMENTATION.
 
 
   METHOD loan_incomplete.
@@ -167,4 +165,10 @@ CLASS zcl_rak_grant_logic IMPLEMENTATION.
   ENDMETHOD.
 
 
+  method ZIF_RAK_JOURNEY_LOGIC~ON_INIT.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+*  EXPORTING
+*    IO_CTX =
+*    .
+  endmethod.
 ENDCLASS.

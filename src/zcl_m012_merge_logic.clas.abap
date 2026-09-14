@@ -61,12 +61,18 @@ public section.
 *   place.
   constants C_SEP type STRING value '-' ##NO_TEXT.
 
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
+    redefinition .
 *   WHY ON_CHANGE. ZCL_RAK_CJ_PARCEL->TOGGLE( ) writes the list and then
 *   calls ON_CHANGE for the field, exactly as PICK( ) always has - so this
 *   fires on every tick and untick with the finished list already stored.
   methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
     redefinition .
 protected section.
 
@@ -293,4 +299,96 @@ CLASS ZCL_M012_MERGE_LOGIC IMPLEMENTATION.
     ENDIF.
 
   ENDMETHOD.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_INIT.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+*  EXPORTING
+*    IO_CTX =
+*    .
+
+    CALL METHOD super->zif_rak_journey_logic~on_init
+      EXPORTING
+        io_ctx = io_ctx.
+
+    DATA: lv_loginbp TYPE bu_partner.
+
+    lv_loginbp       = CAST zcl_rak_journey_engine( io_ctx )->mv_loginbp.
+    DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
+    DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
+
+    IF sy-uname = 'hasan.f.vnd'.
+      lv_loginbp = '3000401630'. "'3000000049'. "3000401630
+    ENDIF.
+
+*    IF lv_loginbp IS NOT INITIAL.
+*      NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
+*        EXPORTING
+*          iv_bp_id      = lv_loginbp
+*        IMPORTING
+*          es_bp_details = DATA(ls_bp) ).
+
+      io_ctx->set_val( iv_name = 'LOGIN_BP' iv_value = |{ lv_loginbp }| ).
+
+*      IF sy-langu = c_lang_en.
+*        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name ) ).
+*      ELSE.
+*        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
+*      ENDIF.
+
+*      io_ctx->set_val( iv_name = 'PARTNER_ID' iv_value = CONV #( ls_bp-emirates_id ) ).
+*
+      io_ctx->set_val( iv_name = 'APPLICANTTYPE' iv_value = |{ lv_role }| ).
+
+*    ENDIF.
+
+
+  endmethod.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ.
+    DATA(ls_owners) = io_ctx->get_grid_data( 'RAKPARCELS' ).
+    IF ls_owners-rows IS INITIAL.
+
+    ENDIF.
+
+    DATA(lv_sel) = io_ctx->get_val( 'PARCELSELECTOR2' ).
+    DATA(lv_sel1) = io_ctx->get_val( 'PARCELSELECTOR' ).
+*    DATA(ls_owners1) = io_ctx->get_grid_data( 'PARCELSELECTOR' ).
+*    DATA(ls_owners2) = io_ctx->get_grid_data( 'PARCELSELECTOR2' ).
+
+   DATA(ls_g) = io_ctx->get_backend_table( 'RAKPARCELS' ).
+    IF ls_g-rows IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA lt_map TYPE STANDARD TABLE OF i WITH EMPTY KEY.
+    lt_map = VALUE #( ( 1 ) ( 2 ) ( 3 ) ( 4 ) ( 5 ) ( 7 ) ( 9 ) ).
+
+    DATA(ls_out) = VALUE zif_rak_journey=>ty_table(
+      columns = VALUE #( ( `PARTNER` ) ( `NAME` ) ( `MOBILE_NUMBER` ) ( `EMAIL_ADDRESS` )
+                         ( `SHARE_PER` ) ( `EMIRATES_ID` ) ( `NATIONALITY` ) ) ).
+
+    LOOP AT ls_owners-rows INTO DATA(lt_row).
+      DATA lt_cells TYPE zif_rak_journey=>tt_string.
+      CLEAR lt_cells.
+      LOOP AT lt_map INTO DATA(lv_ix).
+        DATA(lv_cell) = VALUE string( lt_row[ lv_ix ] OPTIONAL ).
+        APPEND lv_cell TO lt_cells.
+      ENDLOOP.
+      APPEND lt_cells TO ls_out-rows.
+    ENDLOOP.
+
+    io_ctx->set_grid_data( iv_field = 'RAKPARCELS' is_data = ls_out ).
+  endmethod.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
+*  EXPORTING
+*    IO_CTX    =
+*  CHANGING
+*    CT_TABLES =
+*    .
+  endmethod.
 ENDCLASS.

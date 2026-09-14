@@ -1,8 +1,8 @@
-CLASS zcl_m019_cpgr_logic DEFINITION
-  PUBLIC
-  INHERITING FROM zcl_rak_grant_logic
-  FINAL
-  CREATE PUBLIC.
+class ZCL_M019_CPGR_LOGIC definition
+  public
+  inheriting from ZCL_RAK_GRANT_LOGIC
+  final
+  create public .
 
 *&---------------------------------------------------------------------*
 *& M019 Convert To Program Grant Request.
@@ -32,39 +32,39 @@ CLASS zcl_m019_cpgr_logic DEFINITION
 *& which is the later stage and has no feeder. So step 1 shows the card
 *& list and nothing else; there is no party table to seed here.
 *&---------------------------------------------------------------------*
-
-  PUBLIC SECTION.
+public section.
 
 *   ---- the grant the citizen picked -----------------------------------
 *   PARCELSELECTOR, CONFIRMED FROM THE EXPORT: NCPGR_1_1 carries a
 *   RAKPARCELSELECTOR called exactly that, the same control M011,
 *   M012 and M016 use. Only the ROLE it reads with differs.
-    CONSTANTS c_fld_grant      TYPE string VALUE 'PARCELSELECTOR'.
-
+  constants C_FLD_GRANT type STRING value 'PARCELSELECTOR' ##NO_TEXT.
 *   ---- step 2: the grant letter ---------------------------------------
 *   Four fields in one row on screen - letter reference, grant
 *   reference, program type, and the letter's expiry date.
-    CONSTANTS c_fld_letter_ref TYPE string VALUE 'REFNUM'.
-    CONSTANTS c_fld_grant_ref  TYPE string VALUE 'GRANTREFNUM'.
-    CONSTANTS c_fld_prog_type  TYPE string VALUE 'COMBOBOX'.
-    CONSTANTS c_fld_expiry     TYPE string VALUE 'DATEPICKER'.
-
+  constants C_FLD_LETTER_REF type STRING value 'REFNUM' ##NO_TEXT.
+  constants C_FLD_GRANT_REF type STRING value 'GRANTREFNUM' ##NO_TEXT.
+  constants C_FLD_PROG_TYPE type STRING value 'COMBOBOX' ##NO_TEXT.
+  constants C_FLD_EXPIRY type STRING value 'DATEPICKER' ##NO_TEXT.
 *   ---- step 2: grant status -------------------------------------------
-    CONSTANTS c_fld_loan_stat  TYPE string VALUE 'RB1'.
-    CONSTANTS c_fld_loan_val   TYPE string VALUE 'LOANVALUEINPUT'.
-    CONSTANTS c_fld_loan_from  TYPE string VALUE 'FROMDATE'.
-    CONSTANTS c_fld_loan_to    TYPE string VALUE 'TODATE'.
-
+  constants C_FLD_LOAN_STAT type STRING value 'RB1' ##NO_TEXT.
+  constants C_FLD_LOAN_VAL type STRING value 'LOANVALUEINPUT' ##NO_TEXT.
+  constants C_FLD_LOAN_FROM type STRING value 'FROMDATE' ##NO_TEXT.
+  constants C_FLD_LOAN_TO type STRING value 'TODATE' ##NO_TEXT.
 *   ---- step 2: the one document ---------------------------------------
-    CONSTANTS c_fld_sz_appr    TYPE string VALUE 'UPLOADER'.
+  constants C_FLD_SZ_APPR type STRING value 'UPLOADER' ##NO_TEXT.
 
-    METHODS zif_rak_journey_logic~on_custom_validate REDEFINITION.
-
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+protected section.
+private section.
 ENDCLASS.
 
 
 
-CLASS zcl_m019_cpgr_logic IMPLEMENTATION.
+CLASS ZCL_M019_CPGR_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_custom_validate.
@@ -73,6 +73,12 @@ CLASS zcl_m019_cpgr_logic IMPLEMENTATION.
 *   the MML parcel rule, then the grants base.
     rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
                                                           iv_step = iv_step ).
+    DATA(lv_loan) = io_ctx->get_val( 'RB1' ).
+    IF lv_loan = 'RB1'.
+      io_ctx->set_val( iv_name = 'WITH_LOAN' iv_value = 'X' ).
+    ELSEIF lv_loan = 'RB2'.
+      io_ctx->set_val( iv_name = 'WITH_LOAN' iv_value = '' ).
+    ENDIF.
 
 *   ---- the loan section, when there is a loan -------------------------
 *   Shared with M018 through the grants base; only the field names
@@ -130,4 +136,14 @@ CLASS zcl_m019_cpgr_logic IMPLEMENTATION.
   ENDMETHOD.
 
 
+  method ZIF_RAK_JOURNEY_LOGIC~ON_INIT.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+*  EXPORTING
+*    IO_CTX =
+*    .
+
+
+io_ctx->set_val( iv_name = 'RB1' iv_value = 'RB2' ).
+
+  endmethod.
 ENDCLASS.

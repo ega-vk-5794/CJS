@@ -11,6 +11,153 @@
     <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
    </VSEOCLASS>
+   <DESCRIPTIONS>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_BUTTON_TEXT</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The Add-role caption, until a partner is picked</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_DOB</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The popup&apos;s date of birth, as BP_SEARCH wants it</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_DOB_FIELD</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The date of birth field of the search form</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_EID_DIGITS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The Emirates ID as the fifteen digits it is</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_FLD</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>A BP popup field name: subject plus suffix</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_HANDLE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Handle one partner-search popup event</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_NATIONALITIES</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Nationality options, read from T005T</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_NAT_FIELD</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The nationality field of the search form</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_NEED</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Which search fields the chosen type requires</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_OR_DASH</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>A blank BP attribute reads as a dash, not as nothing</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_PAIR</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>One label/value row of the found-partner card</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_PICK</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Take the picked partner onto the journey</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_RENDER</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Draw the BP partner-search popup</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_ROW</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The label above one search-form control</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_RUN_SEARCH</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Run ZCL_RAK_BP_SEARCH for the popup</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>BP_SEARCH_OPTS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The request template for ZCL_RAK_BP_SEARCH</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>CONV_DATE_INTERNAL</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Date string to internal YYYYMMDD, blank if unusable</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>DATE_DISPLAY</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Internal YYYYMMDD as DD.MM.YYYY, for a message</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>DATE_ORDER_MSG</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Date A cannot be after or before date B, worded</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>DIGITS_ONLY</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Only the digits of a value, blank if there are none</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>FIELD_ERROR</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>One error message, bound to one field</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_OTR_TEXT_BY_ALIAS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Resolve an OTR alias, honouring sy-langu</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_OTR_TEXT_FOR_ALIAS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Resolve a message OTR alias (kept from source)</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>OPTIONS_FROM_DOMAIN</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>A domain&apos;s fixed values as key/text options</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>PARTY_TYPE_OPTS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The party type options of the parties grid</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>REACT_PERS_INFO</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Per-row reactive behaviour of the parties grid</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>REFRESH_HELP_URL</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The service help URL for the current service</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>SET_PARTNER_FUNCTIONS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>The partner functions of the process type</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>T100_TEXT</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>A T100 message&apos;s text in the logon language</DESCRIPT>
+    </SEOCOMPOTX>
+   </DESCRIPTIONS>
   </asx:values>
  </asx:abap>
 </abapGit>

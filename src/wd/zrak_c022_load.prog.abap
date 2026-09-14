@@ -249,7 +249,31 @@ START-OF-SELECTION.
   ( mandt = sy-mandt journey_id = c_jid step_id = 'MARR' field_name = 'MARR_CONTRACT_DATE' seqnr = 110
   ftype = 'DATE' required = 'X' zlabel = 'Marriage contract date' zlabel_ar = |تاريخ عقد الزواج| fgroup = 'ROW:M5'
   tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008K'
-  msg = 'Marriage contract date is required' msg_ar = |تاريخ عقد الزواج مطلوب| )
+*   KEYED, AND IT HAD TO BE. MSG IS ONE COLUMN READ BY FOUR CHECKS - the
+*   required check, the range checks, the numeric CATCH and REGEX - and
+*   ZCL_RAK_JOURNEY_UTIL=>MSG_FOR( ) hands an UNKEYED sentence back to every
+*   one of them unchanged. A row worded for one check therefore answers all
+*   four in that wording.
+*
+*   THAT IS WHY THE ENGINE'S DATE CHECK LOOKED BROKEN AND WAS NOT. R18-4
+*   added "is this a date at all" on every FTYPE 'DATE' field, and typing
+*   32132021 here did turn the field red - but the strip read "Marriage
+*   contract date is required", this row's own wording borrowed by the
+*   FORMAT check, which reads as the date never having arrived. It had
+*   arrived. One column was being asked to say two things.
+*
+*   THE KEYS ARE REQUIRED, LEN, RANGE, NUMBER, FORMAT AND '*'
+*   (ZCL_RAK_JOURNEY_UTIL=>MSG_KEY). Anything else in front of the first
+*   colon is treated as plain wording, so a mistyped key does not fail - it
+*   silently restores the behaviour above. Verified at engine head 5a3662d.
+*
+*   EVERY DATE FIELD THAT CARRIES A MSG AT ALL NEEDS THIS. The three below
+*   are the others; MARR_PROVING_DATE carries none and so falls through to
+*   the engine's own bilingual catalogue, which already says the right thing.
+  msg = 'REQUIRED:Marriage contract date is required;' &&
+        'FORMAT:Marriage contract date is not a valid date'
+  msg_ar = |REQUIRED:تاريخ عقد الزواج مطلوب;| &&
+           |FORMAT:تاريخ عقد الزواج غير صالح| )
 *   STEP DIVO ------------------------------------------------------
   ( mandt = sy-mandt journey_id = c_jid step_id = 'DIVO' field_name = 'DIV_DECL_TYPE' seqnr = 10
   ftype = 'SELECT' closed_list = 'X' zlabel = 'Type of divorce declaration' zlabel_ar = |نوع إقرار الطلاق|
@@ -281,7 +305,11 @@ START-OF-SELECTION.
   ( mandt = sy-mandt journey_id = c_jid step_id = 'DIVO' field_name = 'DIV_KHULA_DATE' seqnr = 90
   ftype = 'DATE' required = 'X' zlabel = 'Date of divorce or khula' zlabel_ar = |تاريخ الطلاق أو الخلع أو التطليق|
   fgroup = 'ROW:D5' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UB'
-  msg = 'Date of divorce or khula is required' msg_ar = |تاريخ الطلاق أو الخلع أو التطليق مطلوب| )
+*   Keyed for the reason set out on MARR_CONTRACT_DATE above.
+  msg = 'REQUIRED:Date of divorce or khula is required;' &&
+        'FORMAT:Date of divorce or khula is not a valid date'
+  msg_ar = |REQUIRED:تاريخ الطلاق أو الخلع أو التطليق مطلوب;| &&
+           |FORMAT:تاريخ الطلاق أو الخلع أو التطليق غير صالح| )
 *   STEP HIST ------------------------------------------------------
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'RELATIVE_RELATION' seqnr = 10
   ftype = 'SELECT' closed_list = 'X' required = 'X' zlabel = 'Relative relation' zlabel_ar = |صلة القرابة بين المطلقين| fgroup = 'ROW:H1'
@@ -308,6 +336,17 @@ START-OF-SELECTION.
   max_len = 2 regex = '^[0-9]+$' tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008M'
   msg = 'Please enter numbers only for No. of children'
   msg_ar = |الرجاء ادخال ارقام فقط في حقل عدد الابناء| )
+*   A DATE FIELD NEEDS NO GUARD OF ITS OWN. VALIDATE_STEP asks "is this a
+*   date" on every FTYPE 'DATE' field, whether or not it carries a range, and
+*   TO_DATS( ) knows the calendar - so 32.13.2026 is refused on the month and
+*   31.02.2026 on the day. That is R18-4, and the handler's BAD_DATES( ) was
+*   removed when it landed rather than left to double the message.
+*
+*   IT NEEDS NO MSG EITHER, and that is worth more than it looks: this row
+*   carries none, so the wording comes from the engine's own bilingual
+*   catalogue and is right in both languages without anyone writing it. A
+*   MSG here would have to be KEYED or it would answer the format check in
+*   whatever the required check was worded as - see MARR_CONTRACT_DATE.
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'MARR_PROVING_DATE' seqnr = 70
   ftype = 'DATE' zlabel = 'Marriage proving date' zlabel_ar = |تاريخ الدخول| fgroup = 'ROW:H4'
   tech_name = 'NO_DIV_MARR_TAKEOFF-ZZAFLD00008N' )
@@ -320,14 +359,17 @@ START-OF-SELECTION.
   ftype = 'COUNT' required = 'X' zlabel = 'Number of waives for husband' zlabel_ar = |عدد الزوجات في عصمة الزوج|
   fgroup = 'ROW:H5' max_len = 1 regex = '^[0-9]+$' max_val = '9'
   tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000V3'
-*     NUMBER: AS WELL AS FORMAT:, and NUMBER: is the one that actually fires.
-*     This is the only one of the four counts with MAX_VAL, and the numeric gate
-*     runs BEFORE the regex and CONTINUEs - so a letter here raises
-*     CX_SY_CONVERSION_NO_NUMBER and takes MSG_FOR( 'NUMBER' ), never
-*     MSG_FOR( 'FORMAT' ). Without this clause the field read "Number of waives
-*     for husband must be a valid number" while its three neighbours read the
-*     WD's own "numbers only" wording. FORMAT: stays for the case where MAX_VAL
-*     is ever removed, and both point at the same OTR text.
+*     BOTH KEYS ARE LIVE NOW. The numeric range gate used to open on NUMBER,
+*     CURRENCY and INPUT only, so MAX_VAL on a COUNT was read, loaded and
+*     silently ignored - we raised that as R17-1 and the engine added COUNT to
+*     the gate at 7619c06. MAX_VAL '9' is therefore enforced from now on, and
+*     unreachable: MAX_LEN 1 with a digits-only regex cannot produce a value
+*     above 9, so nothing on screen changes either way. It stays because it
+*     states the bound the WD screen had. FORMAT: is still the clause a bad
+*     value takes, because the mask blocks a letter at the keyboard and
+*     NORM_MASKED( ) strips the placeholder before the gate sees the value, so
+*     CONV decfloat34 cannot raise here. Verified against ZCL_RAK_JOURNEY_RULES
+*     at engine head 5113ea8.
   msg = 'REQUIRED:Number of waives for husband is required;' &&
         'NUMBER:OTR:Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG;' &&
         'FORMAT:OTR:Z_RAKEGA_MUNI/ZWDC_DIV_REQUE_ATT_MSG'
@@ -341,7 +383,11 @@ START-OF-SELECTION.
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'FIRST_MARR_CTR_DT' seqnr = 105
   ftype = 'DATE' zlabel = 'First marriage contract date' zlabel_ar = |تاريخ عقد الزواج الأول بين الطرفين|
   fgroup = 'ROW:H6' tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UE'
-  msg = 'First marriage contract date is required' msg_ar = |تاريخ عقد الزواج الأول بين الطرفين مطلوب| )
+*   Keyed for the reason set out on MARR_CONTRACT_DATE above.
+  msg = 'REQUIRED:First marriage contract date is required;' &&
+        'FORMAT:First marriage contract date is not a valid date'
+  msg_ar = |REQUIRED:تاريخ عقد الزواج الأول بين الطرفين مطلوب;| &&
+           |FORMAT:تاريخ عقد الزواج الأول بين الطرفين غير صالح| )
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'PREV_DIVORCES_COUNT' seqnr = 110
   ftype = 'COUNT' zlabel = 'The number of previous divorces'
   zlabel_ar = |عدد حالات الطلاق السابقة بين الطرفين| fgroup = 'ROW:H6'
@@ -361,7 +407,11 @@ START-OF-SELECTION.
   ( mandt = sy-mandt journey_id = c_jid step_id = 'HIST' field_name = 'LAST_DIV_DATE' seqnr = 120
   ftype = 'DATE' zlabel = 'Last divorce date' zlabel_ar = |تاريخ الطلاق السابق| fgroup = 'ROW:H7'
   tech_name = 'NO_DIV_MARR_TAKEOF-ZZAFLD0000UF'
-  msg = 'Last divorce date is required' msg_ar = |تاريخ الطلاق السابق مطلوب| )
+*   Keyed for the reason set out on MARR_CONTRACT_DATE above.
+  msg = 'REQUIRED:Last divorce date is required;' &&
+        'FORMAT:Last divorce date is not a valid date'
+  msg_ar = |REQUIRED:تاريخ الطلاق السابق مطلوب;| &&
+           |FORMAT:تاريخ الطلاق السابق غير صالح| )
 *   STEP PRTY ------------------------------------------------------
   ( mandt = sy-mandt journey_id = c_jid step_id = 'PRTY' field_name = 'PERS_INFO' seqnr = 10
 *   POPIN = 'X' is R13-2, engine commit 0ef0d4d, read as AUTOPOPINMODE. The

@@ -18,8 +18,44 @@
      <ENTRY>New Tenancy contract</ENTRY>
      <LENGTH>44</LENGTH>
     </item>
+    <item>
+     <ID>I</ID>
+     <KEY>102</KEY>
+     <ENTRY>Property Selection</ENTRY>
+     <LENGTH>28</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>103</KEY>
+     <ENTRY>Select Property List</ENTRY>
+     <LENGTH>40</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>104</KEY>
+     <ENTRY>Search</ENTRY>
+     <LENGTH>16</LENGTH>
+    </item>
    </TPOOL>
    <DESCRIPTIONS_SUB>
+    <SEOSUBCOTX>
+     <CMPNAME>CTT</CMPNAME>
+     <SCONAME>I_D</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Field of type DATS</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>CTT</CMPNAME>
+     <SCONAME>I_T</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Field of type TIMS</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>CTT</CMPNAME>
+     <SCONAME>R_T</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>UTC Time Stamp in Short Form (YYYYMMDDhhmmss)</DESCRIPT>
+    </SEOSUBCOTX>
     <SEOSUBCOTX>
      <CMPNAME>GET_BP_LESSOR</CMPNAME>
      <SCONAME>LESSOR</SCONAME>
@@ -31,6 +67,42 @@
      <SCONAME>PARTNER</SCONAME>
      <LANGU>E</LANGU>
      <DESCRIPT>Business Partner Number</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>GET_LR</CMPNAME>
+     <SCONAME>EV_DISTRICT</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Land Register District</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>GET_LR</CMPNAME>
+     <SCONAME>EV_PAGENO</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Year</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>GET_LR</CMPNAME>
+     <SCONAME>EV_VOLUMENO</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Registry Number</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>GET_LR</CMPNAME>
+     <SCONAME>IV_AOID</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Identification of Architectural Object</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>GET_LR</CMPNAME>
+     <SCONAME>IV_PARCEL</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Parcel Number</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>PARCEL_ADDRESS</CMPNAME>
+     <SCONAME>PARCEL</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Parcel Number</DESCRIPT>
     </SEOSUBCOTX>
     <SEOSUBCOTX>
      <CMPNAME>SET_CONTEXT</CMPNAME>

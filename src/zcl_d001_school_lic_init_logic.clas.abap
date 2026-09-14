@@ -1,48 +1,50 @@
-CLASS zcl_d001_school_lic_init_logic DEFINITION
-  PUBLIC
-  INHERITING FROM zcl_rak_journey_logic
-  CREATE PUBLIC .
+class ZCL_D001_SCHOOL_LIC_INIT_LOGIC definition
+  public
+  inheriting from ZCL_RAK_JOURNEY_LOGIC
+  create public .
 
-  PUBLIC SECTION.
+public section.
 
-    METHODS zif_rak_journey_logic~get_table
-        REDEFINITION .
-    METHODS zif_rak_journey_logic~on_before_fields
-        REDEFINITION .
-    METHODS zif_rak_journey_logic~on_before_post
-        REDEFINITION .
-    METHODS zif_rak_journey_logic~on_before_tables
-        REDEFINITION .
-    METHODS zif_rak_journey_logic~on_change
-        REDEFINITION .
-    METHODS zif_rak_journey_logic~on_custom_validate
-        REDEFINITION .
-    METHODS zif_rak_journey_logic~on_init
-        REDEFINITION .
-    METHODS zif_rak_journey_logic~on_popup_event
-        REDEFINITION .
-    METHODS zif_rak_journey_logic~on_render_before_field
-        REDEFINITION .
-    METHODS zif_rak_journey_logic~on_render_popup
-        REDEFINITION .
-    METHODS zif_rak_journey_logic~on_render_start
-        REDEFINITION .
-    METHODS zif_rak_journey_logic~on_search
-        REDEFINITION .
-    METHODS zif_rak_journey_logic~on_value_help
-        REDEFINITION .
-    METHODS zif_rak_journey_logic~render_field
-        REDEFINITION .
-    METHODS zif_rak_journey_logic~on_render_end
-        REDEFINITION .
-  PROTECTED SECTION.
+  methods ZIF_RAK_JOURNEY_LOGIC~GET_TABLE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_FIELDS
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_POST
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_POPUP_EVENT
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_BEFORE_FIELD
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_END
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_POPUP
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_START
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~RENDER_FIELD
+    redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_ATTACHMENTS
+    redefinition .
+protected section.
 
-    METHODS build_pay_url
-        REDEFINITION .
-    METHODS pay_render
-        REDEFINITION .
-    METHODS prepare_payment
-        REDEFINITION .
+  methods BUILD_PAY_URL
+    redefinition .
+  methods PAY_RENDER
+    redefinition .
+  methods PREPARE_PAYMENT
+    redefinition .
 private section.
 
   types:
@@ -71,7 +73,6 @@ private section.
   constants C_EVT_OWNOK type STRING value 'OWN_OK' ##NO_TEXT.
   constants C_EVT_OWNCX type STRING value 'OWN_CANCEL' ##NO_TEXT.
   constants C_GRID type STRING value 'OWNERS_SEARCH' ##NO_TEXT.
-
 * The owner grid's columns, addressed by NAME rather than by position.
 *
 * Position could not be made to work here. OWN_FORM_SAVE( ) appended nine cells
@@ -95,40 +96,13 @@ private section.
 * Naming the columns settles all of it. A column that is absent resolves to 0 and
 * is skipped, instead of shifting its neighbours along.
   constants C_COL_PARTNER type STRING value 'PARTNER' ##NO_TEXT.
-  constants C_COL_NAME    type STRING value 'NAME' ##NO_TEXT.
-  constants C_COL_MOBILE  type STRING value 'MOBILE_NUMBER' ##NO_TEXT.
-  constants C_COL_EMAIL   type STRING value 'EMAIL_ADDRESS' ##NO_TEXT.
-  constants C_COL_SHARE   type STRING value 'SHARE_PER' ##NO_TEXT.
-  constants C_COL_NAT     type STRING value 'NATIONALITY' ##NO_TEXT.
-  constants C_COL_EID     type STRING value 'EMIRATES_ID' ##NO_TEXT.
-  constants C_COL_DOB     type STRING value 'BIRTH_DATE' ##NO_TEXT.
-
-* Position of a named column in the grid's own spec, or 0 when the spec has no
-* such column. 0 is a legitimate answer: OWNERS_SEARCH has nowhere to keep an
-* Emirates ID or a birth date until those ZRAK_T_JNY_COL rows are added.
-  methods COL_IX
-    importing !IT_COLS type ZIF_RAK_JOURNEY=>TT_STRING
-              !IV_NAME type STRING
-    returning value(RV) type I .
-* Read one named cell out of a row. Blank when the column is not in the spec.
-  methods CELL_OF
-    importing !IT_COLS type ZIF_RAK_JOURNEY=>TT_STRING
-              !IT_ROW  type ZIF_RAK_JOURNEY=>TT_STRING
-              !IV_NAME type STRING
-    returning value(RV) type STRING .
-* Place a value in the named column. A column the spec does not define is
-* skipped, never appended - appending is what shifted every later cell.
-  methods PUT_CELL
-    importing !IT_COLS type ZIF_RAK_JOURNEY=>TT_STRING
-              !IV_NAME type STRING
-              !IV_VAL  type STRING
-    changing  !CT_ROW  type ZIF_RAK_JOURNEY=>TT_STRING .
-* The value the row's Edit and Delete buttons carry: the PARTNER key when the
-* spec has that column, the owner's name when it does not.
-  methods ROW_KEY_OF
-    importing !IT_COLS type ZIF_RAK_JOURNEY=>TT_STRING
-              !IT_ROW  type ZIF_RAK_JOURNEY=>TT_STRING
-    returning value(RV) type STRING .
+  constants C_COL_NAME type STRING value 'NAME' ##NO_TEXT.
+  constants C_COL_MOBILE type STRING value 'MOBILE_NUMBER' ##NO_TEXT.
+  constants C_COL_EMAIL type STRING value 'EMAIL_ADDRESS' ##NO_TEXT.
+  constants C_COL_SHARE type STRING value 'SHARE_PER' ##NO_TEXT.
+  constants C_COL_NAT type STRING value 'NATIONALITY' ##NO_TEXT.
+  constants C_COL_EID type STRING value 'EMIRATES_ID' ##NO_TEXT.
+  constants C_COL_DOB type STRING value 'BIRTH_DATE' ##NO_TEXT.
   constants C_OWN_ID type STRING value 'OWN_ID' ##NO_TEXT.
 * The BP number the Emirates ID search resolved for the owner in the dialog.
 * It is what the PARTNER column - and so GS_DATA-OWNERS-PARTNER - is for.
@@ -148,7 +122,42 @@ private section.
   constants C_EVT_OWNEW type STRING value 'OWN_NEW' ##NO_TEXT.
   constants C_POP_OWN type STRING value 'TRIGGER_POPUP' ##NO_TEXT.
   constants C_TRIGGER_POPUP type STRING value 'TRIGGER_POPUP' ##NO_TEXT.
+  constants C_COL_ACTIVITY type STRING value 'ACTIVITY' ##NO_TEXT.
 
+* Position of a named column in the grid's own spec, or 0 when the spec has no
+* such column. 0 is a legitimate answer: OWNERS_SEARCH has nowhere to keep an
+* Emirates ID or a birth date until those ZRAK_T_JNY_COL rows are added.
+  methods COL_IX
+    importing
+      !IT_COLS type ZIF_RAK_JOURNEY=>TT_STRING
+      !IV_NAME type STRING
+    returning
+      value(RV) type I .
+* Read one named cell out of a row. Blank when the column is not in the spec.
+  methods CELL_OF
+    importing
+      !IT_COLS type ZIF_RAK_JOURNEY=>TT_STRING
+      !IT_ROW type ZIF_RAK_JOURNEY=>TT_STRING
+      !IV_NAME type STRING
+    returning
+      value(RV) type STRING .
+* Place a value in the named column. A column the spec does not define is
+* skipped, never appended - appending is what shifted every later cell.
+  methods PUT_CELL
+    importing
+      !IT_COLS type ZIF_RAK_JOURNEY=>TT_STRING
+      !IV_NAME type STRING
+      !IV_VAL type STRING
+    changing
+      !CT_ROW type ZIF_RAK_JOURNEY=>TT_STRING .
+* The value the row's Edit and Delete buttons carry: the PARTNER key when the
+* spec has that column, the owner's name when it does not.
+  methods ROW_KEY_OF
+    importing
+      !IT_COLS type ZIF_RAK_JOURNEY=>TT_STRING
+      !IT_ROW type ZIF_RAK_JOURNEY=>TT_STRING
+    returning
+      value(RV) type STRING .
   methods OWN_FORM_LOAD
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY
@@ -453,10 +462,10 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
         CLEAR lv_miss.
 
         DATA(lt_req_doc) = VALUE zif_rak_journey=>tt_kv(
-          ( key = 'MAIN_DOC' value = 'Emirates ID Copy' )
-          ( key = 'INTRO'    value = 'Introductory Statement' )
-          ( key = 'CRIMCC'   value = 'Criminal Clearance certificate' )
-          ( key = 'CURR'     value = 'Curriculum Vitae' ) ).
+          ( key = '60' value = 'Emirates ID Copy' )
+          ( key = 'FE'    value = 'Introductory Statement' )
+          ( key = '6P'   value = 'Criminal Clearance certificate' )
+          ( key = 'FF'    value = 'Curriculum Vitae' ) ).
 
         LOOP AT lt_req_doc INTO DATA(ls_req_doc).
           DATA(lv_want_id1) = COND string(
@@ -986,6 +995,12 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_dob     iv_val = lv_dob
               CHANGING  ct_row  = lt_row ).
 
+
+    put_cell( EXPORTING it_cols = ls_g-columns iv_name = c_col_activity iv_val = 'X'
+                 CHANGING  ct_row  = lt_row ).
+
+
+
 *   ID type is deliberately not stored. It is a popup control, not owner data,
 *   and it had no column - the value that used to travel under its position was
 *   the one being read back as the Emirates ID.
@@ -1215,26 +1230,26 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     DATA(lo_dr1) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d1)  = lo_dr1->vbox( class = 'rakCell' ).
     lo_d1->label( text = 'Emirates ID Copy' required = abap_true ).
-    io_ctx->render_upload( io_view = lo_d1 iv_field = 'MAIN_DOC' iv_key = lv_id ).
+    io_ctx->render_upload( io_view = lo_d1 iv_field = '60' iv_key = lv_id ).
     DATA(lo_d2)  = lo_dr1->vbox( class = 'rakCell' ).
     lo_d2->label( text = 'Passport Copy' ).
-    io_ctx->render_upload( io_view = lo_d2 iv_field = 'PASS' iv_key = lv_id ).
+    io_ctx->render_upload( io_view = lo_d2 iv_field = 'NL' iv_key = lv_id ).
 
     DATA(lo_dr2) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d3)  = lo_dr2->vbox( class = 'rakCell' ).
     lo_d3->label( text = 'Introductory Statement'  required = abap_true ).
-    io_ctx->render_upload( io_view = lo_d3 iv_field = 'INTRO' iv_key = lv_id ).
+    io_ctx->render_upload( io_view = lo_d3 iv_field = 'FE' iv_key = lv_id ).
     DATA(lo_d4)  = lo_dr2->vbox( class = 'rakCell' ).
     lo_d4->label( text = 'Criminal Clearance certificate'  required = abap_true ).
-    io_ctx->render_upload( io_view = lo_d4 iv_field = 'CRIMCC' iv_key = lv_id ).
+    io_ctx->render_upload( io_view = lo_d4 iv_field = '6P' iv_key = lv_id ).
 
     DATA(lo_dr3) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d5)  = lo_dr3->vbox( class = 'rakCell' ).
     lo_d5->label( text = 'Curriculum Vitae'  required = abap_true ).
-    io_ctx->render_upload( io_view = lo_d5 iv_field = 'CURR' iv_key = lv_id ).
+    io_ctx->render_upload( io_view = lo_d5 iv_field = 'FF' iv_key = lv_id ).
     DATA(lo_d6)  = lo_dr3->vbox( class = 'rakCell' ).
     lo_d6->label( text = 'Family Book' ).
-    io_ctx->render_upload( io_view = lo_d6 iv_field = 'FBOOK' iv_key = lv_id ).
+    io_ctx->render_upload( io_view = lo_d6 iv_field = '78' iv_key = lv_id ).
 
 
 * Add button on pop-up
@@ -1322,4 +1337,35 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     ENDLOOP.
 
   endmethod.
+
+
+  METHOD zif_rak_journey_logic~on_before_attachments.
+*SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_ATTACHMENTS(
+*  EXPORTING
+*    IO_CTX = IO_CTX
+*  CHANGING
+*    CT_ATT = CT_ATT
+*       ).
+
+
+    LOOP AT ct_att ASSIGNING FIELD-SYMBOL(<fs_attach>) WHERE identifier2 IS INITIAL.
+      CASE <fs_attach>-identifier1+0(2).
+        WHEN '60'.
+          <fs_attach>-identifier2 = '60'.
+        WHEN 'NL'.
+          <fs_attach>-identifier2 = 'NL'.
+        WHEN 'FE'.
+          <fs_attach>-identifier2 = 'FE'.
+        WHEN '6P'.
+          <fs_attach>-identifier2 = '6P'.
+        WHEN 'FF'.
+          <fs_attach>-identifier2 = 'FF'.
+        WHEN '78'.
+          <fs_attach>-identifier2 = '78'.
+        WHEN OTHERS.
+          CONTINUE.
+      ENDCASE.
+      <fs_attach>-file_name = |{ <fs_attach>-identifier1 }.pdf|.
+    ENDLOOP.
+  ENDMETHOD.
 ENDCLASS.
