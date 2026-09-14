@@ -259,6 +259,11 @@ CLASS zcl_rak_text DEFINITION
 *       32.13.2026 is written exactly the way the picker asks for and is
 *       still not a date.
         date_bad            TYPE symsgno VALUE '141',
+*       The Studio on a client that may look and not write. It names no
+*       system and no client - the same rule the refusal page follows,
+*       and for the same reason: whoever is reading it has not been
+*       identified, and the landscape's shape is not theirs to learn.
+        cjs_read_only       TYPE symsgno VALUE '142',
 *       R18-3. The two entries of a sortable column's header menu. Two rather
 *       than one toggle, because a menu entry that reads "Sort" has to say
 *       what it would sort to, and a toggle would have to know what it is
@@ -607,7 +612,10 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
         en = `&1 is not a valid date`
         ar = `&1 ليس تاريخاً صحيحاً` )
       ( msgno = c_no-sort_asc  en = `Sort Ascending`  ar = `ترتيب تصاعدي` )
-      ( msgno = c_no-sort_desc en = `Sort Descending` ar = `ترتيب تنازلي` ) ).
+      ( msgno = c_no-sort_desc en = `Sort Descending` ar = `ترتيب تنازلي` )
+      ( msgno = c_no-cjs_read_only
+        en = `Read-only on this client`
+        ar = `للعرض فقط في هذا العميل` ) ).
   ENDMETHOD.
 
 

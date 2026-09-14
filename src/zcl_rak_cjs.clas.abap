@@ -2082,6 +2082,25 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       cb->item( key = j-journey_id text = |{ j-journey_id } — { j-title }| ).
     ENDLOOP.
     bar->button( text = 'Load' icon = 'sap-icon://open-folder' press = mo_client->_event( 'LOAD' ) class = 'sapUiTinyMarginBegin' ).
+
+*   ---- READ-ONLY: THE WRITE CONTROLS ARE NOT DRAWN AT ALL ---------------
+*   Every write path already refuses server-side through CAN_WRITE( ), and
+*   that stays - a hidden button is not an unreachable event, and it is the
+*   refusal that protects the data. This is the other half: on a client that
+*   may not write, offering Save, New, Copy and Deactivate and then refusing
+*   each one is a worse screen than not offering them. The author presses,
+*   waits, and is told no, four times.
+*
+*   LOAD, CLEAR CACHE AND THE TAB BAR ALL STAY - reading is the whole point
+*   of READ mode, and a Studio that opens on a page with no navigation would
+*   be a worse refusal than the message page NONE already draws. Only the
+*   four write controls and the copy-to input are inside the guard.
+    IF mv_readonly = abap_true.
+      bar->text( text  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-cjs_read_only
+                                            iv_default = 'Read-only on this client' )
+                 class = 'sapUiSmallMarginBegin' ).
+    ELSE.
+
     bar->button( text = 'New'  icon = 'sap-icon://add-document' press = mo_client->_event( 'NEW' ) ).
     DATA(lv_armed) = xsdbool( mv_arm_save IS NOT INITIAL AND mv_arm_save = to_upper( mv_journey_id ) ).
     bar->button( text  = COND string( WHEN lv_armed = abap_true THEN 'Save anyway' ELSE 'Save' )
@@ -2102,6 +2121,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                                    THEN 'Click again to take this journey off launch' )
                  press   = mo_client->_event( 'DEACT' )
                  class   = 'sapUiTinyMarginBegin' ).
+
+    ENDIF.   " mv_readonly - the write controls above are not drawn on a read client
+
 *   Clear cache. Save, Copy, Deactivate and Migrate already invalidate, and so
 *   does Load now - which leaves exactly one case for this button: config changed
 *   OUTSIDE the Studio. A seed report, a direct table update, a transport import.
@@ -3712,6 +3734,23 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
 
   METHOD dsg_save.
+
+*   THE DESIGN TAB WRITES TOO, AND IT WAS THE ONE WRITE PATH WITH NO GUARD.
+*   SAVE_JOURNEY( ), COPY_JOURNEY( ) and DEACTIVATE_JOURNEY( ) all opened
+*   with CAN_WRITE( ); this persists ZRAK_CJ_LAYOUT and did not - so on a
+*   read-only client every move and resize arrow still wrote a row. Not
+*   found by anyone hitting it: found by asking which statements write.
+*
+*   BOTH CHECKS, IN THE SAME ORDER THE OTHER THREE USE. CAN_WRITE( ) is the
+*   landscape rule, AUTH_OK( ) is the authority object, and they answer
+*   different questions - a developer with S_DEVELOP on the wrong client
+*   must still be refused.
+    IF can_write( ) = abap_false.
+      RETURN.
+    ENDIF.
+    IF auth_ok( '02' ) = abap_false.
+      RETURN.
+    ENDIF.
 
     DATA(lo_lay) = zcl_rak_cj_lay=>get_instance( ).
     DATA(lv_jny) = CONV zcl_rak_cj_lay=>ty_key( to_upper( mv_journey_id ) ).

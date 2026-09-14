@@ -466,19 +466,38 @@ CLASS zcl_rak_journey_util DEFINITION
 *   which would confirm the parameter exists to anyone who guessed it.
     CLASS-METHODS trace_ok RETURNING VALUE(rv) TYPE abap_bool.
 
-*   WHAT THE JOURNEY STUDIO MAY DO HERE. 'EDIT' on development, 'READ' on
-*   quality, 'NONE' anywhere else.
+*   WHAT THE JOURNEY STUDIO MAY DO HERE. 'EDIT' on E10 client 100 only,
+*   'READ' on any other E10 client, 'NONE' on every other system.
 *
-*   Configuration reaches other systems by transport, never by editing
-*   against their data - so authoring is development-only. Quality gets
-*   read access because being able to SEE what a journey is configured to
-*   do, on the system where it is being tested, answers most of the
-*   questions that would otherwise become a call to a developer.
+*   ---- THIS WAS WIDENED TWICE AND IS NOW NARROWED, ON INSTRUCTION -------
+*   It used to be EDIT on all of E10, READ on E20, NONE elsewhere. The
+*   framework owner has closed both halves of that:
+*
+*     NO ACCESS AT ALL OUTSIDE E10. E20 used to get READ, and the argument
+*     for it was good - being able to SEE what a journey is configured to
+*     do, on the system where it is being tested, answers most of the
+*     questions that otherwise become a call to a developer. It is closed
+*     anyway, because the Studio names the whole landscape's configuration
+*     and the decision about who may look at it is not the framework's.
+*
+*     ONE CLIENT MAY WRITE. Authoring happens in 100 and reaches every
+*     other client by transport. E10/200 is where journeys are DRIVEN -
+*     the simulated partner, the demo cases - and editing live config on
+*     the client you are demonstrating against is how a demo changes a
+*     service by accident.
+*
+*   THE CLIENT GATE IS ABSOLUTE AND POWER_USER( ) DOES NOT LIFT IT. That
+*   override still outranks the AUTHORITY-CHECK in ZCL_RAK_CJS - a named
+*   user with no S_DEVELOP can still open and read - but it cannot turn
+*   READ into EDIT on the wrong client, because "apart from E10 100 nobody
+*   edits" is not an authority question and an authority override is the
+*   wrong lever for it. To restore the old behaviour, add POWER_USER( ) to
+*   the COND below; it is deliberately absent rather than forgotten.
 *
 *   'NONE' means the Studio does not open at all. The caller must enforce
-*   'READ' server-side on every write path - Save, Delete, Activate, the
-*   feeders, PERSIST( ) - and not merely hide the buttons, because a
-*   hidden button is not an unreachable event.
+*   'READ' server-side on every write path - Save, Copy, Deactivate and
+*   the Design tab's PERSIST( ) - and not merely hide the buttons, because
+*   a hidden button is not an unreachable event.
     CLASS-METHODS studio_mode RETURNING VALUE(rv) TYPE string.
 
     CONSTANTS c_studio_edit TYPE string VALUE 'EDIT'.
@@ -492,6 +511,11 @@ CLASS zcl_rak_journey_util DEFINITION
     CONSTANTS c_sys_dev  TYPE sy-sysid VALUE 'E10'.
     CONSTANTS c_sys_qa   TYPE sy-sysid VALUE 'E20'.
     CONSTANTS c_sys_prod TYPE sy-sysid VALUE 'E30'.
+
+*   THE ONE CLIENT THE STUDIO MAY WRITE ON. Private, like the system ids,
+*   because everything outside asks STUDIO_MODE( ) what it may do and never
+*   which client it is on.
+    CONSTANTS c_mandt_edit TYPE sy-mandt VALUE '100'.
 
 *   The recognised per-check keys of a keyed MSG. See MSG_FOR( ).
     CLASS-METHODS msg_key
@@ -585,18 +609,29 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
 
 
   METHOD studio_mode.
-*   POWER_USER( ) IS TESTED FIRST, so it outranks the system rather than
-*   being narrowed by it - on E20 the answer would otherwise be READ and
-*   on E30 NONE, which is the whole thing being overridden.
+*   THE SYSTEM FIRST, AND IT IS A HARD STOP. Anything that is not E10 -
+*   quality, production, a sandbox, a system copy, a system renamed after
+*   this was written - gets nothing. Closed by default rather than open by
+*   omission, and IS_PROD( ) is not consulted because it does not need to
+*   be: only one system is named and everything else falls through.
 *
-*   IS_PROD( ) is not consulted and does not need to be: anything that is
-*   not development, not quality and not the named user falls to
-*   C_STUDIO_NONE, so a sandbox, a system copy or a system renamed after
-*   this was written is closed by default rather than open by omission.
-    rv = COND string( WHEN power_user( ) = abap_true THEN c_studio_edit
-                      WHEN is_dev( ) = abap_true THEN c_studio_edit
-                      WHEN is_qa( )  = abap_true THEN c_studio_read
-                      ELSE c_studio_none ).
+*   POWER_USER( ) IS NO LONGER TESTED HERE. It used to be tested FIRST, so
+*   it outranked the system entirely and a named user held EDIT on
+*   production. That is the opposite of what "apart from E10 nobody has
+*   access" means, and an authority override is the wrong lever for a
+*   landscape rule. It still outranks the AUTHORITY-CHECK inside
+*   ZCL_RAK_CJS, which is what it was for.
+    IF is_dev( ) = abap_false.
+      rv = c_studio_none.
+      RETURN.
+    ENDIF.
+
+*   ON E10, THE CLIENT DECIDES WRITE OR READ. 100 authors; every other
+*   client on the box reads. 200 is where journeys are driven against a
+*   simulated partner, and editing live configuration on the client you are
+*   demonstrating against is how a demo changes a service by accident.
+    rv = COND string( WHEN sy-mandt = c_mandt_edit THEN c_studio_edit
+                      ELSE c_studio_read ).
   ENDMETHOD.
 
 
