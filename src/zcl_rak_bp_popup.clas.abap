@@ -158,7 +158,40 @@ CLASS zcl_rak_bp_popup DEFINITION
 *               compare. This closes that.
 *
 *               Never applies to a trade licence, which has neither.
-                iv_strict  TYPE abap_bool DEFAULT abap_false.
+                iv_strict  TYPE abap_bool DEFAULT abap_false
+*               WHICH QUESTIONS THE FORM ASKS. Both default true, which is
+*               what the form has always asked, so no existing caller
+*               changes.
+*
+*               They are separate because the reasons differ. A service
+*               that already knows the nationality - one restricted to
+*               UAE nationals - is asking a question with one answer.
+*               A service searching its own staff by Emirates ID has the
+*               date of birth on file and is asking the citizen to retype
+*               something to prove they are themselves.
+*
+*               TURNING ONE OFF TURNS OFF ITS CHECK TOO. IV_STRICT cannot
+*               require a field the form does not ask for; that would be
+*               a form that can never be completed.
+                iv_ask_dob TYPE abap_bool DEFAULT abap_true
+                iv_ask_nat TYPE abap_bool DEFAULT abap_true
+*               WHAT THE FOUND-PARTNER CARD SHOWS, BEYOND THE FOUR.
+*
+*               The card always shows partner number, name, mobile and
+*               email - which is what a step needs to say "this is who I
+*               found". It used to show twenty-five fields in three
+*               sections whether the journey wanted them or not, which is
+*               the legacy officer's screen shown to a citizen who asked
+*               one question.
+*
+*               Blank is those four. A list of suffixes adds those rows,
+*               in their own sections. A single entry '*' is the whole
+*               legacy card, for a journey that genuinely reviews a
+*               partner - Notary approval does.
+*
+*                 it_detail = VALUE #( ( `IDNO` ) ( `IDEXP` ) ( `NAT` ) )
+*                 it_detail = VALUE #( ( `*` ) )
+                it_detail  TYPE string_table OPTIONAL.
 
 *   THE FIELD SUFFIXES THIS POPUP READS AND WRITES, for a seed report to
 *   create in ZRAK_T_JNY_FLD. Eight per subject, all HIDDEN = X.
@@ -185,6 +218,16 @@ CLASS zcl_rak_bp_popup DEFINITION
       RETURNING VALUE(rv) TYPE string.
 
   PROTECTED SECTION.
+
+*   One row of the found-partner card: the field suffix and its caption.
+*   A table of these rather than a run of PAIR( ) calls, because the rows
+*   now have to be FILTERED before they are drawn and a filter over
+*   straight-line code is twenty-five IFs.
+    TYPES: BEGIN OF ty_row,
+             suffix TYPE string,
+             label  TYPE string,
+           END OF ty_row.
+    TYPES tt_row TYPE STANDARD TABLE OF ty_row WITH EMPTY KEY.
 *   Short alias for ZCL_RAK_TEXT=>GET( ) so every label below fits one line.
 *   This popup is shared across journeys, so its own wording belongs in the
 *   framework catalogue (ZCL_RAK_TEXT), not hardcoded here - a bare literal
@@ -230,6 +273,20 @@ CLASS zcl_rak_bp_popup DEFINITION
     METHODS validate_form
       RETURNING VALUE(rv_ok) TYPE abap_bool.
 
+*   PUT THE EMIRATES ID BACK ON SCREEN THE WAY THE CARD PRINTS IT, and put
+*   the 784 in front of it where the citizen left it off.
+*
+*   Writes to the model, so the citizen SEES the correction rather than
+*   having it applied invisibly on the way to the backend. Called on both
+*   round trips the form has - the type change and the Search press - which
+*   is every point at which the value can have changed.
+*
+*   EMIRATES ID ONLY. A passport number, a unified number and a trade
+*   licence have their own shapes and none of them is 3-4-7-1; reformatting
+*   those would corrupt what the citizen typed.
+    METHODS mask_idnum
+      IMPORTING iv_by TYPE string.
+
     METHODS run_search.
 
 *   Read a component by name, trying each candidate in turn, and return blank when
@@ -254,6 +311,23 @@ CLASS zcl_rak_bp_popup DEFINITION
     METHODS form_of
       IMPORTING io_box        TYPE REF TO z2ui5_cl_xml_view
       RETURNING VALUE(ro_frm) TYPE REF TO z2ui5_cl_xml_view.
+
+*   Is this detail row on the card? PHONE and EMAIL always are - with the
+*   partner number and the name above them, those are the four a step needs
+*   to say who was found. Everything else is opt-in through IT_DETAIL, and
+*   '*' opts in to all of it.
+    METHODS wanted
+      IMPORTING iv_suffix TYPE string
+      RETURNING VALUE(rv) TYPE abap_bool.
+
+*   One section of the card: the heading, then whichever of its rows the
+*   caller asked for. DRAWN ONLY IF SOMETHING SURVIVES THE FILTER - a
+*   heading over nothing reads as a section that failed to load, which is
+*   the same mistake PAIR( )'s em dash avoids one level down.
+    METHODS section_of
+      IMPORTING io_box   TYPE REF TO z2ui5_cl_xml_view
+                iv_title TYPE string
+                it_rows  TYPE tt_row.
 
 *   One label / value pair. A blank value renders an em dash rather than
 *   nothing: an empty row beside a label reads as a field that failed to
@@ -284,6 +358,9 @@ CLASS zcl_rak_bp_popup DEFINITION
     DATA ms_search  TYPE zcl_rak_bp_search=>ty_req.
     DATA mt_types   TYPE string_table.
     DATA mv_strict  TYPE abap_bool.
+    DATA mv_ask_dob TYPE abap_bool.
+    DATA mv_ask_nat TYPE abap_bool.
+    DATA mt_detail  TYPE string_table.
 ENDCLASS.
 
 
@@ -351,6 +428,14 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
                          ELSE t( iv_no = zcl_rak_text=>c_no-bpp_title iv_default = 'Partner Search' ) ).
     ms_search  = is_search.
     mv_strict  = iv_strict.
+    mv_ask_dob = iv_ask_dob.
+    mv_ask_nat = iv_ask_nat.
+
+    LOOP AT it_detail INTO DATA(lv_d).
+      lv_d = to_upper( condense( lv_d ) ).
+      CHECK lv_d IS NOT INITIAL.
+      APPEND lv_d TO mt_detail.
+    ENDLOOP.
 
 *   UPPER-CASED AND CLEANED ON THE WAY IN, once, so every reader downstream
 *   compares like with like. A caller writing 'yfs002' means the Emirates ID
@@ -422,6 +507,23 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD mask_idnum.
+    CHECK iv_by = c_eid.
+
+    DATA(lv_raw) = condense( mo_ctx->get_val( fld( 'IDNUM' ) ) ).
+    CHECK lv_raw IS NOT INITIAL.
+
+    DATA(lv_new) = zcl_rak_bp_search=>mask_eid( lv_raw ).
+
+*   WRITTEN BACK ONLY IF IT CHANGED. VAL_SET( ) on every round trip would
+*   mark the model dirty for a value nobody touched, and on a quiet
+*   CHANGE_ round trip that is the difference between the engine's markup
+*   hash matching and the whole page repainting.
+    CHECK lv_new <> lv_raw.
+    mo_ctx->set_val( iv_name = fld( 'IDNUM' ) iv_value = lv_new ).
+  ENDMETHOD.
+
+
   METHOD validate_form.
 *   R20-1. A BLANK ID NUMBER USED TO DO NOTHING AT ALL - no search, no
 *   message, no field state, and RV_OK true so the handler could not tell
@@ -434,7 +536,8 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *   one each time.
     rv_ok = abap_true.
 
-    DATA(lv_by)  = mo_ctx->get_val( fld( 'SEARCHBY' ) ).
+    DATA(lv_by) = mo_ctx->get_val( fld( 'SEARCHBY' ) ).
+    mask_idnum( lv_by ).
     DATA(lv_num) = condense( mo_ctx->get_val( fld( 'IDNUM' ) ) ).
 
     IF lv_by IS INITIAL.
@@ -476,7 +579,11 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *   birth and no nationality, and the form does not ask for them there.
     IF mv_strict = abap_true AND lv_by <> c_tlic.
 
-      IF mo_ctx->get_val( fld( 'DOB' ) ) IS INITIAL.
+*     ONLY WHAT THE FORM ASKED FOR. IV_ASK_DOB and IV_ASK_NAT remove the
+*     control; requiring a field the citizen was never shown is a form that
+*     cannot be completed, and the message would name a box that is not on
+*     the screen.
+      IF mv_ask_dob = abap_true AND mo_ctx->get_val( fld( 'DOB' ) ) IS INITIAL.
         mo_ctx->add_msg( iv_type = 'Error'
                          iv_text = t( iv_no = zcl_rak_text=>c_no-required
                                       iv_default = '&1 is required'
@@ -485,7 +592,7 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
         rv_ok = abap_false.
       ENDIF.
 
-      IF mo_ctx->get_val( fld( 'NAT' ) ) IS INITIAL.
+      IF mv_ask_nat = abap_true AND mo_ctx->get_val( fld( 'NAT' ) ) IS INITIAL.
         mo_ctx->add_msg( iv_type = 'Error'
                          iv_text = t( iv_no = zcl_rak_text=>c_no-required
                                       iv_default = '&1 is required'
@@ -543,6 +650,12 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *       you had typed under the OLD type. The round trip is still wanted -
 *       the form below the dropdown depends on the answer - it just must not
 *       search.
+*
+*       IT IS ALSO THE ONE PLACE THE MASK CAN BE APPLIED WITHOUT SEARCHING.
+*       A citizen who types fifteen bare digits and changes the type sees
+*       the hyphens appear, which is the only feedback the form can give
+*       before Search is pressed.
+        mask_idnum( mo_ctx->get_val( fld( 'SEARCHBY' ) ) ).
         rv_ok = abap_true.
 
       WHEN c_ev_run.
@@ -656,64 +769,42 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
         state = 'Success'
         class = 'sapUiTinyMarginBottom' ).
 
-      section( io_box = lo_body iv_title = t( iv_no = zcl_rak_text=>c_no-bpp_general iv_default = 'General Info' ) ).
-      DATA(lo_res) = form_of( lo_body ).
-      pair( io_form = lo_res iv_suffix = 'FIRSTNAME'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_first_name  iv_default = 'First Name' ) ).
-      pair( io_form = lo_res iv_suffix = 'FATHERNAME'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_father_name iv_default = 'Father Name' ) ).
-      pair( io_form = lo_res iv_suffix = 'GRANDNAME'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_grand_name  iv_default = 'Grandfather Name' ) ).
-      pair( io_form = lo_res iv_suffix = 'FOURTHNAME'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_fourth_name iv_default = 'Fourth Name' ) ).
-      pair( io_form = lo_res iv_suffix = 'LASTNAME'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_last_name   iv_default = 'Last Name' ) ).
-      pair( io_form = lo_res iv_suffix = 'GENDER'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_gender      iv_default = 'Gender' ) ).
-      pair( io_form = lo_res iv_suffix = 'IDNO'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_id_no       iv_default = 'ID Number' ) ).
-      pair( io_form = lo_res iv_suffix = 'IDEXP'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_id_exp      iv_default = 'ID Expiry date' ) ).
-      pair( io_form = lo_res iv_suffix = 'UNIFIED'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_unified_num iv_default = 'Unified Number' ) ).
-      pair( io_form = lo_res iv_suffix = 'PPNO'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_passport_no iv_default = 'Passport Number' ) ).
-      pair( io_form = lo_res iv_suffix = 'PPFROM'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_pp_issue    iv_default = 'Date of passport Issue' ) ).
-      pair( io_form = lo_res iv_suffix = 'PPPLACE'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_pp_country  iv_default = 'Country of passport Issue' ) ).
-      pair( io_form = lo_res iv_suffix = 'PPTO'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_pp_exp      iv_default = 'Passport Expiry Date' ) ).
-      pair( io_form = lo_res iv_suffix = 'NAT'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_nat         iv_default = 'Nationality' ) ).
-      pair( io_form = lo_res iv_suffix = 'OCC'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_occupation  iv_default = 'Occupation' ) ).
-      pair( io_form = lo_res iv_suffix = 'DOBV'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_dob         iv_default = 'Date of Birth' ) ).
+      section_of( io_box   = lo_body
+                  iv_title = t( iv_no = zcl_rak_text=>c_no-bpp_general iv_default = 'General Info' )
+                  it_rows  = VALUE #(
+        ( suffix = `FIRSTNAME`  label = t( iv_no = zcl_rak_text=>c_no-bpp_first_name  iv_default = 'First Name' ) )
+        ( suffix = `FATHERNAME` label = t( iv_no = zcl_rak_text=>c_no-bpp_father_name iv_default = 'Father Name' ) )
+        ( suffix = `GRANDNAME`  label = t( iv_no = zcl_rak_text=>c_no-bpp_grand_name  iv_default = 'Grandfather Name' ) )
+        ( suffix = `FOURTHNAME` label = t( iv_no = zcl_rak_text=>c_no-bpp_fourth_name iv_default = 'Fourth Name' ) )
+        ( suffix = `LASTNAME`   label = t( iv_no = zcl_rak_text=>c_no-bpp_last_name   iv_default = 'Last Name' ) )
+        ( suffix = `GENDER`     label = t( iv_no = zcl_rak_text=>c_no-bpp_gender      iv_default = 'Gender' ) )
+        ( suffix = `IDNO`       label = t( iv_no = zcl_rak_text=>c_no-bpp_id_no       iv_default = 'ID Number' ) )
+        ( suffix = `IDEXP`      label = t( iv_no = zcl_rak_text=>c_no-bpp_id_exp      iv_default = 'ID Expiry date' ) )
+        ( suffix = `UNIFIED`    label = t( iv_no = zcl_rak_text=>c_no-bpp_unified_num iv_default = 'Unified Number' ) )
+        ( suffix = `PPNO`       label = t( iv_no = zcl_rak_text=>c_no-bpp_passport_no iv_default = 'Passport Number' ) )
+        ( suffix = `PPFROM`     label = t( iv_no = zcl_rak_text=>c_no-bpp_pp_issue    iv_default = 'Date of passport Issue' ) )
+        ( suffix = `PPPLACE`    label = t( iv_no = zcl_rak_text=>c_no-bpp_pp_country  iv_default = 'Country of passport Issue' ) )
+        ( suffix = `PPTO`       label = t( iv_no = zcl_rak_text=>c_no-bpp_pp_exp      iv_default = 'Passport Expiry Date' ) )
+        ( suffix = `NAT`        label = t( iv_no = zcl_rak_text=>c_no-bpp_nat         iv_default = 'Nationality' ) )
+        ( suffix = `OCC`        label = t( iv_no = zcl_rak_text=>c_no-bpp_occupation  iv_default = 'Occupation' ) )
+        ( suffix = `DOBV`       label = t( iv_no = zcl_rak_text=>c_no-bpp_dob         iv_default = 'Date of Birth' ) ) ) ).
 
-      section( io_box = lo_body iv_title = t( iv_no = zcl_rak_text=>c_no-bpp_contact iv_default = 'Contact Info' ) ).
-      DATA(lo_con) = form_of( lo_body ).
-      pair( io_form = lo_con iv_suffix = 'PHONE'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_mobile    iv_default = 'Mobile Number' ) ).
-      pair( io_form = lo_con iv_suffix = 'EMAIL'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_email     iv_default = 'Email' ) ).
-      pair( io_form = lo_con iv_suffix = 'TEL'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_telephone iv_default = 'Telephone' ) ).
+      section_of( io_box   = lo_body
+                  iv_title = t( iv_no = zcl_rak_text=>c_no-bpp_contact iv_default = 'Contact Info' )
+                  it_rows  = VALUE #(
+        ( suffix = `PHONE` label = t( iv_no = zcl_rak_text=>c_no-bpp_mobile    iv_default = 'Mobile Number' ) )
+        ( suffix = `EMAIL` label = t( iv_no = zcl_rak_text=>c_no-bpp_email     iv_default = 'Email' ) )
+        ( suffix = `TEL`   label = t( iv_no = zcl_rak_text=>c_no-bpp_telephone iv_default = 'Telephone' ) ) ) ).
 
-      section( io_box = lo_body iv_title = t( iv_no = zcl_rak_text=>c_no-bpp_address iv_default = 'Address Info' ) ).
-      DATA(lo_adr) = form_of( lo_body ).
-      pair( io_form = lo_adr iv_suffix = 'COUNTRY'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_country  iv_default = 'Country Of Living' ) ).
-      pair( io_form = lo_adr iv_suffix = 'REGION'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_region   iv_default = 'Region' ) ).
-      pair( io_form = lo_adr iv_suffix = 'CITY'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_city     iv_default = 'City' ) ).
-      pair( io_form = lo_adr iv_suffix = 'STREET'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_street   iv_default = 'Street Name' ) ).
-      pair( io_form = lo_adr iv_suffix = 'HOUSE'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_house_no iv_default = 'Home Number' ) ).
-      pair( io_form = lo_adr iv_suffix = 'POBOX'
-            iv_label = t( iv_no = zcl_rak_text=>c_no-bpp_pobox    iv_default = 'PO Box' ) ).
+      section_of( io_box   = lo_body
+                  iv_title = t( iv_no = zcl_rak_text=>c_no-bpp_address iv_default = 'Address Info' )
+                  it_rows  = VALUE #(
+        ( suffix = `COUNTRY` label = t( iv_no = zcl_rak_text=>c_no-bpp_country  iv_default = 'Country Of Living' ) )
+        ( suffix = `REGION`  label = t( iv_no = zcl_rak_text=>c_no-bpp_region   iv_default = 'Region' ) )
+        ( suffix = `CITY`    label = t( iv_no = zcl_rak_text=>c_no-bpp_city     iv_default = 'City' ) )
+        ( suffix = `STREET`  label = t( iv_no = zcl_rak_text=>c_no-bpp_street   iv_default = 'Street Name' ) )
+        ( suffix = `HOUSE`   label = t( iv_no = zcl_rak_text=>c_no-bpp_house_no iv_default = 'Home Number' ) )
+        ( suffix = `POBOX`   label = t( iv_no = zcl_rak_text=>c_no-bpp_pobox    iv_default = 'PO Box' ) ) ) ).
 
       DATA(lo_rb) = lo_dlg->buttons( ).
       lo_rb->button( text  = t( iv_no = zcl_rak_text=>c_no-bpp_resume iv_default = 'Resume Search' )
@@ -827,7 +918,10 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 
 *   A trade licence is a company. It has no date of birth and no nationality, and
 *   asking for them is how a form gets abandoned.
-    IF lv_by <> c_tlic.
+*   AND THE CALLER MAY DROP EITHER ONE ON TOP OF THAT. A service that
+*   already knows the nationality, or that holds the date of birth on file,
+*   is asking a question it can answer itself.
+    IF lv_by <> c_tlic AND mv_ask_dob = abap_true.
       lo_form->label( text     = t( iv_no = zcl_rak_text=>c_no-bpp_dob iv_default = 'Date of Birth' )
                       required = mv_strict
                       wrapping = abap_true
@@ -840,7 +934,9 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
                             width         = '100%'
                             displayformat = 'dd.MM.yyyy'
                             valueformat   = 'yyyyMMdd' ).
+    ENDIF.
 
+    IF lv_by <> c_tlic AND mv_ask_nat = abap_true.
       lo_form->label( text     = t( iv_no = zcl_rak_text=>c_no-bpp_nat iv_default = 'Nationality' )
                       required = mv_strict
                       wrapping = abap_true
@@ -1094,6 +1190,42 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
     set_detail( is_bp = ls_bp iv_suffix = 'STREET'     iv_names = 'STREET_INTL,STREET' ).
     set_detail( is_bp = ls_bp iv_suffix = 'HOUSE'      iv_names = 'HOUSE_NUMBER,BUILDING' ).
     set_detail( is_bp = ls_bp iv_suffix = 'POBOX'      iv_names = 'POBOX' ).
+  ENDMETHOD.
+
+
+  METHOD wanted.
+*   THE FOUR ARE NOT NEGOTIABLE. Partner number and name are drawn above
+*   the sections; these two are the rest of "who did I find", and a card
+*   that could be configured down to nothing would be a found-partner
+*   card showing no partner.
+    IF iv_suffix = 'PHONE' OR iv_suffix = 'EMAIL'.
+      rv = abap_true.
+      RETURN.
+    ENDIF.
+
+    rv = xsdbool( line_exists( mt_detail[ table_line = '*' ] ) OR
+                  line_exists( mt_detail[ table_line = iv_suffix ] ) ).
+  ENDMETHOD.
+
+
+  METHOD section_of.
+*   FILTER FIRST, DRAW SECOND. A heading is only worth drawing if a row
+*   under it survived, and knowing that means walking the rows before the
+*   heading is written - which is the whole reason the rows arrive as a
+*   table rather than as a run of calls.
+    DATA lt_keep TYPE tt_row.
+    LOOP AT it_rows INTO DATA(ls_r).
+      CHECK wanted( ls_r-suffix ) = abap_true.
+      APPEND ls_r TO lt_keep.
+    ENDLOOP.
+
+    CHECK lt_keep IS NOT INITIAL.
+
+    section( io_box = io_box iv_title = iv_title ).
+    DATA(lo_f) = form_of( io_box ).
+    LOOP AT lt_keep INTO ls_r.
+      pair( io_form = lo_f iv_suffix = ls_r-suffix iv_label = ls_r-label ).
+    ENDLOOP.
   ENDMETHOD.
 
 

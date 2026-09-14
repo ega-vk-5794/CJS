@@ -337,6 +337,11 @@ CLASS zcl_rak_test_all_logic DEFINITION
                       RETURNING VALUE(rt)  TYPE string_table.
     METHODS bp_strict IMPORTING iv_subject TYPE string
                       RETURNING VALUE(rv)  TYPE abap_bool.
+*   The extra rows on the found-partner card, beyond the four it always
+*   shows. LESSOR takes the four; LESSEE adds two, which is the shape a
+*   step that has to check an ID expiry actually asks for.
+    METHODS bp_detail IMPORTING iv_subject TYPE string
+                      RETURNING VALUE(rt)  TYPE string_table.
     METHODS seed_fees IMPORTING io_ctx TYPE REF TO zif_rak_journey.
 *   The reference example for FTYPE = 'PDF' - see the method for the two
 *   config shapes a developer can copy.
@@ -818,6 +823,21 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *   written before this parameter existed.
     IF to_upper( iv_subject ) = 'LESSEE'.
       rt = VALUE #( ( zcl_rak_bp_popup=>c_eid ) ).
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD bp_detail.
+*   LESSOR gets the default card - partner number, name, mobile, email -
+*   which is what a step needs to say who was found, and what every caller
+*   written before this parameter now gets.
+*
+*   LESSEE asks for the ID number and its expiry as well. Two rows, in the
+*   General section they belong to, with the other fourteen of that section
+*   not drawn: that is the filter working rather than the whole legacy card
+*   coming back.
+    IF to_upper( iv_subject ) = 'LESSEE'.
+      rt = VALUE #( ( `IDNO` ) ( `IDEXP` ) ).
     ENDIF.
   ENDMETHOD.
 
@@ -2044,7 +2064,10 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
                             iv_subject = lv_asubj
                             is_search  = bp_opts( bp_rules( io_ctx ) )
                             it_types   = bp_types( lv_asubj )
-                            iv_strict  = bp_strict( lv_asubj ) )->handle( iv_event ).
+                            iv_strict  = bp_strict( lv_asubj )
+                            it_detail  = bp_detail( lv_asubj )
+                            iv_ask_nat = xsdbool( to_upper( lv_asubj ) <> `LESSEE` ) )->handle( iv_event ).
+
       RETURN.
     ENDIF.
 
@@ -2423,7 +2446,10 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
                             iv_title   = bp_title( io_ctx )
                             is_search  = bp_opts( bp_rules( io_ctx ) )
                             it_types   = bp_types( lv_subj )
-                            iv_strict  = bp_strict( lv_subj ) )->render( io_popup ).
+                            iv_strict  = bp_strict( lv_subj )
+                            it_detail  = bp_detail( lv_subj )
+                            iv_ask_nat = xsdbool( to_upper( lv_subj ) <> `LESSEE` ) )->render( io_popup ).
+
       RETURN.
     ENDIF.
 

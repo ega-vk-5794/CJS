@@ -209,6 +209,30 @@ CLASS zcl_rak_bp_search DEFINITION
       IMPORTING VALUE(iv_eid) TYPE string
       RETURNING VALUE(rv_id)  TYPE string.
 
+*   THE SAME ID, PRINTED THE WAY THE CARD PRINTS IT: 784-1988-2718131-8.
+*
+*   NORM_EID( )'s twin and its opposite. That one takes what the citizen
+*   typed and gives the backend fifteen digits; this takes the same input
+*   and gives the CITIZEN back what is on their card, so the field they are
+*   looking at matches the thing in their hand. Both directions in one
+*   class, because a mask written in a popup is a mask the next caller
+*   writes again slightly differently.
+*
+*   IT DEFAULTS THE 784. Twelve digits is an Emirates ID with the country
+*   prefix left off - which is how most people type it, because the printed
+*   card puts 784 in its own group and the eye reads the rest as the
+*   number. Twelve in, fifteen out. Fifteen in, formatted and otherwise
+*   untouched.
+*
+*   ANYTHING ELSE COMES BACK UNCHANGED, digits and all. This formats; it
+*   does not validate and it does not truncate. A caller wanting to know
+*   whether the result is a plausible Emirates ID tests
+*   STRLEN( norm_eid( ) ) = 15, exactly as before - and gets a value the
+*   citizen can still see their typo in, rather than a silently trimmed one.
+    CLASS-METHODS mask_eid
+      IMPORTING VALUE(iv_eid) TYPE string
+      RETURNING VALUE(rv_id)  TYPE string.
+
 *   Is this search an Emirates ID search? Only an Emirates ID may be stripped of
 *   its hyphens.
 *
@@ -314,6 +338,35 @@ CLASS ZCL_RAK_BP_SEARCH IMPLEMENTATION.
     APPEND VALUE #( property       = iv_prop
                     select_options = VALUE #( ( sign = 'I' option = 'EQ' low = iv_val ) ) )
            TO ct_filter.
+  ENDMETHOD.
+
+
+  METHOD mask_eid.
+*   Digits first, through the one normaliser - so an en-dash, a slash or a
+*   space is handled here for free rather than handled again differently.
+    DATA(lv_d) = norm_eid( iv_eid ).
+    rv_id = iv_eid.
+
+    IF lv_d IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   THE 784 IS PREPENDED, NOT ASSUMED. Twelve digits and nothing else is
+*   the card without its first group; anything else is left alone, because
+*   a thirteen or fourteen digit value is a typo and padding it to fifteen
+*   would turn a visible mistake into a plausible-looking wrong ID.
+    IF strlen( lv_d ) = 12.
+      lv_d = |784{ lv_d }|.
+    ENDIF.
+
+    IF strlen( lv_d ) <> 15.
+*     NOT AN EMIRATES ID LENGTH. Returned as typed, so the citizen sees
+*     what they entered and the caller's own length check reports it.
+      RETURN.
+    ENDIF.
+
+*   3-4-7-1, which is how it is printed.
+    rv_id = |{ lv_d(3) }-{ lv_d+3(4) }-{ lv_d+7(7) }-{ lv_d+14(1) }|.
   ENDMETHOD.
 
 
