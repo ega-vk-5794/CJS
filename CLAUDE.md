@@ -971,7 +971,10 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
   named-user override's power to reach past the landscape rule.
   `ZCL_RAK_JOURNEY_UTIL=>STUDIO_MODE( )` is the **landscape** gate: `NONE` on anything that
   is not **E10** (so the Studio does not open at all — E20 used to get `READ` and no longer
-  does), `EDIT` on **E10 client 100**, `READ` on every other E10 client. `ZCL_RAK_CJS->AUTH_OK( )`
+  does), `EDIT` on **E10 client 100** and — **temporarily, on the framework owner's instruction** —
+**E10 client 200**, `READ` on every other E10 client. The 200 grant is a dated concession over an
+argument that still stands (200 is the demo client); it is carried by its own constant
+`C_MANDT_EDIT_TMP` and one `WHEN`, so withdrawing it is a deletion rather than a rewrite. `ZCL_RAK_CJS->AUTH_OK( )`
   is the **authority** gate, an `AUTHORITY-CHECK` on `S_DEVELOP`. Both must pass to write.
   `POWER_USER( )` still outranks the authority check and deliberately **cannot** lift the
   client rule — restoring that is one line in `STUDIO_MODE( )`, documented at the method.

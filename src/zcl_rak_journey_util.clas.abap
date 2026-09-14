@@ -466,8 +466,9 @@ CLASS zcl_rak_journey_util DEFINITION
 *   which would confirm the parameter exists to anyone who guessed it.
     CLASS-METHODS trace_ok RETURNING VALUE(rv) TYPE abap_bool.
 
-*   WHAT THE JOURNEY STUDIO MAY DO HERE. 'EDIT' on E10 client 100 only,
-*   'READ' on any other E10 client, 'NONE' on every other system.
+*   WHAT THE JOURNEY STUDIO MAY DO HERE. 'EDIT' on E10 client 100 and -
+*   TEMPORARILY, see below - E10 client 200, 'READ' on any other E10
+*   client, 'NONE' on every other system.
 *
 *   ---- THIS WAS WIDENED TWICE AND IS NOW NARROWED, ON INSTRUCTION -------
 *   It used to be EDIT on all of E10, READ on E20, NONE elsewhere. The
@@ -486,13 +487,25 @@ CLASS zcl_rak_journey_util DEFINITION
 *     the client you are demonstrating against is how a demo changes a
 *     service by accident.
 *
+*   ---- AND 200 IS RE-OPENED, FOR A PERIOD, ON INSTRUCTION --------------
+*   The framework owner has asked for E10/200 to keep EDIT for some time
+*   longer after the narrowing above. So the gate is 100 OR 200 today.
+*
+*   THE PARAGRAPH ABOVE IS LEFT STANDING ON PURPOSE. The reason 200 was
+*   closed has not been retracted - it is the client the demos run on, and
+*   that risk is exactly the same now as it was - so this is a dated
+*   concession over a live argument, not a decision that the argument was
+*   wrong. Withdrawing it is C_MANDT_EDIT_TMP and one WHEN in the COND
+*   below, and nothing else reads either.
+*
 *   THE CLIENT GATE IS ABSOLUTE AND POWER_USER( ) DOES NOT LIFT IT. That
 *   override still outranks the AUTHORITY-CHECK in ZCL_RAK_CJS - a named
 *   user with no S_DEVELOP can still open and read - but it cannot turn
-*   READ into EDIT on the wrong client, because "apart from E10 100 nobody
-*   edits" is not an authority question and an authority override is the
-*   wrong lever for it. To restore the old behaviour, add POWER_USER( ) to
-*   the COND below; it is deliberately absent rather than forgotten.
+*   READ into EDIT on a client this method does not name, because "who
+*   edits, and where" is not an authority question and an authority
+*   override is the wrong lever for it. To restore the old behaviour, add
+*   POWER_USER( ) to the COND below; it is deliberately absent rather than
+*   forgotten.
 *
 *   'NONE' means the Studio does not open at all. The caller must enforce
 *   'READ' server-side on every write path - Save, Copy, Deactivate and
@@ -512,10 +525,16 @@ CLASS zcl_rak_journey_util DEFINITION
     CONSTANTS c_sys_qa   TYPE sy-sysid VALUE 'E20'.
     CONSTANTS c_sys_prod TYPE sy-sysid VALUE 'E30'.
 
-*   THE ONE CLIENT THE STUDIO MAY WRITE ON. Private, like the system ids,
+*   THE CLIENTS THE STUDIO MAY WRITE ON. Private, like the system ids,
 *   because everything outside asks STUDIO_MODE( ) what it may do and never
 *   which client it is on.
-    CONSTANTS c_mandt_edit TYPE sy-mandt VALUE '100'.
+*
+*   100 IS THE PERMANENT ONE. 200 IS NOT: it is a TEMPORARY concession,
+*   granted after this gate had already been narrowed to 100 alone, and it
+*   is named separately so that withdrawing it is a deletion rather than
+*   an edit to the rule. See STUDIO_MODE( ).
+    CONSTANTS c_mandt_edit     TYPE sy-mandt VALUE '100'.
+    CONSTANTS c_mandt_edit_tmp TYPE sy-mandt VALUE '200'.
 
 *   The recognised per-check keys of a keyed MSG. See MSG_FOR( ).
     CLASS-METHODS msg_key
@@ -626,11 +645,21 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-*   ON E10, THE CLIENT DECIDES WRITE OR READ. 100 authors; every other
-*   client on the box reads. 200 is where journeys are driven against a
-*   simulated partner, and editing live configuration on the client you are
-*   demonstrating against is how a demo changes a service by accident.
-    rv = COND string( WHEN sy-mandt = c_mandt_edit THEN c_studio_edit
+*   ON E10, THE CLIENT DECIDES WRITE OR READ. 100 authors, and 200 authors
+*   TOO - FOR NOW; every other client on the box reads.
+*
+*   200 WAS CLOSED HERE DELIBERATELY and is re-opened for a further period
+*   at the framework owner's request. The reason for closing it has not
+*   gone away: 200 is where journeys are driven against the simulated
+*   partner and the demo cases, and editing live configuration on the
+*   client you are demonstrating against is how a demo changes a service by
+*   accident. It is open anyway because that is the owner's call and not
+*   the framework's.
+*
+*   TO WITHDRAW IT: delete the second WHEN and C_MANDT_EDIT_TMP. Nothing
+*   else reads either, so 100-only is one deletion away.
+    rv = COND string( WHEN sy-mandt = c_mandt_edit     THEN c_studio_edit
+                      WHEN sy-mandt = c_mandt_edit_tmp THEN c_studio_edit
                       ELSE c_studio_read ).
   ENDMETHOD.
 
