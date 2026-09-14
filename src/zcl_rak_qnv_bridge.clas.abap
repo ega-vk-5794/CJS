@@ -314,6 +314,53 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
     APPEND VALUE #( fieldname = c_caller_fld technicalname = c_caller_fld
                         value = c_caller_id ) TO lt_item.
 
+*   ---- THE CALLER MARKER IS HALF A CONTRACT, AND WE WERE SENDING THE
+*   ---- HALF THAT DOES NOTHING ON ITS OWN --------------------------------
+*
+*   ZIF_EGA_FW_CJI~MAPPER HAS A CJS BRANCH and it reads TWO items, not one:
+*
+*     IF gs_data-caseid IS INITIAL.
+*       READ TABLE item_data ASSIGNING FIELD-SYMBOL(<fs>) 
+*                            WITH KEY technicalname = 'ZCJS_CALLER'.
+*       IF <fs> IS ASSIGNED AND <fs>-value = 'CJS'.
+*         READ TABLE item_data ASSIGNING <fs> 
+*                              WITH KEY technicalname = 'CASEID'.
+*         IF <fs> IS ASSIGNED AND <fs>-value IS NOT INITIAL.
+*           gs_data-caseid = <fs>-value.
+*
+*   THE SECOND ITEM IS THIS ONE. We sent ZCJS_CALLER and never sent CASEID,
+*   so the second READ failed - and a failed READ ... ASSIGNING LEAVES THE
+*   FIELD SYMBOL ON THE PREVIOUS ROW rather than unassigning it. IS ASSIGNED
+*   was therefore true, stale, still pointing at the ZCJS_CALLER row, and the
+*   BAdI copied ITS value: GS_DATA-CASEID came out holding the string 'CJS'.
+*   Caught in the debugger with SY-SUBRC 4 on that READ.
+*
+*   WHAT THAT COST, because it is not a cosmetic wrong value. CREATE_CASE
+*   reads CASEID twice: IF GS_DATA-CASEID IS INITIAL decides whether a case is
+*   created at all - 'CJS' is not initial, so none was - and then
+*   ME->GV_GUID = GS_DATA-CASEID made 'CJS' the INDX(CJ) key, so every CJS
+*   journey shared ONE buffer row regardless of case, citizen or department.
+*   That is what the engine trace reported as "row existed" on launches that
+*   had never run before.
+*
+*   THE NAME IS BARE ON PURPOSE, AND IT IS THE ONE EXCEPTION TO THE CJS_
+*   PREFIX RULE. Everything else we invent is prefixed so MAPPER's
+*   ASSIGN-by-name cannot resolve it - that is what dumped every DOK journey
+*   on LOGINBP. CASEID is not ours to name: the BAdI reads that exact literal,
+*   so a prefixed one would miss and we would be back to the stale field
+*   symbol. If this ever dumps with MOVE_TO_LIT_NOTALLOWED_NODATA, the cause
+*   is that assign finding a read-only CASEID in the BAdI's own program, and
+*   the fix belongs there rather than in a different name here.
+*
+*   ONLY WHEN WE HAVE A KEY. Blank is what a journey started fresh holds, and
+*   the BAdI already refuses a blank value - but sending the item at all when
+*   there is nothing in it would leave the field symbol pointing at an empty
+*   row, which is the same class of accident in the other direction.
+    IF iv_guid IS NOT INITIAL.
+      APPEND VALUE #( fieldname = 'CASEID' technicalname = 'CASEID'
+                      value = iv_guid ) TO lt_item.
+    ENDIF.
+
 *   The item is named LOGINBP_DEV and is exactly what it says. Gated with
 *   the rest: a stub that reaches the BAdI as an item is no different from
 *   one that reaches it as a header parameter.
