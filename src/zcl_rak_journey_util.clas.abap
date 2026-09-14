@@ -512,10 +512,25 @@ CLASS zcl_rak_journey_util DEFINITION
     CONSTANTS c_sys_qa   TYPE sy-sysid VALUE 'E20'.
     CONSTANTS c_sys_prod TYPE sy-sysid VALUE 'E30'.
 
-*   THE ONE CLIENT THE STUDIO MAY WRITE ON. Private, like the system ids,
+*   THE CLIENTS THE STUDIO MAY WRITE ON. Private, like the system ids,
 *   because everything outside asks STUDIO_MODE( ) what it may do and never
 *   which client it is on.
     CONSTANTS c_mandt_edit TYPE sy-mandt VALUE '100'.
+
+*   ---- TEMPORARY, AND MEANT TO BE DELETED ------------------------------
+*   200 was opened again at the framework owner's request, for a period,
+*   after the client rule first went in. It is a SECOND CONSTANT rather
+*   than a widened first one precisely so that closing it again is a
+*   deletion and not an edit: remove this line and the OR that names it in
+*   STUDIO_MODE( ), and the rule is back to 100 alone with nothing else to
+*   check.
+*
+*   WHAT IT COSTS WHILE IT IS OPEN: 200 is where journeys are driven
+*   against a simulated partner, so live configuration can be edited on
+*   the client being demonstrated against. That is the risk the single
+*   client rule was written for, and it is accepted deliberately here
+*   rather than forgotten.
+    CONSTANTS c_mandt_edit2 TYPE sy-mandt VALUE '200'.
 
 *   The recognised per-check keys of a keyed MSG. See MSG_FOR( ).
     CLASS-METHODS msg_key
@@ -627,10 +642,13 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
     ENDIF.
 
 *   ON E10, THE CLIENT DECIDES WRITE OR READ. 100 authors; every other
-*   client on the box reads. 200 is where journeys are driven against a
-*   simulated partner, and editing live configuration on the client you are
-*   demonstrating against is how a demo changes a service by accident.
-    rv = COND string( WHEN sy-mandt = c_mandt_edit THEN c_studio_edit
+*   client on the box reads.
+*
+*   C_MANDT_EDIT2 IS THE TEMPORARY ONE - see its declaration. Deleting that
+*   constant and the clause that names it is the whole of closing 200
+*   again; nothing else reads it.
+    rv = COND string( WHEN sy-mandt = c_mandt_edit  THEN c_studio_edit
+                      WHEN sy-mandt = c_mandt_edit2 THEN c_studio_edit
                       ELSE c_studio_read ).
   ENDMETHOD.
 
