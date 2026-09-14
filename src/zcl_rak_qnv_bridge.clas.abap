@@ -352,13 +352,40 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
 *   is that assign finding a read-only CASEID in the BAdI's own program, and
 *   the fix belongs there rather than in a different name here.
 *
-*   ONLY WHEN WE HAVE A KEY. Blank is what a journey started fresh holds, and
-*   the BAdI already refuses a blank value - but sending the item at all when
-*   there is nothing in it would leave the field symbol pointing at an empty
-*   row, which is the same class of accident in the other direction.
+*   ONLY WHEN THE KEY IS A CONFIRMED CASE. "Not blank" is not good enough and
+*   the first version of this got it wrong: MV_INTRENO on a journey that has
+*   not created anything yet is the pre-first-key GUID_22, which is none of
+*   the three things this field may be. Sending it put 0298oqJ{7z6i into
+*   GS_DATA-CASEID - and CREATE_CASE gates on IF GS_DATA-CASEID IS INITIAL, so
+*   a non-blank wrong value SKIPS THE CREATE ENTIRELY. No case, no open item,
+*   and a payment poll that runs all 48 ticks waiting for one. Exactly the
+*   failure the string 'CJS' caused, with a value that looks plausible.
+*
+*   SO WE CONFIRM IT FIRST. This is the same SELECT as the first branch of
+*   ZCL_RAK_JOURNEY_LOGIC->CASE_KEY_OF( ), and not a new lookup - it is not
+*   called through that method only because CASE_KEY_OF( ) is an instance
+*   method on the handler base and needs an IO_CTX the bridge does not hold.
+*   A miss means "no case yet", which is the normal state of a fresh journey
+*   and is exactly when the BAdI must be left to create one.
+*
+*   WRAPPED, AND NOT OPTIONALLY. A journey key can be a GUID_22 carrying
+*   punctuation - 0298oqJ{7z6i has a brace in it - and comparing one against
+*   SCMG_EXT_KEY raises CX_SY_OPEN_SQL_DATA_ERROR rather than simply missing.
+*   Uncaught, that would dump every fresh journey on its first post.
     IF iv_guid IS NOT INITIAL.
-      APPEND VALUE #( fieldname = 'CASEID' technicalname = 'CASEID'
-                      value = iv_guid ) TO lt_item.
+      TRY.
+          DATA(lv_ek) = CONV scmg_ext_key( |{ CONV scmg_ext_key( iv_guid ) ALPHA = IN }| ).
+          SELECT SINGLE ext_key FROM scmg_t_case_attr
+            WHERE ext_key = @lv_ek
+            INTO @DATA(lv_case).
+          IF sy-subrc = 0 AND lv_case IS NOT INITIAL.
+            APPEND VALUE #( fieldname = 'CASEID' technicalname = 'CASEID'
+                            value = iv_guid ) TO lt_item.
+          ENDIF.
+        CATCH cx_root ##NO_HANDLER.
+*         A key that cannot even be compared is certainly not a case. Say
+*         nothing and let the BAdI create one.
+      ENDTRY.
     ENDIF.
 
 *   The item is named LOGINBP_DEV and is exactly what it says. Gated with
