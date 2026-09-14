@@ -94,6 +94,13 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   Called by the engine on FBSEND, never by a handler - see there.
     METHODS save_feedback.
 
+*   Drop the BAdI's cached copy of this journey key from INDX(CJ) before
+*   the entry read, so a launch by case id reads the application as it is
+*   now rather than as it was when somebody last looked at it. Called on a
+*   KEYED LAUNCH ONLY - see the implementation for what it deliberately
+*   does not do.
+    METHODS clear_read_buffer.
+
 *   ZDT_HM_FEEDBACK-DEPARTMENTID for this journey, blank when the journey
 *   is not on the portal's department map. The domain ZDO_DEPARTMENTID
 *   fixes the codes: 1 EPDA, 2 Municipality, 3 Courts, 4 Public
@@ -1562,6 +1569,8 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     IF mv_intreno IS NOT INITIAL AND mo_bridge IS BOUND.
+*     THE BUFFER GOES BEFORE THE READ, NOT AFTER IT. See CLEAR_READ_BUFFER( ).
+      clear_read_buffer( ).
       mo_be->backend_read( iv_step = 0 ).
       entry_read( ).
       IF mo_logic IS BOUND.
@@ -2736,6 +2745,79 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDLOOP.
       lv_ix = lv_ix + 1.
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD clear_read_buffer.
+
+*   DROP THE BAdI'S CACHED COPY OF THIS KEY BEFORE ASKING IT ANYTHING.
+*
+*   A journey launched from the landing page with a key - a case id, a
+*   draft id, an INTRENO - is asking one question: what does this
+*   application look like NOW. The DOK and EPDA abstracts answer partly
+*   from INDX(CJ), which they EXPORT to as they go, and a row written on an
+*   earlier visit outlives the change that happened in between. The citizen
+*   is then shown the state their application was in the last time somebody
+*   looked at it, with nothing on screen to say so - and re-launching does
+*   not help, because the re-launch reads the same row.
+*
+*   ONLY ON A KEYED LAUNCH, which is what this branch is. A journey started
+*   fresh has no key and no buffer, and CLEAR_READ_BUFFER( ) is not reached
+*   from anywhere else - not from a step move, not from a save, not from
+*   the payment poll. Clearing a cache once, at the moment its content is
+*   known to be stale, is the whole intent; clearing it on every round trip
+*   would turn a cache into an overhead.
+*
+*   THE KEY IS THE ONE WE ARE ABOUT TO SEND. MV_INTRENO goes out as
+*   ls_hdr-param1 and as INTRENO_JOURNEY, so it is the value the FM will
+*   look this application up by. If the BAdI happens to key its buffer on
+*   something else, this deletes nothing and the trace says which id was
+*   tried - which is the fastest way to find out what the real one is.
+*
+*   ---- TWO THINGS THIS DOES NOT DO, AND BOTH HAVE BITTEN ---------------
+*
+*   IT DOES NOT TOUCH THE SHARED BUFFER. ZCL_EGA_CJ_DOK_ABS->
+*   ACCESS_STUDENT_EXIT_BUFFER uses SHARED BUFFER indx(cj), which is a
+*   different store from DATABASE indx(cj) and is not cleared by this
+*   statement. That one is keyed student_exit_<SID>, is cross-session, and
+*   is the poisoned-row case ZCL_RAK_QNV_BRIDGE reports on - see there. A
+*   caller who assumes this line fixed that will be looking in the wrong
+*   place.
+*
+*   IT DOES NOT COMMIT. Own changes are visible inside the same LUW, so the
+*   read two lines below already sees the row gone; a COMMIT WORK here
+*   would persist whatever else the request had pending, which is the
+*   reason ZCL_RAK_CJ_EVT refuses to commit mid-journey. The delete is made
+*   durable by whatever the backend call commits, and if nothing does, the
+*   row was going to be rewritten anyway.
+    DATA lv_id TYPE indx-srtfd.
+
+    IF mv_intreno IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   TRUNCATION IS REFUSED, NOT SILENT. SRTFD is 22 characters and every
+*   real key is shorter, but a longer one assigned here would cut and then
+*   delete a DIFFERENT application's row - which is a far worse outcome
+*   than not clearing a cache.
+    IF strlen( mv_intreno ) > 22.
+      trace( |BUFFER  key '{ mv_intreno }' is { strlen( mv_intreno ) } characters and | &&
+             |INDX-SRTFD holds 22 - buffer NOT cleared rather than clearing the wrong row| ).
+      RETURN.
+    ENDIF.
+
+    lv_id = mv_intreno.
+
+    TRY.
+        DELETE FROM DATABASE indx(cj) ID lv_id.
+        trace( |BUFFER  INDX(CJ) id '{ lv_id }' cleared before the entry read | &&
+               |({ COND string( WHEN sy-subrc = 0 THEN 'row existed' ELSE 'no row' ) })| ).
+      CATCH cx_root INTO DATA(lx_buf).
+*       NEVER FAILS THE LAUNCH. A cache that cannot be cleared is a slow
+*       journey; a launch that dies because of one is no journey at all.
+        trace( |BUFFER  INDX(CJ) delete failed - { lx_buf->get_text( ) }| ).
+    ENDTRY.
+
   ENDMETHOD.
 
 
