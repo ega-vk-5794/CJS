@@ -966,8 +966,21 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
 - Four draft hooks are declared but not called: `GET_DRAFTS`, `ON_DRAFT_LOAD`,
   `ON_DRAFT_DISCARD`, `ON_ARCHIVE`. There is no CJS-side draft store behind them, which is why
   a derived `DRAFT_MODE` is `OFF` rather than `NATIVE` when no backend will hold the draft.
-- Studio auth check is bypassed (`ZCL_RAK_CJS->AUTH_OK` returns early) — accepted in dev,
-  **must be restored before production**.
+- **The Studio is gated twice, and the two gates answer different questions.** This
+  replaces the old note that `AUTH_OK` returns early — that bypass is gone, and so is the
+  named-user override's power to reach past the landscape rule.
+  `ZCL_RAK_JOURNEY_UTIL=>STUDIO_MODE( )` is the **landscape** gate: `NONE` on anything that
+  is not **E10** (so the Studio does not open at all — E20 used to get `READ` and no longer
+  does), `EDIT` on **E10 client 100**, `READ` on every other E10 client. `ZCL_RAK_CJS->AUTH_OK( )`
+  is the **authority** gate, an `AUTHORITY-CHECK` on `S_DEVELOP`. Both must pass to write.
+  `POWER_USER( )` still outranks the authority check and deliberately **cannot** lift the
+  client rule — restoring that is one line in `STUDIO_MODE( )`, documented at the method.
+  Two consequences worth knowing: authoring is **transport-only** into every client but 100,
+  and one SICF node serves all clients **provided the node's logon data does not pin one** —
+  a client fixed there overrides `sap-client=` in the URL and freezes the gate at whatever
+  that client is. The write controls are also not drawn under `READ`, but the server-side
+  refusal in `CAN_WRITE( )` is what protects the data; every write path calls it, including
+  `DSG_SAVE( )`, which is the Design tab and was the one path that did not.
 - E018 `own_form_save` and `render_chem_details` disagree on grid row layout; Edit/Delete raise
   events nothing handles; `chem_form_load` still carries test values.
 - `D014` is claimed by two handler classes.
