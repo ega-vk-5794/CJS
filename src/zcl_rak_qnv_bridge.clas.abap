@@ -305,14 +305,50 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
                                     THEN ms_config-backend-loginbp_dev
                                     ELSE space ).
 
+*   KEPT SO THE CONTEXT LOOP BELOW STILL FILTERS IT. If a journey ever carries
+*   a context row literally named ZCJS_CALLER, that CHECK is what stops it
+*   being sent as an item and reproducing the fault above.
     CONSTANTS c_caller_fld TYPE string VALUE 'ZCJS_CALLER'.
-    CONSTANTS c_caller_id  TYPE string VALUE 'CJS'.
 
     APPEND VALUE #( fieldname = 'USERDATA'        technicalname = 'USERDATA'
                     value = ms_config-backend-userdata ) TO lt_item.
 
-    APPEND VALUE #( fieldname = c_caller_fld technicalname = c_caller_fld
-                        value = c_caller_id ) TO lt_item.
+*   ---- THE CALLER MARKER IS NOT AN ITEM, AND SENDING IT AS ONE WROTE
+*   ---- THE STRING 'CJS' INTO GS_DATA-CASEID -----------------------------
+*
+*   THE ITEM THAT USED TO BE APPENDED HERE IS GONE. Nothing ever read it.
+*   ZCJS_CALLER appeared exactly once in this repository - the constant that
+*   declares it - and no legacy code can read it either, because the name was
+*   invented here. It was a second channel for something the header already
+*   carries.
+*
+*   WHAT IT COST. The DOK and EPDA abstracts map an item to a GS_DATA
+*   component through their own config table, keyed by TECHNICALNAME. There is
+*   no row for ZCJS_CALLER, so the lookup missed - and the value did not fall
+*   on the floor, it landed in whatever component the PREVIOUS item had
+*   mapped to. It landed in CASEID. Caught in the debugger at
+*   ZCL_EGA_CJ_DOK_ABS->CREATE_CASE with GS_DATA-CASEID holding 'CJS',
+*   hex 43004A0053.
+*
+*   AND THAT IS NOT A COSMETIC WRONG VALUE. Two lines of CREATE_CASE read it:
+*   IF GS_DATA-CASEID IS INITIAL decides whether a case is created at all -
+*   and 'CJS' is not initial, so no case was created - and
+*   ME->GV_GUID = GS_DATA-CASEID then made 'CJS' the INDX(CJ) key, so every
+*   CJS journey on the system exported and imported the SAME buffer row
+*   regardless of case, citizen or department. That is what the engine trace
+*   was reporting as "row existed" on launches that had never run before.
+*
+*   THE MARKER STILL TRAVELS, ON THE HEADER, WHICH IS WHERE THE BAdI READS IT.
+*   ZIF_EGA_FW_CJI~READ branches on IF CS_HEADER-PARAM5 = 'CJS', never on an
+*   item, and a header field is a named component that cannot be mapped onto a
+*   neighbour. See READ( ) and GET_TABLE( ), which both set it.
+*
+*   THE GENERAL RULE, because this is the second time: NEVER ADD AN ITEM THE
+*   LEGACY CONFIG HAS NO ROW FOR. The first time was LOGINBP, which resolved
+*   through MAPPER's ASSIGN-by-name and dumped every DOK journey with
+*   MOVE_TO_LIT_NOTALLOWED_NODATA. The CJS_ prefix defeats that assign - it
+*   does NOT defeat this, because the config lookup happens second and a miss
+*   there is silent. An item is only safe when a mapping row for it exists.
 
 *   The item is named LOGINBP_DEV and is exactly what it says. Gated with
 *   the rest: a stub that reaches the BAdI as an item is no different from
