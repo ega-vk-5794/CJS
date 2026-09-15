@@ -9,6 +9,8 @@ whole event and nothing was changed before it.
 **Restore with [`ZRAK_CJ_QA_RESTORE`](../../../src/zrak_cj_qa_restore.prog.abap),
 run in the QA client.** Test run is its default. The CSVs beside this note
 are the same 233 rows, for SE16 / LSMW or just for reading.
+[`delta-qa-vs-dev.md`](delta-qa-vs-dev.md) is the full row-by-row comparison
+against the DEV export.
 
 | Table | Rows | Source of each field |
 | --- | --- | --- |
