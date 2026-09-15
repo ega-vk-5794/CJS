@@ -1053,9 +1053,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                  |{ lv_att_mb } MB, so it has not been attached.| ) ).
       ELSEIF mv_att_b64 IS NOT INITIAL.
         DATA lv_att_msg TYPE string.
-        DATA(lv_att_guid) = zcl_rak_cj_att_store=>put( EXPORTING iv_name = mv_att_name
-                                                                 iv_b64  = mv_att_b64
-                                                       IMPORTING ev_msg  = lv_att_msg ).
+*       THE JOURNEY GOES WITH THE FILE. ZRAK_CJ_ATTX had no journey column, so
+*       a staged file could not be traced back to what staged it and the
+*       per-journey RETENTION( ) policy had nothing to key on - which is why
+*       ZRAK_CJ_ATT_PURGE could only ever sweep on one age for everything.
+        DATA(lv_att_guid) = zcl_rak_cj_att_store=>put( EXPORTING iv_name    = mv_att_name
+                                                                 iv_b64     = mv_att_b64
+                                                                 iv_journey = mv_journey
+                                                       IMPORTING ev_msg     = lv_att_msg ).
         IF lv_att_guid IS NOT INITIAL.
           DATA lv_att_tech TYPE string.
           DATA lv_att_dtyp TYPE string.
@@ -4322,6 +4327,30 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
           et_msg         = DATA(lt_m) ).
       take_case( lv_case_new ).
       trace( |POST    { lines( lt_m ) } message(s) back| ).
+
+*     ---- THE FILES ARE ON THE CASE NOW, AND THE ROW SAYS SO ------------
+*
+*     NOT A DELETE. This used to be DROP_ATTACHMENTS( ) on the final post and
+*     that broke Back - the uploader drew from staging alone and the citizen
+*     was shown a Documents step with every slot empty. The files stay; all
+*     that is recorded is that a second copy now exists on the case, which is
+*     the fact a retention sweep needs and could not previously know.
+*
+*     FILED IS WHAT MAKES A PURGE SAFE. Age alone cannot tell an abandoned
+*     upload from one belonging to a paid application, and it certainly cannot
+*     tell either from a draft the citizen means to come back to. A filed row
+*     is recoverable from the case; an unfiled one exists nowhere else, and
+*     deleting it is the only version of this that loses data.
+      IF lt_pa IS NOT INITIAL.
+        DATA lt_fguid TYPE string_table.
+        CLEAR lt_fguid.
+        LOOP AT mt_attach INTO DATA(ls_fa).
+          APPEND ls_fa-guid TO lt_fguid.
+        ENDLOOP.
+        zcl_rak_cj_att_store=>mark_filed( lt_fguid ).
+        trace( |ATTACH  { lines( lt_fguid ) } staged file(s) marked filed - the case | &&
+               |holds a copy, so a purge may take them| ).
+      ENDIF.
 
       READ TABLE lt_m WITH KEY type = 'Error' TRANSPORTING NO FIELDS.
       IF sy-subrc = 0.
