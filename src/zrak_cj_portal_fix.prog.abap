@@ -132,7 +132,7 @@ START-OF-SELECTION.
   IF p_del = abap_true.
     WRITE: / 'Leaf removal is no longer performed by this report - see the note at',
            / 'this point in the source. The listing above identifies the CJS leaves;',
-           / 'removal is the portal owner' && ''s to do.'.
+           / 'removal belongs to whoever owns the portal configuration.'.
   ENDIF.
 
 * ---- put the group back the way it was. Only the fields you filled in.
