@@ -1218,17 +1218,57 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
     DATA lv_extkey TYPE scmg_ext_key.
     lv_extkey = |{ lv_ek ALPHA = IN }|.
 
+*   ---- PAD TO THE COLUMN BEING SEARCHED, NOT TO THE TYPE WE HAPPEN TO HOLD --
+*
+*   ALPHA = IN pads a numeric key with leading zeros TO THE LENGTH OF THE
+*   RECEIVING FIELD, and LV_EXTKEY is typed SCMG_EXT_KEY - the case table's
+*   column - while the search is against DFKKOP-ZZEXT_KEY, which is its own
+*   type and need not be the same width. Where the two lengths differ, the same
+*   case number pads to two different strings and an equality compare misses
+*   FOREVER: not a wait, not a timing problem, just a row that can never be
+*   found. The citizen watches the poll run all forty-eight ticks against an
+*   open item sitting in the table the whole time.
+*
+*   Seen on D001: DFKKOP holds ZZEXT_KEY 000001986450, twelve characters,
+*   AUGST blank, BETRH 700 - every condition of the old SELECT satisfied except
+*   the one comparing the key.
+*
+*   ADDITIVE, AND THAT IS THE WHOLE POINT. The column's own form is tried
+*   first; the original SCMG_EXT_KEY form is tried only if that misses. Where
+*   the two widths are equal both forms are the same string and nothing about
+*   this changes, which is what keeps DOK and EPDA - paying today on the
+*   original form - out of the blast radius. It can add a match. It cannot
+*   remove one.
+    DATA lv_zzkey TYPE dfkkop-zzext_key.
+    lv_zzkey = |{ lv_ek ALPHA = IN }|.
+
     SELECT SINGLE opbel FROM dfkkop INTO @DATA(lv_opbel)
-      WHERE zzext_key = @lv_extkey
+      WHERE zzext_key = @lv_zzkey
         AND augst     = @space
         AND betrh     > 0.
+    IF sy-subrc <> 0 AND lv_zzkey <> lv_extkey.
+      SELECT SINGLE opbel FROM dfkkop INTO @lv_opbel
+        WHERE zzext_key = @lv_extkey
+          AND augst     = @space
+          AND betrh     > 0.
+    ENDIF.
+*   WHICH FORM ANSWERED, because "it works now" is not the same finding as
+*   "it works now for the reason we think", and the next family through here
+*   will want to know which width its own keys match on.
+    IF sy-subrc = 0.
+      pay_trace( io_ctx  = io_ctx
+                 iv_text = |PAY     dfkkop open item { lv_opbel } found on | &&
+                           |ext_key '{ lv_zzkey }'| ).
+    ENDIF.
     IF sy-subrc <> 0.
 *     Visible only under trace, and only until the workflow timing is known. The
 *     first run of this gate failed silently and looked identical to a backend that
 *     had not answered - the key it actually searched for is the one fact that
 *     separates those two.
       io_ctx->add_msg( iv_type = 'Information'
-                       iv_text = |TRACE dfkkop: no open item yet for ext_key '{ lv_extkey }'| ).
+                       iv_text = |TRACE dfkkop: no open item yet for ext_key '{ lv_zzkey }'| &&
+                                 COND string( WHEN lv_zzkey <> lv_extkey
+                                              THEN | nor '{ lv_extkey }'| ELSE `` ) ).
 
 *     NO CASE YET IS NOT THE SAME AS NO FEE YET, and saying the wrong one
 *     sends the reader to the wrong place. Both are legitimate "not yet"
