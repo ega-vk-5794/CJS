@@ -447,6 +447,21 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
     DATA lv_seen TYPE i.
     DATA lv_ro   TYPE i.
     DATA lv_hid  TYPE i.
+*   AND THE NAMES, NOT ONLY THE COUNT. "3 hidden" says a section vanished
+*   and not which one, and what this method does is the hardest thing on the
+*   screen to attribute: SET_HIDDEN( ) writes the HANDLER OVERRIDE table, so
+*   it outranks the ZRAK_T_JNY_RULE that was showing the field AND the
+*   configured flag. A field the BAdI hides therefore disappears with every
+*   CJS-side reason for it to be visible still true - which reads as a
+*   rendering bug, or as the citizen's own input being lost, rather than as
+*   the legacy field control doing its job.
+*
+*   IT MATTERS MOST ON BACK. Going back re-reads the step, so a screen the
+*   citizen has already filled is re-judged by the BAdI - and if the answer
+*   it computes differs from the one it gave on the way in, whole sections
+*   come and go between two presses of the same button.
+    DATA lv_hidf TYPE string.
+    DATA lv_rof  TYPE string.
 
     LOOP AT it_ctrl INTO DATA(ls_c).
       SPLIT ls_c-key AT '/' INTO DATA(lv_fld) DATA(lv_att).
@@ -476,6 +491,8 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
                                               iv_on    = xsdbool( lv_on = abap_false ) ).
           IF lv_on = abap_false.
             lv_ro = lv_ro + 1.
+            lv_rof = COND string( WHEN lv_rof IS INITIAL THEN lv_fld
+                                  ELSE |{ lv_rof }, { lv_fld }| ).
           ENDIF.
 
         WHEN 'VISIBLE'.
@@ -483,6 +500,8 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
                                             iv_on    = xsdbool( lv_on = abap_false ) ).
           IF lv_on = abap_false.
             lv_hid = lv_hid + 1.
+            lv_hidf = COND string( WHEN lv_hidf IS INITIAL THEN lv_fld
+                                   ELSE |{ lv_hidf }, { lv_fld }| ).
           ENDIF.
 
         WHEN 'READONLY'.
@@ -506,6 +525,12 @@ CLASS ZCL_RAK_JOURNEY_BE IMPLEMENTATION.
 
     mo_e->trace( |CTRL    { lv_seen } field(s) carried a MANDATORY flag, | &&
                  |{ lv_req } required · { lv_ro } read-only · { lv_hid } hidden| ).
+    IF lv_hidf IS NOT INITIAL.
+      mo_e->trace( |CTRL    the BAdI HID: { lv_hidf }| ).
+    ENDIF.
+    IF lv_rof IS NOT INITIAL.
+      mo_e->trace( |CTRL    the BAdI LOCKED: { lv_rof }| ).
+    ENDIF.
   ENDMETHOD.
 
 
