@@ -121,15 +121,18 @@ CLASS lcl_app IMPLEMENTATION.
     WRITE: / 'DUPLICATE FIELDS (same journey, step and name more than once)'.
     ULINE.
     LOOP AT it_j INTO DATA(ls_j).
-      SELECT journey_id, step_id, name, COUNT(*) AS cnt
+*     FIELD_NAME, not NAME. ZRAK_T_JNY_FLD and ZRAK_T_JNY_OPT both call the
+*     column FIELD_NAME; the engine's own TY_FIELD calls it NAME, which is
+*     what this was written from and why it did not compile.
+      SELECT journey_id, step_id, field_name, COUNT(*) AS cnt
         FROM zrak_t_jny_fld
         WHERE journey_id = @ls_j-journey
-        GROUP BY journey_id, step_id, name
+        GROUP BY journey_id, step_id, field_name
         HAVING COUNT(*) > 1
         INTO TABLE @DATA(lt_d).
       LOOP AT lt_d INTO DATA(ls_d).
         lv_any = abap_true.
-        WRITE: / ls_d-journey_id, 42 ls_d-step_id, 50 ls_d-name, 80 ls_d-cnt.
+        WRITE: / ls_d-journey_id, 42 ls_d-step_id, 50 ls_d-field_name, 80 ls_d-cnt.
       ENDLOOP.
     ENDLOOP.
     IF lv_any = abap_false.
