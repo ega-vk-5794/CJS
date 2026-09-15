@@ -110,22 +110,29 @@ START-OF-SELECTION.
   WRITE: / |{ lines( lt_kid ) } journey(s) under { p_grp }, { lines( lt_mine ) } created by CJS|.
 
 * ---- remove the CJS leaves
+*  ---- THE REMOVE BRANCH IS GONE, DELIBERATELY -------------------------
+*
+*  This used to DELETE from ZEGA_T_CJ_GRP, _ID and _IDT for every leaf the
+*  listing above marked as CJS. The same three statements in
+*  ZCL_RAK_MIGRATOR->TEARDOWN( ) took out the landing page in quality, and
+*  they have been removed from the whole repository rather than guarded.
+*
+*  A TEST RUN AND A TICK WERE NOT ENOUGH, which is the part worth keeping in
+*  mind before anyone offers to put it back behind a better flag. The guards
+*  here were real - one department, one group, only leaves this tool believed
+*  CJS had created, test run by default - and the damage still happened,
+*  because the classification of a leaf as "ours" is a guess and the rows are
+*  shared with services CJS has nothing to do with. Deleting portal
+*  configuration is not a CJS operation.
+*
+*  WHAT TO DO INSTEAD: the listing above still names every leaf under the
+*  group and marks which ones CJS created. Hand that to whoever owns the
+*  portal configuration and let them remove the rows, in their own
+*  transaction, with their own transport.
   IF p_del = abap_true.
-    IF lt_mine IS INITIAL.
-      WRITE: / 'Nothing to remove - no CJS leaf under this group.'.
-    ELSEIF p_test = abap_true.
-      WRITE: / |TEST RUN - { lines( lt_mine ) } CJS leaf/leaves would be removed | &&
-               |from ZEGA_T_CJ_GRP, _ID and _IDT.|.
-    ELSE.
-      LOOP AT lt_mine INTO DATA(lv_tile).
-        DELETE FROM zega_t_cj_grp
-          WHERE department = @p_dept AND groupid = @p_grp AND journeyid = @lv_tile.
-        DELETE FROM zega_t_cj_id  WHERE journeyid = @lv_tile.
-        DELETE FROM zega_t_cj_idt WHERE journeyid = @lv_tile.
-        WRITE: / '[REMOVED]', 12 lv_tile.
-      ENDLOOP.
-      COMMIT WORK.
-    ENDIF.
+    WRITE: / 'Leaf removal is no longer performed by this report - see the note at',
+           / 'this point in the source. The listing above identifies the CJS leaves;',
+           / 'removal is the portal owner' && ''s to do.'.
   ENDIF.
 
 * ---- put the group back the way it was. Only the fields you filled in.

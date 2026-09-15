@@ -27,17 +27,18 @@ REPORT zrak_cj_cfg_wipe.
 *&   invisible to the Studio. They are reported here and removed only by
 *&   the orphan sweep below.
 *&
-*& THE PORTAL TILES ARE A SEPARATE TICK. TEARDOWN( ) deletes ZEGA_T_CJ_GRP,
-*& _ID and _IDT along with the CJS rows, which removes the journey from the
-*& landing page - a bigger act than clearing configuration, and the wrong
-*& one if the same journeys are being reloaded in a minute while other
-*& people test against the tiles. Off by default.
+*& IT NEVER TOUCHES THE PORTAL TILES. TEARDOWN( ) used to delete
+*& ZEGA_T_CJ_GRP, _ID and _IDT along with the CJS rows, and run over a family
+*& prefix in quality that took out the landing page. Those DELETEs are gone
+*& from the migrator and the tick that used to select them is gone from here.
+*& A journey wiped by this report disappears from the Studio and keeps its
+*& place on the portal, which is what makes a wipe-and-reload safe to do
+*& while other people are testing.
 *&---------------------------------------------------------------------*
 
 SELECT-OPTIONS s_pfx FOR sy-lisel NO INTERVALS.
 
 PARAMETERS p_test AS CHECKBOX DEFAULT 'X'.
-PARAMETERS p_tile AS CHECKBOX DEFAULT ' '.
 PARAMETERS p_orph AS CHECKBOX DEFAULT ' '.
 
 CLASS lcl_app DEFINITION FINAL.
@@ -189,16 +190,12 @@ CLASS lcl_app IMPLEMENTATION.
     ULINE.
     LOOP AT it_j INTO DATA(ls_j).
       lo_mig->teardown( EXPORTING iv_cjs_id = CONV string( ls_j-journey )
-                                  iv_tiles  = p_tile
                         IMPORTING ev_msg    = DATA(lv_msg) ).
       WRITE: / lv_msg.
     ENDLOOP.
     ULINE.
     WRITE: / |{ lines( it_j ) } journey(s) removed|.
-    IF p_tile = abap_false.
-      WRITE: / 'Portal tiles were KEPT. Reload the journeys and the landing page',
-             / 'is unchanged throughout.'.
-    ENDIF.
+    WRITE: / 'Portal tiles untouched - this report cannot remove them.'.
   ENDMETHOD.
 
 

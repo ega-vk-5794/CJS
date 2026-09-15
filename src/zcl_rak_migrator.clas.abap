@@ -294,14 +294,10 @@ CLASS zcl_rak_migrator DEFINITION
                 ev_msg      TYPE string
                 et_report   TYPE tt_report.
 
-*   IV_TILES DEFAULTS TO TRUE so every existing caller behaves exactly as it
-*   did. It is a parameter at all because removing a journey from the portal
-*   landing page is a bigger act than clearing its CJS configuration, and a
-*   cleanup that reloads the same journeys afterwards does not want the tiles
-*   disturbed in between - other people test against them.
+*   THIS TOUCHES CJS CONFIGURATION ONLY. It does NOT delete the portal tile
+*   rows - see the note in the implementation. Do not add that back.
     METHODS teardown
       IMPORTING iv_cjs_id TYPE string
-                iv_tiles  TYPE abap_bool DEFAULT abap_true
       EXPORTING ev_msg    TYPE string.
 
 *   Four-character portal tile code for a legacy journey code, e.g.
@@ -2966,11 +2962,24 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 *   with invisible furniture still in it.
     DELETE FROM zrak_cj_layout  WHERE journey    = @jid.
 
-    IF iv_tiles = abap_true AND lv_tile IS NOT INITIAL.
-      DELETE FROM zega_t_cj_grp WHERE journeyid = @lv_tile.
-      DELETE FROM zega_t_cj_id  WHERE journeyid = @lv_tile.
-      DELETE FROM zega_t_cj_idt WHERE journeyid = @lv_tile.
-    ENDIF.
+*   ---- THE PORTAL TILE ROWS ARE NOT OURS TO DELETE, AND THIS METHOD USED
+*   ---- TO DELETE THEM ---------------------------------------------------
+*
+*   There were three DELETEs here, against ZEGA_T_CJ_GRP, _ID and _IDT,
+*   keyed on the tile code. RUN OVER A FAMILY PREFIX IN QUALITY THEY TOOK OUT
+*   THE LANDING PAGE. They are gone and they are not coming back behind a
+*   flag, because a flag is something somebody ticks by accident.
+*
+*   WHY IT WAS SO MUCH WORSE THAN IT LOOKED. LV_TILE comes from ZRAK_T_JNY,
+*   so the blast radius is decided by a CJS config row - but the rows deleted
+*   belong to the PORTAL, are shared with services CJS has nothing to do
+*   with, and carry their own language texts in _IDT. A CJS teardown is
+*   reversible by re-running a load report. That is not.
+*
+*   TEARDOWN MEANS "REMOVE THE CJS CONFIGURATION" AND NOTHING ELSE. If a tile
+*   genuinely has to go, ZRAK_CJ_PORTAL_FIX is where that conversation
+*   belongs - one group, listed and confirmed by hand - never a loop over a
+*   prefix that nobody reads before pressing execute.
     COMMIT WORK.
 
 *   AND THE CACHE, HERE RATHER THAN AT THE CALL SITE. ZRAK_M_MUNI_LOAD has
@@ -2981,9 +2990,7 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 *   harmless.
     zcl_rak_cj_cfg_cache=>invalidate( iv_journey = CONV string( jid ) ).
 
-    ev_msg = COND string( WHEN iv_tiles = abap_true AND lv_tile IS NOT INITIAL
-                          THEN |{ jid } and tile { lv_tile } removed|
-                          ELSE |{ jid } removed, tile { lv_tile } kept| ).
+    ev_msg = |{ jid } config removed, portal tile { lv_tile } untouched|.
   ENDMETHOD.
 
 

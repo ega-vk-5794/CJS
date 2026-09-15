@@ -30,12 +30,6 @@
     </item>
     <item>
      <ID>S</ID>
-     <KEY>P_TILE</KEY>
-     <ENTRY>Also remove portal tiles</ENTRY>
-     <LENGTH>24</LENGTH>
-    </item>
-    <item>
-     <ID>S</ID>
      <KEY>P_ORPH</KEY>
      <ENTRY>Also sweep orphans (no header)</ENTRY>
      <LENGTH>30</LENGTH>
