@@ -239,6 +239,36 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     ASSIGN COMPONENT lv_comp OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
     IF sy-subrc = 0.
       rv_bind = mo_e->mo_client->_bind_edit( <f> ).
+      RETURN.
+    ENDIF.
+
+*   ---- A CONTROL BOUND TO NOTHING, SAID OUT LOUD -----------------------
+*
+*   The IF above has never had an ELSE, and the comment at the head of this
+*   method already names the consequence: the control silently binds to no
+*   value. On screen that is an input which DRAWS, ACCEPTS TYPING, AND LOSES
+*   IT on the next round trip - every round trip, not only on Back - because
+*   there is no model component behind it for the value to live in. Nothing
+*   is written anywhere, no exception is raised, and the field looks exactly
+*   like one the citizen has not filled in yet.
+*
+*   IT IS THE SAME FAMILY AS VAL_SET( ) TO A NAME THE MODEL DOES NOT HAVE,
+*   which TRACE_GATE( ) already reports for row-pick targets. This is the
+*   render-time half and it was the one still silent.
+*
+*   ONLY FOR A BASE NAME. IV_SUFFIX builds companion components - _IDTYPE,
+*   _IX, _EXP, _VS - which legitimately do not exist for most fields, so
+*   reporting those would bury the real finding under noise on every render.
+*   A field with no component of its own is never legitimate.
+*
+*   TRACE, NOT A GATE. A gate refuses the request, and a journey that has
+*   been quietly losing one field for months should not become unopenable
+*   the day this ships. It costs nothing without &trace=x.
+    IF iv_suffix IS INITIAL.
+      mo_e->trace( |BIND    { iv_name } has NO model component ({ lv_comp }) - the | &&
+                   |control will draw, accept typing and lose the value. Check the | &&
+                   |field exists on this journey in ZRAK_T_JNY_FLD and that its | &&
+                   |name is 23 characters or fewer| ).
     ENDIF.
   ENDMETHOD.
 
