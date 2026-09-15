@@ -1,0 +1,71 @@
+﻿spras;journeyid;description
+A;D001;طلب موافقة مبدئية
+E;D001;Request Initial Approval
+A;D002;تقديم طلب
+E;D002;Apply
+A;D003;تجديد
+E;D003;Renew
+A;D004;تغييرات الملكية
+E;D004;Ownership Changes
+A;D005;تغيير اسم المدرسة
+E;D005;Change School Name
+A;D006;تغيير المدير أو الناظر
+E;D006;Change Manager or Principal
+A;D007;تغيير المنهج الدراسي
+E;D007;Change Curriculum
+A;D008;إضافة أو تقليص المراحل الدراسية
+E;D008;Add or Reduce Educational Cycles
+A;D009;تغيير الموقع
+E;D009;Change Location
+A;D010;مبنى المدرسة (تعديل)
+E;D010;School Building (Modify)
+A;D012;الرحلات والأنشطة المدرسية (الموافقة)
+E;D012;School Trips & Activities (Approval)
+A;D013;إصدار
+E;D013;Issue
+A;D014;إصدار
+E;D014;Issue
+A;D016;إلغاء
+E;D016;Cancel
+A;D020;تعديل أو زيادة اليوم الدراسي
+E;D020;Modify or Increase School Day
+A;D021;الرسوم المدرسية (تعديل أو زيادة)
+E;D021;School Fees (Amend or Increase)
+A;D022;شهادة متابعة الدراسة
+E;D022;Pursuing Study Certificate
+A;D024;شهادة إجازة دراسية
+E;D024;Study Leave Certificate
+A;D025;شهادة تحويل
+E;D025;Transfer Certificate
+A;D026;طلب كشف الدرجات / بطاقة التقرير
+E;D026;Request Transcript / Report Card
+A;D027;تصديق الشهادة الأكاديمية
+E;D027;Academic Certificate (Attest)
+A;D028;التأشيرة الذهبية للمعلمين
+E;D028;Golden Visa for Educators
+A;E014;تسجيل
+E;E014;Register
+A;E015;تقديم دراسة
+E;E015;Submit Study
+A;E016;استيراد المنتجات الكيميائية
+E;E016;Import Chemical Products
+A;E017;تصدير المنتجات الكيميائية
+E;E017;Export Chemical Products
+A;E018;نقل المنتجات الكيميائية
+E;E018;Transport Chemical Products
+A;E019;نقل الزيوت المستعملة
+E;E019;Transport Used Oil
+A;E020;التعامل مع البطاريات / الخردة
+E;E020;Batteries / Scrap Handling
+A;E021;الموافقة على الوقود البديل / المواد الخام
+E;E021;Alternative Fuel / Raw Material Approval
+A;E022;الموافقة على مشروع تطويري
+E;E022;Development Project Approval
+A;E026;الموافقة على إزالة / نقل / تقليم الأشجار
+E;E026;Tree Removal / Relocation / Pruning Approval
+A;E027;بطاقة نائب القبطان
+E;E027;Vice Captain Card
+A;E142;تجديد
+E;E142;Renew
+A;E146;استئناف
+E;E146;Appeal

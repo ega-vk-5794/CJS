@@ -1,0 +1,36 @@
+﻿journeyid;sip_code;popular;anonymous;description
+D001;1609;;;Request Initial Approval
+D002;1658;;;Apply
+D003;1612;;;Renew
+D004;1611;;;Ownership Changes
+D005;1659;;;Change School Name
+D006;1663;;;Change Manager or Principal
+D007;1660;;;Change Curriculum
+D008;1661;;;Add or Reduce Educational Cycles
+D009;1662;;;Change Location
+D010;1664;;;School Building (Modify)
+D012;1644;;;School Trips & Activities (Approval)
+D013;1642;;;Issue
+D014;1646;;;Issue
+D016;1665;;;Cancel
+D020;1702;;;Modify or Increase School Day
+D021;1640;;;School Fees (Amend or Increase)
+D022;1711;;;Pursuing Study Certificate
+D024;1713;;;Study Leave Certificate
+D025;1714;;;Transfer Certificate
+D026;1715;;;Request Transcript / Report Card
+D027;1716;;;Academic Certificate (Attest)
+D028;1716;;;Golden Visa for Educators
+E014;1671;;;Register
+E015;1683;;;Submit Study
+E016;1674;;;Import Chemical Products
+E017;1675;;;Export Chemical Products
+E018;1676;;;Transport Chemical Products
+E019;1677;;;Transport Used Oil
+E020;1678;;;Batteries / Scrap Handling
+E021;1679;;;Alternative Fuel / Raw Material Approval
+E022;1680;;;Development Project Approval
+E026;1669;;;Tree Removal / Relocation / Pruning Approval
+E027;1668;;;Vice Captain Card
+E142;1673;;;Renew
+E146;1672;;;Appeal
