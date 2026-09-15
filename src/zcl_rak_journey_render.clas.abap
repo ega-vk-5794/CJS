@@ -1976,6 +1976,61 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                 class = 'sapUiTinyMarginBegin' ).
       ENDLOOP.
     ENDIF.
+
+*   ---- AND WHAT THE CASE ITSELF HOLDS ----------------------------------
+*
+*   THE TWO LOOPS ABOVE COVER FILES THIS SESSION STAGED, and files a HANDLER
+*   chooses to report through GET_ATTACHMENTS( ). Neither covers the ordinary
+*   case: the citizen uploaded documents, the post filed them against the case,
+*   and the staging table was emptied - or the journey was relaunched from a
+*   deep link and this engine instance never staged anything at all. The files
+*   are on the case the whole time and the uploader drew as though nothing had
+*   ever been uploaded, which is the worst possible thing to tell someone who
+*   has just uploaded ten documents.
+*
+*   MT_BE_ATTACH IS ALREADY POPULATED - every read fills it - and until now
+*   nothing drew it. No new call, no new read, no handler needed: a journey
+*   with no HANDLER_CLASS gets this too.
+*
+*   IDENTIFIER1 IS THE FIELD, and FIELD_OKEY where the file belongs to one
+*   occurrence - the legacy convention ATTACHMENTS_FOR_BACKEND( ) writes and
+*   the D0xx BAdI already reads (OWNERS_SEARCH_<n>). Matching on it is reading
+*   back exactly what we sent.
+*
+*   FILED, NOT REMOVABLE, AND NOT LINKED. It gets the same "Filed" status the
+*   handler rows get, because it is the same fact. No delete button: the case
+*   owns the file and a button that cannot do what it says is worse than no
+*   button. No link either - the backend row carries a name and content, not a
+*   URL this app can serve, and a link that 404s reads as a lost document. A
+*   name with no link still answers the only question being asked, which is
+*   "did my upload arrive".
+*
+*   DE-DUPLICATED AGAINST STAGING BY NAME. Between the upload and the post
+*   both tables hold the same file, and showing it twice would read as a double
+*   upload - which is exactly the thing a citizen would then try to "fix".
+    DATA(lv_want1) = COND string( WHEN iv_key IS NOT INITIAL
+                                  THEN |{ to_upper( iv_field ) }_{ iv_key }|
+                                  ELSE to_upper( iv_field ) ).
+    LOOP AT mo_e->mt_be_attach INTO DATA(ls_be).
+      IF to_upper( CONV string( ls_be-identifier1 ) ) <> to_upper( lv_want1 ).
+        CONTINUE.
+      ENDIF.
+      IF line_exists( mo_e->mt_attach[ field = to_upper( iv_field )
+                                       okey  = iv_key
+                                       name  = CONV string( ls_be-file_name ) ] ).
+        CONTINUE.
+      ENDIF.
+      rv_count = rv_count + 1.
+      DATA(lo_brow) = io_box->hbox( alignitems = 'Center' class = 'rakFileRow' ).
+      lo_brow->icon( src = 'sap-icon://document' class = 'sapUiTinyMarginEnd' ).
+      lo_brow->text( text  = zcl_rak_journey_util=>esc( CONV string( ls_be-file_name ) )
+                     class = 'rakFileName' ).
+      lo_brow->object_status(
+        text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-filed iv_default = 'Filed' )
+        state = 'Success'
+        icon  = 'sap-icon://locked'
+        class = 'sapUiTinyMarginBegin' ).
+    ENDLOOP.
   ENDMETHOD.
 
 

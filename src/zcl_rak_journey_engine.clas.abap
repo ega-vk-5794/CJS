@@ -4330,9 +4330,31 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDIF.
       APPEND LINES OF lt_m TO mt_msg.
 
-      IF lv_final = abap_true.
-        drop_attachments( ).
-      ENDIF.
+*     ---- STAGING IS NO LONGER DISCARDED HERE -------------------------
+*
+*     This ran DROP_ATTACHMENTS( ) on the PAYMENT and SUBMIT post - deleting
+*     the rows from ZRAK_CJ_ATTX and clearing MT_ATTACH - on the reasoning
+*     that the files were with the backend by then and staging was spent.
+*     True, and it still broke the screen: RENDER_CHIPS( ) drew the uploader
+*     from MT_ATTACH alone, so pressing Back after reaching Payment showed a
+*     Documents step with every slot empty. The citizen who has just uploaded
+*     ten files is told they uploaded none.
+*
+*     RENDER_CHIPS( ) NOW ALSO DRAWS MT_BE_ATTACH, so the case's own copy
+*     appears whether or not staging survives - which is the real fix, and the
+*     only one that helps a journey relaunched from a deep link, where this
+*     engine instance never staged anything. Keeping staging as well is belt
+*     and braces for the window between upload and post.
+*
+*     THE COST IS THAT NOTHING PURGES ZRAK_CJ_ATTX, and that is a deliberate,
+*     temporary trade: every staged file now outlives its journey. Retention
+*     belongs to an archive step outside the request, not to a DELETE on the
+*     one round trip that happens to be the last - ZRAK_CJ_ATT_PURGE exists
+*     for exactly this and has never been run.
+*
+*     DROP_ATTACHMENTS( ) IS STILL CALLED FROM HANDLE_DELETE( ), where the
+*     citizen has explicitly discarded the application. That is a decision,
+*     not a side effect of navigating forward.
     ENDIF.
 
     rv_ok = abap_true.
