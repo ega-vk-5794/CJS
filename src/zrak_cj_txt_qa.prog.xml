@@ -16,6 +16,78 @@
      <ENTRY>zrak_cj_txt_qa</ENTRY>
      <LENGTH>14</LENGTH>
     </item>
+    <item>
+     <ID>S</ID>
+     <KEY>S_JRN</KEY>
+     <ENTRY>Journey (blank = all)</ENTRY>
+     <LENGTH>21</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_DETL</KEY>
+     <ENTRY>Findings - detail</ENTRY>
+     <LENGTH>17</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_SUMM</KEY>
+     <ENTRY>Findings - summary</ENTRY>
+     <LENGTH>18</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_XALL</KEY>
+     <ENTRY>EXTRACT FULL - all journeys to file</ENTRY>
+     <LENGTH>35</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_IMPT</KEY>
+     <ENTRY>IMPORT FULL - the same file back</ENTRY>
+     <LENGTH>32</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_EXPT</KEY>
+     <ENTRY>Export selected journeys</ENTRY>
+     <LENGTH>24</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_FILL</KEY>
+     <ENTRY>Backfill Arabic from legacy tables</ENTRY>
+     <LENGTH>34</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_GAP</KEY>
+     <ENTRY>Export remaining gaps + glossary</ENTRY>
+     <LENGTH>32</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_CASE</KEY>
+     <ENTRY>Tidy SHOUTING English</ENTRY>
+     <LENGTH>21</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_PATH</KEY>
+     <ENTRY>File path</ENTRY>
+     <LENGTH>9</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_TEST</KEY>
+     <ENTRY>Test run (no database change)</ENTRY>
+     <LENGTH>29</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_COMP</KEY>
+     <ENTRY>Backfill: compose from parts</ENTRY>
+     <LENGTH>28</LENGTH>
+    </item>
    </TPOOL>
   </asx:values>
  </asx:abap>

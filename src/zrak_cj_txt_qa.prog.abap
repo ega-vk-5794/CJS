@@ -41,6 +41,23 @@ PARAMETERS p_gap  RADIOBUTTON GROUP g1.
 *   normalised ones - which still work, but a normalised match is the one
 *   that can come back AMBIG. Fill first, then tidy.
 PARAMETERS p_case RADIOBUTTON GROUP g1.
+*   THE EIGHTH MODE, AND THE PAIR TO P_IMPT. A translation round is two
+*   presses: extract everything, hand the file out, put the same file back.
+*
+*   IT IGNORES S_JRN DELIBERATELY. P_EXPT already exported every journey
+*   when the selection was left blank, but that was a CONSEQUENCE of the
+*   fallback below rather than something the screen offered - and the branch
+*   carried a "Select at least one journey to export" refusal that could not
+*   fire, so the report said the opposite of what it did. Whoever runs a
+*   translation round should not have to know that an empty field means
+*   everything.
+*
+*   THE FILE IT WRITES IS THE FILE P_IMPT READS. Same EXPORT_ROWS( ) shape,
+*   same path parameter, so the round trip is one file and one filename.
+*   Nothing here is scoped or filtered: a gap-only file is what P_GAP is for,
+*   and mixing the two would make the import ambiguous about what it may
+*   leave alone.
+PARAMETERS p_xall RADIOBUTTON GROUP g1.
 
 PARAMETERS p_path TYPE string LOWER CASE DEFAULT 'C:\temp\cjs_texts.xls'.
 
@@ -922,10 +939,20 @@ CLASS lcl_app IMPLEMENTATION.
     ENDIF.
 
     CASE abap_true.
-      WHEN p_expt.
-        IF lt_journey IS INITIAL.
-          MESSAGE 'Select at least one journey to export' TYPE 'E'.
+      WHEN p_xall.
+*       EVERY JOURNEY THE SOURCE KNOWS, not the selection. Asked for again
+*       here rather than reusing LT_JOURNEY, because LT_JOURNEY is only the
+*       full list when S_JRN happened to be empty.
+        DATA(lt_all) = lo_qa->available_journeys( ).
+        IF lt_all IS INITIAL.
+          MESSAGE 'Text source returned no journeys to extract.' TYPE 'E'.
         ENDIF.
+        do_export( lt_all ).
+      WHEN p_expt.
+*       THE REFUSAL THAT USED TO BE HERE COULD NOT FIRE. LT_JOURNEY has
+*       already fallen back to every journey above, so "select at least one
+*       journey to export" was unreachable AND untrue - a blank selection
+*       exported all of them. P_XALL says so on the screen instead.
         do_export( lt_journey ).
       WHEN p_fill.
         do_backfill( lt_journey ).
