@@ -3161,9 +3161,38 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       always been - unlimited digits, enforced only at VALIDATE_STEP.
 *       Kept here anyway rather than removed, so a config already relying
 *       on it for CSS/analytics reasons keeps behaving byte-identically.
+*       ---- TYPE = NUMBER IS GONE, AND THAT IS THE FIX ------------------
+*
+*       TYPE = 'Number' renders an HTML <input type="number">, and such an
+*       input DISPLAYS NOTHING when the value bound to it is not a clean
+*       numeric literal. BUILD_MODEL( ) gives an FTYPE NUMBER field a STRING
+*       component - only SLIDER, STEPPER, RATING and PROGRESS get the packed
+*       type, NUMBER falls to WHEN OTHERS - so the control and the model have
+*       disagreed about what a number is for as long as both have existed.
+*
+*       ON SCREEN THAT IS A FIELD THE CITIZEN TYPES INTO AND WHICH IS EMPTY
+*       AGAIN a moment later, with the value still in the model the whole
+*       time. D001 step 3 shows three of them - FEE_SCH_PREKG, FEE_BK_PREKG,
+*       FEE_UNI_PREKG - sitting beside a BUILDINGS grid that keeps its rows
+*       perfectly, which is what made it read as a data-loss bug rather than
+*       a rendering one.
+*
+*       NOTHING IS LOST BY DROPPING IT. The browser type was never the
+*       validation: VALIDATE_STEP( ) catches CX_SY_CONVERSION_NO_NUMBER and
+*       enforces MIN_VAL / MAX_VAL on submit for exactly this ftype, and
+*       MAXLENGTH below is already documented as a no-op that
+*       <input type="number"> ignores by specification. A bounded whole
+*       number with a numeric keypad is FTYPE COUNT, which uses a MaskInput
+*       and is unaffected.
+*
+*       THE ONE REAL COST is the numeric soft keyboard on a phone, which the
+*       browser chose from this attribute. A field that shows what was typed
+*       on every device beats a convenient keyboard on some of them; if the
+*       keypad is wanted back it has to come with a packed model component in
+*       BUILD_MODEL( ), which is a change to every NUMBER field on every
+*       journey and not one to make from a rendering defect.
         io_form->input( class          = mo_e->mo_css->cls( 'INPUT' )
                         value          = lv_bind
-                        type           = 'Number'
                         placeholder    = is_field-placeholder
 *                       R13-9 / R13-5. DESCRIPTION is the short unit a form
 *                       puts AFTER the value - days, AED, cm - and stays
@@ -3273,8 +3302,13 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
       WHEN 'CURRENCY'.
         req_label( io_form = io_form is_field = is_field ).
+*       SAME REASON AS NUMBER ABOVE, and CURRENCY had it worse: an amount is
+*       the field most likely to be typed with a separator or a trailing
+*       decimal, and every one of those is a value <input type="number">
+*       declines to display. Both ftypes share the STRING model component and
+*       both are range-checked at VALIDATE_STEP( ), so neither needs the
+*       browser to police them.
         io_form->input( value          = lv_bind
-                        type           = 'Number'
                         placeholder    = COND string( WHEN is_field-placeholder IS NOT INITIAL THEN is_field-placeholder ELSE 'AED' )
                         editable       = lv_edit
                         change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
