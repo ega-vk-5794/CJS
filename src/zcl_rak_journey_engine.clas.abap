@@ -4344,8 +4344,22 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       IF lt_pa IS NOT INITIAL.
         DATA lt_fguid TYPE string_table.
         CLEAR lt_fguid.
-        LOOP AT mt_attach INTO DATA(ls_fa).
-          APPEND ls_fa-guid TO lt_fguid.
+*       THE IN-MEMORY FLAG TOO. TY_ATT has carried a FILED field since it was
+*       written - "already handed to the backend - never send twice" - and only
+*       the NATIVE backend path ever set it; on the QNV bridge path it stayed
+*       blank. Setting both here keeps the row and the session agreeing about
+*       the same fact, which is the whole point of writing it down.
+*
+*       IT DOES NOT YET SUPPRESS THE RE-SEND. Staging is no longer dropped at
+*       the post, so a filed file still travels on every later post -
+*       harmless, because the BAdI ignores a duplicate, but not free at ten
+*       documents of base64 per round trip. ATTACHMENTS_FOR_BACKEND( ) skipping
+*       a filed row is the obvious next step and is deliberately not taken
+*       here: it changes what reaches the backend, which is a decision, not a
+*       tidy-up.
+        LOOP AT mt_attach ASSIGNING FIELD-SYMBOL(<ls_fa>).
+          APPEND <ls_fa>-guid TO lt_fguid.
+          <ls_fa>-filed = abap_true.
         ENDLOOP.
         zcl_rak_cj_att_store=>mark_filed( lt_fguid ).
         trace( |ATTACH  { lines( lt_fguid ) } staged file(s) marked filed - the case | &&

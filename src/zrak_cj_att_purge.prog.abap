@@ -255,7 +255,12 @@ CLASS lcl_purge IMPLEMENTATION.
 *     P_ADAYS sweep below. Both passes honour P_FILED.
       LOOP AT policies( ) INTO DATA(ls_p) WHERE days > 0.
         DATA(lv_n) = zcl_rak_cj_att_store=>purge( iv_days       = ls_p-days
-                                                  iv_journey    = ls_p-journey
+*                                                 CONV, because LS_P-JOURNEY is
+*                                                 ZRAK_JOURNEY_ID and IV_JOURNEY is
+*                                                 TYPE string - parameters bind BY
+*                                                 REFERENCE here, so the two types
+*                                                 must match exactly.
+                                                  iv_journey    = CONV string( ls_p-journey )
                                                   iv_filed_only = p_filed ).
         IF lv_n > 0.
           WRITE: / |{ ls_p-journey }|, 30 |{ lv_n } removed at { ls_p-days } day(s)|.
