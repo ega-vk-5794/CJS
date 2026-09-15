@@ -140,14 +140,19 @@ CLASS ZCL_RAK_CJ_ATT_STORE IMPLEMENTATION.
 *   the citizen may still press Back, and RENDER_CHIPS( ) draws the staged copy
 *   as well as the case copy. All it records is that a purge may now take them.
     CHECK it_guid IS NOT INITIAL.
-    DATA lt_g TYPE STANDARD TABLE OF sysuuid_c32 WITH EMPTY KEY.
+
+*   A DECLARED RANGE, NOT AN INLINE @( VALUE #( ) ). The inline host expression
+*   is refused in an UPDATE ... WHERE - "@( is invalid here (due to grammar)" -
+*   so the range is built first and passed as a plain host variable. Same
+*   shape PURGE( ) below already uses.
+    DATA lt_r TYPE RANGE OF zrak_cj_attx-guid.
     LOOP AT it_guid INTO DATA(lv_g).
       CHECK lv_g IS NOT INITIAL.
-      APPEND CONV sysuuid_c32( lv_g ) TO lt_g.
+      APPEND VALUE #( sign = 'I' option = 'EQ' low = lv_g ) TO lt_r.
     ENDLOOP.
-    CHECK lt_g IS NOT INITIAL.
-    UPDATE zrak_cj_attx SET filed = 'X' WHERE guid IN @( VALUE #( FOR <g> IN lt_g
-                                                     ( sign = 'I' option = 'EQ' low = <g> ) ) ).
+    CHECK lt_r IS NOT INITIAL.
+
+    UPDATE zrak_cj_attx SET filed = 'X' WHERE guid IN @lt_r.
     " commit owned by the caller, as PURGE( ) is
   ENDMETHOD.
 
