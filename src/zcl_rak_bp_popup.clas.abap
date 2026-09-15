@@ -1107,7 +1107,14 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *     784198827181318 are the same Emirates ID and only one of them is what
 *     BUT0ID holds, so seeing which form went to the query settles the question
 *     that NORM_EID exists to answer.
-      IF mo_ctx->get_param( 'trace' ) IS NOT INITIAL.
+*     TRACE_OK( ) AS WELL AS THE PARAMETER. This tested the URL parameter
+*     alone, so on production a citizen who appended &trace=x to their own
+*     address bar was shown the client number, the id type and the NORMALISED
+*     EMIRATES ID that went to the query. The engine's own MV_TRACE has always
+*     resolved through TRACE_OK( ) for exactly this reason - development and
+*     quality only - and this dialog was the one place that did not.
+      IF mo_ctx->get_param( 'trace' ) IS NOT INITIAL
+         AND zcl_rak_journey_util=>trace_ok( ) = abap_true.
 *       Built up in steps rather than as one nested template. The alternative
 *       needs a string template inside an embedded expression inside another
 *       template, which ABAP allows and no reader should have to unpick.

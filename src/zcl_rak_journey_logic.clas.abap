@@ -1265,10 +1265,21 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *     first run of this gate failed silently and looked identical to a backend that
 *     had not answered - the key it actually searched for is the one fact that
 *     separates those two.
-      io_ctx->add_msg( iv_type = 'Information'
-                       iv_text = |TRACE dfkkop: no open item yet for ext_key '{ lv_zzkey }'| &&
-                                 COND string( WHEN lv_zzkey <> lv_extkey
-                                              THEN | nor '{ lv_extkey }'| ELSE `` ) ).
+*     THROUGH PAY_TRACE( ), NOT ADD_MSG( ). This was an unconditional
+*     Information strip, so a CITIZEN ON PRODUCTION saw
+*     "TRACE dfkkop: no open item yet for ext_key 000001960026" - an internal
+*     table name and their own case key - on an ordinary payment wait. It is
+*     the only technical line in the framework that was not trace-gated, and
+*     it is on the screen every citizen paying a fee reaches.
+*
+*     PAY_TRACE( ) emits only under &trace=x, which itself resolves through
+*     TRACE_OK( ) - development and quality, never production, whatever
+*     anybody appends to their address bar. Same words, same diagnosis, just
+*     not addressed to the public.
+      pay_trace( io_ctx  = io_ctx
+                 iv_text = |PAY     dfkkop: no open item yet for ext_key '{ lv_zzkey }'| &&
+                           COND string( WHEN lv_zzkey <> lv_extkey
+                                        THEN | nor '{ lv_extkey }'| ELSE `` ) ).
 
 *     NO CASE YET IS NOT THE SAME AS NO FEE YET, and saying the wrong one
 *     sends the reader to the wrong place. Both are legitimate "not yet"
