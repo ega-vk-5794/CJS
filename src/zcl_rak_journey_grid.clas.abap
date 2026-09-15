@@ -131,21 +131,18 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
     DATA(ls_fld) = mo_e->safe_field( iv_field ).
     IF ls_fld-name IS INITIAL.
-      mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
-        text = |Grid { iv_field }: no field with that name in this journey's configuration.| ) ).
+      mo_e->dev_msg( |Grid { iv_field }: no field with that name in this journey's configuration.| ).
       RETURN.
     ENDIF.
 
     IF to_upper( ls_fld-type ) <> 'EDITABLE_TABLE'.
-      mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
-        text = |Grid { iv_field }: FTYPE is { ls_fld-type }, not EDITABLE_TABLE. Only an editable grid has rows to read or write.| ) ).
+      mo_e->dev_msg( |Grid { iv_field }: FTYPE is { ls_fld-type }, not EDITABLE_TABLE. Only an editable grid has rows to read or write.| ).
       RETURN.
     ENDIF.
 
     et_cols = grid_cols( ls_fld ).
     IF et_cols IS INITIAL.
-      mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
-        text = |Grid { iv_field }: DEFAULT_VAL carries no column spec. Expected name:label:type, pipe separated.| ) ).
+      mo_e->dev_msg( |Grid { iv_field }: DEFAULT_VAL carries no column spec. Expected name:label:type, pipe separated.| ).
       RETURN.
     ENDIF.
 
@@ -156,23 +153,20 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
     IF sy-subrc <> 0.
-      mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
-        text = |Grid { iv_field }: the model does not exist yet. Call this from on_init or later, not from the constructor.| ) ).
+      mo_e->dev_msg( |Grid { iv_field }: the model does not exist yet. Call this from on_init or later, not from the constructor.| ).
       CLEAR et_cols.
       RETURN.
     ENDIF.
     ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_fld-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
-      mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
-        text = |Grid { iv_field }: no model member. The journey was loaded before the field became an EDITABLE_TABLE - reload it.| ) ).
+      mo_e->dev_msg( |Grid { iv_field }: no model member. The journey was loaded before the field became an EDITABLE_TABLE - reload it.| ).
       CLEAR et_cols.
       RETURN.
     ENDIF.
     FIELD-SYMBOLS <t> TYPE STANDARD TABLE.
     ASSIGN <tab> TO <t>.
     IF sy-subrc <> 0.
-      mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
-        text = |Grid { iv_field }: the model member is not a table. { ls_fld-name } is in use by another control type.| ) ).
+      mo_e->dev_msg( |Grid { iv_field }: the model member is not a table. { ls_fld-name } is in use by another control type.| ).
       CLEAR et_cols.
       RETURN.
     ENDIF.

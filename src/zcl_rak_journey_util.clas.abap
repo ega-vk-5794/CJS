@@ -616,11 +616,7 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD trace_ok.
-    rv = xsdbool( is_dev( ) = abap_true
-               OR is_qa( )  = abap_true
-               OR power_user( ) = abap_true ).
-  ENDMETHOD.
+ARRAY(0xa00039f18)
 
 
   METHOD studio_mode.

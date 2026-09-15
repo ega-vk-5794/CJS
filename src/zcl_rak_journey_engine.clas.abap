@@ -247,6 +247,23 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mv_att_sys_mb TYPE i.
     METHODS radio_key_back IMPORTING iv_field TYPE string.
     METHODS trace IMPORTING iv_text TYPE string.
+
+*   A MESSAGE ONLY A DEVELOPER SHOULD EVER SEE, and the one place that decides
+*   who that is. "Grid APPLICANT_1: no field with that name in this journey's
+*   configuration" is a defect report about ZRAK_T_JNY_FLD - addressed to
+*   whoever configured the journey, and it was being shown to the citizen on
+*   the confirmation screen, beside their own reference number.
+*
+*   IS_DEV( ) AND NOT TRACE_OK( ). These are not traces: they appear with no
+*   &trace=x and they are meant to, because an author needs to see a
+*   misconfiguration without knowing to ask for it. E10 is where journeys are
+*   configured, so E10 is where they belong - quality and production get
+*   nothing, whoever is looking and whatever they append to the URL.
+*
+*   ONE READER, because the alternative is a gate at forty-two call sites and
+*   the forty-third written without one.
+    METHODS dev_msg IMPORTING iv_text TYPE string
+                              iv_type TYPE string DEFAULT 'Warning'.
     METHODS read_params.
     METHODS build_model.
     METHODS merge_dynamic_steps.
@@ -4217,6 +4234,13 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
+
+  METHOD dev_msg.
+    IF zcl_rak_journey_util=>is_dev( ) = abap_false.
+      RETURN.
+    ENDIF.
+    mt_msg = VALUE #( BASE mt_msg ( type = iv_type text = iv_text ) ).
+  ENDMETHOD.
 
   METHOD trace.
     IF mv_trace = abap_false.
