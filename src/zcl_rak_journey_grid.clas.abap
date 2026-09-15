@@ -1108,7 +1108,15 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *         no per-row loop needed here. BUILD_MODEL( ) gives NUMBER and
 *         INPUT columns these two companions; SET_CELL_STATE( ) is what
 *         a handler's TY_MSG-FIELD = '<grid>.<col>#<row>' writes into them.
-          lo_cells->input( value = lv_path type = 'Number' editable = lv_en change = lv_chg
+*         TYPE = 'Number' IS NOT PASSED, for the reason ZCL_RAK_JOURNEY_RENDER
+*         records at its own NUMBER branch: an HTML <input type="number"> runs a
+*         value sanitization algorithm that replaces anything which is not a
+*         valid floating-point number with the EMPTY STRING, and a grid row
+*         component is a STRING - BUILD_MODEL( ) types every cell but CHECKBOX
+*         and *_EN as one. So the cell displays nothing the moment its value is
+*         not a bare numeral, which on an amount column means a separator or a
+*         trailing decimal empties it in front of the citizen.
+          lo_cells->input( value = lv_path editable = lv_en change = lv_chg
                            visible = lv_vis maxlength = lv_maxlen
                            valuestate = |\{{ gc-name }_VS\}| valuestatetext = |\{{ gc-name }_VST\}| ).
         WHEN 'DATE'.

@@ -268,7 +268,52 @@ These raise nothing and render nothing. They account for most of the bugs found 
   constant, not its name: `bind( c_foo )`.
 - **A field name not on the journey** — `set_val`/`get_val`/`bind` against it are all legal and
   all do nothing. Check `ZRAK_T_JNY_FLD` before trusting a name.
-- **`type = 'Number'` on a non-numeric value** renders an empty `sap.m.Input`.
+- **`type = 'Number'` on a non-numeric value renders an EMPTY `sap.m.Input` — and the
+  framework was passing it on a STRING model component.** Both halves matter, and the
+  second is why this was a framework defect rather than a caution for authors.
+
+  `<input type="number">` runs a **value sanitization algorithm**: anything that is not a
+  valid floating-point number is replaced with the empty string. Not flagged, not rejected
+  on entry — *displayed as blank*. Meanwhile `BUILD_MODEL( )` types an `FTYPE` `NUMBER` or
+  `CURRENCY` field as a **string** — only `SLIDER`, `STEPPER`, `RATING` and `PROGRESS` get
+  the packed type, the rest fall to `WHEN OTHERS` — so the control and the model had
+  disagreed about what a number is for as long as both existed.
+
+  On screen: a field the citizen types into that is empty again a moment later, with the
+  value still in the model the whole time. **It reads as data loss, not as rendering**, and
+  on D001 step 3 it sat beside a `BUILDINGS` grid keeping its rows perfectly — which sent
+  three consecutive wrong diagnoses at the Back re-read, at `APPLY_CTRL( )` and at the model
+  binding. What settled it was the render trace naming the ftype
+  (`render FEE_SCH_PREKG type=[NUMBER]`), not any amount of reasoning about Back.
+
+  **`ZCL_RAK_JOURNEY_RENDER` (NUMBER, CURRENCY) and `ZCL_RAK_JOURNEY_GRID` (NUMBER cells) no
+  longer pass it.** Nothing is lost: the browser type was never the validation —
+  `VALIDATE_STEP( )` catches `CX_SY_CONVERSION_NO_NUMBER` and enforces `MIN_VAL`/`MAX_VAL` on
+  submit for exactly these ftypes — and `MAXLENGTH` beside it was already a documented no-op
+  that `<input type="number">` ignores by specification. `COUNT` is the bounded whole number
+  with a keypad, uses a `MaskInput`, and is untouched. The one real cost is the numeric soft
+  keyboard on a phone; getting it back means giving `NUMBER` a packed component in
+  `BUILD_MODEL( )`, which is a change to every such field on every journey.
+
+  **`Tel` and `Email` are safe and were checked.** Neither has a sanitization algorithm —
+  they accept any text and only flag validity — so `PHONE` and `EMAIL` keep their types and
+  their mobile keyboards.
+
+  **~10 handler-drawn popups still pass it** and were deliberately not swept: D001
+  (`c_share`), D004 (`c_own_share`), E016/E017/E018 (quantity, gross weight, and E017's CAS
+  number — `7732-18-5` is not a floating-point number and blanks on sight),
+  `ZCL_RAK_TEST_ALL_LOGIC`, plus the demo and sample classes. A hand-drawn `io_ctx->bind( )`
+  binds the same string component, so the fault is identical. Fix each when its journey is
+  next touched; `grep "type = 'Number'"` finds them.
+
+- **A control bound to a model component that does not exist is SILENT.** `BIND_OF( )`
+  returns blank when `ASSIGN COMPONENT` misses, and an input with a blank `value=` is bound
+  to nothing: it draws, accepts typing, and drops the value on every round trip. Same family
+  as `VAL_SET( )` to a name the model does not have. It now traces `BIND <field> has NO model
+  component` under `&trace=x`, for a **base** name only — `_IDTYPE`, `_IX`, `_EXP` and `_VS`
+  companions legitimately do not exist for most fields, and reporting those would bury the
+  real finding. Trace rather than gate, so a journey that has been quietly losing a field for
+  months does not become unopenable the day the check ships.
 - **A step whose `BKND_SCREEN` has no legacy configuration rows** renders, validates and posts, and
   creates nothing. `ZCL_RAK_CJS_XCHECK` exists for this; it runs in the Studio on load and save.
 - **`/QNV/SB_UI_DEFIN` is only half the screen contract, and Municipality runs on the other
