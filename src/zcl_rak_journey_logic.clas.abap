@@ -869,13 +869,59 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 
       DATA(lo_act) = lo_wait->hbox( justifycontent = 'Center'
                                     class          = 'sapUiSmallMarginTop sapUiSmallMarginBottom' ).
-*     The one control that earns its place. A blocked pop-up is the commonest way
-*     this goes wrong and the citizen has no other route back to the gateway.
-      lo_act->button( text  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-pay_reopen
-                                         iv_default = `Reopen payment page` )
-                      icon  = 'sap-icon://action'
-                      type  = 'Emphasized'
-                      press = io_ctx->event( c_pay_open ) ).
+*     THE ONE CONTROL THAT EARNS ITS PLACE, AND IT IS A LINK RATHER THAN A
+*     BUTTON. A blocked pop-up is the commonest way this goes wrong and the
+*     citizen has no other route back to the gateway - but the button this used
+*     to be could not provide one, because it was subject to the very fault it
+*     was there to rescue.
+*
+*     A BUTTON HERE IS A SERVER ROUND TRIP. PRESS raised C_PAY_OPEN, the server
+*     answered, and OPEN_URL_HTML( ) then called window.open from an inline
+*     attribute during the RESPONSE render - after an XHR, by which point the
+*     browser's transient activation from the click is gone. Chrome blocks it on
+*     exactly the rule that blocked the original Pay, silently, so the citizen
+*     presses the rescue button and nothing happens.
+*
+*     AN ANCHOR CANNOT BE BLOCKED. sap.m.Link renders a real <a>, the navigation
+*     is the click itself with no round trip in between, and a pop-up blocker has
+*     nothing to refuse. OPEN_URL_HTML( ) already knows this - its fallback builds
+*     exactly such an anchor when window.open returns null - but it does so from
+*     JAVASCRIPT, appending to the DOM, and the poll repaints this card every few
+*     seconds: the link it creates is wiped before anyone can click it. Drawing it
+*     server-side is what makes it survive.
+*
+*     WHY IT SHOWS ON D001 AND NOT ON D022. Where the open item already exists,
+*     the address resolves on the PRESS round trip, inside the activation, and the
+*     tab opens - so the rescue is never needed. D001 creates its case during the
+*     journey, so the address only arrives on a POLL TICK, a timer with no
+*     activation behind it. Same code, different moment, and the difference is
+*     invisible from the screen.
+*
+*     ESCAPED BY HAND, AND NOT THROUGH ESC( ). That method replaces braces only -
+*     it is there for UI5 binding syntax - and a gateway address carries query
+*     parameters, where a bare & is malformed markup in an XML view attribute
+*     rather than a character. The & must go first or it would re-escape the
+*     ampersands of its own replacements. Braces after, via ESC( ), because a
+*     URL can legitimately contain one.
+      DATA(lv_purl) = io_ctx->get_val( 'PAY_APPURL' ).
+      IF lv_purl IS NOT INITIAL.
+        REPLACE ALL OCCURRENCES OF `&` IN lv_purl WITH `&amp;`.
+        lv_purl = zcl_rak_journey_util=>esc( lv_purl ).
+        lo_act->link( text   = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-pay_reopen
+                                                  iv_default = `Reopen payment page` )
+                      href   = lv_purl
+                      target = '_blank'
+                      rel    = 'noopener'
+                      emphasized = abap_true ).
+      ELSE.
+*       NO ADDRESS YET, so there is nothing to link to and the round trip is the
+*       only thing that can find one. Kept for that case alone.
+        lo_act->button( text  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-pay_reopen
+                                           iv_default = `Reopen payment page` )
+                        icon  = 'sap-icon://action'
+                        type  = 'Emphasized'
+                        press = io_ctx->event( c_pay_open ) ).
+      ENDIF.
 
 *     After a minute, an exit. Waiting with no way to stop is how somebody ends up
 *     using the browser's back arrow, and the back arrow leaves the payment open
