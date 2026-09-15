@@ -188,6 +188,42 @@ This shows up in several places that all trace back to the same rule:
   has to be kept right as families are added, whereas identity fallback is right by
   construction.
 
+- **EVERY FAMILY ENDS AT CASE MANAGEMENT. NO TWO OF THEM START THERE.** This is the
+  invariant the shared code has to hold, and it is the one that breaks quietly when a
+  change is made with one family in front of you.
+
+  **The end is common.** DOK, EPDA and Municipality all converge on Case Management
+  for the open item, which is what the payment path reads (`DFKKOP-ZZEXT_KEY` is a case
+  id). Whatever else differs, the fee is owed by a case.
+
+  **The middle is not.** Each family drafts on a different substrate, and the journey
+  key is the substrate's key, not a case id, until a case exists:
+
+  | Family | Draft substrate | Key shape while drafting |
+  | --- | --- | --- |
+  | Municipality | a real-estate **rental object** | `VIBDCHARACT` INTRENO (`IM00100123344`) |
+  | DOK, EPDA | **memory** - `INDX(CJ)`, generated key | a `GUID_22`, then the case (`000001959968`) |
+  | Notary, Web Dynpro, anything next | **unknown** | assume nothing |
+
+  Three rules follow, and each has already been broken once:
+
+  **Never branch the shared path on the family.** Branch on the **value** instead -
+  "is this key a confirmed case" is a question with the same right answer for every
+  family, including ones not written yet. `CASE_KEY_OF( )` is the model: identity
+  fallback, resolved at every read, never cached at write.
+
+  **"Not blank" is never the test for a case id.** A `GUID_22` and an INTRENO are both
+  non-blank and neither is a case. `ZCL_EGA_CJ_DOK_ABS->CREATE_CASE` gates on
+  `IF gs_data-caseid IS INITIAL`, so a plausible wrong value **skips the create**, and
+  the journey then waits forty-eight poll ticks for an open item that no case will ever
+  owe. Both a `GUID_22` and the literal string `CJS` have caused exactly that.
+
+  **Anything added to the shared payload reaches every family.** `ZCL_RAK_QNV_BRIDGE->POST( )`
+  is one method for all of them, so an item added for DOK arrives at EPDA and
+  Municipality too - and an item a family's config has no mapping row for does not fall
+  on the floor, it lands in a neighbouring `GS_DATA` component. Adding one is a change
+  to every family, and it has to be justified for every family or gated on the value.
+
 - **`APPLICATIONURL` is the ATB path's field, and most journeys do not take that path.**
   `ZCL_RAK_PAY_ENGINE->ROUTE_GATEWAY( )` picks the route from `ZDT_PG_DEP_MAP`: an ATB
   department gets a ready-made `APPLICATIONURL`, and **everything else** — `PW_RB1` set,
