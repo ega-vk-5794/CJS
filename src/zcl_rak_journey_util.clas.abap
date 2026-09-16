@@ -290,6 +290,23 @@ CLASS zcl_rak_journey_util DEFINITION
                 VALUE(iv_key)  TYPE string
       RETURNING VALUE(rv)      TYPE string.
 
+*   ONE TEXT, WITH 'OTR:<alias>' AND '@nnn' RESOLVED, and anything else
+*   returned exactly as configured.
+*
+*   PUBLIC because it is the answer to "this column has no _AR twin".
+*   ZRAK_T_JNY_FLD-ATTACH_LABEL and a TABLE column header both carry a text
+*   the citizen reads and neither has an Arabic column to put a translation
+*   in, so a reference is the only form their bilingual text can take - and
+*   the classes that draw them are ZCL_RAK_JOURNEY_RENDER and
+*   ZCL_RAK_JOURNEY_GRID, not this one. It was private while MSG_FOR( ) was
+*   its only caller; it has three more now and nothing about it is internal.
+*   Pure: raw text in, resolved text out, no state.
+    CLASS-METHODS msg_token
+      IMPORTING VALUE(iv_raw)     TYPE string
+                VALUE(iv_lang)    TYPE sy-langu
+                VALUE(iv_journey) TYPE string OPTIONAL
+      RETURNING VALUE(rv)         TYPE string.
+
     CLASS-METHODS msg_for
       IMPORTING VALUE(iv_msg)        TYPE string
                 VALUE(iv_check)      TYPE string
@@ -537,13 +554,6 @@ CLASS zcl_rak_journey_util DEFINITION
       IMPORTING VALUE(iv_key) TYPE string
       RETURNING VALUE(rv)     TYPE abap_bool.
 
-*   One clause's text, with 'OTR:<alias>' and '@nnn' resolved. Anything else
-*   comes back exactly as configured.
-    CLASS-METHODS msg_token
-      IMPORTING VALUE(iv_raw)     TYPE string
-                VALUE(iv_lang)    TYPE sy-langu
-                VALUE(iv_journey) TYPE string OPTIONAL
-      RETURNING VALUE(rv)         TYPE string.
 
 ENDCLASS.
 
