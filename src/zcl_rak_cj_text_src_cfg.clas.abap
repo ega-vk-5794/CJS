@@ -163,24 +163,24 @@ CLASS ZCL_RAK_CJ_TEXT_SRC_CFG IMPLEMENTATION.
            END OF ty_sec.
     DATA lt_seen TYPE STANDARD TABLE OF ty_sec WITH EMPTY KEY.
 
-    LOOP AT lt_fld ASSIGNING FIELD-SYMBOL(<ls_s>) WHERE zsection IS NOT INITIAL.
-      DATA(ls_key) = VALUE ty_sec( step = CONV #( <ls_s>-step_id )
-                                   sec  = CONV #( <ls_s>-zsection ) ).
+    LOOP AT lt_fld ASSIGNING FIELD-SYMBOL(<ls_sec>) WHERE zsection IS NOT INITIAL.
+      DATA(ls_key) = VALUE ty_sec( step = CONV #( <ls_sec>-step_id )
+                                   sec  = CONV #( <ls_sec>-zsection ) ).
       IF line_exists( lt_seen[ table_line = ls_key ] ).
         CONTINUE.
       ENDIF.
       APPEND ls_key TO lt_seen.
 
       add( EXPORTING iv_journey = CONV #( lv_id )
-                     iv_step    = CONV #( <ls_s>-step_id )
-                     iv_block   = CONV #( <ls_s>-zsection )
+                     iv_step    = CONV #( <ls_sec>-step_id )
+                     iv_block   = CONV #( <ls_sec>-zsection )
 *                    THE SECTION IS ITS OWN ELEMENT. Keyed on the field it was
 *                    first seen on and the import would write one field's
 *                    ZSECTION_AR and leave the other nine disagreeing.
                      iv_elem    = space
                      iv_kind    = c_kind-section
-                     iv_en      = <ls_s>-zsection
-                     iv_ar      = <ls_s>-zsection_ar
+                     iv_en      = <ls_sec>-zsection
+                     iv_ar      = <ls_sec>-zsection_ar
            CHANGING  ct_txt     = rt_txt ).
     ENDLOOP.
 
