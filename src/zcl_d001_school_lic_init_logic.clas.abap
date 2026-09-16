@@ -906,19 +906,28 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *   A backtick literal does no such processing, so the brace survives to the
 *   REPLACE and the REPLACE is what puts the backslash in. Same two lines
 *   RENDER_UPLOADER( ) and ZCL_RAK_CJ_GIS->CONTAINER( ) use, for this reason.
-*   THE WHOLE CELL, NOT ONLY THE BOX. The first version set direction on the
-*   input alone, so the Arabic text flowed correctly and the label above it
-*   stayed hard left with its asterisk on the wrong end - the field read as
-*   two halves disagreeing. DIRECTION on the CELL carries the label, the
-*   required marker and the control together, which is what an Arabic field
-*   on an English page should look like.
+*   ALIGNMENT ON THE CELL, DIRECTION ON THE BOX - and they are two different
+*   things, which is the whole content of this rule.
 *
-*   RAKC<NAME> is the cell, RAKF<NAME> the control inside it. The input rule
-*   stays: .sapMInputBase sets its own direction in places, so inheriting
-*   from the cell is not something to rely on for the one part that matters.
+*   The first version put DIRECTION on the cell. That did carry the label
+*   across with the control, but direction also moves the REQUIRED ASTERISK
+*   to the logical end, which in RTL is the LEFT - so an English label came
+*   out as "*School Name Arabic" while its English twin one column over read
+*   "School Name English*". Two columns of the same form disagreeing about
+*   where a required marker goes.
+*
+*   TEXT-ALIGN alone is what was actually wanted for the cell. The label
+*   stays a left-to-right run of English words - because that is what it is -
+*   and simply sits flush right, so the asterisk stays where every other
+*   asterisk on the page is.
+*
+*   DIRECTION stays on the INPUT, where the text really is Arabic: it puts
+*   the caret at the right edge and keeps digits and punctuation in the
+*   school's name on the correct side of it. That is the half that is about
+*   the data rather than the layout.
     DATA(lv_rtl) =
       `<style>.rakCSCHOOLNAMEAR1,.rakCSCHOOLNAMEAR2,.rakCSCHOOLNAMEAR3` &&
-      `{direction:rtl;text-align:right;}` &&
+      `{text-align:right;}` &&
       `.rakFSCHOOLNAMEAR1 input,.rakFSCHOOLNAMEAR2 input,` &&
       `.rakFSCHOOLNAMEAR3 input` &&
       `{direction:rtl;text-align:right;}</style>`.
