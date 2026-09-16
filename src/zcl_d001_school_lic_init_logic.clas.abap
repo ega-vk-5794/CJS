@@ -906,8 +906,20 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *   A backtick literal does no such processing, so the brace survives to the
 *   REPLACE and the REPLACE is what puts the backslash in. Same two lines
 *   RENDER_UPLOADER( ) and ZCL_RAK_CJ_GIS->CONTAINER( ) use, for this reason.
+*   THE WHOLE CELL, NOT ONLY THE BOX. The first version set direction on the
+*   input alone, so the Arabic text flowed correctly and the label above it
+*   stayed hard left with its asterisk on the wrong end - the field read as
+*   two halves disagreeing. DIRECTION on the CELL carries the label, the
+*   required marker and the control together, which is what an Arabic field
+*   on an English page should look like.
+*
+*   RAKC<NAME> is the cell, RAKF<NAME> the control inside it. The input rule
+*   stays: .sapMInputBase sets its own direction in places, so inheriting
+*   from the cell is not something to rely on for the one part that matters.
     DATA(lv_rtl) =
-      `<style>.rakFSCHOOLNAMEAR1 input,.rakFSCHOOLNAMEAR2 input,` &&
+      `<style>.rakCSCHOOLNAMEAR1,.rakCSCHOOLNAMEAR2,.rakCSCHOOLNAMEAR3` &&
+      `{direction:rtl;text-align:right;}` &&
+      `.rakFSCHOOLNAMEAR1 input,.rakFSCHOOLNAMEAR2 input,` &&
       `.rakFSCHOOLNAMEAR3 input` &&
       `{direction:rtl;text-align:right;}</style>`.
     REPLACE ALL OCCURRENCES OF `{` IN lv_rtl WITH `\{`.

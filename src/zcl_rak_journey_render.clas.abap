@@ -1897,7 +1897,13 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *
 *   Off by default and read from a column that is blank everywhere until
 *   somebody ticks it in the Design tab, so no existing journey moves.
-    DATA(lo_cell) = io_parent->vbox( class      = 'rakCell'
+*   RAKC<NAME> - THE CELL'S OWN HANDLE, and a different prefix from the
+*   control's RAKF<NAME> on purpose. A handler that wants to say something
+*   about the CONTROL (right-to-left entry in the box) and one that wants to
+*   say it about the WHOLE FIELD (label, asterisk and box together) are
+*   different requests, and one class serving both would make every rule
+*   ambiguous about which it meant. Additive: no existing markup changes.
+    DATA(lo_cell) = io_parent->vbox( class      = |rakCell rakC{ zcl_rak_journey_util=>comp_name( is_field-name ) }|
                                      width      = lv_width
                                      alignitems = lv_align ).
 
@@ -4314,9 +4320,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       rakWide is the unlaid path's half of WIDE_FIELD( ): this row is a
 *       flex box with rakRowCn fixing every child to a fraction of it, so a
 *       composite needs the class to claim the whole line back.
+*       RAKC<NAME> here too - see the note at the laid-out cell. The two paths
+*       have to offer the same handle or a handler's rule would work on a step
+*       drawn in the Design tab and do nothing on the next step, which is the
+*       shape SECTION was broken in before.
         lo_cell = lo_row->vbox( class = COND string(
                                   WHEN wide_field( ls_rf ) = abap_true
-                                  THEN 'rakCell rakWide' ELSE 'rakCell' ) ).
+                                  THEN 'rakCell rakWide' ELSE 'rakCell' )
+                                && | rakC{ zcl_rak_journey_util=>comp_name( ls_rf-name ) }| ).
         mv_in_cell = xsdbool( lv_eqc IS NOT INITIAL ).
         before_field( io_view = lo_cell is_field = ls_rf ).
         render_one( io_form = lo_cell is_field = ls_rf ).
