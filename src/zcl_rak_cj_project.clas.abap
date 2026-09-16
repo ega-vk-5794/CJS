@@ -62,9 +62,28 @@ CLASS zcl_rak_cj_project DEFINITION
     "! first and both toolbars drove the second list.
     DATA mv_mine TYPE abap_bool.
 
-    DATA mt_row  TYPE zcl_rak_fees_api=>tt_project_rows.
+*   ONE CARD'S WORTH OF A PROJECT, and nothing else. What the service
+*   returns carries navigation properties and metadata no card draws;
+*   this is the five values that do, which is what makes the cross-round-
+*   trip cache on the engine small enough to ride the serialized instance.
+    TYPES: BEGIN OF ty_prj,
+             key    TYPE string,
+             date   TYPE string,
+             parcel TYPE string,
+             perm   TYPE string,
+             arc    TYPE string,
+           END OF ty_prj.
+    TYPES tt_prj TYPE STANDARD TABLE OF ty_prj WITH EMPTY KEY.
+
+    DATA mt_row  TYPE tt_prj.
     DATA mv_read TYPE abap_bool.
     DATA mv_note TYPE string.
+
+    CONSTANTS c_sep TYPE string VALUE '|'.
+
+    METHODS pack   IMPORTING is_p TYPE ty_prj RETURNING VALUE(rv) TYPE string.
+    METHODS unpack IMPORTING iv   TYPE string RETURNING VALUE(rs) TYPE ty_prj.
+    METHODS sig    RETURNING VALUE(rv) TYPE string.
 
     "! Six, matching the parcel control. Every page press is a round trip
     "! and every round trip re-reads the list, so this is a compromise
@@ -83,8 +102,8 @@ CLASS zcl_rak_cj_project DEFINITION
                 iv_names  TYPE string
       RETURNING VALUE(rv) TYPE string.
 
-    METHODS rows RETURNING VALUE(rt) TYPE zcl_rak_fees_api=>tt_project_rows.
-    METHODS hits RETURNING VALUE(rt) TYPE zcl_rak_fees_api=>tt_project_rows.
+    METHODS rows RETURNING VALUE(rt) TYPE tt_prj.
+    METHODS hits RETURNING VALUE(rt) TYPE tt_prj.
 
     METHODS term RETURNING VALUE(rv) TYPE string.
     METHODS page RETURNING VALUE(rv) TYPE i.
@@ -96,7 +115,7 @@ CLASS zcl_rak_cj_project DEFINITION
     METHODS toolbar IMPORTING io_box TYPE REF TO z2ui5_cl_xml_view
                               iv_n   TYPE i.
     METHODS card    IMPORTING io_box TYPE REF TO z2ui5_cl_xml_view
-                              is_row TYPE any.
+                              is_p   TYPE ty_prj.
     METHODS pager   IMPORTING io_box TYPE REF TO z2ui5_cl_xml_view
                               iv_n   TYPE i.
     METHODS pick    IMPORTING iv_field TYPE string
@@ -140,17 +159,55 @@ CLASS zcl_rak_cj_project IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD sig.
+*   WHAT THE CACHE IS VALID FOR. Partner decides the list; journey is in it
+*   so a second journey in the same session cannot inherit the first's
+*   rows. Anything else that changes the list - and nothing does today,
+*   because PROJECTS( ) sends only Partner - belongs here too.
+    DATA(ls_ctx) = zcl_rak_cj_ctx=>build( mo_e ).
+    rv = |{ ls_ctx-partner }/{ mo_e->mv_journey }|.
+  ENDMETHOD.
+
+
+  METHOD pack.
+    rv = |{ is_p-key }{ c_sep }{ is_p-date }{ c_sep }{ is_p-parcel }| &&
+         |{ c_sep }{ is_p-perm }{ c_sep }{ is_p-arc }|.
+  ENDMETHOD.
+
+
+  METHOD unpack.
+    SPLIT iv AT c_sep INTO rs-key rs-date rs-parcel rs-perm rs-arc.
+  ENDMETHOD.
+
+
   METHOD rows.
-*   ONCE PER ROUND TRIP. The control is rebuilt by ENSURE_PARTS( ) on every
-*   request, so this cache spans one render and no more - the same
-*   limitation the parcel control carries and for the same reason: there is
-*   nowhere to put a cache that survives a round trip without it becoming
-*   state that can go stale against the backend.
+*   THREE LEVELS, AND THE MIDDLE ONE IS THE POINT.
+*
+*   MT_ROW spans one render. MT_PRJ_ROWS on the engine spans the SESSION,
+*   and that is what stops a page press, a search or any unrelated round
+*   trip on this step from re-reading 207 projects through the DPC. The
+*   parcel control has no such cache and its own ROWS( ) says what that
+*   costs: "two hundred parcels at five a page is forty reads to walk the
+*   list ... the fix is a cache that survives a round trip". This is it.
+*
+*   THE SIGNATURE IS WHAT MAKES KEEPING IT SAFE. A cache held across round
+*   trips is state that can be wrong, and the way it goes wrong here is the
+*   worst kind - showing one citizen another's portfolio. Used only while
+*   partner and journey still match, that cannot happen; a mismatch simply
+*   re-reads.
     IF mv_read = abap_true.
       rt = mt_row.
       RETURN.
     ENDIF.
     mv_read = abap_true.
+
+    IF mo_e->mt_prj_rows IS NOT INITIAL AND mo_e->mv_prj_sig = sig( ).
+      LOOP AT mo_e->mt_prj_rows INTO DATA(lv_line).
+        APPEND unpack( lv_line ) TO mt_row.
+      ENDLOOP.
+      rt = mt_row.
+      RETURN.
+    ENDIF.
 
     TRY.
 *       Identity is built by ZCL_RAK_CJ_CTX, never assembled here - it is
@@ -165,7 +222,41 @@ CLASS zcl_rak_cj_project IMPLEMENTATION.
 *       PROJECTS( ) adds that from the context. Passing the journey's case
 *       here is what emptied the list before - see the header on PROJECTS( ).
         DATA(ls_res) = lo_api->projects( ).
-        mt_row = ls_res-rows.
+
+*       PROJECTED HERE, AT THE ONE PLACE THE SERVICE ROW IS IN SCOPE. Past
+*       this method nothing in the control - or in the engine's cache -
+*       knows the MPC type exists, which is what keeps the generated DPC
+*       chain out of both their load graphs.
+        LOOP AT ls_res-rows ASSIGNING FIELD-SYMBOL(<sr>).
+          DATA ls_p TYPE ty_prj.
+          CLEAR ls_p.
+          ls_p-key = cell( is_row = <sr> iv_names = `PROJECTNO,PROJECT,ID` ).
+          IF ls_p-key IS INITIAL.
+            CONTINUE.
+          ENDIF.
+          ls_p-parcel = cell( is_row = <sr> iv_names = `PARCEL,PARCELID` ).
+          ls_p-perm   = cell( is_row = <sr> iv_names = `PERMITS` ).
+          ls_p-arc    = cell( is_row = <sr> iv_names = `ARCOBJECTS` ).
+
+*         THE DATE AS THE CARD SHOWS IT, converted once on the read rather
+*         than on every paint. ProjectSet returns Edm.DateTime, which
+*         arrives as eight digits of date followed by a time; the live card
+*         prints dd/mm/yyyy and nothing else.
+          DATA(lv_o) = cell( is_row = <sr> iv_names = `OPENDATE` ).
+          ls_p-date = COND string(
+            WHEN strlen( lv_o ) >= 8 AND lv_o(8) CO '0123456789'
+            THEN |{ lv_o+6(2) }/{ lv_o+4(2) }/{ lv_o(4) }|
+            ELSE lv_o ).
+
+          APPEND ls_p TO mt_row.
+        ENDLOOP.
+
+*       INTO THE SESSION CACHE, with the signature it is valid for.
+        CLEAR mo_e->mt_prj_rows.
+        LOOP AT mt_row INTO DATA(ls_c).
+          APPEND pack( ls_c ) TO mo_e->mt_prj_rows.
+        ENDLOOP.
+        mo_e->mv_prj_sig = sig( ).
 
 *       THE FILTER STRING IS A DEVELOPER'S NOTE AND IS GATED AS ONE. It
 *       names a partner number, which is exactly the technical disclosure
@@ -196,13 +287,9 @@ CLASS zcl_rak_cj_project IMPLEMENTATION.
 *   are as likely to search by parcel as by project number - both are on
 *   the card - and CS rather than equality because a search box means
 *   "contains" everywhere else they have used one.
-    LOOP AT rows( ) ASSIGNING FIELD-SYMBOL(<r>).
-      DATA(lv_hay) = to_upper(
-        |{ cell( is_row = <r> iv_names = `PROJECTNO,PROJECT,ID` ) } | &&
-        |{ cell( is_row = <r> iv_names = `PARCEL,PARCELID` ) } | &&
-        |{ cell( is_row = <r> iv_names = `ADDRESS` ) } | &&
-        |{ cell( is_row = <r> iv_names = `OWNER` ) }| ).
-      IF lv_hay CS lv_t.
+    DATA(lt_all) = rows( ).
+    LOOP AT lt_all ASSIGNING FIELD-SYMBOL(<r>).
+      IF to_upper( |{ <r>-key } { <r>-parcel }| ) CS lv_t.
         APPEND <r> TO rt.
       ENDIF.
     ENDLOOP.
@@ -327,7 +414,7 @@ CLASS zcl_rak_cj_project IMPLEMENTATION.
       IF lv_i < lv_from OR lv_i > lv_to.
         CONTINUE.
       ENDIF.
-      card( io_box = lo_box is_row = <r> ).
+      card( io_box = lo_box is_p = <r> ).
     ENDLOOP.
 
     pager( io_box = lo_box iv_n = lv_n ).
@@ -362,80 +449,86 @@ CLASS zcl_rak_cj_project IMPLEMENTATION.
 
   METHOD card.
 
-*   PROJECTNO IS THE KEY AND THE HEADING, and it is what gets STORED.
-*   ZCL_EGA_CJ_FW_RO_DML_ABS_V1's UPDATE takes the posted INTRENO_PROJECT,
-*   files it as CJ06, and then looks it up as SCMG_T_CASE_ATTR-EXT_KEY to
-*   derive the owner and the parcel - so the value has to be the project
-*   case number exactly as the service returned it, not a trimmed display
-*   form. Nothing here reformats it.
-    DATA(lv_key) = cell( is_row = is_row iv_names = `PROJECTNO,PROJECT,ID` ).
-    IF lv_key IS INITIAL.
+*   THE LIVE CARD, MEASURED OFF THE SCREENSHOT, and the first version was
+*   not it. Three things were wrong and each made the list harder to read:
+*
+*   1. THE COUNTS SAT IN A BLUE PILL. rakPclBadge is the parcel card's
+*      acquisition-type chip - a coloured pill with padding, right for one
+*      short word and wrong for two stacked figures, which it wrapped in a
+*      blue lozenge the live screen does not have.
+*   2. A SELECT BUTTON HAD ITS OWN ROW, under a divider. That is sixty
+*      pixels of nothing on every card, and at six cards a page it is why
+*      the list needed scrolling for what the real screen fits in a
+*      viewport.
+*   3. THE NUMBER WAS BLACK AND BOLD. On the live card it is the brand
+*      colour and reads as the thing you press.
+*
+*   SO THE NUMBER IS THE ACTION NOW. sap.m.CustomListItem takes no PRESS
+*   through this wrapper, so a whole-card click is not available and the
+*   affordance has to live on a control - a Link on the project number is
+*   the closest thing to it, and it is what the live screen looks like
+*   anyway. The Select button stays as a quiet transparent control on the
+*   same row, because a link alone is a poor target on a phone.
+    IF is_p-key IS INITIAL.
       RETURN.
     ENDIF.
 
-    DATA(lv_parcel) = cell( is_row = is_row iv_names = `PARCEL,PARCELID` ).
-    DATA(lv_perm)   = cell( is_row = is_row iv_names = `PERMITS` ).
-    DATA(lv_arc)    = cell( is_row = is_row iv_names = `ARCOBJECTS` ).
-    DATA(lv_owner)  = cell( is_row = is_row iv_names = `OWNER` ).
-    DATA(lv_open)   = cell( is_row = is_row iv_names = `OPENDATE` ).
-
-*   THE DATE AS THE CARD SHOWS IT. ProjectSet returns Edm.DateTime, which
-*   arrives here as an eight-character date followed by a time; the live
-*   card prints dd/mm/yyyy and nothing else.
-    DATA lv_date TYPE string.
-    IF strlen( lv_open ) >= 8 AND lv_open(8) CO '0123456789'.
-      lv_date = |{ lv_open+6(2) }/{ lv_open+4(2) }/{ lv_open(4) }|.
-    ELSE.
-      lv_date = lv_open.
-    ENDIF.
-
-    DATA(lv_sel) = xsdbool( mo_e->val_get( mv_fld ) = lv_key ).
+    DATA(lv_sel) = xsdbool( mo_e->val_get( mv_fld ) = is_p-key ).
 
     DATA(lo_p) = io_box->vbox(
-      class = |{ mo_e->mo_css->cls( 'CARD' ) } rakPclCard| ).
+      class = |{ mo_e->mo_css->cls( 'CARD' ) } rakPclCard rakPrjCard| &&
+              COND string( WHEN lv_sel = abap_true THEN ` rakPrjOn` ) ).
 
+*   ---- row one: number, date, and the two counts on the right --------
     DATA(lo_top) = lo_p->hbox( class = 'rakPclTop' ).
-    lo_top->title( text = lv_key level = 'H5' class = 'rakPclNo' ).
-    IF lv_date IS NOT INITIAL.
-      lo_top->text( text = lv_date class = 'rakPclMeta sapUiTinyMarginBegin' ).
+
+    lo_top->link( text  = is_p-key
+                  press = mo_e->mo_client->_event( |{ c_pfx }PICK_{ mv_fld }~{ is_p-key }| )
+                  class = 'rakPrjNo' ).
+    IF is_p-date IS NOT INITIAL.
+      lo_top->text( text = is_p-date class = 'rakPrjDate sapUiTinyMarginBegin' ).
     ENDIF.
 
-*   PERMITS AND ARC. OBJECTS SIT RIGHT, as two stacked captions, which is
-*   the live card's layout. ARCOBJECTS comes back EMPTY from the service -
-*   verified against the portal's own response, not assumed - so the
-*   caption draws with no figure under it exactly as the real screen does.
-*   Do not substitute a zero: a zero is a count, and no count was given.
-    DATA(lo_r) = lo_top->hbox( class = 'rakPclBadge' ).
-    DATA(lo_c1) = lo_r->vbox( class = 'sapUiSmallMarginEnd' ).
+*   PLAIN, RIGHT-ALIGNED, NO CHIP. rakPrjNums pushes the block right with
+*   margin-inline-start:auto, which is the same mechanism rakPclBadge used
+*   and all of it that was wanted here.
+    DATA(lo_r) = lo_top->hbox( class = 'rakPrjNums' ).
+
+    DATA(lo_c1) = lo_r->vbox( class = 'rakPrjNum' ).
     lo_c1->text( text = t( iv_en = `Permits` iv_ar = `التصاريح` ) class = 'rakPclMeta' ).
-    IF lv_perm IS NOT INITIAL.
-      lo_c1->text( text = lv_perm ).
+*   NO SUBSTITUTED ZERO. ArcObjects comes back EMPTY from the live service
+*   too - verified against the portal's own response - so the caption
+*   draws with nothing under it, exactly as the real card does. A zero is
+*   a count, and no count was given.
+    IF is_p-perm IS NOT INITIAL.
+      lo_c1->text( text = is_p-perm class = 'rakPrjFig' ).
     ENDIF.
-    DATA(lo_c2) = lo_r->vbox( ).
+
+    DATA(lo_c2) = lo_r->vbox( class = 'rakPrjNum' ).
     lo_c2->text( text = t( iv_en = `Arc. objects` iv_ar = `عناصر الأرشيف` ) class = 'rakPclMeta' ).
-    IF lv_arc IS NOT INITIAL.
-      lo_c2->text( text = lv_arc ).
+    IF is_p-arc IS NOT INITIAL.
+      lo_c2->text( text = is_p-arc class = 'rakPrjFig' ).
     ENDIF.
 
-*   ONE GREY META LINE, pipe separated, the way the parcel card does it.
+*   ---- row two: the meta line and the quiet action -------------------
+    DATA(lo_bot) = lo_p->hbox( alignitems = 'Center' class = 'rakPrjBot' ).
+
     DATA lt_meta TYPE string_table.
-    IF lv_parcel IS NOT INITIAL.
-      APPEND |{ t( iv_en = `Parcel ID` iv_ar = `رقم القطعة` ) } { lv_parcel }| TO lt_meta.
+    IF is_p-parcel IS NOT INITIAL.
+      APPEND |{ t( iv_en = `Parcel ID` iv_ar = `رقم القطعة` ) } { is_p-parcel }| TO lt_meta.
     ENDIF.
-    APPEND COND string( WHEN lv_owner IS NOT INITIAL
-                        THEN |{ t( iv_en = `Owner` iv_ar = `المالك` ) } { lv_owner }|
-                        ELSE t( iv_en = `Owner` iv_ar = `المالك` ) ) TO lt_meta.
-    lo_p->text( text  = concat_lines_of( table = lt_meta sep = `  |  ` )
-                class = 'rakPclMeta' ).
+    APPEND t( iv_en = `Owner` iv_ar = `المالك` ) TO lt_meta.
+    lo_bot->text( text  = concat_lines_of( table = lt_meta sep = `  |  ` )
+                  class = 'rakPclMeta' ).
 
-    DATA(lo_act) = lo_p->hbox( class = 'rakPclAct' ).
-    lo_act->button(
+    lo_bot->button(
       text  = COND string( WHEN lv_sel = abap_true
                            THEN t( iv_en = `Selected` iv_ar = `محدد` )
                            ELSE t( iv_en = `Select`   iv_ar = `اختيار` ) )
       icon  = COND string( WHEN lv_sel = abap_true THEN 'sap-icon://accept' )
-      type  = COND string( WHEN lv_sel = abap_true THEN 'Success' ELSE 'Emphasized' )
-      press = mo_e->mo_client->_event( |{ c_pfx }PICK_{ mv_fld }~{ lv_key }| ) ).
+      type  = COND string( WHEN lv_sel = abap_true THEN 'Success' ELSE 'Transparent' )
+      class = 'rakPrjBtn'
+      press = mo_e->mo_client->_event( |{ c_pfx }PICK_{ mv_fld }~{ is_p-key }| ) ).
   ENDMETHOD.
 
 

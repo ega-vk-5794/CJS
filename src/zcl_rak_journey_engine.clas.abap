@@ -222,6 +222,28 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mv_prj_term  TYPE string.
     DATA mv_prj_page  TYPE i.
 
+*   THE PROJECT LIST, CACHED ACROSS ROUND TRIPS, AND THE REASON IS PAGING.
+*   A composite control is rebuilt by ENSURE_PARTS( ) on every request, so
+*   a cache inside it spans one render - which means every page press,
+*   every search keystroke and every unrelated round trip on the step
+*   re-read 207 projects through the DPC. The parcel control carries the
+*   same cost and says so in ROWS( ); this is that note acted on.
+*
+*   A STRING TABLE, NOT THE ROW TYPE. Two reasons, both deliberate. The
+*   row type is LINE OF a generated MPC table, so naming it here would put
+*   the whole legacy DPC chain in the engine's load graph - the single
+*   thing every dynamic call in this area exists to avoid. And the full
+*   row carries navigation properties and metadata the cards never draw;
+*   five packed display values are about 60 bytes a project against
+*   several hundred, which matters because this rides the SERIALIZED app
+*   instance and is written and read on every single round trip.
+*
+*   MV_PRJ_SIG is what makes it safe to keep: the cache is used only while
+*   the signature - partner and journey - still matches, so a relaunch as
+*   somebody else cannot be shown the previous citizen's portfolio.
+    DATA mt_prj_rows TYPE string_table.
+    DATA mv_prj_sig  TYPE string.
+
 *   EVERY COMPOSITE CONTROL, ASKED IN TURN. This was a single MO_PCL, and
 *   the interface always anticipated more than one - "ABAP_FALSE means not
 *   mine" is in its header. A table is what makes that contract real: the

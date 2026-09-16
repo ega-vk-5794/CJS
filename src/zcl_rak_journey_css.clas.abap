@@ -681,6 +681,41 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakPclCard\{gap:.4rem;\}| &&
         |.rakPclCard .sapMTitle\{margin:0;\}| &&
         |.rakPclHint\{color:#6a7484;font-size:.82rem;\}| &&
+*     ---- THE PROJECT CARD ------------------------------------------------
+*     It reuses .rakPclCard for the frame, the border and the red left edge,
+*     and overrides only where a project card differs from a parcel one.
+*     Sharing the frame is the point: two card lists in one product that
+*     look different because they were written on different days is a worse
+*     outcome than either of them.
+*
+*     TIGHTER THAN A PARCEL CARD, because there is less on it - two rows
+*     against three, and no badge. The first version inherited the parcel
+*     card's rhythm plus a Select button on its own row under a divider,
+*     which made a 200px card out of 80px of content and turned six of them
+*     into a scroll.
+        |.rakPrjCard\{gap:.25rem;padding-block:.55rem;\}| &&
+*     THE NUMBER IS THE ACTION. sap.m.CustomListItem takes no PRESS through
+*     the z2ui5 wrapper, so a whole-card click is not available; a Link on
+*     the project number is the nearest affordance and is what the live card
+*     looks like in any case. Sized up, because it is also the heading.
+        |.rakPrjNo .sapMLnk,.rakPrjNo\{font-size:1.05rem;font-weight:600;| &&
+        |letter-spacing:.01em;\}| &&
+        |.rakPrjDate\{color:{ g-navy_mut_clr };font-size:.9rem;\}| &&
+*     PLAIN AND RIGHT-ALIGNED, NO CHIP. The counts were drawn in
+*     .rakPclBadge, which is the parcel card's acquisition-type pill - a
+*     coloured lozenge with padding, right for one short word and wrong for
+*     two stacked figures. Only its margin-inline-start:auto was wanted.
+        |.rakPrjNums\{margin-inline-start:auto;gap:1.4rem;\}| &&
+        |.rakPrjNum\{align-items:flex-end;gap:.1rem;\}| &&
+        |.rakPrjFig\{font-size:1rem;font-weight:600;\}| &&
+*     Row two carries the meta line and the quiet action on ONE line, which
+*     is where the height saving comes from.
+        |.rakPrjBot\{width:100%;gap:.6rem;\}| &&
+        |.rakPrjBtn\{margin-inline-start:auto;\}| &&
+*     The chosen card says so itself. With 207 of them the strip above the
+*     list is the primary answer, but a reader scrolling back should not
+*     have to look up to see which one they picked.
+        |.rakPrjOn\{border-color:{ g-brand_clr };\}| &&
 *     THE WAIT OVERLAY, over the parcel map frame.
 *
 *     A framed map has a silent gap that nothing else can fill. The frame
