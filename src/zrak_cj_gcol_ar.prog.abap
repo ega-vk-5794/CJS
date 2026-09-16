@@ -222,7 +222,18 @@ CLASS lcl_app IMPLEMENTATION.
 
       LOOP AT lt_ent INTO DATA(lv_ent).
 
-        IF condense( lv_ent ) IS INITIAL.
+*       A VARIABLE, BECAUSE A BUILT-IN FUNCTION CANNOT SIT IN FRONT OF
+*       IS INITIAL. condense( x ) IS INITIAL is "Unexpected operator IS",
+*       and the error names the predicate rather than the call before it,
+*       so it reads as though the IF is malformed.
+*
+*       THIS IS NOT TRUE OF METHOD CALLS, and the distinction matters:
+*       io_ctx->get_val( x ) IS INITIAL and cell_of( ... ) IS INITIAL are
+*       all over D001 and the renderer and have always been fine. Do not
+*       "fix" those - only the built-in functions (condense, to_upper,
+*       strlen) need the variable.
+        DATA(lv_chk) = condense( lv_ent ).
+        IF lv_chk IS INITIAL.
           CONTINUE.
         ENDIF.
 

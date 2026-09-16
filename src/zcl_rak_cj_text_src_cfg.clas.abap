@@ -389,7 +389,19 @@ CLASS ZCL_RAK_CJ_TEXT_SRC_CFG IMPLEMENTATION.
         ENDIF.
 *       HIDE in the TYPE slot keeps the column in the payload and off the
 *       screen, so it has no heading anybody reads. Nor has a blank label.
-        IF condense( lv_gl ) IS INITIAL
+*
+*       A VARIABLE, BECAUSE A BUILT-IN FUNCTION CANNOT SIT IN FRONT OF
+*       IS INITIAL. condense( x ) IS INITIAL is "Unexpected operator IS",
+*       and the error names the predicate rather than the call before it.
+*       The to_upper( ) on the next line is fine: = compares two operands
+*       and a built-in function is legal as one of them - it is the
+*       PREDICATE that will not take one.
+*
+*       METHOD calls are unaffected. get_val( ) IS INITIAL and cell_of( )
+*       IS INITIAL are used throughout D001 and the renderer and have
+*       always activated; only condense, to_upper and strlen need this.
+        DATA(lv_gll) = condense( lv_gl ).
+        IF lv_gll IS INITIAL
            OR to_upper( condense( lv_gt ) ) = 'HIDE'.
           CONTINUE.
         ENDIF.
@@ -399,7 +411,7 @@ CLASS ZCL_RAK_CJ_TEXT_SRC_CFG IMPLEMENTATION.
                        iv_block   = CONV #( <ls_g>-field_name )
                        iv_elem    = CONV #( condense( lv_gn ) )
                        iv_kind    = c_kind-gcol
-                       iv_en      = condense( lv_gl )
+                       iv_en      = lv_gll
                        iv_ar      = condense( lv_ga )
              CHANGING  ct_txt     = rt_txt ).
       ENDLOOP.
