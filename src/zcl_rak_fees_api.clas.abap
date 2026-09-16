@@ -117,6 +117,19 @@ CLASS zcl_rak_fees_api DEFINITION
                 iv_dept   TYPE string OPTIONAL
       RETURNING VALUE(rs) TYPE ty_project_res.
 
+*   CONFIRMED FROM THE DPC'S OWN SIGNATURE, not inferred. ET_ENTITYSET on
+*   PAYMENTSET_GET_ENTITYSET is typed ZCL_ZEGA_CJ_MPC=>TT_PAYMENT, which was
+*   read off the Class Builder rather than guessed from the sibling naming -
+*   so this is a plain TYPES like the other three and needs no dynamic
+*   CREATE DATA to stay safe.
+*
+*   LINE OF, for the reason written on TY_FEE_ROW above: the generator leaves
+*   the table type with no key at all, which makes it GENERIC and illegal for
+*   typing a data object. The row comes from the MPC, the table is completed
+*   here.
+    TYPES ty_pay_row  TYPE LINE OF zcl_zega_cj_mpc=>tt_payment.
+    TYPES tt_pay_rows TYPE STANDARD TABLE OF ty_pay_row WITH DEFAULT KEY.
+
     TYPES: BEGIN OF ty_pay_res,
 *            SUCCESS / OPEN / FAILED exactly as the DPC writes them, or BLANK
 *            when the call could not be made at all. Blank is not a status and
@@ -315,53 +328,64 @@ CLASS zcl_rak_fees_api IMPLEMENTATION.
 
   METHOD payment_status.
 
-*   DYNAMIC, AND FOR THE ONE REASON THIS REPOSITORY ALREADY LEARNED THE HARD
-*   WAY. ET_ENTITYSET needs a table of the generated MPC's Payment row type,
-*   and ZCL_ZEGA_CJ_MPC is not in this repository - it exists only in SAP. The
-*   name TT_PAYMENT is an inference from five confirmed siblings (TT_FEES,
-*   TT_TRACKER, TT_PROJECT, TT_PROPERTIES, TT_PARTNER all follow the entity
-*   name), which is a good inference and still a guess.
+*   A STATIC CALL WITH A DYNAMIC TABLE, and the first version had that the
+*   wrong way round. It called PAYMENTSET_GET_ENTITYSET through a
+*   PARAMETER-TABLE carrying the four parameters that looked interesting, and
+*   the runtime said what the three static sibling calls in this class already
+*   showed: "the mandatory parameter IV_SOURCE_NAME was not filled". The
+*   generated DPC declares ELEVEN exporting parameters and every one of them is
+*   mandatory, so a hand-built parameter table is a list to keep in step with a
+*   signature nobody here can read - the exact failure mode dynamic calls are
+*   supposed to avoid, reintroduced by hand.
 *
-*   Written statically, a wrong guess is an ACTIVATION failure - and this class
-*   has callers, so it would surface at each of them as "method unknown",
-*   pointing nowhere near the cause. That is exactly how ZCL_RAK_CJ_REQ_CTX
-*   cost three rounds. Named at RUNTIME instead, a wrong guess is a catchable
-*   CX_SY_CREATE_DATA_ERROR, this method returns blank, and the caller falls
-*   back to the code it has always run.
-    DATA lr_tab TYPE REF TO data.
-    FIELD-SYMBOLS <t> TYPE STANDARD TABLE.
+*   Called statically the COMPILER keeps that list in step, and it costs
+*   nothing extra: this class already inherits the DPC and already calls
+*   FEESSET, TRACKERSET and PROJECTSET the same way, so the chain is in its
+*   load graph regardless.
+*
+*   NOTHING IS DYNAMIC ANY MORE. The row type was the last unknown and it is
+*   now read off the signature - ET_ENTITYSET is ZCL_ZEGA_CJ_MPC=>TT_PAYMENT -
+*   so the CREATE DATA that existed to make a wrong guess catchable has no
+*   guess left to protect and is gone. IO_TECH_REQUEST_CONTEXT is the only
+*   optional parameter on the method; the other ten are mandatory, which is
+*   what the first version fell over.
+    DATA lt_pay TYPE tt_pay_rows.
 
     TRY.
-        CREATE DATA lr_tab TYPE ('ZCL_ZEGA_CJ_MPC=>TT_PAYMENT').
-        ASSIGN lr_tab->* TO <t>.
-        IF <t> IS NOT ASSIGNED.
-          RETURN.
-        ENDIF.
-
         DATA lt_flt TYPE /iwbep/t_mgw_select_option.
         filter( EXPORTING iv_property = `Intreno` iv_value = iv_intreno
                 CHANGING  ct_filter   = lt_flt ).
 
-        DATA(lt_parm) = VALUE abap_parmbind_tab(
-          ( name  = 'IV_ENTITY_NAME'
-            kind  = cl_abap_objectdescr=>exporting value = REF #( `Payment` ) )
-          ( name  = 'IV_ENTITY_SET_NAME'
-            kind  = cl_abap_objectdescr=>exporting value = REF #( `PaymentSet` ) )
-          ( name  = 'IT_FILTER_SELECT_OPTIONS'
-            kind  = cl_abap_objectdescr=>exporting value = REF #( lt_flt ) )
-          ( name  = 'ET_ENTITYSET'
-            kind  = cl_abap_objectdescr=>importing value = lr_tab ) ).
+        paymentset_get_entityset(
+          EXPORTING
+            iv_entity_name           = `Payment`
+            iv_entity_set_name       = `PaymentSet`
+            iv_source_name           = ``
+            it_filter_select_options = lt_flt
+            is_paging                = VALUE #( )
+            it_key_tab               = VALUE #( )
+            it_navigation_path       = VALUE #( )
+            it_order                 = VALUE #( )
+            iv_filter_string         = ``
+            iv_search_string         = ``
+*           Passed like the other three. This one never reads it either - the
+*           method takes a single Intreno filter and nothing else - but leaving
+*           it out would make a reader wonder which sets are safe.
+            io_tech_request_context  = mo_req
+          IMPORTING
+            et_entityset             = lt_pay ).
 
-*       THE METHOD NAME IS DYNAMIC TOO, so a DPC that does not declare it - an
-*       older release, a different service - degrades the same way rather than
-*       refusing to load this class.
-        CALL METHOD me->('PAYMENTSET_GET_ENTITYSET')
-          PARAMETER-TABLE lt_parm.
-
-*       ONE ROW, ONE COMPONENT. The DPC answers a single-row table whose only
-*       interesting component is STATUS, read by ASSIGN COMPONENT rather than
-*       by naming a component of a structure this environment cannot open.
-        LOOP AT <t> ASSIGNING FIELD-SYMBOL(<r>).
+*       ONE ROW, ONE COMPONENT. The DPC answers a single-row table and the only
+*       component worth reading is STATUS - it writes nothing else.
+*
+*       ASSIGN COMPONENT rather than <r>-status, even though the type is now
+*       known and the direct read would be compiler-checked. The difference is
+*       what happens if the generated MPC is ever regenerated with that
+*       component renamed: a direct read fails ACTIVATION, taking this class and
+*       everything that calls it down, where the assign misses at runtime,
+*       leaves the status blank, and POLL_STATUS( ) falls back to the port it
+*       has always had. On a payment poll that is the right way round.
+        LOOP AT lt_pay ASSIGNING FIELD-SYMBOL(<r>).
           ASSIGN COMPONENT 'STATUS' OF STRUCTURE <r> TO FIELD-SYMBOL(<s>).
           IF sy-subrc = 0.
             rs-status = to_upper( condense( CONV string( <s> ) ) ).
