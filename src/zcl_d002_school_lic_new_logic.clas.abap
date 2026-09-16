@@ -404,7 +404,10 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
       DATA(lv_eid) = condense( io_ctx->get_val( 'MANAGERSEARCH' ) ).
       IF strlen( lv_eid ) < 5 . "c_min_search_len.
         io_ctx->add_msg( iv_type = 'Warning'
-                         iv_text = |Enter at least { c_min_search_len } characters to search| ).
+                         iv_text = zcl_rak_text=>get(
+                                     iv_no      = zcl_rak_text=>c_no-d002_search_min
+                                     iv_v1      = CONV string( c_min_search_len )
+                                     iv_default = |Enter at least { c_min_search_len } characters to search| ) ).
         RETURN.
       ENDIF.
 
@@ -483,12 +486,16 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
 
       IF lv_trade_id IS INITIAL.
         io_ctx->add_msg( iv_type = 'Warning'
-                         iv_text = |Enter valid Trade ID to search| ).
+                         iv_text = zcl_rak_text=>get(
+                                     iv_no      = zcl_rak_text=>c_no-d002_trade_enter
+                                     iv_default = |Enter valid Trade ID to search| ) ).
       ELSE.
         SELECT SINGLE partner FROM but0id INTO @DATA(lv_trade_partner) WHERE idnumber EQ @lv_trade_id AND type EQ 'YP0001'.
         IF lv_trade_partner IS INITIAL.
           io_ctx->add_msg( iv_type = 'Warning'
-                iv_text = |No  valid Business Partner Found for Entered Trade ID| ).
+                iv_text = zcl_rak_text=>get(
+                            iv_no      = zcl_rak_text=>c_no-d002_trade_nobp
+                            iv_default = |No  valid Business Partner Found for Entered Trade ID| ) ).
         ENDIF.
       ENDIF.
 

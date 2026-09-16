@@ -141,7 +141,9 @@ CLASS ZCL_D011_SCHOOL_ADVERTIS_LOGIC IMPLEMENTATION.
        io_ctx->get_val( 'TYPE_AUDIO' )  IS INITIAL.
       APPEND VALUE #( type  = 'Error'
 *                      field = 'TYPE_TEXT'
-                      text  = `Select at least one advertisement type.` ) TO rt.
+                      text  = zcl_rak_text=>get(
+                                iv_no      = zcl_rak_text=>c_no-d011_need_type
+                                iv_default = `Select at least one advertisement type.` ) ) TO rt.
     ENDIF.
 
 *   ---- the advertisement window ----------------------------------------------
@@ -153,7 +155,9 @@ CLASS ZCL_D011_SCHOOL_ADVERTIS_LOGIC IMPLEMENTATION.
     IF lv_from IS NOT INITIAL AND lv_to IS NOT INITIAL AND lv_to < lv_from.
       APPEND VALUE #( type  = 'Error'
 *                      field = 'END_DATE'
-                      text  = `The advertisement end date cannot be before the start date.` ) TO rt.
+                      text  = zcl_rak_text=>get(
+                                iv_no      = zcl_rak_text=>c_no-d011_end_before
+                                iv_default = `The advertisement end date cannot be before the start date.` ) ) TO rt.
     ENDIF.
 
 *   ---- the consent answer -----------------------------------------------------
@@ -166,7 +170,9 @@ CLASS ZCL_D011_SCHOOL_ADVERTIS_LOGIC IMPLEMENTATION.
        AND io_ctx->get_val( 'ADV_PERSONAL_N' ) IS INITIAL.
       APPEND VALUE #( type  = 'Error'
 *                      field = c_consent
-                      text  = `Re-select the consent answer before continuing.` ) TO rt.
+                      text  = zcl_rak_text=>get(
+                                iv_no      = zcl_rak_text=>c_no-d011_reselect_cons
+                                iv_default = `Re-select the consent answer before continuing.` ) ) TO rt.
     ENDIF.
 
   ENDMETHOD.

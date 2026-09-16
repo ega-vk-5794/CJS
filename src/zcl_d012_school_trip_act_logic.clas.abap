@@ -109,7 +109,9 @@ CLASS ZCL_D012_SCHOOL_TRIP_ACT_LOGIC IMPLEMENTATION.
     IF lv_any = abap_false.
       APPEND VALUE #( type  = 'Error'
 *                      field = 'GR_PREKG'
-                      text  = `Select at least one targeted grade.` ) TO rt.
+                      text  = zcl_rak_text=>get(
+                                iv_no      = zcl_rak_text=>c_no-d012_need_grade
+                                iv_default = `Select at least one targeted grade.` ) ) TO rt.
     ENDIF.
 
 *   ---- the activity window ----------------------------------------------------
@@ -131,7 +133,9 @@ CLASS ZCL_D012_SCHOOL_TRIP_ACT_LOGIC IMPLEMENTATION.
       IF |{ lv_ed }{ lv_et }| < |{ lv_sd }{ lv_st }|.
         APPEND VALUE #( type  = 'Error'
 *                        field = 'END_DATE'
-                        text  = `The activity must end after it starts.` ) TO rt.
+                        text  = zcl_rak_text=>get(
+                                  iv_no      = zcl_rak_text=>c_no-d012_end_after
+                                  iv_default = `The activity must end after it starts.` ) ) TO rt.
       ENDIF.
 
     ELSEIF lv_sd IS NOT INITIAL AND lv_ed IS NOT INITIAL AND lv_ed < lv_sd.
@@ -139,7 +143,9 @@ CLASS ZCL_D012_SCHOOL_TRIP_ACT_LOGIC IMPLEMENTATION.
 *     saying now rather than waiting for the times to be entered.
       APPEND VALUE #( type  = 'Error'
 *                      field = 'END_DATE'
-                      text  = `The activity end date cannot be before the start date.` ) TO rt.
+                      text  = zcl_rak_text=>get(
+                                iv_no      = zcl_rak_text=>c_no-d012_end_before
+                                iv_default = `The activity end date cannot be before the start date.` ) ) TO rt.
     ENDIF.
 
 *   ---- supervisors ------------------------------------------------------------

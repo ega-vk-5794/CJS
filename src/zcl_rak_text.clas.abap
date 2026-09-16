@@ -277,6 +277,84 @@ CLASS zcl_rak_text DEFINITION
 *       toggling from.
         sort_asc            TYPE symsgno VALUE '142',
         sort_desc           TYPE symsgno VALUE '143',
+*       ================================================================
+*       THE DOK SCHOOL FAMILY - D001, D002, D011, D012.
+*       ================================================================
+*       These four journeys draw wording NO CONFIG COLUMN CAN REACH:
+*       D001 hand-draws its whole Owner list and Owner dialog in ABAP, and
+*       all four raise validation messages from ON_CUSTOM_VALIDATE( ) and
+*       ON_CHANGE( ), which have no _AR twin anywhere. Every one of them
+*       was a bare literal, so an Arabic run showed English.
+*
+*       JOURNEY WORDING IN THE FRAMEWORK CATALOGUE, DELIBERATELY. The class
+*       header says journey text is handled by the _AR twin columns - true
+*       of everything that lives in ZRAK_T_JNY*, and these do not. A
+*       hand-drawn control has no row to carry its twin, so the only two
+*       places its Arabic can live are a literal in the class (which is the
+*       defect) or here. Here also means SM30-maintainable through
+*       ZRAK_T_CJ_TXT with no developer and no activation, and countable by
+*       the missing-Arabic report, neither of which a literal can offer.
+*
+*       NUMBERS START AT 145 BECAUSE 144 IS THE HIGHEST IN USE. Read the
+*       highest NUMERICALLY before adding - MSGNO is a UNIQUE KEY that
+*       nothing checks at compile time, and a collision raises
+*       CX_SY_ITAB_DUPLICATE_KEY the moment the catalogue is built, which
+*       kills the Studio and every journey at once. See the note on 144.
+*
+*       WHAT IS NOT HERE IS AS DELIBERATE AS WHAT IS. Six of D001's strings
+*       are the same words an existing entry already carries in verified
+*       Arabic, so they REUSE it rather than getting a twin: Emirates ID
+*       (BPP_EID), Nationality (BPP_NAT), Mobile Number (COL_MOBILE_NUMBER),
+*       Search (SEARCH), Close (CLOSE) and Delete (DELETE). A second row
+*       saying the same thing is a second row to keep in step.
+        own_owner           TYPE symsgno VALUE '145',
+        own_details         TYPE symsgno VALUE '146',
+        own_add_owner       TYPE symsgno VALUE '147',
+        own_col_name        TYPE symsgno VALUE '148',
+        own_col_email       TYPE symsgno VALUE '149',
+        own_col_shares      TYPE symsgno VALUE '150',
+        own_edit_tip        TYPE symsgno VALUE '151',
+        own_none_yet        TYPE symsgno VALUE '152',
+        own_identification  TYPE symsgno VALUE '153',
+*       BIRTH DATE RATHER THAN BPP_DOB. The Arabic is the same string as
+*       BPP_DOB's and is copied from it verbatim; the entry exists only
+*       because the English differs ("Birth Date" against "Date of Birth")
+*       and this pass is not allowed to change what an English reader sees.
+*       Collapse the two if the department ever agrees one spelling.
+        own_dob             TYPE symsgno VALUE '154',
+        own_shares_pct      TYPE symsgno VALUE '155',
+        own_documents       TYPE symsgno VALUE '156',
+*       THE SIX UPLOADER LABELS. Each names a document the department
+*       already has a legal name for - see the warning at the catalogue
+*       rows themselves.
+        own_doc_eid         TYPE symsgno VALUE '157',
+        own_doc_passport    TYPE symsgno VALUE '158',
+        own_doc_intro       TYPE symsgno VALUE '159',
+        own_doc_criminal    TYPE symsgno VALUE '160',
+        own_doc_cv          TYPE symsgno VALUE '161',
+        own_doc_family      TYPE symsgno VALUE '162',
+        own_btn_add         TYPE symsgno VALUE '163',
+*       D001's validation and popup messages.
+        d001_need_owner     TYPE symsgno VALUE '164',
+        d001_owner_incompl  TYPE symsgno VALUE '165',
+        d001_need_stage     TYPE symsgno VALUE '166',
+        d001_fill_required  TYPE symsgno VALUE '167',
+        d001_shares_100     TYPE symsgno VALUE '168',
+        d001_eid_format     TYPE symsgno VALUE '169',
+        d001_upload_doc     TYPE symsgno VALUE '170',
+        d001_owner_added    TYPE symsgno VALUE '171',
+*       D002 - the manager and trade-licence searches.
+        d002_search_min     TYPE symsgno VALUE '172',
+        d002_trade_enter    TYPE symsgno VALUE '173',
+        d002_trade_nobp     TYPE symsgno VALUE '174',
+*       D011 - advertisement.
+        d011_need_type      TYPE symsgno VALUE '175',
+        d011_end_before     TYPE symsgno VALUE '176',
+        d011_reselect_cons  TYPE symsgno VALUE '177',
+*       D012 - school trip / activity.
+        d012_need_grade     TYPE symsgno VALUE '178',
+        d012_end_after      TYPE symsgno VALUE '179',
+        d012_end_before     TYPE symsgno VALUE '180',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -622,7 +700,123 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
       ( msgno = c_no-sort_desc en = `Sort Descending` ar = `ترتيب تنازلي` )
       ( msgno = c_no-cjs_read_only
         en = `Read-only on this client`
-        ar = `للعرض فقط في هذا العميل` ) ).
+        ar = `للعرض فقط في هذا العميل` )
+*     ==================================================================
+*     THE DOK SCHOOL FAMILY - D001, D002, D011, D012
+*     ==================================================================
+*     EVERY ENGLISH STRING BELOW IS BYTE-IDENTICAL TO THE LITERAL IT
+*     REPLACED, including the wording nobody would choose twice ("Kindly
+*     enter shares as 100", the double space in D002's trade message).
+*     This pass moves text, it does not edit it - an English reader must
+*     see exactly the screen they saw yesterday, so that anything that
+*     does change is known to be the Arabic.
+*
+*     THE ARABIC IS NEW AND NEEDS THE DEPARTMENT'S EYES, and the six
+*     document names below need them most. CLAUDE.md's rule is that
+*     migrated wording is read from the legacy text tables and never
+*     hand-translated, because the department owns words the citizen
+*     already knows from the live screen. These literals are in a
+*     HAND-WRITTEN handler class, so they have no /QNV/SB_LABELT row to
+*     read - but the six uploader labels almost certainly DO have one
+*     under the legacy D001 screen, and a document's name on a government
+*     form is a legal term, not a description. Check these against
+*     /QNV/SB_LABELT before they go live; ZRAK_T_CJ_TXT rewords any of
+*     them in SM30 with no developer and no activation.
+      ( msgno = c_no-own_owner          en = `Owner`          ar = `المالك` )
+      ( msgno = c_no-own_details        en = `Owner Details`  ar = `بيانات المالك` )
+      ( msgno = c_no-own_add_owner      en = `Add Owner`      ar = `إضافة مالك` )
+      ( msgno = c_no-own_col_name       en = `Owner Name`     ar = `اسم المالك` )
+      ( msgno = c_no-own_col_email      en = `Email Address`  ar = `البريد الإلكتروني` )
+      ( msgno = c_no-own_col_shares     en = `Owner Shares`   ar = `حصص المالك` )
+      ( msgno = c_no-own_edit_tip
+        en = `Edit owner details`
+        ar = `تعديل بيانات المالك` )
+      ( msgno = c_no-own_none_yet
+        en = `No owners yet. Press Add Owner to enter the first one.`
+        ar = `لا يوجد ملاك حتى الآن. اضغط "إضافة مالك" لإدخال الأول.` )
+      ( msgno = c_no-own_identification en = `Identification` ar = `الهوية` )
+*     Arabic copied verbatim from BPP_DOB - see the note at the constant.
+      ( msgno = c_no-own_dob            en = `Birth Date`     ar = `تاريخ الميلاد` )
+      ( msgno = c_no-own_shares_pct     en = `Shares %`       ar = `نسبة الحصص %` )
+      ( msgno = c_no-own_documents      en = `Documents`      ar = `المستندات` )
+      ( msgno = c_no-own_doc_eid
+        en = `Emirates ID Copy`
+        ar = `صورة الهوية الإماراتية` )
+      ( msgno = c_no-own_doc_passport
+        en = `Passport Copy`
+        ar = `صورة جواز السفر` )
+      ( msgno = c_no-own_doc_intro
+        en = `Introductory Statement`
+        ar = `بيان تعريفي` )
+*     The lower-case "certificate" is the literal's own, kept deliberately.
+      ( msgno = c_no-own_doc_criminal
+        en = `Criminal Clearance certificate`
+        ar = `شهادة حسن سيرة وسلوك` )
+      ( msgno = c_no-own_doc_cv
+        en = `Curriculum Vitae`
+        ar = `السيرة الذاتية` )
+      ( msgno = c_no-own_doc_family
+        en = `Family Book`
+        ar = `خلاصة القيد` )
+      ( msgno = c_no-own_btn_add        en = `Add`            ar = `إضافة` )
+      ( msgno = c_no-d001_need_owner
+        en = `Add at least one owner before continuing.`
+        ar = `يرجى إضافة مالك واحد على الأقل قبل المتابعة.` )
+      ( msgno = c_no-d001_owner_incompl
+        en = `Every owner needs a name, an e-mail address and a share percentage.`
+        ar = `يجب إدخال الاسم والبريد الإلكتروني ونسبة الحصص لكل مالك.` )
+      ( msgno = c_no-d001_need_stage
+        en = `Select at least one education stage.`
+        ar = `يرجى اختيار مرحلة تعليمية واحدة على الأقل.` )
+      ( msgno = c_no-d001_fill_required
+        en = `Kindly fill required details.`
+        ar = `يرجى تعبئة البيانات المطلوبة.` )
+      ( msgno = c_no-d001_shares_100
+        en = `Kindly enter shares as 100`
+        ar = `يرجى إدخال مجموع الحصص بحيث يساوي 100` )
+      ( msgno = c_no-d001_eid_format
+        en = `Emirates ID must be in the format 784-XXXX-XXXXXXX-X.`
+        ar = `يجب أن تكون الهوية الإماراتية بالصيغة 784-XXXX-XXXXXXX-X.` )
+*     &1 IS THE DOCUMENT'S NAME AND IT COMES FROM CONFIG, so it arrives in
+*     whatever language the option row holds - the placeholder is not
+*     translated here and must stay a placeholder.
+      ( msgno = c_no-d001_upload_doc
+        en = `Please upload &1.`
+        ar = `يرجى إرفاق &1.` )
+*     &1 is the Emirates ID just entered - a number, the same in both.
+      ( msgno = c_no-d001_owner_added
+        en = `&1 added to the owner list.`
+        ar = `تمت إضافة &1 إلى قائمة الملاك.` )
+*     &1 is the minimum character count.
+      ( msgno = c_no-d002_search_min
+        en = `Enter at least &1 characters to search`
+        ar = `أدخل &1 أحرف على الأقل للبحث` )
+      ( msgno = c_no-d002_trade_enter
+        en = `Enter valid Trade ID to search`
+        ar = `أدخل رقم رخصة تجارية صحيحاً للبحث` )
+*     The double space after "No" is the literal's own and is kept so the
+*     English is unchanged. Worth correcting in SM30, not in this pass.
+      ( msgno = c_no-d002_trade_nobp
+        en = `No  valid Business Partner Found for Entered Trade ID`
+        ar = `لم يتم العثور على شريك تجاري صحيح لرقم الرخصة المدخل` )
+      ( msgno = c_no-d011_need_type
+        en = `Select at least one advertisement type.`
+        ar = `يرجى اختيار نوع إعلان واحد على الأقل.` )
+      ( msgno = c_no-d011_end_before
+        en = `The advertisement end date cannot be before the start date.`
+        ar = `لا يمكن أن يكون تاريخ انتهاء الإعلان قبل تاريخ بدايته.` )
+      ( msgno = c_no-d011_reselect_cons
+        en = `Re-select the consent answer before continuing.`
+        ar = `يرجى إعادة اختيار إجابة الموافقة قبل المتابعة.` )
+      ( msgno = c_no-d012_need_grade
+        en = `Select at least one targeted grade.`
+        ar = `يرجى اختيار صف مستهدف واحد على الأقل.` )
+      ( msgno = c_no-d012_end_after
+        en = `The activity must end after it starts.`
+        ar = `يجب أن ينتهي النشاط بعد وقت بدايته.` )
+      ( msgno = c_no-d012_end_before
+        en = `The activity end date cannot be before the start date.`
+        ar = `لا يمكن أن يكون تاريخ انتهاء النشاط قبل تاريخ بدايته.` ) ).
   ENDMETHOD.
 
 

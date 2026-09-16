@@ -345,7 +345,9 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *       were no owners. That is tested first now, before the per-row check.
         IF ls_g-rows IS INITIAL.
           rt = VALUE #( BASE rt
-            ( type = 'Error' text = 'Add at least one owner before continuing.' ) ).
+            ( type = 'Error'
+              text = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-d001_need_owner
+                                        iv_default = 'Add at least one owner before continuing.' ) ) ).
           RETURN.
         ENDIF.
 
@@ -355,7 +357,9 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
           OR cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_share ) IS INITIAL.
             rt = VALUE #( BASE rt
               ( type = 'Error'
-                text = 'Every owner needs a name, an e-mail address and a share percentage.' ) ).
+                text = zcl_rak_text=>get(
+                         iv_no      = zcl_rak_text=>c_no-d001_owner_incompl
+                         iv_default = 'Every owner needs a name, an e-mail address and a share percentage.' ) ) ).
             RETURN.
           ENDIF.
         ENDLOOP.
@@ -384,7 +388,9 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
           ENDIF.
         ENDLOOP.
         IF lv_any_stage = abap_false.
-          rt = VALUE #( BASE rt ( type = 'Error' text = 'Select at least one education stage.' ) ).
+          rt = VALUE #( BASE rt ( type = 'Error'
+            text = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-d001_need_stage
+                                      iv_default = 'Select at least one education stage.' ) ) ).
         ENDIF.
 
 *        DATA(lv_buildings) = io_ctx->get_val( 'BUILDINGS' ).
@@ -419,11 +425,15 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
            OR io_ctx->get_val( c_nat ) IS INITIAL.
 
           io_ctx->add_msg( iv_type = 'Warning'
-                           iv_text = 'Kindly fill required details.' ).
+                           iv_text = zcl_rak_text=>get(
+                                       iv_no      = zcl_rak_text=>c_no-d001_fill_required
+                                       iv_default = 'Kindly fill required details.' ) ).
           RETURN.
         ELSEIF io_ctx->get_val( c_share ) IS INITIAL.
           io_ctx->add_msg( iv_type = 'Warning'
-                           iv_text = 'Kindly enter shares as 100' ).
+                           iv_text = zcl_rak_text=>get(
+                                       iv_no      = zcl_rak_text=>c_no-d001_shares_100
+                                       iv_default = 'Kindly enter shares as 100' ) ).
           RETURN.
         ENDIF.
 
@@ -432,7 +442,9 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
         FIND REGEX '^784-\d{4}-\d{7}-\d$' IN lv_eid_chk.
         IF sy-subrc <> 0.
           io_ctx->add_msg( iv_type = 'Warning'
-                           iv_text = 'Emirates ID must be in the format 784-XXXX-XXXXXXX-X.' ).
+                           iv_text = zcl_rak_text=>get(
+                                       iv_no      = zcl_rak_text=>c_no-d001_eid_format
+                                       iv_default = 'Emirates ID must be in the format 784-XXXX-XXXXXXX-X.' ) ).
           RETURN.
         ENDIF.
 
@@ -481,7 +493,10 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *           the required documents" makes the citizen check all six to
 *           find the two that are missing.
             io_ctx->add_msg( iv_type = 'Warning'
-                             iv_text = |Please upload { ls_req_doc-value }.| ).
+                             iv_text = zcl_rak_text=>get(
+                                         iv_no      = zcl_rak_text=>c_no-d001_upload_doc
+                                         iv_v1      = CONV string( ls_req_doc-value )
+                                         iv_default = |Please upload { ls_req_doc-value }.| ) ).
           ENDIF.
         ENDLOOP.
 
@@ -497,7 +512,10 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
         io_ctx->close_popup( ). "Close pop-up screen after adding data
         io_ctx->add_msg( iv_type = 'Success'
-                         iv_text = |{ io_ctx->get_val( c_id ) } added to the owner list.| ).
+                         iv_text = zcl_rak_text=>get(
+                                     iv_no      = zcl_rak_text=>c_no-d001_owner_added
+                                     iv_v1      = io_ctx->get_val( c_id )
+                                     iv_default = |{ io_ctx->get_val( c_id ) } added to the owner list.| ) ).
 
 * on click of 'Close' in pop-up screen
       WHEN c_evt_owncx.
@@ -1073,8 +1091,8 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     DATA(lo_hd) = io_view->hbox( justifycontent = 'SpaceBetween'
                                  alignitems     = 'Center'
                                  class          = 'sapUiSmallMarginTop' ).
-    lo_hd->title( text = 'Owner' class = 'rakBlkTitle' ).
-    lo_hd->button( text  = 'Add Owner'
+    lo_hd->title( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_owner iv_default = 'Owner' ) class = 'rakBlkTitle' ).
+    lo_hd->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_add_owner iv_default = 'Add Owner' )
                    type  = 'Emphasized'
                    icon  = 'sap-icon://add'
                    press = io_ctx->event( c_evt_ownew ) ).
@@ -1082,11 +1100,11 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     DATA(lo_t)  = io_view->table( alternaterowcolors = abap_true ).
     DATA(lo_cl) = lo_t->columns( ).
 *    lo_cl->column( )->text( 'BP' ).
-    lo_cl->column( )->text( 'Owner Name' ).
-    lo_cl->column( )->text( 'Mobile Number' ).
-    lo_cl->column( )->text( 'Email Address' ).
-    lo_cl->column( )->text( 'Owner Shares' ).
-    lo_cl->column( )->text( 'Nationality' ).
+    lo_cl->column( )->text( zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_col_name iv_default = 'Owner Name' ) ).
+    lo_cl->column( )->text( zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-col_mobile_number iv_default = 'Mobile Number' ) ).
+    lo_cl->column( )->text( zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_col_email iv_default = 'Email Address' ) ).
+    lo_cl->column( )->text( zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_col_shares iv_default = 'Owner Shares' ) ).
+    lo_cl->column( )->text( zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-bpp_nat iv_default = 'Nationality' ) ).
     lo_cl->column( halign = 'End' )->text( '' ).
 
 *   Read once, not once per row - this is a ~240-row T005T select. Through the
@@ -1144,16 +1162,19 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       DATA(lo_act) = lo_cells->hbox( ).
       lo_act->button( icon    = 'sap-icon://edit'
                       type    = 'Transparent'
-                      tooltip = 'Edit owner details'
+                      tooltip = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_edit_tip iv_default = 'Edit owner details' )
                       press   = io_ctx->event( |OWN_EDIT_{ lv_id }| ) ).
       lo_act->button( icon    = 'sap-icon://delete'
                       type    = 'Transparent'
-                      tooltip = 'Delete'
+                      tooltip = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-delete iv_default = 'Delete' )
                       press   = io_ctx->event( |OWN_DEL_{ lv_id }| ) ).
     ENDLOOP.
 
     IF ls_g-rows IS INITIAL.
-      io_view->message_strip( text     = 'No owners yet. Press Add Owner to enter the first one.'
+      io_view->message_strip(
+        text     = zcl_rak_text=>get(
+                     iv_no      = zcl_rak_text=>c_no-own_none_yet
+                     iv_default = 'No owners yet. Press Add Owner to enter the first one.' )
                               type     = 'Information'
                               showicon = abap_true
                               class    = 'sapUiSmallMarginTop' ).
@@ -1169,10 +1190,10 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *   adds one line to it.
     DATA(lv_id) = io_ctx->get_val( c_own_id ).
 
-    DATA(lo_dlg) = io_popup->dialog( title = 'Owner' contentwidth = '54rem' ).
+    DATA(lo_dlg) = io_popup->dialog( title = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_owner iv_default = 'Owner' ) contentwidth = '54rem' ).
     DATA(lo_c)   = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
 
-    lo_c->title( text = 'Owner Details' class = 'rakBlkTitle' ).
+    lo_c->title( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_details iv_default = 'Owner Details' ) class = 'rakBlkTitle' ).
 
     LOOP AT io_ctx->msgs( ) INTO DATA(ls_pmsg).
       lo_c->message_strip( text     = ls_pmsg-text
@@ -1201,16 +1222,16 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
                                        singlecontainerfullsize = abap_false
                                                                  )->content( ns = 'form' ).
 
-    lo_form->label( text = 'Identification' required = abap_true ).
+    lo_form->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_identification iv_default = 'Identification' ) required = abap_true ).
 *   Emirates ID is the only option, and OWN_FORM_LOAD now defaults it - so
 *   there is nothing left for the citizen to pick from this dropdown.
     lo_form->combobox( selectedkey = io_ctx->bind( c_identity )
                        editable    = abap_false
-                       placeholder = 'select'
-                                     )->item( key = '1' text = 'Emirates ID' ).
+                       placeholder = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-select iv_default = 'Select' )
+                                     )->item( key = '1' text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-bpp_eid iv_default = 'Emirates ID' ) ).
 *      )->item( key = '2'    text = 'Passport' ).
 
-    lo_form->label( text = 'Emirates ID' required = abap_true ).
+    lo_form->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-bpp_eid iv_default = 'Emirates ID' ) required = abap_true ).
 *   The search icon and Enter both do the same thing. Somebody who has just
 *   typed fifteen digits should not have to reach for the mouse.
     lo_form->input( value            = io_ctx->bind( c_id )
@@ -1218,18 +1239,18 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
                     showvaluehelp    = abap_true
                     valuehelprequest = io_ctx->event( c_evt_ownsr )
                     submit           = io_ctx->event( c_evt_ownsr ) ).
-    lo_form->button( text = 'Search' press = io_ctx->event( c_evt_ownsr ) ).
+    lo_form->button( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-search iv_default = 'Search' ) press = io_ctx->event( c_evt_ownsr ) ).
 
-    lo_form->label( text = 'Birth Date'  displayonly = abap_true  required = abap_true ).
+    lo_form->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_dob iv_default = 'Birth Date' ) displayonly = abap_true required = abap_true ).
     lo_form->date_picker( value         = io_ctx->bind( c_dob )
                           valueformat   = 'yyyy-MM-dd'
                           displayformat = 'dd.MM.yyyy'
                           editable      = abap_false ).
 
-    lo_form->label( text = 'Nationality' required = abap_true ).
+    lo_form->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-bpp_nat iv_default = 'Nationality' ) required = abap_true ).
     DATA(lo_nat) = lo_form->combobox( selectedkey = io_ctx->bind( c_nat )
                                       editable    = abap_false
-                                      placeholder = 'select' ).
+                                      placeholder = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-select iv_default = 'Select' ) ).
 *   T005T, not a hand-typed list. The 106-item literal this replaced stopped
 *   at "Kenya" and never had United Arab Emirates in it at all - or anything
 *   else L through Z. Same source ZCL_RAK_BP_POPUP already reads for its own
@@ -1251,7 +1272,7 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       lo_nat->item( key = ls_nat-key text = ls_nat-text ).
     ENDLOOP.
 
-    lo_form->label( text = 'Shares %' required = abap_true ).
+    lo_form->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_shares_pct iv_default = 'Shares %' ) required = abap_true ).
     lo_form->input( value = io_ctx->bind( c_share ) type = 'Number' ).
 
 *   ---- their documents ------------------------------------------------
@@ -1263,42 +1284,42 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *   Without the key every owner's files would land in one chip list with nothing
 *   to tell them apart, and the delete button beside a chip would remove
 *   somebody else's document.
-    lo_c->title( text = 'Documents' class = 'rakBlkTitle sapUiSmallMarginTop' ).
+    lo_c->title( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_documents iv_default = 'Documents' ) class = 'rakBlkTitle sapUiSmallMarginTop' ).
 
 *   Two per row, the same rakRow/rakCell layout as the fields above.
     DATA(lo_dr1) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d1)  = lo_dr1->vbox( class = 'rakCell' ).
-    lo_d1->label( text = 'Emirates ID Copy' required = abap_true ).
+    lo_d1->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_doc_eid iv_default = 'Emirates ID Copy' ) required = abap_true ).
     io_ctx->render_upload( io_view = lo_d1 iv_field = '60' iv_key = lv_id ).
     DATA(lo_d2)  = lo_dr1->vbox( class = 'rakCell' ).
-    lo_d2->label( text = 'Passport Copy' ).
+    lo_d2->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_doc_passport iv_default = 'Passport Copy' ) ).
     io_ctx->render_upload( io_view = lo_d2 iv_field = 'NL' iv_key = lv_id ).
 
     DATA(lo_dr2) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d3)  = lo_dr2->vbox( class = 'rakCell' ).
-    lo_d3->label( text = 'Introductory Statement' required = abap_true ).
+    lo_d3->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_doc_intro iv_default = 'Introductory Statement' ) required = abap_true ).
     io_ctx->render_upload( io_view = lo_d3 iv_field = 'FE' iv_key = lv_id ).
     DATA(lo_d4)  = lo_dr2->vbox( class = 'rakCell' ).
-    lo_d4->label( text = 'Criminal Clearance certificate' required = abap_true ).
+    lo_d4->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_doc_criminal iv_default = 'Criminal Clearance certificate' ) required = abap_true ).
     io_ctx->render_upload( io_view = lo_d4 iv_field = '6P' iv_key = lv_id ).
 
     DATA(lo_dr3) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d5)  = lo_dr3->vbox( class = 'rakCell' ).
-    lo_d5->label( text = 'Curriculum Vitae' required = abap_true ).
+    lo_d5->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_doc_cv iv_default = 'Curriculum Vitae' ) required = abap_true ).
     io_ctx->render_upload( io_view = lo_d5 iv_field = 'FF' iv_key = lv_id ).
     DATA(lo_d6)  = lo_dr3->vbox( class = 'rakCell' ).
-    lo_d6->label( text = 'Family Book' ).
+    lo_d6->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_doc_family iv_default = 'Family Book' ) ).
     io_ctx->render_upload( io_view = lo_d6 iv_field = '78' iv_key = lv_id ).
 
 
 * Add button on pop-up
     DATA(lo_b) = lo_dlg->buttons( ).
-    lo_b->button( text  = 'Add'
+    lo_b->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_btn_add iv_default = 'Add' )
                   type  = 'Emphasized'
                   icon  = 'sap-icon://accept'
                   press = io_ctx->event( c_evt_ownok ) ).
 * Close button on pop-up
-    lo_b->button( text = 'Close' press = io_ctx->event( c_evt_owncx ) ).
+    lo_b->button( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-close iv_default = 'Close' ) press = io_ctx->event( c_evt_owncx ) ).
 
   ENDMETHOD.
 
