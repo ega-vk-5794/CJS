@@ -4428,6 +4428,45 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *     uploader draws, so landing on it brings the whole control into view.
       io_box->text( text = |{ lv_hint } · up to { lv_mb } MB| class = |rakAttHint{ lv_jump }| ).
     ENDIF.
+
+*   ---- SECOND CHANNEL: THE DIALOG'S OWN DOM --------------------------------
+*   FOLLOW_UP_ACTION( ) RUNS FROM THE MAIN VIEW'S onAfterRendering, AND A ROUND
+*   TRIP THAT ONLY REOPENS A DIALOG NEED NOT RE-RENDER THE MAIN VIEW. That is
+*   documented, it is the trap the parcel map hit, and it is why three attempts
+*   at this scroll went out through FOLLOW_UP_ACTION( ) and none of them ran.
+*   The snippet was never wrong; it was never executed.
+*
+*   The remedy is the documented one: carry the same instruction in an inline
+*   event ATTRIBUTE as well. This 1x1 transparent GIF is drawn INSIDE the
+*   dialog fragment, so its onload fires when the dialog DOM is inserted, on
+*   the same channel the uploader's own onchange FileReader has always used -
+*   no dependence on the main view rendering at all.
+*
+*   IT SCROLLS ITSELF, not a queried element. THIS in an onload is the image,
+*   it sits at the end of the uploader, and SCROLLINTOVIEW walks up to whichever
+*   ancestor actually scrolls - so this needs no selector, no UI5 class name and
+*   no offset, and behaves identically in a dialog and on the page.
+*
+*   OUTSIDE THE HINT'S IF, DELIBERATELY. RAKJUMP rides the hint line, and the
+*   hint is suppressed on a step whose header already carried it - so on the
+*   main page the marker was not being drawn at all. The pin is guarded only by
+*   LV_JUMP, so the uploader just used always carries exactly one.
+*
+*   IDEMPOTENT ON PURPOSE, so this and FOLLOW_UP_ACTION( ) may both run:
+*   scrolling to the same place twice is not visible.
+    IF lv_jump IS NOT INITIAL.
+      DATA(lv_pinjs) =
+        `var e=this;var g=function(){try{e.scrollIntoView(` &&
+        `{block:'center',inline:'nearest'});}catch(x){}};` &&
+        `g();setTimeout(g,120);setTimeout(g,350);`.
+      DATA(lv_pin) =
+        `<img alt="" style="width:1px;height:1px;opacity:0" src="data:image/gif;base64,` &&
+        `R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onload="` &&
+        lv_pinjs && `"/>`.
+      REPLACE ALL OCCURRENCES OF `{` IN lv_pin WITH `\{`.
+      REPLACE ALL OCCURRENCES OF `}` IN lv_pin WITH `\}`.
+      io_box->html( content = lv_pin sanitizecontent = abap_false ).
+    ENDIF.
   ENDMETHOD.
 
 
