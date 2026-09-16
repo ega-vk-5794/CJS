@@ -82,15 +82,24 @@ CLASS ZCL_D007_SCHOOL_CURR_CHG_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-  method ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES.
+  METHOD zif_rak_journey_logic~on_before_tables.
     DATA(lv_sel) = io_ctx->get_val( 'LIC_SELECT' ).
+
+*    IF lv_sel IS INITIAL.
+*      DATA(lt_lic) = VALUE #( FOR <l> IN ct_tables
+*                              WHERE ( ui_table_name = 'LICENSES' ) ( <l> ) ).
+*      IF lines( lt_lic ) = 1.
+*        lv_sel = lt_lic[ 1 ]-ui_table_column1.
+*      ENDIF.
+*    ENDIF.
+
     CHECK lv_sel IS NOT INITIAL.
     LOOP AT ct_tables ASSIGNING FIELD-SYMBOL(<t>) WHERE ui_table_name = 'LICENSES' AND ui_table_column1 = lv_sel..
       IF <t>-ui_table_column1 = lv_sel.
         <t>-ui_table_column29 = 'S'.
       ENDIF.
     ENDLOOP.
-  endmethod.
+  ENDMETHOD.
 
 
   METHOD zif_rak_journey_logic~on_change.

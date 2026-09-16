@@ -26,7 +26,6 @@ CLASS zcl_c061_judgement_publ_logic DEFINITION
     METHODS zif_rak_journey_logic~wants_feedback
       REDEFINITION .
 
-protected section.
   PRIVATE SECTION.
 
 *&---------------------------------------------------------------------*
@@ -485,7 +484,7 @@ ENDCLASS.
 
 
 
-CLASS ZCL_C061_JUDGEMENT_PUBL_LOGIC IMPLEMENTATION.
+CLASS zcl_c061_judgement_publ_logic IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_init.
@@ -1280,33 +1279,6 @@ CLASS ZCL_C061_JUDGEMENT_PUBL_LOGIC IMPLEMENTATION.
             iv_langu       = zcl_rak_text=>c_langu_ar
           IMPORTING
             et_zjdg        = lt_jdg.
-
-        DATA : ls_case  TYPE LINE OF zfm_judgement_publisher_t.
-
-        DO 4000 TIMES.
-          CLEAR ls_case.
-
-          ls_case-object_id    = |{ sy-index WIDTH = 10 ALIGN = RIGHT PAD = '0' }|.     " 0000000001 ...
-          ls_case-case_type    = 'ZDUM'.
-          ls_case-zzafld00000o = sy-index.                                             " NUMC 0001 ...
-          ls_case-stat         = 'E0001'.
-          ls_case-posting_date = sy-datum - sy-index.
-          ls_case-description  = |Dummy description { sy-index }|.
-          ls_case-txt30        = |Dummy status TEXT { sy-index }|.
-          ls_case-case_id      = |CASE{ sy-index WIDTH = 8 ALIGN = RIGHT PAD = '0' }|.  " CASE00000001
-          ls_case-case_text    = |Dummy CASE TEXT FOR test entry NUMBER { sy-index }|.
-          ls_case-zzafld000073 = sy-datum + sy-index.
-          ls_case-zzafld00005j = sy-datum.
-
-          TRY.
-              ls_case-guid = cl_system_uuid=>create_uuid_x16_static( ).
-            CATCH cx_uuid_error.
-              CLEAR ls_case-guid.
-          ENDTRY.
-
-          APPEND ls_case TO lt_jdg.
-        ENDDO.
-
       CATCH cx_root INTO DATA(lx_srch).
 *       THE SIGNATURE IS STAMPED ON A FAILURE TOO, and that is not tidiness.
 *       Four callers reach this method in one render; without the stamp each

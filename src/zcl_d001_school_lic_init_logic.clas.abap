@@ -5,6 +5,7 @@ class ZCL_D001_SCHOOL_LIC_INIT_LOGIC definition
 
 public section.
 
+
   methods ZIF_RAK_JOURNEY_LOGIC~GET_TABLE
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_FIELDS

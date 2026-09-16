@@ -2,7 +2,7 @@ CLASS zcl_m028_cod_logic DEFINITION
   PUBLIC
   INHERITING FROM zcl_rak_journey_logic
   FINAL
-  CREATE PUBLIC.
+  CREATE PUBLIC .
 
 *&---------------------------------------------------------------------*
 *& M028 - Preliminary Design Approval Request
@@ -79,7 +79,6 @@ CLASS zcl_m028_cod_logic DEFINITION
 *& RENDER_OWN_LIST( ) is the pattern. Flagged in the loader's run log
 *& rather than half-built here.
 *&---------------------------------------------------------------------*
-
   PUBLIC SECTION.
 
 *   ---- M028's own field vocabulary -----------------------------------
@@ -87,15 +86,13 @@ CLASS zcl_m028_cod_logic DEFINITION
 *   because that is what the backend's field control is keyed on end to
 *   end. Renaming any of these silently switches off MANDATORY / ENABLED
 *   / VISIBLE from the live field-control engine.
-    CONSTANTS c_fld_project TYPE string VALUE 'MY_COMPONENT'.
-    CONSTANTS c_fld_grid    TYPE string VALUE 'ADDBUILDING'.
-
+    CONSTANTS c_fld_project TYPE string VALUE 'MY_COMPONENT' ##NO_TEXT.
+    CONSTANTS c_fld_grid TYPE string VALUE 'ADDBUILDING' ##NO_TEXT.
 *   The Current Consultant card - all four read-only.
-    CONSTANTS c_fld_cons_name   TYPE string VALUE 'NAME_DATA'.
-    CONSTANTS c_fld_cons_lic    TYPE string VALUE 'LICENS_DATA'.
-    CONSTANTS c_fld_cons_expiry TYPE string VALUE 'EXPIRY_DATA'.
-    CONSTANTS c_fld_cons_grade  TYPE string VALUE 'GRADE_DATA'.
-
+    CONSTANTS c_fld_cons_name TYPE string VALUE 'NAME_DATA' ##NO_TEXT.
+    CONSTANTS c_fld_cons_lic TYPE string VALUE 'LICENS_DATA' ##NO_TEXT.
+    CONSTANTS c_fld_cons_expiry TYPE string VALUE 'EXPIRY_DATA' ##NO_TEXT.
+    CONSTANTS c_fld_cons_grade TYPE string VALUE 'GRADE_DATA' ##NO_TEXT.
 *   ---- the popup's own model members ---------------------------------
 *   NOT legacy names: the legacy control kept these inside itself and the
 *   export has no row for any of them. They are CJS model members that
@@ -107,18 +104,17 @@ CLASS zcl_m028_cod_logic DEFINITION
 *   _IDTYPE, _NAME, _IX and _EXP companions on the same name, so 23 is
 *   the real cap and CX_SY_STRUCT_COMP_NAME is uncaught - the whole app
 *   dies with UNCAUGHT EXCEPTION, not a message.
-    CONSTANTS c_pop_name  TYPE string VALUE 'BLD_NAME'.
-    CONSTANTS c_pop_type  TYPE string VALUE 'BLD_TYPE'.
-    CONSTANTS c_pop_usage TYPE string VALUE 'BLD_USAGE'.
-    CONSTANTS c_pop_cost  TYPE string VALUE 'BLD_COST'.
-    CONSTANTS c_pop_hgt   TYPE string VALUE 'BLD_HEIGHT'.
-    CONSTANTS c_pop_typ   TYPE string VALUE 'BLD_TYPICAL'.
-    CONSTANTS c_pop_flr   TYPE string VALUE 'BLD_FLOORS'.
-    CONSTANTS c_pop_mezz  TYPE string VALUE 'BLD_MEZZ'.
-    CONSTANTS c_pop_roof  TYPE string VALUE 'BLD_ROOF'.
-    CONSTANTS c_pop_heli  TYPE string VALUE 'BLD_HELI'.
-    CONSTANTS c_pop_base  TYPE string VALUE 'BLD_BASEMENT'.
-
+    CONSTANTS c_pop_name TYPE string VALUE 'BLD_NAME' ##NO_TEXT.
+    CONSTANTS c_pop_type TYPE string VALUE 'BLD_TYPE' ##NO_TEXT.
+    CONSTANTS c_pop_usage TYPE string VALUE 'BLD_USAGE' ##NO_TEXT.
+    CONSTANTS c_pop_cost TYPE string VALUE 'BLD_COST' ##NO_TEXT.
+    CONSTANTS c_pop_hgt TYPE string VALUE 'BLD_HEIGHT' ##NO_TEXT.
+    CONSTANTS c_pop_typ TYPE string VALUE 'BLD_TYPICAL' ##NO_TEXT.
+    CONSTANTS c_pop_flr TYPE string VALUE 'BLD_FLOORS' ##NO_TEXT.
+    CONSTANTS c_pop_mezz TYPE string VALUE 'BLD_MEZZ' ##NO_TEXT.
+    CONSTANTS c_pop_roof TYPE string VALUE 'BLD_ROOF' ##NO_TEXT.
+    CONSTANTS c_pop_heli TYPE string VALUE 'BLD_HELI' ##NO_TEXT.
+    CONSTANTS c_pop_base TYPE string VALUE 'BLD_BASEMENT' ##NO_TEXT.
 *   ---- CONSTRUCTION AND UTILITIES CONFIGURATION -----------------------
 *   The popup's THIRD section, and it was missing entirely. The eleven
 *   fields above were derived from an English walkthrough that showed
@@ -133,31 +129,51 @@ CLASS zcl_m028_cod_logic DEFINITION
 *   without them is incomplete - and nothing on the CJS side would have
 *   said so, because the grid it feeds had eleven columns and eleven is
 *   what the popup collected.
-    CONSTANTS c_pop_found TYPE string VALUE 'BLD_FOUND'.
-    CONSTANTS c_pop_const TYPE string VALUE 'BLD_CONSTR'.
-    CONSTANTS c_pop_syst  TYPE string VALUE 'BLD_SYSTEM'.
-
+    CONSTANTS c_pop_found TYPE string VALUE 'BLD_FOUND' ##NO_TEXT.
+    CONSTANTS c_pop_const TYPE string VALUE 'BLD_CONSTR' ##NO_TEXT.
+    CONSTANTS c_pop_syst TYPE string VALUE 'BLD_SYSTEM' ##NO_TEXT.
 *   ---- events --------------------------------------------------------
 *   MATCHED WITH CP, NEVER AN OFFSET. IV_EVENT is TYPE string and event
 *   names are short, so iv_event(8) on a six-character name raises
 *   CX_SY_RANGE_OUT_OF_BOUNDS - which the engine turns into a Warning
 *   rather than a dump, so it survives as an unexplained error on a
 *   SUCCESSFUL action. That is exactly what happened to E016's Add.
-    CONSTANTS c_evt_add    TYPE string VALUE 'BLDADD'.
-    CONSTANTS c_evt_ok     TYPE string VALUE 'BLDOK'.
-    CONSTANTS c_evt_cancel TYPE string VALUE 'BLDCXL'.
-    CONSTANTS c_pop_id     TYPE string VALUE 'BLDPOP'.
-
+    CONSTANTS c_evt_add TYPE string VALUE 'BLDADD' ##NO_TEXT.
+    CONSTANTS c_evt_ok TYPE string VALUE 'BLDOK' ##NO_TEXT.
+    CONSTANTS c_evt_cancel TYPE string VALUE 'BLDCXL' ##NO_TEXT.
+    CONSTANTS c_pop_id TYPE string VALUE 'BLDPOP' ##NO_TEXT.
 *   Step indexes. STP1 is 0, STP2 is 1, STP3 is 2.
-    CONSTANTS c_step_building   TYPE i VALUE 1.
-    CONSTANTS c_step_discipline TYPE i VALUE 2.
+    CONSTANTS c_step_building TYPE i VALUE 1 ##NO_TEXT.
+    CONSTANTS c_step_discipline TYPE i VALUE 2 ##NO_TEXT.
+    CONSTANTS c_building_name TYPE string VALUE 'Building Name' ##NO_TEXT.
+    CONSTANTS c_building_type TYPE string VALUE 'Building type' ##NO_TEXT.
+    CONSTANTS c_building_usage_type TYPE string VALUE 'Building usage type' ##NO_TEXT.
+    CONSTANTS c_building_costs TYPE string VALUE 'Building costs' ##NO_TEXT.
+    CONSTANTS c_building_height_in_meters TYPE string VALUE 'Building Height in meters' ##NO_TEXT.
+    CONSTANTS c_no_of_typical_building TYPE string VALUE 'No of typical building' ##NO_TEXT.
+    CONSTANTS c_no_of_typical_floors TYPE string VALUE 'No of Typical Floors' ##NO_TEXT.
+    CONSTANTS c_no_of_mezzanine_floors TYPE string VALUE 'No of Mezzanine Floors' ##NO_TEXT.
+    CONSTANTS c_no_of_roof_floors TYPE string VALUE 'No of Roof Floors' ##NO_TEXT.
+    CONSTANTS c_no_of_helioports TYPE string VALUE 'No of Helioports' ##NO_TEXT.
+    CONSTANTS c_no_of_basement_floors TYPE string VALUE 'No of Basement Floors' ##NO_TEXT.
+    CONSTANTS c_foundation_type TYPE string VALUE 'Foundation type' ##NO_TEXT.
+    CONSTANTS c_construction_type TYPE string VALUE 'Construction type' ##NO_TEXT.
+    CONSTANTS c_building_system_type TYPE string VALUE 'Building system type' ##NO_TEXT.
+    CONSTANTS c_edit_pop TYPE string VALUE 'OWN_EDIT_*' ##NO_TEXT.
 
-    METHODS zif_rak_journey_logic~on_render_after_field REDEFINITION.
-    METHODS zif_rak_journey_logic~on_render_popup       REDEFINITION.
-    METHODS zif_rak_journey_logic~on_popup_event        REDEFINITION.
-    METHODS zif_rak_journey_logic~on_custom_validate    REDEFINITION.
-
-  PROTECTED SECTION.
+    METHODS zif_rak_journey_logic~on_custom_validate
+        REDEFINITION .
+    METHODS zif_rak_journey_logic~on_init
+        REDEFINITION .
+    METHODS zif_rak_journey_logic~on_popup_event
+        REDEFINITION .
+    METHODS zif_rak_journey_logic~on_render_after_field
+        REDEFINITION .
+    METHODS zif_rak_journey_logic~on_render_popup
+        REDEFINITION .
+    METHODS zif_rak_journey_logic~on_render_end
+        REDEFINITION .
+protected section.
 
 *   The dialog's field list. THE SINGLE SOURCE for what the popup shows
 *   AND what it marks required - read the warning at the implementation
@@ -167,35 +183,45 @@ CLASS zcl_m028_cod_logic DEFINITION
 *   inherited protected type is known in a subclass by its plain name.
 *   Writing ZCL_RAK_JOURNEY_LOGIC=>TT_POP_FIELD here reads as safer and
 *   is the form most likely to be refused.
-    METHODS building_fields
-      RETURNING VALUE(rt) TYPE tt_pop_field.
-
+  methods BUILDING_FIELDS
+    returning
+      value(RT) type TT_POP_FIELD .
 *   Blank every popup member, so the next Add opens empty instead of
 *   holding the last building.
-    METHODS clear_popup
-      IMPORTING io_ctx TYPE REF TO zif_rak_journey.
-
+  methods CLEAR_POPUP
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY .
 *   Is the dialog complete? Returns the messages, empty when it is.
 *   A POPUP CHECK HAS TO RETURN A VERDICT and the caller has to gate the
 *   save AND the close on it - E017's returned nothing, the caller saved
 *   and closed regardless, and a blank chemical row went to the case with
 *   a warning toast as the only sign.
-    METHODS validate_popup
-      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
-      RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_msg.
-
-  PRIVATE SECTION.
+  methods VALIDATE_POPUP
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+    returning
+      value(RT) type ZIF_RAK_JOURNEY=>TT_MSG .
+private section.
 
 *   Number of disciplines the citizen has ticked.
-    METHODS disciplines_chosen
-      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
-      RETURNING VALUE(rv) TYPE i.
-
+  methods DISCIPLINES_CHOSEN
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+    returning
+      value(RV) type I .
+  methods CHEM_FORM_LOAD
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IV_ID type STRING optional .
+  methods RENDER_BUILDING_DETAILS
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IO_VIEW type ref to Z2UI5_CL_XML_VIEW .
 ENDCLASS.
 
 
 
-CLASS zcl_m028_cod_logic IMPLEMENTATION.
+CLASS ZCL_M028_COD_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_render_after_field.
@@ -251,7 +277,8 @@ CLASS zcl_m028_cod_logic IMPLEMENTATION.
 *                clamps anything else, so this is the widest it offers.
                  iv_columns = 3 ).
 
-  ENDMETHOD.
+
+      endmethod.
 
 
   METHOD building_fields.
@@ -280,8 +307,53 @@ CLASS zcl_m028_cod_logic IMPLEMENTATION.
 *   and nothing else does.
     rt = VALUE #(
       ( name = c_pop_name  label = 'Building Name'          required = abap_true )
-      ( name = c_pop_type  label = 'Building type'          required = abap_true )
-      ( name = c_pop_usage label = 'Building usage type'    required = abap_true )
+      ( name = c_pop_type  label = 'Building type'          required = abap_true type = 'SELECT'
+*        options = VALUE #( ( key = '1' text = 'Private Villa'   ) ( key = '2' text = 'Investment Villa' )
+*                           ( key = '3' text = 'Public Building' ) ( key = '4' text = 'Industrial Building' )
+*                           ( key = '5' text = 'Storey Building' ) ( key = '6' text = 'Investment Villa' )
+*                           ( key = '7' text = 'Multi-Storey Building' ) ) )
+
+        options = VALUE #( ( key = 'Private Villa' text = 'Private Villa'   ) ( key = 'Multi-Storey Building' text = 'Investment Villa' )
+                           ( key = 'Private Villa' text = 'Public Building' ) ( key = 'Industrial Building' text = 'Industrial Building' )
+                           ( key = 'Storey Building' text = 'Storey Building' ) ( key = 'Investment Villa' text = 'Investment Villa' )
+                           ( key = 'Multi-Storey Building' text = 'Multi-Storey Building' ) ) )
+
+      ( name = c_pop_usage label = 'Building usage type'    required = abap_true  type = 'SELECT'
+*        options = VALUE #( ( key = '1'  text = 'Offices'   )          ( key = '2' text = 'Residential' )
+*                           ( key = '3'  text = 'Villa' )              ( key = '4' text = 'Shopping Centers' )
+*                           ( key = '5'  text = 'Labor Accomodation' ) ( key = '6' text = 'Employee/Students Accomodation' )
+*                           ( key = '7'  text = 'Warehouse'   )        ( key = '8' text = 'Car Services' )
+*                           ( key = '9'  text = 'Education' )          ( key = '10' text = 'Mosques' )
+*                           ( key = '11' text = 'Hospitals' )          ( key = '12' text = 'Hotels' )
+*                           ( key = '13' text = 'Hotel Apartment'   )  ( key = '14' text = 'Bank' )
+*                           ( key = '15' text = 'Cinema' )             ( key = '16' text = 'Theatre' )
+*                           ( key = '17' text = 'Indoor Services' )    ( key = '18' text = 'Outdoor Services' )
+*                           ( key = '19' text = 'Others'   )           ( key = '20' text = 'Minaret' )
+*                           ( key = '23' text = 'Ablution Room' )      ( key = '24' text = 'Church' ) ) )
+        options = VALUE #( ( key = 'Offices'  text = 'Offices'   )
+                           ( key = 'Residential' text = 'Residential' )
+                           ( key = 'Villa'  text = 'Villa' )
+                           ( key = 'Shopping Centers' text = 'Shopping Centers' )
+                           ( key = 'Labor Accomodation'  text = 'Labor Accomodation' )
+                           ( key = 'Employee/Students Accomodation' text = 'Employee/Students Accomodation' )
+                           ( key = 'Warehouse'  text = 'Warehouse'   )
+                           ( key = 'Car Services' text = 'Car Services' )
+                           ( key = 'Education'  text = 'Education' )
+                           ( key = 'Car Services' text = 'Mosques' )
+                           ( key = 'Hospitals' text = 'Hospitals' )
+                           ( key = 'Hotels' text = 'Hotels' )
+                           ( key = 'Hotel Apartment' text = 'Hotel Apartment'   )
+                           ( key = 'Bank' text = 'Bank' )
+                           ( key = 'Cinema' text = 'Cinema' )
+                           ( key = 'Theatre' text = 'Theatre' )
+                           ( key = 'Indoor Services' text = 'Indoor Services' )
+                           ( key = '18' text = 'Outdoor Services' )
+                           ( key = 'Indoor Services' text = 'Others'   )
+                           ( key = 'Theatre' text = 'Minaret' )
+                           ( key = 'Ablution Room' text = 'Ablution Room' )
+                           ( key = 'Theatre' text = 'Church' ) ) )
+
+
       ( name = c_pop_cost  label = 'Building costs'         type = 'NUMBER' )
       ( name = c_pop_hgt   label = 'Building Height in meters' type = 'NUMBER' required = abap_true )
       ( name = c_pop_typ   label = 'No of typical building' type = 'NUMBER' required = abap_true )
@@ -299,9 +371,22 @@ CLASS zcl_m028_cod_logic IMPLEMENTATION.
 *     they stay plain inputs by the same reasoning, and become dropdowns
 *     the moment somebody supplies OPTIONS, ROLLNAME, DOMNAME or SHLP -
 *     no other change needed.
-      ( name = c_pop_found label = 'Foundation type'         required = abap_true )
-      ( name = c_pop_const label = 'Construction type'       required = abap_true )
-      ( name = c_pop_syst  label = 'Building system type'    required = abap_true ) ).
+      ( name = c_pop_found label = 'Foundation type' required = abap_true type = 'SELECT'
+        options = VALUE #( ( key = 'Isolated Foundation' text = 'Foundation: Isolated Foundation')
+                           ( key = 'Strip Foundation' text = 'Foundation: Strip Foundation')
+                           ( key = 'Raft Foundation' text = 'Foundation: Raft Foundation') ) )
+
+      ( name = c_pop_const label = 'Construction type'       required = abap_true type = 'SELECT'
+        options = VALUE #( ( key = 'Building' text = 'Building')
+                           ( key = 'Service Block' text = 'Service Block')
+                           ( key = 'Parcel Fence' text = 'Parcel Fence') ) )
+
+      ( name = c_pop_syst  label = 'Building system type'    required = abap_true type = 'SELECT'
+        options = VALUE #( ( key = 'Mixed' text = 'Building System Style:Mixed')
+                           ( key = 'Concrete' text = 'Building System Style:Concrete')
+                           ( key = 'Steel' text = 'Building System Style:Steel')
+                           ( key = 'Other' text = 'Building System Style:Other')
+                           ( key = 'Precast Concrete Structure' text = 'Building System Style:Precast Concrete Structure') ) )  ).
 
   ENDMETHOD.
 
@@ -368,6 +453,7 @@ CLASS zcl_m028_cod_logic IMPLEMENTATION.
 *   CP, NOT AN OFFSET, on every comparison - see the constants.
     IF iv_event CP |*{ c_evt_add }*|.
       clear_popup( io_ctx ).
+      chem_form_load( io_ctx ).
       io_ctx->open_popup( c_pop_id ).
       RETURN.
     ENDIF.
@@ -431,6 +517,7 @@ CLASS zcl_m028_cod_logic IMPLEMENTATION.
         ( io_ctx->get_val( c_pop_const ) )
         ( io_ctx->get_val( c_pop_syst ) ) ).
       APPEND lt_cell TO ls_grid-rows.
+
       io_ctx->set_grid_data( iv_field = c_fld_grid is_data = ls_grid ).
 
       clear_popup( io_ctx ).
@@ -539,4 +626,87 @@ CLASS zcl_m028_cod_logic IMPLEMENTATION.
   ENDMETHOD.
 
 
+  method CHEM_FORM_LOAD.
+
+    io_ctx->set_val( iv_name = c_pop_name             iv_value = '' ).
+    io_ctx->set_val( iv_name = c_pop_type             iv_value = '' ).
+    io_ctx->set_val( iv_name = c_pop_usage            iv_value = '' ).
+    io_ctx->set_val( iv_name = c_pop_cost             iv_value = '' ).
+    io_ctx->set_val( iv_name = c_pop_hgt              iv_value = '' ).
+    io_ctx->set_val( iv_name = c_pop_typ              iv_value = '' ).
+    io_ctx->set_val( iv_name = c_pop_flr              iv_value = '' ).
+    io_ctx->set_val( iv_name = c_pop_mezz             iv_value = '' ).
+    io_ctx->set_val( iv_name = c_pop_roof             iv_value = '' ).
+    io_ctx->set_val( iv_name = c_pop_heli             iv_value = '' ).
+    io_ctx->set_val( iv_name = c_pop_base             iv_value = '' ).
+    io_ctx->set_val( iv_name = c_pop_found            iv_value = '' ).
+    io_ctx->set_val( iv_name = c_pop_const            iv_value = '' ).
+    io_ctx->set_val( iv_name = c_pop_syst             iv_value = '' ).
+
+
+  endmethod.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_INIT.
+*CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_INIT
+*  EXPORTING
+*    IO_CTX =
+*    .
+  endmethod.
+
+
+  METHOD render_building_details.
+
+    DATA(ls_g) = io_ctx->get_grid_data( 'ADDBUILDING' ).
+
+    DATA(lo_hd) = io_view->hbox( justifycontent = 'SpaceBetween'
+                                 alignitems     = 'Center'
+                                 class          = 'sapUiSmallMarginTop' ).
+
+    DATA(lo_t)  = io_view->table( alternaterowcolors = abap_true ).
+    DATA(lo_it) = lo_t->items( ).
+    LOOP AT ls_g-rows INTO DATA(lt_r).
+
+      DATA(lv_building) = VALUE string( lt_r[ 1 ] OPTIONAL ).
+      DATA(lv_mat)   = VALUE string( lt_r[ 2 ] OPTIONAL ).
+      DATA(lv_chem)  = VALUE string( lt_r[ 3 ] OPTIONAL ).
+      DATA(lv_cas)   = VALUE string( lt_r[ 4 ] OPTIONAL ).
+      DATA(lv_w8t)   = VALUE string( lt_r[ 8 ] OPTIONAL ).
+
+
+
+      DATA(lo_cells) = lo_it->column_list_item( )->cells( ).
+*      DATA(lo_nm) = lo_cells->vbox( ).
+*      lo_nm->text( text = lv_hs_no ).
+*      lo_cells->text( lv_mat ).
+*      lo_cells->text( lv_chem ).
+*      lo_cells->text( lv_cas ).
+*      lo_cells->text( lv_w8t ).
+
+      DATA(lo_act) = lo_cells->hbox( ).
+      lo_act->button( icon    = 'sap-icon://edit'
+                      type    = 'Transparent'
+                      tooltip = 'Edit details'
+                      press   = io_ctx->event( |OWN_EDIT_{ lv_building }| ) ).
+
+*      lo_act->button( icon    = 'sap-icon://delete'
+*                      type    = 'Transparent'
+*                      tooltip = 'Delete'
+*                      press   = io_ctx->event( |OWN_DEL_{ lv_hs_no }| ) ).
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_END.
+    CALL METHOD super->zif_rak_journey_logic~on_render_end
+      EXPORTING
+        io_ctx  = io_ctx
+        io_view = io_view.
+
+     IF io_ctx->get_step( ) = 2.
+      render_building_details( io_ctx = io_ctx io_view = io_view ).
+      RETURN.
+    ENDIF.
+  endmethod.
 ENDCLASS.

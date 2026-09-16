@@ -10,6 +10,8 @@ public section.
 
   methods ZIF_RAK_JOURNEY_LOGIC~GET_TABLE
     redefinition .
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
+    redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_POST
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
@@ -32,7 +34,7 @@ public section.
     redefinition .
   methods ZIF_RAK_JOURNEY_LOGIC~ON_VALUE_HELP
     redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
+  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_ATTACHMENTS
     redefinition .
 protected section.
 private section.
@@ -1399,18 +1401,18 @@ super->zif_rak_journey_logic~on_render_popup(
      DATA(lo_dr1) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d1)  = lo_dr1->vbox( class = 'rakCell' ).
     lo_d1->label( text = 'Emirates ID Copy' required = abap_true ).
-    io_ctx->render_upload( io_view = lo_d1 iv_field = 'EMI_COPY_POP' iv_key = lv_id ).
+    io_ctx->render_upload( io_view = lo_d1 iv_field = '60' iv_key = lv_id ).
     DATA(lo_d2)  = lo_dr1->vbox( class = 'rakCell' ).
     lo_d2->label( text = 'Passport Copy' required = abap_true ).
-    io_ctx->render_upload( io_view = lo_d2 iv_field = 'PASSPORT_COPY_POP' iv_key = lv_id ).
+    io_ctx->render_upload( io_view = lo_d2 iv_field = 'NL' iv_key = lv_id ).
 
     DATA(lo_dr2) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d3)  = lo_dr2->vbox( class = 'rakCell' ).
     lo_d3->label( text = 'Introductory Statement' required = abap_true ).
-    io_ctx->render_upload( io_view = lo_d3 iv_field = 'INTRODUCTORY_POP' iv_key = lv_id ).
+    io_ctx->render_upload( io_view = lo_d3 iv_field = 'FE' iv_key = lv_id ).
     DATA(lo_d4)  = lo_dr2->vbox( class = 'rakCell' ).
     lo_d4->label( text = 'Criminal Clearance certificate' required = abap_true ).
-    io_ctx->render_upload( io_view = lo_d4 iv_field = 'CRIMINAL_CLEAR_POP' iv_key = lv_id ).
+    io_ctx->render_upload( io_view = lo_d4 iv_field = '6P' iv_key = lv_id ).
 
 **    lo_c->title( text = 'Documents' class = 'rakBlkTitle sapUiSmallMarginTop' ).
 **    lo_c->label( text = 'Emirates ID copy' ).
@@ -1483,4 +1485,34 @@ super->zif_rak_journey_logic~on_render_popup(
       io_ctx->set_val( iv_name = 'LICENSE_SEL' iv_value = lv_licno ).
     ENDIF.
   ENDMETHOD.
+
+
+  method ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_ATTACHMENTS.
+CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_ATTACHMENTS
+  EXPORTING
+    IO_CTX = IO_CTX
+  CHANGING
+    CT_ATT = CT_ATT
+    .
+
+LOOP AT ct_att ASSIGNING FIELD-SYMBOL(<fs_attach>) WHERE identifier2 IS INITIAL.
+      CASE <fs_attach>-identifier1+0(2).
+        WHEN '60'.
+          <fs_attach>-identifier2 = '60'.
+        WHEN 'NL'.
+          <fs_attach>-identifier2 = 'NL'.
+        WHEN 'FE'.
+          <fs_attach>-identifier2 = 'FE'.
+        WHEN '6P'.
+          <fs_attach>-identifier2 = '6P'.
+**        WHEN 'FF'.
+**          <fs_attach>-identifier2 = 'FF'.
+**        WHEN '78'.
+**          <fs_attach>-identifier2 = '78'.
+        WHEN OTHERS.
+          CONTINUE.
+      ENDCASE.
+      <fs_attach>-file_name = |{ <fs_attach>-identifier1 }.pdf|.
+    ENDLOOP.
+  endmethod.
 ENDCLASS.

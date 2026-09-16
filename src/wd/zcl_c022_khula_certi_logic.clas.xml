@@ -18,74 +18,14 @@
      <DESCRIPT>The Add-role caption, until a partner is picked</DESCRIPT>
     </SEOCOMPOTX>
     <SEOCOMPOTX>
-     <CMPNAME>BP_DOB</CMPNAME>
+     <CMPNAME>BP_DOB_FUTURE</CMPNAME>
      <LANGU>E</LANGU>
-     <DESCRIPT>The popup&apos;s date of birth, as BP_SEARCH wants it</DESCRIPT>
+     <DESCRIPT>Refuse a date of birth in the future, and say so</DESCRIPT>
     </SEOCOMPOTX>
     <SEOCOMPOTX>
-     <CMPNAME>BP_DOB_FIELD</CMPNAME>
+     <CMPNAME>BP_POPUP</CMPNAME>
      <LANGU>E</LANGU>
-     <DESCRIPT>The date of birth field of the search form</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>BP_EID_DIGITS</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>The Emirates ID as the fifteen digits it is</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>BP_FLD</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>A BP popup field name: subject plus suffix</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>BP_HANDLE</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>Handle one partner-search popup event</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>BP_NATIONALITIES</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>Nationality options, read from T005T</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>BP_NAT_FIELD</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>The nationality field of the search form</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>BP_NEED</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>Which search fields the chosen type requires</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>BP_OR_DASH</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>A blank BP attribute reads as a dash, not as nothing</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>BP_PAIR</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>One label/value row of the found-partner card</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>BP_PICK</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>Take the picked partner onto the journey</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>BP_RENDER</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>Draw the BP partner-search popup</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>BP_ROW</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>The label above one search-form control</DESCRIPT>
-    </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>BP_RUN_SEARCH</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>Run ZCL_RAK_BP_SEARCH for the popup</DESCRIPT>
+     <DESCRIPT>The engine&apos;s partner search, configured for AS3</DESCRIPT>
     </SEOCOMPOTX>
     <SEOCOMPOTX>
      <CMPNAME>BP_SEARCH_OPTS</CMPNAME>

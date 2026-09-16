@@ -1,29 +1,29 @@
-class ZCL_D002_SCHOOL_LIC_NEW_LOGIC definition
-  public
-  inheriting from ZCL_RAK_JOURNEY_LOGIC
-  final
-  create public .
+CLASS zcl_d002_school_lic_new_logic DEFINITION
+  PUBLIC
+  INHERITING FROM zcl_rak_journey_logic
+  FINAL
+  CREATE PUBLIC .
 
-public section.
+  PUBLIC SECTION.
 
-  methods ZIF_RAK_JOURNEY_LOGIC~GET_TABLE
-    redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_BEFORE_TABLES
-    redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_CHANGE
-    redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
-    redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_INIT
-    redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_END
-    redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_SEARCH
-    redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ
-    redefinition .
-protected section.
-private section.
+    METHODS zif_rak_journey_logic~get_table
+        REDEFINITION .
+    METHODS zif_rak_journey_logic~on_before_tables
+        REDEFINITION .
+    METHODS zif_rak_journey_logic~on_change
+        REDEFINITION .
+    METHODS zif_rak_journey_logic~on_custom_validate
+        REDEFINITION .
+    METHODS zif_rak_journey_logic~on_init
+        REDEFINITION .
+    METHODS zif_rak_journey_logic~on_render_end
+        REDEFINITION .
+    METHODS zif_rak_journey_logic~on_search
+        REDEFINITION .
+    METHODS zif_rak_journey_logic~on_after_read
+        REDEFINITION .
+  PROTECTED SECTION.
+  PRIVATE SECTION.
 
 *    CONSTANTS c_applicant_type TYPE string VALUE 'PARTNER_OWNER_1' ##NO_TEXT.
     CONSTANTS c_validity       TYPE string VALUE 'VALIDITY_YEAR1'  ##NO_TEXT.
@@ -56,30 +56,30 @@ private section.
     CONSTANTS c_partner_name  TYPE string VALUE 'APP_NAME' .
     CONSTANTS c_partner_id  TYPE string VALUE 'APP_ID' .
     CONSTANTS c_applicant_type  TYPE string VALUE 'APP_TYPE'.
-  types:
-    BEGIN OF ty_stage,
-             flag  TYPE string,
-             label TYPE string,
-             keys  TYPE string,
-           END OF ty_stage .
-  types:
-    tt_stage TYPE STANDARD TABLE OF ty_stage WITH EMPTY KEY .
+    TYPES:
+      BEGIN OF ty_stage,
+        flag  TYPE string,
+        label TYPE string,
+        keys  TYPE string,
+      END OF ty_stage .
+    TYPES:
+      tt_stage TYPE STANDARD TABLE OF ty_stage WITH EMPTY KEY .
 
 
 
-  methods STAGES
-    returning
-      value(RT) type TT_STAGE .
-  methods STAGE_HAS_FEE
-    importing
-      !IO_CTX type ref to ZIF_RAK_JOURNEY
-      !IV_KEYS type STRING
-    returning
-      value(RV_OK) type ABAP_BOOL .
-  methods CLEAR_STAGE_FEES
-    importing
-      !IO_CTX type ref to ZIF_RAK_JOURNEY
-      !IV_KEYS type STRING .
+    METHODS stages
+      RETURNING
+        VALUE(rt) TYPE tt_stage .
+    METHODS stage_has_fee
+      IMPORTING
+        !io_ctx      TYPE REF TO zif_rak_journey
+        !iv_keys     TYPE string
+      RETURNING
+        VALUE(rv_ok) TYPE abap_bool .
+    METHODS clear_stage_fees
+      IMPORTING
+        !io_ctx  TYPE REF TO zif_rak_journey
+        !iv_keys TYPE string .
 ENDCLASS.
 
 
@@ -120,7 +120,7 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-  method ZIF_RAK_JOURNEY_LOGIC~GET_TABLE.
+  METHOD zif_rak_journey_logic~get_table.
     CASE to_upper( iv_name ).
 
       WHEN 'LICENSES'.
@@ -159,16 +159,17 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
 *        ENDLOOP.
 
     ENDCASE.
-  endmethod.
+  ENDMETHOD.
 
 
-  method ZIF_RAK_JOURNEY_LOGIC~ON_AFTER_READ.
-    DATA(ls_owners) = io_ctx->get_grid_data( 'OWNERS_TABLE' ).
+  METHOD zif_rak_journey_logic~on_after_read.
+*    DATA(ls_owners) = io_ctx->get_grid_data( 'OWNERS_TABLE' ).
+    DATA(ls_owners) = io_ctx->get_grid_data( 'OWNERS_SEARCH' ).
     IF ls_owners-rows IS INITIAL.
 
     ENDIF.
 
-   DATA(ls_g) = io_ctx->get_backend_table( 'OWNERS_TABLE' ).
+    DATA(ls_g) = io_ctx->get_backend_table( 'OWNERS_SEARCH' ).
     IF ls_g-rows IS INITIAL.
       RETURN.
     ENDIF.
@@ -190,10 +191,10 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
       APPEND lt_cells TO ls_out-rows.
     ENDLOOP.
 
-    io_ctx->set_grid_data( iv_field = 'OWNERS_TABLE' is_data = ls_out ).
+    io_ctx->set_grid_data( iv_field = 'OWNERS_SEARCH' is_data = ls_out ).
 
 
-  endmethod.
+  ENDMETHOD.
 
 
   METHOD zif_rak_journey_logic~on_before_tables.
@@ -206,12 +207,12 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
       ENDLOOP.
     ENDIF.
 
-    DATA(ls_owners) = io_ctx->get_grid_data( 'OWNERS_TABLE' ).
-    IF ls_owners-rows IS INITIAL.
-*      APPEND VALUE #( type  = 'Error'
-**                          field = 'OWNERS'
-*                      text  = `Add at least one owner.` ) TO rt.
-    ENDIF.
+*    DATA(ls_owners) = io_ctx->get_grid_data( 'OWNERS_TABLE' ).
+*    IF ls_owners-rows IS INITIAL.
+**      APPEND VALUE #( type  = 'Error'
+***                          field = 'OWNERS'
+**                      text  = `Add at least one owner.` ) TO rt.
+*    ENDIF..
 
   ENDMETHOD.
 
@@ -250,41 +251,41 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
     CASE iv_step.
 
       WHEN 2.
-        DATA(ls_owners) = io_ctx->get_grid_data( 'OWNERS_TABLE' ).
-        IF ls_owners-rows IS INITIAL.
-          APPEND VALUE #( type  = 'Error'
-*                          field = 'OWNERS'
-                          text  = `Add at least one owner.` ) TO rt.
-        ENDIF.
+*        DATA(ls_owners) = io_ctx->get_grid_data( 'OWNERS_SEARCH' ).
+*        IF ls_owners-rows IS INITIAL.
+*          APPEND VALUE #( type  = 'Error'
+**                          field = 'OWNERS'
+*                          text  = `Add at least one owner.` ) TO rt.
+*        ENDIF.
 
       WHEN 3.
         DATA(lv_any) = abap_false.
 
-        LOOP AT stages( ) INTO DATA(ls_stage).
-          IF io_ctx->get_val( ls_stage-flag ) IS INITIAL.
-            CONTINUE.
-          ENDIF.
-          lv_any = abap_true.
-
-          IF stage_has_fee( io_ctx = io_ctx iv_keys = ls_stage-keys ) = abap_false.
-            APPEND VALUE #( type  = 'Error'
+*        LOOP AT stages( ) INTO DATA(ls_stage).
+*          IF io_ctx->get_val( ls_stage-flag ) IS INITIAL.
+*            CONTINUE.
+*          ENDIF.
+*          lv_any = abap_true.
+*
+*          IF stage_has_fee( io_ctx = io_ctx iv_keys = ls_stage-keys ) = abap_false.
+*            APPEND VALUE #( type  = 'Error'
 *                            field = ls_stage-flag
-                            text  = |{ ls_stage-label } is selected but has no fees entered.| ) TO rt.
-          ENDIF.
-        ENDLOOP.
+*                            text  = |{ ls_stage-label } is selected but has no fees entered.| ) TO rt.
+*          ENDIF.
+*        ENDLOOP.
 
-        IF lv_any = abap_false.
-          APPEND VALUE #( type  = 'Error'
-*                          field = 'PREKG'
-                          text  = `Select at least one educational stage.` ) TO rt.
-        ENDIF.
-
-        DATA(ls_build) = io_ctx->get_grid_data( 'BUILDINGS' ).
-        IF ls_build-rows IS INITIAL.
-          APPEND VALUE #( type  = 'Error'
-*                          field = 'BUILDING'
-                          text  = `Add at least one building block.` ) TO rt.
-        ENDIF.
+*        IF lv_any = abap_false.
+*          APPEND VALUE #( type  = 'Error'
+**                          field = 'PREKG'
+*                          text  = `Select at least one educational stage.` ) TO rt.
+*        ENDIF.
+*
+*        DATA(ls_build) = io_ctx->get_grid_data( 'BUILDINGS' ).
+*        IF ls_build-rows IS INITIAL.
+*          APPEND VALUE #( type  = 'Error'
+**                          field = 'BUILDING'
+*                          text  = `Add at least one building block.` ) TO rt.
+*        ENDIF.
 
       WHEN OTHERS.
     ENDCASE.
@@ -345,13 +346,37 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
 
 
   METHOD zif_rak_journey_logic~on_render_end.
-    DATA(ls_owners) = io_ctx->get_grid_data( 'OWNERS_TABLE' ).
+    DATA(ls_owners) = io_ctx->get_grid_data( 'OWNERS_SEARCH' ).
     IF ls_owners-rows IS NOT INITIAL.
       LOOP AT ls_owners-rows ASSIGNING FIELD-SYMBOL(<ls_row>).
         IF sy-subrc IS INITIAL.
 
         ENDIF.
+      ENDLOOP..
+
+      DATA lt_map TYPE STANDARD TABLE OF i WITH EMPTY KEY.
+      lt_map = VALUE #( ( 1 ) ( 2 ) ( 3 ) ( 4 ) ( 5 ) ( 6 ) ( 7 ) ( 8 ) ( 9 ) ( 10 ) ( 11 ) ( 12 ) ( 13 ) ).
+
+      DATA(ls_out) = VALUE zif_rak_journey=>ty_table(
+        columns = VALUE #( ( `PARTNER` ) ( `NAME` ) ( `MOBILE_NUMBER` ) ( `EMAIL_ADDRESS` )
+                           ( `SHARE_PER` ) ( `ID_TYPE` )  ( `EMIRATES_ID` ) ( `PASSPORT` ) ( `NATIONALITY` )
+                           ( `ACTIVITY` )  ( `NEW_ITEM` ) ( `NATIONALITY_KEY` ) ( `BIRTH_DATE` ) ) ).
+
+      LOOP AT ls_owners-rows INTO DATA(lt_row).
+        DATA lt_cells TYPE zif_rak_journey=>tt_string.
+        CLEAR lt_cells.
+        LOOP AT lt_map INTO DATA(lv_ix).
+          DATA(lv_cell) = VALUE string( lt_row[ lv_ix ] OPTIONAL ).
+          IF lv_ix = 10.
+            lv_cell = abap_true.
+          ENDIF.
+          APPEND lv_cell TO lt_cells.
+        ENDLOOP.
+        APPEND lt_cells TO ls_out-rows.
       ENDLOOP.
+
+      io_ctx->set_grid_data( iv_field = 'OWNERS_SEARCH' is_data = ls_out ).
+
 
       LOOP AT ls_owners-columns ASSIGNING FIELD-SYMBOL(<ls_column>).
         IF sy-subrc IS INITIAL.
@@ -359,8 +384,8 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
         ENDIF.
       ENDLOOP.
 
-      CONSTANTS c_grid TYPE string VALUE 'OWNERS_TABLE' ##NO_TEXT.
-      io_ctx->set_grid_data( iv_field = c_grid is_data = ls_owners ).
+*      CONSTANTS c_grid TYPE string VALUE 'OWNERS_SEARCH' ##NO_TEXT.
+*      io_ctx->set_grid_data( iv_field = c_grid is_data = ls_owners ).
 
     ENDIF.
 
@@ -477,10 +502,10 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
         io_ctx->set_val( iv_name = 'TRADE_NAME'        iv_value = |{ ls_bp-bp_name }| ).
         io_ctx->set_val( iv_name = 'TRADE_MOBILE'      iv_value = |{ ls_bp-mobile_number }| ).
 
-      endif.
-
-
       ENDIF.
 
-    ENDMETHOD.
+
+    ENDIF.
+
+  ENDMETHOD.
 ENDCLASS.

@@ -280,8 +280,6 @@ CLASS ZCL_CJ_DEMO_P001 IMPLEMENTATION.
     DATA(case_type_1) = hbox_7->combo_box( selectedkey = '{/XX/GS_DATA/CASE/CASE_TYPE}' placeholder = get_text_by_id( 'SELECT' ) required = 'true' class = 'combobox noMax' width = '12rem' ).
     get_value_list( parent = case_type_1 shlpname = 'ZSH_CJ_PPD_CASE_TYPE' keyfield = 'KEY' valuefield = 'VALUE' ).
 
-    me->raksearch( io_parent = vbox_9 ).
-
     " TODO(CASE_TYPE_1): items come from search-help ZSH_CJ_PPD_CASE_TYPE - value-list binding pattern not yet confirmed
 *    DATA(journey) = hbox_7->label( text = '{JOURNEYTYPE}' ).
     DATA(footer) = fisrt->hbox( class = 'RAKEGA-footer RAKEGA-next-btn-end' ).

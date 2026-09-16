@@ -86,8 +86,8 @@ private section.
   data MS_CACHE1 type TY_CACHE1 .
   data MS_CACHE type TY_CACHE .
   constants C_LOGIN_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
-  constants C_APP_NAME type STRING value 'PARTNER_NAME' ##NO_TEXT.
-  constants C_APP_ID type STRING value 'PARTNER_ID' ##NO_TEXT.
+  constants C_APP_NAME type STRING value 'PARENTNAME' ##NO_TEXT.
+  constants C_APP_ID type STRING value 'PARENTEID' ##NO_TEXT.
 
   "! Single entry point for enrolment data. Serves from the instance memo, then
   "! from the model field, and only reaches the SIS when both miss.

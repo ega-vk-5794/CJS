@@ -683,33 +683,11 @@ START-OF-SELECTION.
 * CHECK_NO_PREV_DIV). Only EDITABLE/READONLY/REQUIRE value-rules live here.
 
 * ---- Portal: register under the 901 "AI Driven Journeys" group -------
-*
-* THE PARENT GROUP IS READ, NEVER WRITTEN. This block used to MODIFY
-* ZEGA_T_CJ_GRP and both ZEGA_T_CJ_IDT rows for C_MAIN unconditionally -
-* and C_MAIN is 901, a REAL PRODUCTION GROUP carrying around twenty-five
-* journeys. Every run relabelled it "AI Driven Journeys" in English and
-* Arabic and rewrote its LEVELNO and ORDERNO, over whatever the portal team
-* had set.
-*
-* ZCL_RAK_MIGRATOR was fixed for exactly this and these two loaders were
-* missed. Same fix: check, insert if genuinely absent, and leave an existing
-* group entirely alone - its description, level and order belong to whoever
-* created it.
-  SELECT SINGLE @abap_true FROM zega_t_cj_grp
-    WHERE department = @c_dept AND groupid = @space AND journeyid = @c_main
-    INTO @DATA(lv_have_grp).
-  IF lv_have_grp <> abap_true.
-    INSERT zega_t_cj_grp FROM @( VALUE #( mandt = sy-mandt department = c_dept groupid = ''
-    journeyid = c_main levelno = 0 orderno = 99 drilldown = 'Y' ) ).
-  ENDIF.
-
-  SELECT SINGLE @abap_true FROM zega_t_cj_id WHERE journeyid = @c_main
-    INTO @DATA(lv_have_id).
-  IF lv_have_id <> abap_true.
-    INSERT zega_t_cj_id  FROM @( VALUE #( mandt = sy-mandt journeyid = c_main sip_code = c_main ) ).
-    INSERT zega_t_cj_idt FROM @( VALUE #( mandt = sy-mandt spras = 'E' journeyid = c_main description = 'AI Driven Journeys' ) ).
-    INSERT zega_t_cj_idt FROM @( VALUE #( mandt = sy-mandt spras = 'A' journeyid = c_main description = |الرحلات الرقمية الذكية| ) ).
-  ENDIF.
+  MODIFY zega_t_cj_grp FROM @( VALUE #( mandt = sy-mandt department = c_dept groupid = ''
+  journeyid = c_main levelno = 0 orderno = 99 drilldown = 'Y' ) ).
+  MODIFY zega_t_cj_id  FROM @( VALUE #( mandt = sy-mandt journeyid = c_main sip_code = c_main ) ).
+  MODIFY zega_t_cj_idt FROM @( VALUE #( mandt = sy-mandt spras = 'E' journeyid = c_main description = 'AI Driven Journeys' ) ).
+  MODIFY zega_t_cj_idt FROM @( VALUE #( mandt = sy-mandt spras = 'A' journeyid = c_main description = |الرحلات الرقمية الذكية| ) ).
 
 * This journey's leaf under 901. zrak_t_jny.tile_code must equal this journeyid.
   MODIFY zega_t_cj_grp FROM @( VALUE #( mandt = sy-mandt department = c_dept groupid = c_main

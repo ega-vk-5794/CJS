@@ -1,16 +1,16 @@
-CLASS zcl_ega_cj_z2ui5_m030 DEFINITION
-  PUBLIC
-  INHERITING FROM z2ui5_cl_ext_widgets
-  FINAL
-  CREATE PUBLIC .
+class ZCL_EGA_CJ_Z2UI5_M030 definition
+  public
+  inheriting from Z2UI5_CL_EXT_WIDGETS
+  final
+  create public .
 
-  PUBLIC SECTION.
+public section.
 
-    INTERFACES if_serializable_object .
-    INTERFACES z2ui5_if_app .
+  interfaces IF_SERIALIZABLE_OBJECT .
+  interfaces Z2UI5_IF_APP .
 
-    TYPES:
-      BEGIN OF ty_selection,
+  types:
+    BEGIN OF ty_selection,
         rb_lessor               TYPE flag,
         rb_lessee               TYPE flag,
         rb_3rd                  TYPE flag,
@@ -22,8 +22,8 @@ CLASS zcl_ega_cj_z2ui5_m030 DEFINITION
         rb_shared_accommodation TYPE flag,
         context                 TYPE zde_cj_context,
       END OF ty_selection .
-    TYPES:
-      BEGIN OF ty_lessor,
+  types:
+    BEGIN OF ty_lessor,
         name        TYPE string,
         nationality TYPE string,
         eid         TYPE string,
@@ -32,8 +32,8 @@ CLASS zcl_ega_cj_z2ui5_m030 DEFINITION
         email       TYPE string,
         phone_no    TYPE string,
       END OF ty_lessor .
-    TYPES:
-      BEGIN OF ty_properties,
+  types:
+    BEGIN OF ty_properties,
         index              TYPE i,
         selected           TYPE flag,
         aotype             TYPE string,
@@ -49,10 +49,10 @@ CLASS zcl_ega_cj_z2ui5_m030 DEFINITION
         areatext           TYPE string,
         address            TYPE string,
       END OF ty_properties .
-    TYPES:
-      tt_properties TYPE STANDARD TABLE OF ty_properties WITH DEFAULT KEY .
-    TYPES:
-      BEGIN OF ty_pagination,
+  types:
+    tt_properties TYPE STANDARD TABLE OF ty_properties WITH DEFAULT KEY .
+  types:
+    BEGIN OF ty_pagination,
         lines_on_page    TYPE i,
         current_page     TYPE i,
         total_lines      TYPE i,
@@ -61,8 +61,8 @@ CLASS zcl_ega_cj_z2ui5_m030 DEFINITION
         to_line          TYPE i,
         search           TYPE string,
       END OF ty_pagination .
-    TYPES:
-      BEGIN OF ty_data,
+  types:
+    BEGIN OF ty_data,
         bp          TYPE but000-partner,
         journeytype TYPE zde_cj_journeyid,
         description TYPE zde_cj_id_desc,
@@ -82,17 +82,20 @@ CLASS zcl_ega_cj_z2ui5_m030 DEFINITION
         etisalat    TYPE flag,
       END OF ty_data .
 
-    DATA gs_data TYPE ty_data .
-    DATA ms_pagination TYPE ty_pagination .
+  data GS_DATA type TY_DATA .
+  data MS_PAGINATION type TY_PAGINATION .
 
-    METHODS nntc_1_1 .
-    METHODS nntc_1_2 .
-    METHODS lease_properties
-      RETURNING
-        VALUE(et_properties) TYPE tt_properties .
+  methods NNTC_1_1 .
+  methods NNTC_1_2 .
+  methods NNTC_1_4 .
+  methods LEASE_PROPERTIES
+    returning
+      value(ET_PROPERTIES) type TT_PROPERTIES .
+  methods RAK_TITLEDEED
+    importing
+      !IO_PARENT type ref to Z2UI5_CL_XML_FRAGMENT .
 protected section.
 private section.
-
 
   methods GET_LR
     importing
@@ -127,6 +130,12 @@ private section.
     returning
       value(ADDRESS) type STRING .
   methods PROPERTIES_CSS
+    returning
+      value(EV_CSS) type STRING .
+  methods PROPERTIES_FUNCTIONS
+    returning
+      value(EV_FUNCTION) type STRING .
+  methods RAK_TITLEDEED_CSS
     returning
       value(EV_CSS) type STRING .
 ENDCLASS.
@@ -473,27 +482,6 @@ CLASS ZCL_EGA_CJ_Z2UI5_M030 IMPLEMENTATION.
         me->step_forward( control = me direction = '+' ).
       WHEN 'BACK'.
         me->step_forward( control = me direction = '-' ).
-      WHEN 'SEARCH_PROP'.
-        ms_pagination-current_page = 1.
-        me->step_forward( control = me direction = '=' ).
-      WHEN 'SEARCH_PROP1'.
-        SUBTRACT 1 FROM ms_pagination-current_page.
-        IF ms_pagination-current_page LE 0.
-          ms_pagination-current_page = 1.
-        ENDIF.
-        me->step_forward( control = me direction = '=' ).
-      WHEN 'SEARCH_PROP2'.
-        ADD 1 TO ms_pagination-current_page.
-        IF ms_pagination-current_page GT ms_pagination-total_page_count.
-          ms_pagination-current_page = ms_pagination-total_page_count.
-        ENDIF.
-        me->step_forward( control = me direction = '=' ).
-      WHEN 'SEARCH_PROP3'.
-        ms_pagination-current_page = 1.
-        me->step_forward( control = me direction = '=' ).
-      WHEN 'SEARCH_PROP4'.
-        ms_pagination-current_page = ms_pagination-total_page_count.
-        me->step_forward( control = me direction = '=' ).
     ENDCASE.
   ENDMETHOD.
 
@@ -1011,6 +999,7 @@ CLASS ZCL_EGA_CJ_Z2UI5_M030 IMPLEMENTATION.
       gs_data-properties = me->lease_properties( ).
 
       me->properties_css( ).
+      me->properties_functions( ).
       me->functions_to_front( ).
 
       ms_pagination-lines_on_page = 5.
@@ -1065,71 +1054,30 @@ CLASS ZCL_EGA_CJ_Z2UI5_M030 IMPLEMENTATION.
                              value       = '{/XX/MS_PAGINATION/SEARCH}'
                              placeholder = 'Search'(104)
                              class       = 'searchField'
-                             search      = client->_event( 'SEARCH_PROP' ) ).
+                             search      = '.fetchPropertyData(''0'')' ).
 
     " ==================== COUNT ROW ====================
     DATA(count_row) = properties_scroll->hbox( class = 'p-margin-top-05-mobile' rendertype = 'Bare' ).
-    DATA(properties_count_text) = count_row->text( text = '{PModel>/tableData/count} {i18n>PropertiesFound}' class = 'Body_2_3 color-gray7' ).
+    DATA(properties_count_text) = count_row->text( text = '{PModel>/tableData/count} Properties Found' class = 'Body_2_3 color-gray7' ).
 
     " (select-all-properties row removed - was POA-only, now permanently visible=false)
 
     " ==================== PROPERTY LIST ====================
     DATA(property_list) = properties_scroll->list(
                               id        = 'pList'
-                              items     = '{/XX/GS_DATA/MT_PROPERTIES}'
+                              items     = '{/XX/GS_DATA/PROPERTIES}'
                               class     = 'list p-propertyList'
                               mode      = 'SingleSelectMaster'
+                              updateFinished = '.onAfterPropertyRendering'
                               itempress = '.extension.RAK_PROPERTIES.onPropertyPress'
                               select    = '.extension.RAK_PROPERTIES.onItemSelect' ).
 
-*    DATA: lt_properties          LIKE gs_data-properties,
-*          lt_properties_filtered LIKE gs_data-properties.
-*    IF ms_pagination-search IS INITIAL.
-*      lt_properties_filtered[] = gs_data-properties[].
-*    ELSE.
-*      LOOP AT gs_data-properties INTO DATA(ls_property).
-*        DATA(lv_found) = abap_false.
-*        DATA(lv_index) = 1.
-*        DO.
-*          ASSIGN COMPONENT lv_index OF STRUCTURE ls_property TO FIELD-SYMBOL(<field>).
-*          IF sy-subrc NE 0.
-*            EXIT.
-*          ENDIF.
-*          IF <field> CS ms_pagination-search.
-*            lv_found = abap_true.
-*            EXIT.
-*          ENDIF.
-*          ADD 1 TO lv_index.
-*        ENDDO.
-*        IF lv_found EQ abap_true.
-*          APPEND ls_property TO lt_properties_filtered.
-*        ENDIF.
-*      ENDLOOP.
-*    ENDIF.
-*    ms_pagination-total_lines   = lines( lt_properties_filtered ).
-*    ms_pagination-total_page_count = ms_pagination-total_lines / ms_pagination-lines_on_page.
-*    IF ms_pagination-total_lines MOD ms_pagination-lines_on_page GT 0.
-*      ADD 1 TO ms_pagination-total_page_count.
-*    ENDIF.
-*
-*    ms_pagination-from_line = ( ms_pagination-current_page * ms_pagination-lines_on_page ) - ms_pagination-lines_on_page + 1.
-*    ms_pagination-to_line   = ( ms_pagination-current_page * ms_pagination-lines_on_page ).
-*    WHILE lines( lt_properties ) LT ms_pagination-lines_on_page.
-*      READ TABLE lt_properties_filtered INTO ls_property INDEX ms_pagination-from_line.
-*      IF sy-subrc EQ 0.
-*        APPEND ls_property TO lt_properties.
-*      ELSE.
-*        EXIT.
-*      ENDIF.
-*      ADD 1 TO ms_pagination-from_line.
-*    ENDWHILE.
 
     DATA(list_item_template) = property_list->items( )->custom_list_item( type = 'Active' class = 'listItem' selected = '{SELECTED}' ).
 
     " ---- AVAILABLE-UNITS branch ----
     DATA(available_vbox) = list_item_template->vbox(
-                               class   = 'p-margin-top-1 p-margin-bottom-1'
-                               tooltip = '{= ${AOTYPE} === '''' ? ${i18n>tooltip} : '''' }' ).
+                               class   = 'p-margin-top-1 p-margin-bottom-1' ).
 
     DATA(decoration_normal) = available_vbox->hbox( visible = '{= ${AOTYPE} !== '''' ? true : false }' class = 'p-liDecoration' ).
     DATA(decoration_orange) = available_vbox->hbox( visible = '{= ${AOTYPE} === '''' ? true : false }' class = 'p-liDecoration-orange' ).
@@ -1140,17 +1088,17 @@ CLASS ZCL_EGA_CJ_Z2UI5_M030 IMPLEMENTATION.
     DATA(titledeed_hbox) = titledeed_row->hbox( class = 'responsive-box p-gap-05-mobile p-titledeed-hbox' ).
     DATA(owner_name) = titledeed_hbox->text( visible = 'false' text = '{OWNERNAME}' class = 'Body_1_1 color-dark-blue color-dark-blue-imp' ).
     DATA(name_sep) = titledeed_hbox->hbox( visible = 'false' height = '0.75rem' class = 'p-seperator p-none-mobile' ).
-    DATA(multi_deeds) = titledeed_hbox->text( visible = '{= ${DEEDTYPE} === ''1'' }' text = '{i18n>MultipleDeeds}' class = 'Body_1_3 color-dark-blue color-dark-blue-imp' ).
+    DATA(multi_deeds) = titledeed_hbox->text( visible = '{= ${DEEDTYPE} === ''1'' }' text = 'MultipleDeeds' class = 'Body_1_3 color-dark-blue color-dark-blue-imp' ).
     DATA(title_deed) = titledeed_hbox->text(
         visible = '{= ${DEEDTYPE} === ''2'' }'
-        text    = '{i18n>TitleDeed} {TITLEDEEDNO}/{TITLEDEEDYEAR}'
+        text    = 'Title Deed {TITLEDEEDNO}/{TITLEDEEDYEAR}'
         class   = 'Body_1_3 color-dark-blue color-dark-blue-imp' ).
     DATA(parcel_sep) = titledeed_hbox->hbox(
         visible = '{= ${PARCELID} !== '''' && ${DEEDTYPE} !== '''' ? true : false }'
         height  = '0.75rem' class = 'p-seperator p-none-mobile' ).
     DATA(parcel_text) = titledeed_hbox->text(
         visible = '{= ${PARCELID} !== '''' ? true : false }'
-        text    = '{i18n>Parcel} {PARCELID}'
+        text    = 'Parcel {PARCELID}'
         class   = 'Body_1_3 color-dark-blue color-dark-blue-imp' ).
     DATA(status_hbox) = titledeed_row->hbox( class = 'p-none-mobile' ).
     DATA(status_active) = status_hbox->text( visible = '{= ${CONTRACTSTATUS} === ''2'' ? true : false }' text = '{CONTRACTSTATUSDESC}' class = 'color-green color-green-imp Small_text_2 case-tag bg-soft-Green' ).
@@ -1164,7 +1112,7 @@ CLASS ZCL_EGA_CJ_Z2UI5_M030 IMPLEMENTATION.
 *    DATA(ao_image) = building_image_hbox->image(
 *        src   = '{PModel>/imageUrlPrefix}{path : ''PModel>AOType'',formatter:''.extension.RAK_PROPERTIES.AOTypeImage''}'
 *        class = 'sapUiTinyMarginEnd p-img-top' ).
-    DATA(no_building) = building_image_hbox->text( visible = '{=${AOTYPE}===''''? true : false}' text = '{i18n>NoBuilding}' class = 'Body_2_3 color-gray6 color-gray6-imp' ).
+    DATA(no_building) = building_image_hbox->text( visible = '{=${AOTYPE}===''''? true : false}' text = 'No Building' class = 'Body_2_3 color-gray6 color-gray6-imp' ).
     DATA(building_type) = building_image_hbox->text( visible = '{=${AOTYPE}!==''''? true : false}' text = '{AOTYPE} {AOID}' class = 'Body_2_3 color-gray6 color-gray6-imp' ).
     DATA(landuse_sep) = building_info_hbox->hbox( visible = '{= ${LANDUSE} !== '''' ? true : false }' height = '0.75rem' class = 'p-seperator p-none-mobile' ).
     DATA(landuse_text) = building_info_hbox->text( text = '{LANDUSE}' class = 'Body_2_3 color-gray6 color-gray6-imp' ).
@@ -1178,140 +1126,6 @@ CLASS ZCL_EGA_CJ_Z2UI5_M030 IMPLEMENTATION.
     DATA(status_active_mobile) = status_hbox_mobile->text( visible = '{= ${CONTRACTSTATUS} === ''2'' ? true : false }' text = '{CONTRACTSTATUSDESC}' class = 'color-green color-green-imp Small_text_2 case-tag bg-soft-Green' ).
     DATA(status_progress_mobile) = status_hbox_mobile->text( visible = '{= ${CONTRACTSTATUS} === ''1'' ? true : false }' text = '{CONTRACTSTATUSDESC}' class = 'color-azure color-azure-imp Small_text_2 case-tag bg-soft-Blue' ).
 
-*    LOOP AT lt_properties  INTO ls_property.
-*
-*      DATA(list_item_template) = property_list->items( )->custom_list_item( type = 'Active' class = 'listItem' ).
-**    list_item_template->core_custom_data(
-**        key       = 'disabled'
-**        value     = 'X'
-**        write_to_dom = '{= ${PModel>AvailableUnits} === ''0'' }' ).
-*
-*      " ---- AVAILABLE-UNITS branch ----
-*      DATA(available_vbox) = list_item_template->vbox(
-*                                 class   = 'p-margin-top-1 p-margin-bottom-1'
-*                                 tooltip = ls_property-aotype ).
-*      IF ls_property-aotype IS NOT INITIAL.
-*        DATA(decoration_normal) = available_vbox->hbox( class = 'p-liDecoration' ).
-*      ELSE.
-*        DATA(decoration_orange) = available_vbox->hbox( class = 'p-liDecoration-orange' ).
-*      ENDIF.
-*
-*      " title-deed line - was duplicated for POA/non-POA; POA branch removed, this is now
-*      " unconditionally visible (always rendered, no visible= attribute needed).
-*      DATA(titledeed_row) = available_vbox->hbox( class = 'p-margin-bottom-1' justifycontent = 'SpaceBetween' ).
-*      DATA(titledeed_hbox) = titledeed_row->hbox( class = 'responsive-box p-gap-05-mobile p-titledeed-hbox' ).
-*      DATA(owner_name) = titledeed_hbox->text( visible = 'false' text = ls_property-ownername class = 'Body_1_1 color-dark-blue color-dark-blue-imp' ).
-*      DATA(name_sep) = titledeed_hbox->hbox( visible = 'false' height = '0.75rem' class = 'p-seperator p-none-mobile' ).
-*      IF ls_property-deedtype EQ '2'.
-*        DATA(title_deed) = titledeed_hbox->text(
-*            text    = 'TitleDeed ' &&  ls_property-titledeedno && '/' && ls_property-titledeedyear
-*            class   = 'Body_1_3 color-dark-blue color-dark-blue-imp' ).
-*      ENDIF.
-*      IF ls_property-parcelid IS NOT INITIAL.
-*        DATA(parcel_sep) = titledeed_hbox->hbox(
-*            height  = '0.75rem' class = 'p-seperator p-none-mobile' ).
-*        DATA(parcel_text) = titledeed_hbox->text(
-*            text    = 'Parcel ' &&  ls_property-parcelid
-*            class   = 'Body_1_3 color-dark-blue color-dark-blue-imp' ).
-*      ENDIF.
-*      DATA(status_hbox) = titledeed_row->hbox( class = 'p-none-mobile' ).
-*      IF ls_property-contractstatus EQ '2'.
-*        DATA(status_active) = status_hbox->text( text = ls_property-contractstatusdesc class = 'color-green color-green-imp Small_text_2 case-tag bg-soft-Green' ).
-*      ELSEIF ls_property-contractstatus EQ '1'.
-*        DATA(status_progress) = status_hbox->text( text = ls_property-contractstatusdesc class = 'color-azure color-azure-imp Small_text_2 case-tag bg-soft-Blue' ).
-*      ENDIF.
-*
-*      " (POA-variant title-deed row removed entirely - was permanently visible=false)
-*
-*      " building / land-use / area / address lines
-*      DATA(building_info_hbox) = available_vbox->hbox( class = 'responsive-box' ).
-*      DATA(building_image_hbox) = building_info_hbox->hbox( ).
-*      DATA(ao_image) = building_image_hbox->image(
-*          src   = '{PModel>/imageUrlPrefix}{path : ''PModel>AOType'',formatter:''.extension.RAK_PROPERTIES.AOTypeImage''}'
-*          class = 'sapUiTinyMarginEnd p-img-top' ).
-*      IF ls_property-aotype IS INITIAL.
-*        DATA(no_building) = building_image_hbox->text( text = 'NoBuilding' class = 'Body_2_3 color-gray6 color-gray6-imp' ).
-*      ELSE.
-*        DATA(building_type) = building_image_hbox->text(  text = ls_property-aotype && ls_property-aoid class = 'Body_2_3 color-gray6 color-gray6-imp' ).
-*      ENDIF.
-*      IF ls_property-landuse IS NOT INITIAL.
-*        DATA(landuse_sep) = building_info_hbox->hbox( height = '0.75rem' class = 'p-seperator p-none-mobile' ).
-*        DATA(landuse_text) = building_info_hbox->text( text = ls_property-landuse class = 'Body_2_3 color-gray6 color-gray6-imp' ).
-*      ENDIF.
-*
-*      DATA(area_address_hbox) = available_vbox->hbox( ).
-*      DATA(area_text) = area_address_hbox->text( text = ls_property-areatext class = 'Body_2_3 color-gray6 color-gray6-imp' ).
-*      IF ls_property-address IS NOT INITIAL.
-*        DATA(address_sep) = area_address_hbox->hbox( height = '0.75rem' class = 'p-seperator p-none-mobile' ).
-*        DATA(address_text) = area_address_hbox->text( text = ls_property-address class = 'Body_2_3 color-gray7 color-gray7-imp' ).
-*      ENDIF.
-*
-*      DATA(status_hbox_mobile) = available_vbox->hbox( class = 'p-none-desktop p-margin-top-025' ).
-*      IF ls_property-contractstatus EQ '2'.
-*        DATA(status_active_mobile) = status_hbox_mobile->text( text = ls_property-contractstatusdesc class = 'color-green color-green-imp Small_text_2 case-tag bg-soft-Green' ).
-*      ELSEIF ls_property-contractstatus EQ '1'.
-*        DATA(status_progress_mobile) = status_hbox_mobile->text( text = ls_property-contractstatusdesc class = 'color-azure color-azure-imp Small_text_2 case-tag bg-soft-Blue' ).
-*      ENDIF.
-*
-**      " ---- UNAVAILABLE-UNITS branch (AvailableUnits === '0') - same structure, gray palette ----
-**      DATA(unavailable_vbox) = list_item_template->vbox( class = 'p-margin-top-1 p-margin-bottom-1' ).
-**      DATA(decoration_gray) = unavailable_vbox->hbox( class = 'p-liDecoration p-liDecoration-gray' ).
-**
-**      DATA(titledeed_row_disabled) = unavailable_vbox->hbox( class = 'p-margin-bottom-1 rak_properties_disabled_list_hbox' justifycontent = 'SpaceBetween' ).
-***      titledeed_row_disabled->core_custom_data( key = 'journey' value = '{PModel>/journey}' write_to_dom = 'true' ).
-**      DATA(titledeed_hbox_disabled) = titledeed_row_disabled->hbox( class = 'responsive-box p-gap-05-mobile p-titledeed-hbox' ).
-**      DATA(owner_name_disabled) = titledeed_hbox_disabled->text( visible = 'false' text = '{PModel>OwnerName}' class = 'Body_1_1 color-gray5 color-gray5-imp' ).
-**      DATA(name_sep_disabled) = titledeed_hbox_disabled->hbox( visible = 'false' height = '0.75rem' class = 'p-seperator p-none-mobile' ).
-***      DATA(multi_deeds_disabled) = titledeed_hbox_disabled->text( visible = '{= ${PModel>DeedType} === ''1'' }' text = '{i18n>MultipleDeeds}' class = 'Body_1_3 color-gray5 color-gray5-imp' ).
-**      DATA(title_deed_disabled) = titledeed_hbox_disabled->text(
-**          text    = 'TitleDeed' &&  ls_property-titledeedno && '/' && ls_property-titledeedyear
-**          class   = 'Body_1_3 color-gray5 color-gray5-imp' ).
-**      IF ls_property-deedtype IS NOT INITIAL.
-**        DATA(parcel_sep_disabled) = titledeed_hbox_disabled->hbox(
-**            height  = '0.75rem' class = 'p-seperator p-none-mobile' ).
-**      ENDIF.
-**      IF ls_property-parcelid IS NOT INITIAL.
-**        DATA(parcel_text_disabled) = titledeed_hbox_disabled->text(
-**            text    = ls_property-parcelid
-**            class   = 'Body_1_3 color-gray5 color-gray5-imp' ).
-**      ENDIF.
-**      DATA(status_hbox_disabled) = titledeed_row_disabled->hbox( class = 'p-none-mobile' ).
-**      IF ls_property-contractstatus EQ '2'.
-**        DATA(status_active_disabled) = status_hbox_disabled->text( text = ls_property-contractstatusdesc class = 'color-green color-green-imp Small_text_2 case-tag bg-soft-Green' ).
-**      ELSEIF ls_property-contractstatus EQ '1'.
-**        DATA(status_progress_disabled) = status_hbox_disabled->text( text = ls_property-contractstatusdesc class = 'color-azure color-azure-imp Small_text_2 case-tag bg-soft-Blue' ).
-**      ENDIF.
-**
-**      DATA(building_info_hbox_gray) = unavailable_vbox->hbox( class = 'responsive-box' ).
-**      DATA(building_image_hbox_gray) = building_info_hbox_gray->hbox( ).
-***      DATA(ao_image_gray) = building_image_hbox_gray->image(
-***          src   = '{PModel>/imageUrlPrefix}{path : ''PModel>AOType'',formatter:''.extension.RAK_PROPERTIES.AOTypeImage''}'
-***          class = 'sapUiTinyMarginEnd' ).
-**      IF ls_property-aotype IS NOT INITIAL.
-**        DATA(no_building_gray) = building_image_hbox_gray->text( text = 'NoBuilding' class = 'Body_2_3 color-gray5 color-gray5-imp' ).
-**      ELSE.
-**        DATA(building_type_gray) = building_image_hbox_gray->text( text = ls_property-aotype && ls_property-aoid class = 'Body_2_3 color-gray5 color-gray5-imp' ).
-**      ENDIF.
-**      IF ls_property-landuse IS NOT INITIAL.
-**        DATA(landuse_sep_gray) = building_info_hbox_gray->hbox( height = '0.75rem' class = 'p-seperator p-none-mobile' ).
-**        DATA(landuse_text_gray) = building_info_hbox_gray->text( text = ls_property-landuse class = 'Body_2_3 color-gray5 color-gray5-imp' ).
-**      ENDIF.
-**
-**      DATA(area_address_hbox_gray) = unavailable_vbox->hbox( ).
-**      DATA(area_text_gray) = area_address_hbox_gray->text( text = ls_property-areatext class = 'Body_2_3 color-gray5 color-gray5-imp' ).
-**      IF ls_property-address IS NOT INITIAL.
-**        DATA(address_sep_gray) = area_address_hbox_gray->hbox( height = '0.75rem' class = 'p-seperator p-none-mobile' ).
-**        DATA(address_text_gray) = area_address_hbox_gray->text( text = ls_property-address class = 'Body_2_3 color-gray5 color-gray5-imp' ).
-**      ENDIF.
-**
-**      DATA(status_hbox_mobile_gray) = unavailable_vbox->hbox( class = 'p-none-desktop p-margin-top-025' ).
-**      IF ls_property-contractstatus EQ '2'.
-**        status_active_disabled = status_hbox_disabled->text( text = ls_property-contractstatusdesc class = 'color-green color-green-imp Small_text_2 case-tag bg-soft-Green' ).
-**      ELSEIF ls_property-contractstatus EQ '1'.
-**        status_progress_disabled = status_hbox_disabled->text( text = ls_property-contractstatusdesc class = 'color-azure color-azure-imp Small_text_2 case-tag bg-soft-Blue' ).
-**      ENDIF.
-*    ENDLOOP.
-*
     " ==================== FOOTER: cant-find-link / registered-property / pagination ====================
     DATA(footer_row) = properties_scroll->hbox( class = 'sapUiTinyMarginTop responsive-box' justifycontent = 'SpaceBetween' ).
 
@@ -1321,13 +1135,29 @@ CLASS ZCL_EGA_CJ_Z2UI5_M030 IMPLEMENTATION.
     IF lines( gs_data-properties ) GT ms_pagination-lines_on_page.
       DATA(pagination_row) = footer_row->hbox( class = 'p-margin-top-05-mobile' ).
       DATA(pagination_inner) = pagination_row->hbox( justifycontent = 'SpaceAround' alignitems = 'Center' height = '3rem' width = '15rem' ).
-      DATA(btn_first) = pagination_inner->button( icon = 'sap-icon://close-command-field' press = client->_event( 'SEARCH_PROP3' ) tooltip = 'FIRST PAGE' class = 'paginationBTN' ).
-      DATA(btn_prev) = pagination_inner->button( icon = 'sap-icon://navigation-left-arrow' press = client->_event( 'SEARCH_PROP1' ) tooltip = 'PREVIUS PAGE' class = 'paginationBTN' ).
+      DATA(btn_first) = pagination_inner->button( icon = 'sap-icon://close-command-field'
+                                                  enabled = '{= ${/XX/MS_PAGINATION/CURRENT_PAGE} !== 1}'
+                                                  press = '.fetchPropertyData(''3'')'
+                                                  tooltip = 'FIRST PAGE'
+                                                  class = 'paginationBTN' ).
+      DATA(btn_prev) = pagination_inner->button( icon = 'sap-icon://navigation-left-arrow'
+                                                 enabled = '{= ${/XX/MS_PAGINATION/CURRENT_PAGE} !== 1}'
+                                                 press = '.fetchPropertyData(''1'')'
+                                                 tooltip = 'PREVIUS PAGE'
+                                                 class = 'paginationBTN' ).
       DATA(page_info_text) = pagination_inner->text(
-          text  = ms_pagination-current_page && '/' && ms_pagination-total_page_count
+          text  = '{/XX/MS_PAGINATION/CURRENT_PAGE}/{/XX/MS_PAGINATION/TOTAL_PAGE_COUNT}'
           class = 'weight500 font0875' ).
-      DATA(btn_next) = pagination_inner->button( icon = 'sap-icon://navigation-right-arrow' press = client->_event( 'SEARCH_PROP2' ) tooltip = 'NEXT PAGE' class = 'paginationBTN' ).
-      DATA(btn_last) = pagination_inner->button( icon = 'sap-icon://open-command-field' press = client->_event( 'SEARCH_PROP4' ) tooltip = 'LAST PAGE' class = 'paginationBTN' ).
+      DATA(btn_next) = pagination_inner->button( icon = 'sap-icon://navigation-right-arrow'
+                                                 enabled = '{= ${/XX/MS_PAGINATION/CURRENT_PAGE} < ${/XX/MS_PAGINATION/TOTAL_PAGE_COUNT}}'
+                                                 press = '.fetchPropertyData(''2'')'
+                                                 tooltip = 'NEXT PAGE'
+                                                 class = 'paginationBTN' ).
+      DATA(btn_last) = pagination_inner->button( icon = 'sap-icon://open-command-field'
+                                                 enabled = '{= ${/XX/MS_PAGINATION/CURRENT_PAGE} < ${/XX/MS_PAGINATION/TOTAL_PAGE_COUNT}}'
+                                                 press = '.fetchPropertyData(''4'')'
+                                                 tooltip = 'LAST PAGE'
+                                                 class = 'paginationBTN' ).
 
       DATA(registered_property_footer2) = properties_scroll->hbox( class = 'p-margin-top-05-mobile' ).
       DATA(registered_icon_2) = registered_property_footer2->icon( src = 'sap-icon://icomoon/info' size = '1rem' color = '#10233E' class = 'info-icon p-icon-margin-1px sapUiTinyMarginEnd' ).
@@ -1793,5 +1623,502 @@ ENDMETHOD.
 '}    '.
 
     me->add_style( ev_css ).
+
+    DATA: xstring TYPE xstring.
+
+    DATA(building) =
+'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="12" fill="none">' &&
+'<path fill="#10233e" d="M1 10.75a.5.5 0 0 0 0 1zm14 1a.5.5 0 0 0 0-1zm-1.5-.5v.5H15v-1h-1.5zm.5' &&
+' 0v-7h-1v7zm-1.5-8.5h-4v1h4zm-11.5 9h7.5v-1H1zm7.5 0h5v-1h-5zM8 3.25v8h1v-8zm-5' &&
+' 8v-9.5H2v9.5zm.5-10h4v-1h-4zm4.5.5v1.5h1v-1.5zm-5 0a.5.5 0 0 1 .5-.5v-1A1.5 1.5 0 0 0 2 1.75zm4.5-.5a.5.5 0 0 1' &&
+' .5.5h1A1.5 1.5 0 0 0 7.5.25zm6.5 3a1.5 1.5 0 0 0-1.5-1.5v1a.5.5 0 0 1 .5.5z"/>' &&
+' <path stroke="#10233e" stroke-linecap="round" d="M6.5 3.25v1.5m-2-1.5v1.5m2 2v1.5m-2-1.5v1.5"/>' &&
+'</svg>'.
+    CALL FUNCTION 'SCMS_STRING_TO_XSTRING'
+      EXPORTING
+        text   = building
+      IMPORTING
+        buffer = xstring
+      EXCEPTIONS
+        failed = 1
+        OTHERS = 2.
+
+    CALL FUNCTION 'SCMS_BASE64_ENCODE_STR'
+      EXPORTING
+        input  = xstring
+      IMPORTING
+        output = building.
+    building = 'data:image/svg+xml;base64,' && building.
+
+    DATA(no_building) =
+'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="11" fill="none">' &&
+'<mask id="a" fill="#fff">' &&
+'<path d="M7 1.806c-.27 0-.533.084-.758.24-.224.158-.399.381-.502.642s-.13.548-.077.825c.052.278.182.532.' &&
+'373.732.19.2.433.336.698.39.264.056.539.028.788-.08a1.4 1.4 0 0 0 .612-.527 1.48 1.48 0 0 0-.17-1.803A1.' &&
+'33 1.33 0 0 0 7 1.806m0 2.286a.8.8 0 0 1-.455-.145.85.85 0 0 1-.3-.384.9.9 0 0 1 .176-.934.8.8 0 0 1 .' &&
+'42-.235.8.8 0 0 1 .472.049c.15.065.277.175.367.315a.886.886 0 0 1-.101 1.083.8.8 0 0 1-.579.25m0-4c-.' &&
+'795 0-1.558.332-2.12.921A3.22 3.22 0 0 0 4 3.235c0 1.121.495 2.31 1.432 3.437.42.51.895.969 1.413 1.' &&
+'368a.26.26 0 0 0 .313 0c.517-.4.99-.858 1.41-1.368C9.504 5.545 10 4.356 10 3.235c0-.834-.317-1.632-.' &&
+'88-2.222A2.94 2.94 0 0 0 7 .092m0 7.357c-.564-.464-2.455-2.17-2.455-4.214 0-.682.26-1.336.72-1.819A2.' &&
+'4 2.4 0 0 1 7 .663a2.4 2.4 0 0 1 1.736.753c.46.483.719 1.137.719 1.819 0 2.044-1.891 3.75-2.455 4.214"/>' &&
+'</mask>' &&
+'<path fill="#10233e" d="M7 1.806c-.27 0-.533.084-.758.24-.224.158-.399.381-.502.642s-.13.548-.077.' &&
+'825c.052.278.182.532.373.732.19.2.433.336.698.39.264.056.539.028.788-.08a1.4 1.4 0 0 0 .612-.527 1.' &&
+'48 1.48 0 0 0-.17-1.803A1.33 1.33 0 0 0 7 1.806m0 2.286a.8.8 0 0 1-.455-.145.85.85 0 0 1-.3-.384.' &&
+'9.9 0 0 1 .176-.934.8.8 0 0 1 .42-.235.8.8 0 0 1 .472.049c.15.065.277.175.367.315a.886.886 0 0 1-.' &&
+'101 1.083.8.8 0 0 1-.579.25m0-4c-.795 0-1.558.332-2.12.921A3.22 3.22 0 0 0 4 3.235c0 1.121.495 2.' &&
+'31 1.432 3.437.42.51.895.969 1.413 1.368a.26.26 0 0 0 .313 0c.517-.4.99-.858 1.41-1.368C9.504 5.' &&
+'545 10 4.356 10 3.235c0-.834-.317-1.632-.88-2.222A2.94 2.94 0 0 0 7 .092m0 7.357c-.564-.464-2.455-2.' &&
+'17-2.455-4.214 0-.682.26-1.336.72-1.819A2.4 2.4 0 0 1 7 .663a2.4 2.4 0 0 1 1.736.753c.46.483.719 1.' &&
+'137.719 1.819 0 2.044-1.891 3.75-2.455 4.214"/><path fill="#10233e" d="M8.364 3.235h1.5zm-.546 0h1.' &&
+'5zM7 .092l.002-1.5h-.004zM4 3.235l-1.5-.002v.002zm1.432 3.437 1.156-.955-.003-.004zM6.845 8.04l-.' &&
+'916 1.188.014.01.014.011zm.313 0 .887 1.21.015-.012.015-.011zm1.41-1.368-1.154-.958-.003.004zM10 3.' &&
+'235h1.5v-.002zM7 7.449l-.954 1.158.954.786.954-.786zM4.545 3.235h-1.5zM7 .663v-1.5zm0-.357a2.8 2.' &&
+'8 0 0 0-1.618.512l1.72 2.458a.2.2 0 0 1-.102.03zM5.382.818c-.471.33-.828.792-1.037 1.318l2.79 1.' &&
+'104a.1.1 0 0 1-.032.036zM4.345 2.136a3 3 0 0 0-.156 1.657l2.947-.56v.007zM4.19 3.793a2.95 2.' &&
+'95 0 0 0 .762 1.488l2.17-2.072c.013.014.015.024.015.025zm.762 1.488c.395.414.908.705 1.477.823l.' &&
+'612-2.937c.04.009.067.027.08.042zm1.477.823c.57.119 1.16.057 1.691-.173L6.925 3.179a.2.2 0 0 1 .' &&
+'115-.012zm1.691-.173a2.9 2.9 0 0 0 1.28-1.096l-2.53-1.613a.12.12 0 0 1 .056-.043zm1.28-1.096c.305-.' &&
+'48.465-1.036.465-1.6h-3v-.003l.005-.01zm.465-1.6c0-.755-.286-1.492-.815-2.046L6.88 3.26a.1.1 0 0 1-.' &&
+'014-.02l-.001-.004v-.001zm-.815-2.046A2.83 2.83 0 0 0 7 .306v3a.17.17 0 0 1-.12-.046zM7 2.592c.15 0 .' &&
+'292.047.406.127l-1.72 2.457c.382.268.84.416 1.314.416zm.406.127a.65.65 0 0 1 .233.292l-2.79 1.103c.' &&
+'167.423.455.795.836 1.062zm.233.292a.6.6 0 0 1 .032.336l-2.947-.56c-.084.444-.042.905.125 1.327zm.' &&
+'032.336a.63.63 0 0 1-.165.317l-2.17-2.071a2.37 2.37 0 0 0-.612 1.195zm-.165.317a.7.7 0 0 1-.36.198L6.' &&
+'534.926a2.3 2.3 0 0 0-1.198.667zm-.36.198a.7.7 0 0 1-.43-.043L7.91 1.067A2.3 2.3 0 0 0 6.534.926zm-.' &&
+'43-.043a.67.67 0 0 1-.3-.254l2.529-1.613a2.33 2.33 0 0 0-1.035-.885zm-.3-.254a.6.6 0 0 1-.098-.' &&
+'33h3c0-.451-.127-.898-.373-1.283zm-.098-.33c0-.149.056-.305.176-.43l2.17 2.071a2.38 2.38 0 0 0 .654-1.' &&
+'641zm.176-.43A.7.7 0 0 1 7 2.592v3a2.3 2.3 0 0 0 1.664-.716zm.504-4.213A4.44 4.44 0 0 0 3.795-.022l2.' &&
+'17 2.071a1.44 1.44 0 0 1 1.037-.457zM3.795-.022A4.72 4.72 0 0 0 2.5 3.233l3 .003c0-.458.175-.883.' &&
+'465-1.187zM2.5 3.235c0 1.566.687 3.083 1.778 4.396l2.307-1.918C5.803 4.772 5.5 3.911 5.5 3.235zm1.' &&
+'776 4.393a10.3 10.3 0 0 0 1.653 1.6L7.76 6.852a7.3 7.3 0 0 1-1.173-1.135zm1.681 1.621c.3.22.664.343 1.' &&
+'044.343v-3c.269 0 .524.087.731.239zm1.044.343c.381 0 .746-.123 1.044-.343L6.27 6.831c.207-.152.463-.' &&
+'24.731-.24zm1.074-.365a10.3 10.3 0 0 0 1.65-1.6l-2.314-1.91c-.35.425-.743.806-1.17 1.136zM9.722 7.' &&
+'63c1.09-1.312 1.778-2.828 1.778-4.395h-3c0 .675-.303 1.536-1.086 2.48zM11.5 3.233a4.72 4.72 0 0 0-1.' &&
+'295-3.255l-2.17 2.071c.29.304.465.73.465 1.187zM10.205-.022a4.44 4.44 0 0 0-3.203-1.386l-.004 3c.' &&
+'375 0 .75.156 1.037.457zM7.954 6.29A7.3 7.3 0 0 1 6.77 5.047c-.454-.618-.726-1.244-.726-1.812h-3c0 1.' &&
+'476.674 2.725 1.307 3.587.646.88 1.363 1.512 1.694 1.785zM6.045 3.235c0-.306.117-.587.304-.783L4.18.' &&
+'381a4.14 4.14 0 0 0-1.134 2.854zm.304-.783A.9.9 0 0 1 7 2.163v-3A3.9 3.9 0 0 0 4.18.381zM7 2.163a.' &&
+'9.9 0 0 1 .65.29L9.82.38A3.9 3.9 0 0 0 7-.837zm.65.29c.188.195.305.476.305.782h3c0-1.058-.4-2.086-1.134-2.' &&
+'854zm.305.782c0 .568-.272 1.194-.726 1.812A7.3 7.3 0 0 1 6.046 6.29l1.908 2.316a10.3 10.3 0 0 0 1.694-1.' &&
+'785c.633-.862 1.306-2.111 1.306-3.587z" mask="url(#a)"/>' &&
+'<path stroke="#10233e" stroke-linecap="round" stroke-width=".75" d="M9 5.908h2.983a1 1 0 0 1 .795 1.606l-1.' &&
+'521 2a1 1 0 0 1-.796.394H2.396c-.889 0-1.336-1.072-.711-1.703l1.978-2a1 1 0 0 1 .71-.297H5"/>' &&
+'</svg>'.
+    CALL FUNCTION 'SCMS_STRING_TO_XSTRING'
+      EXPORTING
+        text   = no_building
+      IMPORTING
+        buffer = xstring
+      EXCEPTIONS
+        failed = 1
+        OTHERS = 2.
+
+    CALL FUNCTION 'SCMS_BASE64_ENCODE_STR'
+      EXPORTING
+        input  = xstring
+      IMPORTING
+        output = no_building.
+    no_building = 'data:image/svg+xml;base64,' && no_building.
+
+    DATA(unit) =
+'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="13" fill="none">' &&
+'<g stroke="#000" stroke-linecap="round"><path d="M1.404 11.536h13.192M13.182 11.536V5.839a1 1 0 0 0-.' &&
+'31-.723L8.69 1.123a1 1 0 0 0-1.38 0L3.127 5.116a1 1 0 0 0-.31.723v5.697"/><path d="M6.587 11.3V8.767a1 1 0 0 1 1-1h.826a1 1 0 0 1 1 1V11.3"/>' &&
+'</g></svg>'.
+    CALL FUNCTION 'SCMS_STRING_TO_XSTRING'
+      EXPORTING
+        text   = unit
+      IMPORTING
+        buffer = xstring
+      EXCEPTIONS
+        failed = 1
+        OTHERS = 2.
+
+    CALL FUNCTION 'SCMS_BASE64_ENCODE_STR'
+      EXPORTING
+        input  = xstring
+      IMPORTING
+        output = unit.
+    unit = 'data:image/svg+xml;base64,' && unit.
   ENDMETHOD.
+
+
+  METHOD properties_functions.
+
+    ev_function =
+'     onAfterPropertyRendering: function(oEvent){' && |\n| &&
+'        if (oEvent.getSource().getBinding("items").aFilters.length === 0){' && |\n| &&
+'        var oModel = oEvent.getSource().getModel();' && |\n| &&
+'        var list = oEvent.getSource().getBinding("items").oList;' && |\n| &&
+'        var pagination = oModel.getProperty("/XX/MS_PAGINATION");' && |\n| &&
+'        var aFilters = []; ' && |\n| &&
+'        for (var i = 0; i < list.length; i++){' && |\n| &&
+'          aFilters.push(new sap.ui.model.Filter("INDEX", "EQ", list[i].INDEX));' && |\n| &&
+'          if (i === 0){' && |\n| &&
+'           oModel.setProperty("/XX/MS_PAGINATION/FROM_LINE", list[i].INDEX);' && |\n| &&
+'          }' && |\n| &&
+'          oModel.setProperty("/XX/MS_PAGINATION/TO_LINE", list[i].INDEX);' && |\n| &&
+'          if (aFilters.length >= pagination.LINES_ON_PAGE){break;}' && |\n| &&
+'        }' && |\n| &&
+'        oEvent.getSource().getBinding("items").filter(aFilters); ' && |\n| &&
+'        }' && |\n| &&
+'     }    '.
+    me->add_function( ev_function ).
+
+    ev_function =
+'    fetchPropertyData: function (oAction) {' && |\n| &&
+'     var oList = sap.ui.getCore().byId("pList");' && |\n| &&
+'     var list = oList.getBinding("items").oList;' && |\n| &&
+'     var oModel = oList.getModel();' && |\n| &&
+'     var pagination = oModel.getProperty("/XX/MS_PAGINATION");' && |\n| &&
+'     var search = oModel.getProperty("/XX/MS_PAGINATION/SEARCH");' && |\n| &&
+'     if (search === ""){' && |\n| &&
+'         var listFilter = list;' && |\n| &&
+'     }else{' && |\n| &&
+'         var listFilter = [];' && |\n| &&
+'         for (var i = 0; i < list.length; i++){' && |\n| &&
+'           var val = Object.values(list[i]);' && |\n| &&
+'           var match = false;' && |\n| &&
+'           for (var j = 0; j < val.length; j++){' && |\n| &&
+'             if (typeof val[j].includes === "function" && val[j].includes(search)){' && |\n| &&
+'               match = true;' && |\n| &&
+'               break;' && |\n| &&
+'            }' && |\n| &&
+'           }' && |\n| &&
+'           if (match){' && |\n| &&
+'            listFilter.push(list[i]);' && |\n| &&
+'           }' && |\n| &&
+'         }' && |\n| &&
+'     }' && |\n| &&
+'     var currPage = oModel.getProperty("/XX/MS_PAGINATION/CURRENT_PAGE");' && |\n| &&
+'     switch(oAction){' && |\n| &&
+'       case "0":' && |\n| && "SEARCH
+'         oModel.setProperty("/XX/MS_PAGINATION/CURRENT_PAGE", 1);' && |\n| &&
+'         var totalPages = Math.trunc(listFilter.length / pagination.LINES_ON_PAGE);' && |\n| &&
+'         if (listFilter.length % pagination.LINES_ON_PAGE > 0){totalPages++};' && |\n| &&
+'         oModel.setProperty("/XX/MS_PAGINATION/TOTAL_PAGE_COUNT", totalPages);' && |\n| &&
+'         currPage = 1;' && |\n| &&
+'         break;' && |\n| &&
+'       case "1":' && |\n| && "PREVIUS PAGE
+'         currPage--;' && |\n| &&
+'         if (currPage < 1){currPage = 1;};' && |\n| &&
+'         break;' && |\n| &&
+'       case "2":' && |\n| && "NEXT PAGE
+'         currPage++;' && |\n| &&
+'         if (currPage > pagination.TOTAL_PAGE_COUNT){currPage = pagination.TOTAL_PAGE_COUNT};' && |\n| &&
+'         break;' && |\n| &&
+'       case "3":' && |\n| && "FIRST PAGE
+'         currPage = 1;' && |\n| &&
+'         break;' && |\n| &&
+'       case "4":' && |\n| && "LAST PAGE
+'         currPage = pagination.TOTAL_PAGE_COUNT;' && |\n| &&
+'         break;' && |\n| &&
+'     };' && |\n| &&
+'     var aFilters = []; ' && |\n| &&
+'     oModel.setProperty("/XX/MS_PAGINATION/CURRENT_PAGE", currPage);' && |\n| &&
+'     oList.removeSelections();' && |\n| &&
+'     var fromLine = ( ( currPage - 1 ) * pagination.LINES_ON_PAGE );' && |\n| &&
+'     var toLine = ( currPage * pagination.LINES_ON_PAGE );' && |\n| &&
+'     for (var i = fromLine; i < listFilter.length && i < toLine; i++){' && |\n| &&
+'          aFilters.push(new sap.ui.model.Filter("INDEX", "EQ", listFilter[i].INDEX));' && |\n| &&
+'     }' && |\n| &&
+'     oList.getBinding("items").filter(aFilters); ' && |\n| &&
+'   }'.
+    me->add_function( ev_function ).
+  ENDMETHOD.
+
+
+  METHOD nntc_1_4.
+
+    DATA(view) = z2ui5_cl_xml_fragment=>factory( ).
+    DATA(firstcontainer) = view->vbox( class = 'RAKEGA-firstContainer' ).
+    DATA(card) = firstcontainer->vbox( class = 'RAKEGA-card' ).
+    DATA(card_top) = card->vbox( class = 'RAKEGA-card-top' ).
+    DATA(card_header) = card_top->hbox( class = 'RAKEGA-cardheader' justifycontent = 'SpaceBetween' alignitems = 'Center' ).
+    DATA(card_header_begin) = card_header->hbox( class = 'RAKEGA-cardheader-begin RAKEGA-align-items-center-imp' alignitems = 'Center' ).
+    DATA(journeyname_image) = card_header_begin->image( src = '../css/img/services/SVG/MUN.svg' height = '2rem' ).
+    DATA(journeyname) = card_header_begin->label( text = 'New Tenancy contract'(100) class = 'H2_1 color-dark-blue RAKEGA-journeyname' ).
+    DATA(card_header_vseparator) = card_header_begin->vbox( class = 'RAKEGA-cardheader-vseparator RAKEGA-hide-in-mobile' ).
+    DATA(card_header_end) = card_header->hbox( class = 'nowrap' alignitems = 'Center' ).
+    DATA(savedraft) = card_header_end->button( id = 'SAVEDRAFT' text = get_text_by_id( 'SAVE_AS_DRAFT' )
+    class = 'RAKEGA-cardheader-topbtn RAKEGA-hide-in-mobile sapUiSmallMarginEnd' icon = 'sap-icon://icomoon/Save' press = client->_event( 'SAVEDRAFTHOMEPOPUP' ) ).
+    DATA(savedraft_icononly) = card_header_end->button( id = 'SAVEDRAFT_ICONONLY'
+     class = 'RAKEGA-cardheader-topbtn RAKEGA-hide-in-desktop' icon = 'sap-icon://icomoon/Save' press = client->_event( 'SAVEDRAFTHOMEPOPUP' ) ).
+    DATA(delete) = card_header_end->button( id = 'DELETE' text = get_text_by_id( 'DELETE' )
+    class = 'RAKEGA-cardheader-topbtn RAKEGA-hide-in-mobile' icon = 'sap-icon://icomoon/Delete' press = client->_event( 'DELETE' ) ).
+    DATA(delete_icononly) = card_header_end->button( id = 'DELETE_ICONONLY'
+    class = 'RAKEGA-cardheader-topbtn RAKEGA-hide-in-desktop' icon = 'sap-icon://icomoon/Delete' press = client->_event( 'DELETE' ) ).
+    me->rakstagebar( card_top ).
+
+    DATA(part2) = card->vbox( class = 'RAKEGA-part2' ).
+    DATA(titledeed_title) = part2->label( text = get_text_by_id( 'NNTC_STEP_3' ) class = 'H3_1 color-dark-blue' ).
+
+    me->rak_titledeed( part2 ).
+
+    DATA(lessor_separator) = part2->hbox( class = 'RAKEGA-cardheader-vseparator RAKEGA-hide-in-mobile sapUiMediumMarginTopBottom' ).
+    DATA(lessor_details_title) = part2->label( text = get_text_by_id( 'LESSOR_DETAILS' ) class = 'H3_1 color-dark-blue' ).
+
+    me->raksearch( io_parent = part2 ).
+    DATA(lessee_cont) = part2->vbox( ).
+    DATA(lessee_separator) = lessee_cont->hbox( class = 'RAKEGA-cardheader-vseparator RAKEGA-hide-in-mobile sapUiMediumMarginTopBottom' ).
+    DATA(lessee_details_title) = lessee_cont->label( text = get_text_by_id( 'LESSEE_DETAILS' ) class = 'H3_1 color-dark-blue' ).
+    me->raksearch( io_parent = lessee_cont ).
+
+    DATA(footer) = firstcontainer->hbox( class = 'RAKEGA-footer' ).
+    DATA(buttonback) = footer->button( id = 'BUTTONBACK' text = get_text_by_id( 'BACK_BUTTON' ) class = 'regularBTN_with_border' icon = 'sap-icon://icomoon/Left' press = client->_event( 'BACK' ) ).
+    DATA(next) = footer->button( id = 'NEXT' text = get_text_by_id( 'NEXT_BUTTON' ) class = 'regularBTN' icon = 'sap-icon://icomoon/Right' iconfirst = 'false' press = client->_event( 'SAVE' ) ).
+
+
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+
+
+  METHOD rak_titledeed.
+
+    me->rak_titledeed_css( ).
+
+    DATA(outer_container) = io_parent->vbox( class = 'rtd_outerContainer' busy = '{TDModel>/bBusy}' ).
+
+    " ==================== FORM ====================
+    DATA(form_container) = outer_container->vbox( class = 'rtd-form-container' visible = '{TDModel>/bFormVisible}' rendertype = 'Bare' ).
+    DATA(form_id_vbox) = form_container->vbox( class = 'rtd-form-id-vbox' rendertype = 'Bare' ).
+
+    " TODO: "required" attribute on Label - first use, param name guessed
+    DATA(titledeed_label) = form_id_vbox->label( text = '{i18n>TitleDeed}' class = 'Body_1_2 color-gray7' required = 'true' ).
+
+    DATA(form_id_hbox) = form_id_vbox->hbox( class = 'rtd-form-id-hbox' ).
+    DATA(input_cont) = form_id_hbox->hbox( id = 'idRtdInputCont' class = 'rtd-input-hbox' rendertype = 'Bare' ).
+
+    DATA(number_input) = input_cont->input(
+                             value            = '{TDModel>/inputNumberValue}'
+                             valuestate       = '{TDModel>/inputNumberValueState}'
+                             valuestatetext   = '{TDModel>/inputNumberValueStateText}'
+                             maxlength        = '5'
+                             placeholder      = '{i18n>Number}'
+                             livechange       = '.extension.RAK_TITLEDEED.onlyPositiveInt'
+                             valueliveupdate  = 'true'
+                             class            = 'input' ).
+    DATA(slash_text) = input_cont->text( text = '/' class = 'Body_2_3 color-gray7' ).
+    DATA(year_input) = input_cont->input(
+                           value            = '{TDModel>/inputYearValue}'
+                           valuestate       = '{TDModel>/inputYearValueState}'
+                           valuestatetext   = '{TDModel>/inputYearValueStateText}'
+                           maxlength        = '4'
+                           placeholder      = '{i18n>Year}'
+                           livechange       = '.extension.RAK_TITLEDEED.onlyPositiveInt'
+                           valueliveupdate  = 'true'
+                           class            = 'input' ).
+
+    " NOTE: in the source, slash_text sits directly under form_id_hbox, BETWEEN the two
+    " inputs (which live inside the nested input_cont) - i.e. slash_text is a sibling of
+    " input_cont, not of the two Input controls themselves. Rendering order above follows
+    " source structure faithfully even though the DATA() declaration order interleaves them.
+
+    DATA(find_cont) = form_id_hbox->hbox( class = 'rtd-find-cont' rendertype = 'Bare' visible = '{= ${TDModel>/form/selected} !== '''' }' ).
+    DATA(find_button) = find_cont->button( text = '{i18n>Find}' class = 'regularBTN_with_border' press = '.extension.RAK_TITLEDEED.onPressFind' ).
+
+    " ==================== "TABLE" (repeating duplicates list) ====================
+    " TODO: items binding uses full object syntax "{ path:'...', templateShareable:false}",
+    " not the plain "{Model>/path}" string form every other items binding in this app uses -
+    " kept verbatim, unconfirmed the builder tolerates this untouched.
+    DATA(duplicates_row) = outer_container->hbox(
+                               width   = '100%'
+                               visible = '{TDModel>/bTableVisible}'
+                               items   = '{ path:''TDModel>/duplicates'', templateShareable:false}' ).
+    DATA(table_cont) = duplicates_row->items( )->hbox( class = 'rtd-table-cont' ).
+
+    DATA(table_vbox) = table_cont->vbox( class = 'rtd-table-vbox' ).
+    DATA(table_hbox) = table_vbox->hbox( class = 'rtd-table-hbox' ).
+
+    DATA(parcel_vbox) = table_hbox->vbox( class = 'rtd-label-value-vbox' ).
+    DATA(parcel_label) = parcel_vbox->text( text = '{i18n>ParcelNo}' class = 'Body_1_2 color-gray7' ).
+    DATA(parcel_value) = parcel_vbox->text( text = '{TDModel>ParcelId}' class = 'Body_2_3 color-gray6' ).
+
+    DATA(landuse_vbox) = table_hbox->vbox( class = 'rtd-label-value-vbox' ).
+    DATA(landuse_label) = landuse_vbox->text( text = '{i18n>PropertyType}' class = 'Body_1_2 color-gray7' ).
+    DATA(landuse_value) = landuse_vbox->text( text = '{TDModel>LandUse}' class = 'Body_2_3 color-gray6' ).
+
+    DATA(area_vbox) = table_hbox->vbox( class = 'rtd-label-value-vbox' ).
+    DATA(area_label) = area_vbox->text( text = '{i18n>Area}' class = 'Body_1_2 color-gray7' ).
+    DATA(area_value) = area_vbox->text( text = '{TDModel>AreaText}' class = 'Body_2_3 color-gray6' ).
+
+    " (commented-out ParcelNo header HBox and Address label/value VBox in the source were
+    " dead code - not translated, per how the fragment actually reads today)
+
+    DATA(edit_mode_vbox) = table_cont->vbox( justifycontent = 'Start' visible = '{TDModel>/settings/editMode}' ).
+    DATA(edit_mode_hbox) = edit_mode_vbox->hbox( alignitems = 'Center' rendertype = 'Bare' ).
+    DATA(repeat_image) = edit_mode_hbox->image(
+                             src   = '{TDModel>/settings/imageUrlPrefix}{= ''fi_repeat.svg'' }'
+                             press = '.extension.RAK_TITLEDEED.onPressDelete' ).
+    DATA(resume_search_link) = edit_mode_hbox->link(
+                                   text  = '{i18n>ResumeSearch}'
+                                   class = 'link large-link sapUiTinyMarginBegin'
+                                   press = '.extension.RAK_TITLEDEED.onPressDelete' ).
+  ENDMETHOD.
+
+
+  method RAK_TITLEDEED_CSS.
+    ev_css =
+'.rtd_outerContainer {' &&
+'    width: 100%;' &&
+'    gap: 1.25rem;' &&
+'    /*min-width: 670px;*/' &&
+'}' &&
+
+'.rtd-form-container {' &&
+'    padding: 0;' &&
+'    align-items: flex-start;' &&
+'    gap: 1rem;' &&
+'    align-self: stretch;' &&
+'    background: var(--White);' &&
+'}' &&
+
+'.rtd_requiredLabel.sapMLabel.sapMLabelRequired .sapMLabelColonAndRequired::after {' &&
+'    color: var(--Primary-Red, #BF1313);' &&
+'}' &&
+
+'.rtd-form-header {' &&
+'    align-self: stretch;' &&
+'    justify-content: space-between;' &&
+'    align-items: center;' &&
+'}' &&
+
+'.rtd-form-id-hbox {' &&
+'    gap: 1.25rem;' &&
+'    flex-wrap: wrap;' &&
+'    align-items: flex-start;' &&
+'}' &&
+
+'.rtd-form-id-vbox {' &&
+'    /*width: 15.9375rem;*/' &&
+'    min-width: 10rem;' &&
+'    align-items: flex-start;' &&
+'    gap: 0.5rem;' &&
+'    align-self: stretch;' &&
+'}' &&
+
+'.rtd-form-id-vbox .input .sapMInputBaseContentWrapper,' &&
+'.rtd-form-id-vbox .input.sapMInputBase {' &&
+'    width: 7.3125rem !important;' &&
+'    min-width: 7.3125rem !important;' &&
+'}' &&
+
+'.rtd-input-hbox {' &&
+'    gap: 0.5rem;' &&
+'    align-items: center;' &&
+'    direction: ltr;' &&
+'}' &&
+
+'.rtd-form-label-hbox {' &&
+'    gap: 0.25rem;' &&
+'}' &&
+
+'.rtd-form-footer {' &&
+'    justify-content: flex-end;' &&
+'    align-items: center;' &&
+'    align-self: stretch;' &&
+'}' &&
+
+'.rtd-table-cont {' &&
+'    width: 100%;' &&
+'    justify-content: space-between;' &&
+'    align-items: flex-start;' &&
+'}' &&
+
+'.rtd-table-vbox {' &&
+'    gap: 1rem;' &&
+'    align-items: flex-start;' &&
+'}' &&
+
+'.rtd-table-hbox {' &&
+'    gap: 3rem;' &&
+'    align-items: flex-start;' &&
+'}' &&
+
+'.rtd-label-value-vbox {' &&
+'    align-items: flex-start;' &&
+'    gap: 0.1875rem;' &&
+'}' &&
+
+'html.sap-tablet .rtd-Dialog.dialog.sapMDialog,' &&
+'html.sap-desktop .rtd-Dialog.dialog.sapMDialog {' &&
+'    min-width: 20rem;' &&
+'    width: 559px !important;' &&
+'    height: unset !important;' &&
+'}' &&
+
+'.rtd-dialog-mobile-header {' &&
+'    display: none;' &&
+'}' &&
+
+'.rtd-dialog-main-cont {' &&
+'    padding: 2rem;' &&
+'    align-items: flex-start;' &&
+'    gap: 2rem;' &&
+'    flex: 1 0 0;' &&
+'    align-self: stretch;' &&
+'}' &&
+
+'.rtd-Dialog .toggle.sapMBtn {' &&
+'    width: 170px;' &&
+'}' &&
+
+'.rtd-Dialog .footer-two-buttons {' &&
+'	position: relative;' &&
+'}' &&
+
+'@media only screen and (max-width: 900px) {' &&
+
+'    .rtd-form-footer {' &&
+'        justify-content: flex-start;' &&
+'    }' &&
+
+'    .rtd-form-footer .regularBTN_with_border {' &&
+'        width: 20.5rem;' &&
+'    }' &&
+
+'    .rtd-table-cont {' &&
+'        flex-direction: column;' &&
+'        justify-content: flex-start;' &&
+'        align-items: flex-start;' &&
+'        gap: 1rem;' &&
+'    }' &&
+
+'    .rtd-table-hbox {' &&
+'        flex-direction: column;' &&
+'        gap: 0.75rem;' &&
+'        align-items: flex-start;' &&
+'    }' &&
+
+'    .rtd-dialog-mobile-header {' &&
+'        display: flex;' &&
+'        padding: 1.25rem 1rem;' &&
+'        align-items: center;' &&
+'        justify-content: flex-start;' &&
+'        gap: 0.25rem;' &&
+'        align-self: stretch;' &&
+'    }' &&
+
+'    .rtd-dialog-main-cont {' &&
+'        padding: 1.5rem 1rem;' &&
+'        gap: 1rem;' &&
+'    }' &&
+
+'    .rtd-Dialog .footer-two-buttons {' &&
+'        justify-content: center;' &&
+'        padding: 1rem 1.25rem;' &&
+'        position: fixed;' &&
+'    }' &&
+
+'    .rtd-Dialog .footer-two-buttons .regularBTN {' &&
+'        width: 20rem;' &&
+'    }' &&
+
+'    .rtd-Dialog .toggle.sapMBtn {' &&
+'        width: 164px;' &&
+'    }' &&
+'}    '.
+
+    me->add_style( ev_css ).
+  endmethod.
 ENDCLASS.

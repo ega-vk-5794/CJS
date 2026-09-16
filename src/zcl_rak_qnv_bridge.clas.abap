@@ -320,10 +320,10 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
 *   ZIF_EGA_FW_CJI~MAPPER HAS A CJS BRANCH and it reads TWO items, not one:
 *
 *     IF gs_data-caseid IS INITIAL.
-*       READ TABLE item_data ASSIGNING FIELD-SYMBOL(<fs>) 
+*       READ TABLE item_data ASSIGNING FIELD-SYMBOL(<fs>)
 *                            WITH KEY technicalname = 'ZCJS_CALLER'.
 *       IF <fs> IS ASSIGNED AND <fs>-value = 'CJS'.
-*         READ TABLE item_data ASSIGNING <fs> 
+*         READ TABLE item_data ASSIGNING <fs>
 *                              WITH KEY technicalname = 'CASEID'.
 *         IF <fs> IS ASSIGNED AND <fs>-value IS NOT INITIAL.
 *           gs_data-caseid = <fs>-value.

@@ -29,42 +29,29 @@ public section.
     CONSTANTS c_step_hist TYPE i VALUE 2.   " HIST  Marital Status & History (seq 30)
     CONSTANTS c_step_prty TYPE i VALUE 3.   " PRTY  Parties (grid + parties)  (seq 40)
     CONSTANTS c_step_docs TYPE i VALUE 4.   " DOCS  Request & Documents      (seq 50, last -> Submit)
-    " Partner-search popup. ZCL_RAK_BP_POPUP is a reference implementation, so the
-    " popup lives here and calls the central ZCL_RAK_BP_SEARCH. Field names follow
-    " <SUBJECT>_<SUFFIX>, so the result lands on the party being searched.
-*   BP IDENTIFICATION TYPE CODES, and they are not guesses any more.
-*   ZCRM_MOI_CR_UPD WRITES the identification rows, so its own codes settle them,
-*   and ZWDC_EGA_EBP_SRCH_CREATE's SORT_IDTYPE reads them back with the same four
-*   meanings. YFS004 - which is what PASSPORT said here until engine round 9 -
-*   appears in no source at all, and the value that said UNIFIED ID was the
-*   PASSPORT code. IDTYPE goes out as a filter, so a passport search filtered on
-*   a type no partner holds and could never match; invisible because live traffic
-*   is almost entirely Emirates ID, where YFS002 was already right.
-*   ZCL_RAK_BP_POPUP was corrected in the same round - keep the two in step.
-*   THE LABEL COLUMN OF THE FOUND-PARTNER CARD, the one half of the BP
-*   popup that still puts a label beside its value rather than above it -
-*   see BP_RENDER( ) for why the search form does not. 8rem was measured
-*   rather than estimated: it was originally sized to the longer of the two
-*   halves' labels, the search form's Arabic "رقم الهوية الإماراتية" with
-*   its colon and its required asterisk, and left at that width now that
-*   only the card uses it - the card's own longest, "البريد الإلكتروني",
-*   is shorter and was already comfortably inside it.
-    CONSTANTS c_bp_lblw   TYPE string VALUE '8rem'.
-    CONSTANTS c_bp_eid    TYPE string VALUE 'YFS002'.   " Emirates ID
-    CONSTANTS c_bp_pass   TYPE string VALUE 'YFS005'.   " Passport
-    CONSTANTS c_bp_unif   TYPE string VALUE 'YFS001'.   " Unified ID
-*   NO PASSPORT TYPE. The field is gone, and it is not coming back: the WD
-*   collected one, packed it into ZMOI_PASS_DOCUMENT-DOCUMENT_TYPE and passed it
-*   to ZCRM_MOI_CR_UPD, where the DOCUMENT_TYPE selection parameter is COMMENTED
-*   OUT and the value is referenced nowhere else. The standalone BP-search WD is
-*   worse - FILL_DROPDOWN_PASSTYPE binds SY-TABIX and DDTEXT, so it never held
-*   the domain key at all. Three sources, no destination. Asking a citizen for it
-*   was cosmetic, and asking for it as MANDATORY blocked them for nothing.
-*   See referenceWD/ZCRM_MOI_CR_UPD.abap, the passport branch.
-    CONSTANTS c_ev_bp_go  TYPE string VALUE 'BPP_SEARCH'.   " type switch: re-render
-    CONSTANTS c_ev_bp_run TYPE string VALUE 'BPP_RUN'.      " the Search button
-    CONSTANTS c_ev_bp_new TYPE string VALUE 'BPP_RESUME'.
-    CONSTANTS c_ev_bp_cxl TYPE string VALUE 'BPP_CLOSE'.
+*   THE PARTNER SEARCH IS THE ENGINE'S NOW - ZCL_RAK_BP_POPUP, instantiated
+*   in BP_POPUP( ) below. It draws the dialog, runs ZCL_RAK_BP_SEARCH and
+*   writes <SUBJECT>_PARTNER / _NAME / _PHONE / _EMAIL back onto the journey.
+*
+*   ABOUT 750 LINES CAME OUT WHEN THIS LANDED. What we had was the reference
+*   implementation copied and improved; rounds 20 to 22 moved every one of
+*   those improvements into the engine class - the required-field check that
+*   reports every gap in one pass, the fifteen-digit Emirates ID test, the
+*   restricted ID-type list, the label-above-control layout, the bold name
+*   the Arabic CSS cannot flatten, the two events - so the copy had nothing
+*   left that the original did not do, and in three places did it worse.
+*
+*   FOUR CONSTANTS WENT WITH IT. The three ID type codes are
+*   ZCL_RAK_BP_POPUP=>C_EID / C_PASS / C_UNIF, and the popup's own event
+*   names are its C_EV_* - both public, both the backend's interface rather
+*   than ours to restate. The card's label width was a number in a method
+*   this class no longer owns.
+*
+*   WHAT STAYED, AND WHY EACH ONE IS NOT THE POPUP'S: the three Add-BP open
+*   events below, the button that carries them (BP_BUTTON_TEXT), the search
+*   template (BP_SEARCH_OPTS), and the future-date-of-birth refusal
+*   (BP_DOB_FUTURE) - see that method for why it is ours and why it needs no
+*   subclass.
     CONSTANTS c_evt_bp_divorcee TYPE string VALUE 'BP_OPEN_DIVORCEE'.
     CONSTANTS c_evt_bp_witness1 TYPE string VALUE 'BP_OPEN_WITNESS1'.
     CONSTANTS c_evt_bp_witness2 TYPE string VALUE 'BP_OPEN_WITNESS2'.
@@ -140,69 +127,25 @@ public section.
     METHODS react_pers_info
       IMPORTING io_ctx   TYPE REF TO zif_rak_journey
                 iv_field TYPE string.
-    " ---- partner-search popup (drawn here; search via ZCL_RAK_BP_SEARCH) ----
-    METHODS bp_fld
-      IMPORTING iv_subject TYPE string
-                iv_suffix  TYPE string
-      RETURNING VALUE(rv)  TYPE string.
-    METHODS bp_or_dash
-      IMPORTING iv_value  TYPE string
-      RETURNING VALUE(rv) TYPE string.
-    METHODS bp_pair
-      IMPORTING io_box   TYPE REF TO z2ui5_cl_xml_view
-                iv_label TYPE string
-                iv_value TYPE string.
-    METHODS bp_row
-      IMPORTING io_box        TYPE REF TO z2ui5_cl_xml_view
-                iv_label      TYPE string
-                iv_required   TYPE abap_bool DEFAULT abap_false
-      RETURNING VALUE(ro_row) TYPE REF TO z2ui5_cl_xml_view.
-    METHODS bp_render
+    " ---- partner search: the engine's popup, configured from here --------
+    " ONE FACTORY, CALLED FROM BOTH HOOKS. The popup is constructed twice per
+    " round trip - once to render and once to handle - and the two
+    " constructions must agree: a form drawn with three ID types and validated
+    " as though it had four is worse than either behaviour on its own.
+    METHODS bp_popup
       IMPORTING io_ctx     TYPE REF TO zif_rak_journey
-                io_popup   TYPE REF TO z2ui5_cl_xml_view
-                iv_subject TYPE string.
-    METHODS bp_handle
-      IMPORTING io_ctx       TYPE REF TO zif_rak_journey
-                iv_event     TYPE string
-                iv_subject   TYPE string
-      RETURNING VALUE(rv_ok) TYPE abap_bool.
-    METHODS bp_run_search
+                iv_subject TYPE string
+      RETURNING VALUE(ro)  TYPE REF TO zcl_rak_bp_popup.
+    " Refuses a date of birth in the future and says so. ABAP_TRUE means a
+    " message was added and the caller must NOT delegate to the popup.
+    METHODS bp_dob_future
       IMPORTING io_ctx     TYPE REF TO zif_rak_journey
-                iv_subject TYPE string.
+                iv_subject TYPE string
+      RETURNING VALUE(rv)  TYPE abap_bool.
     " The ZCL_RAK_BP_SEARCH request template: everything that is NOT one of the
     " five identity fields the citizen types.
     METHODS bp_search_opts
       RETURNING VALUE(rs) TYPE zcl_rak_bp_search=>ty_req.
-    METHODS bp_nationalities
-      RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
-    " Date of birth and nationality, each drawn as its own method because the
-    " three search branches want them in different ORDERS and a form is emitted
-    " in creation order - so the choice has to be a call sequence, not a flag.
-    " One mandatory field. Reports through the framework's own "&1 is required"
-    " so the popup reads like every other required message in CJS, and returns
-    " whether it complained so the caller can collect them all before refusing.
-    METHODS bp_eid_digits
-      IMPORTING iv_value  TYPE string
-      RETURNING VALUE(rv) TYPE string.
-    METHODS bp_need
-      IMPORTING io_ctx     TYPE REF TO zif_rak_journey
-                iv_subject TYPE string
-                iv_suffix  TYPE string
-                iv_en      TYPE string
-                iv_ar      TYPE string
-      RETURNING VALUE(rv)  TYPE abap_bool.
-    METHODS bp_dob_field
-      IMPORTING io_ctx     TYPE REF TO zif_rak_journey
-                iv_subject TYPE string
-                io_form    TYPE REF TO z2ui5_cl_xml_view.
-    METHODS bp_nat_field
-      IMPORTING io_ctx     TYPE REF TO zif_rak_journey
-                iv_subject TYPE string
-                io_form    TYPE REF TO z2ui5_cl_xml_view.
-    METHODS bp_pick
-      IMPORTING is_bp     TYPE zcl_zega_bp_mpc_ext=>ts_businesspartner
-                iv_names  TYPE string
-      RETURNING VALUE(rv) TYPE string.
     METHODS bp_button_text
       IMPORTING iv_partner     TYPE string
                 iv_role_en     TYPE string
@@ -216,16 +159,7 @@ public section.
     METHODS conv_date_internal
       IMPORTING iv_ext        TYPE string
       RETURNING VALUE(rv_int) TYPE d.
-    " The BP popup's date of birth as ZCL_RAK_BP_SEARCH wants it: BLANK, or
-    " exactly eight digits. Delegates to the ENGINE's date parser, not to this
-    " class's CONV_DATE_INTERNAL( ) - see the note on the implementation for
-    " why the dialog user's date format has no business deciding what a
-    " citizen typed.
-    METHODS bp_dob
-      IMPORTING iv_raw    TYPE string
-      RETURNING VALUE(rv) TYPE string.
 ENDCLASS.
-
 
 
 CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
@@ -249,737 +183,126 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD BP_EID_DIGITS.
+  METHOD BP_POPUP.
 *&---------------------------------------------------------------------*
-*& bp_eid_digits — the Emirates ID as the fifteen digits it is.
+*& bp_popup — the engine's partner search, configured for this service.
 *&
-*& The field is a sap.m.MaskInput now (see BP_RENDER( )), so what reaches
-*& the model carries the mask's own literals - the fixed 784 and the three
-*& separators. MOI wants the number, so the separators come off here, once,
-*& on the way into the request rather than by rewriting the model: the
-*& citizen keeps seeing the grouped form they typed into.
+*& ONE FACTORY, AND BOTH HOOKS CALL IT. ZCL_RAK_BP_POPUP is constructed
+*& twice per round trip - once in ON_RENDER_POPUP to draw and once in
+*& ON_POPUP_EVENT to handle - and the engine's own how-to warns that the
+*& two constructions must agree. They cannot disagree if there is one
+*& place that builds it.
 *&
-*& CHARACTER BY CHARACTER, not REPLACE of '-'. An untouched MaskInput's value
-*& is not something this method should have an opinion about - it may be
-*& blank, it may be the literals alone - and counting digits answers "has the
-*& citizen actually entered an ID" for every one of those shapes without
-*& needing to know which. BP_RUN_SEARCH( ) tests the LENGTH of what comes
-*& back, so 784 and nothing else fails the same way a half-typed number does.
+*& IT_TYPES - THREE, NOT FOUR. The engine offers Trade Licence as well,
+*& and a trade licence identifies a COMPANY. Every party this service
+*& collects is a natural person: a divorcee and two witnesses. The citizen
+*& who picked it would get "No data found", which is the wrong answer to a
+*& question they should not have been asked.
+*&
+*& IV_STRICT - DATE OF BIRTH AND NATIONALITY REQUIRED, not merely asked
+*& for. They are not search narrowing: VALIDATE( )'s MOI cross-check
+*& compares them against what the BP holds, and that check runs on all
+*& three identity branches. Left off, the form collects the verification,
+*& sends it, and has nothing to compare - a partner nobody verified.
+*&
+*& IT_DETAIL - NATV, AND NOTHING ELSE. The engine's blank default is name,
+*& partner number, mobile and email; ours has always carried nationality
+*& beside them, so one entry restores exactly the card AS3 shows today.
+*&
+*& NATV, NOT NAT, AND THE DIFFERENCE IS REAL. NAT is the QUESTION - bound
+*& to the search form's select and sent as LS_REQ-NATIONALITY - and NATV is
+*& the ANSWER, written from LS_BP-NATIONALITY and resolved to its T005T
+*& description. That split is R22-1: before it the card drew NAT and
+*& therefore echoed the citizen's own input back at them, as the country
+*& CODE, and read blank on any journey that did not ask the question.
+*&
+*& PASSING 'NAT' ALSO WORKS AND IS THE WRONG THING TO RELY ON. WANTED( )
+*& carries an explicit branch so a journey configured before R22-1 keeps
+*& its row - a compatibility shim, named as one in its own comment. Ours
+*& was written after the fix and should name the field it actually wants.
+*& The full legacy card is IT_DETAIL = ( '*' ) - twenty-five fields across
+*& General, Contact and Address - and it is not what this service should
+*& show: the citizen searched for the OTHER party, and their ID number,
+*& passport, date of birth and home address are not this form's business.
+*& That was R21-1 and the engine made our four the default for everyone.
+*&
+*& IS_SEARCH - our own template, unchanged. See BP_SEARCH_OPTS( ): it is
+*& the E10/E20 expiry waiver, and the popup takes everything that is not
+*& an identity field from it verbatim.
+*&
+*& NOT PASSED: IV_ASK_DOB / IV_ASK_NAT, which suppress those two fields
+*& entirely. Both default true and both must stay true here - they are the
+*& verification IV_STRICT then requires, and turning one off would turn off
+*& its check with it.
 *&---------------------------------------------------------------------*
-    DATA lv_c TYPE c LENGTH 1.
-    DATA(lv_len) = strlen( iv_value ).
-    DATA(lv_i)   = 0.
-    WHILE lv_i < lv_len.
-      lv_c = iv_value+lv_i(1).
-      IF lv_c CO '0123456789'.
-        rv = rv && lv_c.
-      ENDIF.
-      lv_i = lv_i + 1.
-    ENDWHILE.
-  ENDMETHOD.
-
-
-  METHOD BP_NEED.
-    IF io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = iv_suffix ) ) IS NOT INITIAL.
-      RETURN.
-    ENDIF.
-    io_ctx->add_msg(
-      iv_type = 'Error'
-      iv_text = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-required
-                                   iv_default = '&1 is required'
-                                   iv_v1      = zcl_rak_text=>pick( iv_base = iv_en
-                                                                    iv_ar   = iv_ar ) ) ).
-    rv = abap_true.
-  ENDMETHOD.
-
-
-  METHOD BP_DOB_FIELD.
-*&---------------------------------------------------------------------*
-*& The date of birth field. Its own method because the three search
-*& branches want it in different positions and a form renders in creation
-*& order, so the order has to be a call sequence.
-*&
-*& dd.MM.yyyy ON SCREEN, and the dots are not cosmetic. This was
-*& 'dd/MM/yyyy' - the only date in the whole service that asked for slashes,
-*& while every FTYPE 'DATE' field the engine draws shows dd.MM.yyyy
-*& (ZCL_RAK_JOURNEY_RENDER's DATE branch hard-codes it) and DATE_DISPLAY( )
-*& writes dots into every message. A citizen who typed what every other
-*& field on the journey taught them - 02.05.1990 - gave sap.m.DatePicker
-*& text its displayFormat could not parse, and an unparsed DatePicker still
-*& pushes the RAW TEXT into the bound value. So '02.05.1990' reached the
-*& model, went into the OData DateOfBirth filter as-is, and the backend
-*& terminated with "'19.08.1987' is not a valid value for D(8,0)".
-*&
-*& YYYYMMDD stays in the VALUE, unlike the engine's DATE fields which use
-*& ISO: the MOI cross-check compares LS_BP-DOB against IS_REQ-DOB as plain
-*& strings and the BP side of that is eight digits.
-*&
-*& The format alone is not the whole guard - 31.13.2020 is still typable -
-*& so BP_DOB( ) in BP_RUN_SEARCH keeps an unparsed value out of the request.
-*&---------------------------------------------------------------------*
-    DATA(lo_row) = bp_row( io_box      = io_form
-                           iv_label    = zcl_rak_text=>pick( iv_base = `Date of Birth`
-                                                             iv_ar   = |تاريخ الميلاد| )
-                           iv_required = abap_true ).
-    lo_row->date_picker(
-    value         = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'DOB' ) )
-    displayformat = 'dd.MM.yyyy'
-    valueformat   = 'yyyyMMdd'
-    width         = '100%'
-    class         = 'sapUiSmallMarginBottom' ).
-  ENDMETHOD.
-
-
-  METHOD BP_NAT_FIELD.
-*&---------------------------------------------------------------------*
-*& SELECT, NOT COMBOBOX. The nationality list is BP_NATIONALITIES( ) and
-*& nothing a citizen types into it can ever match, so a type-ahead ComboBox
-*& only invites typing and pops a keyboard on a touch device. Same reasoning
-*& as CLOSED_LIST on the fourteen dropdowns of the journey behind this popup.
-*&
-*& FORCESELECTION = ABAP_FALSE PASSED EXPLICITLY, and it has to be. Not
-*& passing it does NOT give the false: an unsupplied OPTIONAL arrives blank,
-*& XML_GET_PARTS( ) drops every blank property from the markup, and UI5's own
-*& default of TRUE applies - so an untouched box would DRAW the first
-*& nationality while the model held nothing, and the citizen would search
-*& under a nationality they never chose.
-*&
-*& NO BLANK LEADING ITEM, unlike the engine's own popup. There the field is
-*& optional, so a way back to blank is right. Here it is MANDATORY - the MOI
-*& cross-check compares it and a blank fails rather than skips - so a blank
-*& item would be a pickable value that fails validation, which is the case
-*& the rule exists to avoid.
-*&---------------------------------------------------------------------*
-    DATA(lo_row) = bp_row( io_box      = io_form
-                           iv_label    = zcl_rak_text=>pick( iv_base = `Nationality`
-                                                             iv_ar   = |الجنسية| )
-                           iv_required = abap_true ).
-    DATA(lo_nat) = lo_row->select(
-          selectedkey    = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'NAT' ) )
-          forceselection = abap_false
-          width          = '100%'
-          class          = 'sapUiSmallMarginBottom' ).
-    LOOP AT bp_nationalities( ) INTO DATA(ls_n).
-      lo_nat->item( key = ls_n-key text = ls_n-text ).
-    ENDLOOP.
-  ENDMETHOD.
-
-
-  METHOD BP_FLD.
-    rv = |{ to_upper( iv_subject ) }_{ iv_suffix }|.
-  ENDMETHOD.
-
-
-  METHOD BP_OR_DASH.
-*&---------------------------------------------------------------------*
-*& bp_or_dash — a blank BP attribute reads as '-', not as nothing.
-*&
-*& The same thing ZCL_RAK_BP_POPUP=>PAIR( ) does on the engine's own party
-*& card, for the same reason: a label with an empty control after its colon
-*& looks like the value failed to arrive, where '-' says the business partner
-*& does not have one. Phone and email are the two that are routinely blank,
-*& so they are the two this was noticed on.
-*&
-*& It does NOT go through ESC( ) here - every caller already does, and
-*& escaping a '-' twice is harmless but escaping it here and not there would
-*& be the kind of asymmetry that gets copied.
-*&---------------------------------------------------------------------*
-    rv = COND string( WHEN iv_value IS NOT INITIAL THEN iv_value ELSE `-` ).
-  ENDMETHOD.
-
-
-  METHOD BP_PAIR.
-*&---------------------------------------------------------------------*
-*& bp_pair — one label/value row of the found-partner card.
-*&
-*& A fixed-width LABEL and a TEXT in an HBOX, replacing a SimpleForm. See
-*& BP_RENDER( ) for why there is no form here any more.
-*&
-*& WIDTH ON THE LABEL IS THE WHOLE POINT. It is what puts the four values
-*& on one edge under each other, and it is a number rather than a grid span
-*& the layout recomputes. ALIGNITEMS 'Center' keeps a one-line value level
-*& with its label; the label does not wrap at 10rem, so there is no second
-*& line to align to.
-*&---------------------------------------------------------------------*
-    DATA(lo_row) = io_box->hbox( alignitems = 'Center'
-                                 class      = 'sapUiTinyMarginBottom' ).
-    lo_row->label( text      = zcl_rak_journey_util=>esc( iv_label )
-                   showcolon = abap_true
-                   width     = c_bp_lblw ).
-    lo_row->text( text = zcl_rak_journey_util=>esc( bp_or_dash( iv_value ) ) ).
-  ENDMETHOD.
-
-
-  METHOD BP_ROW.
-*&---------------------------------------------------------------------*
-*& bp_row — the label above one search-form control. Draws the label
-*& straight into IO_BOX and hands the SAME box back, so the control the
-*& caller adds next is the label's next sibling and the two stack, one
-*& above the other, because IO_BOX is a VBox and a VBox lays its children
-*& out vertically in creation order.
-*&
-*& WHY NOT A ROW OF ITS OWN, which is what this drew until the screenshot
-*& showed a collapsed Select and a clipped Input. IO_BOX->HBOX( ) with no
-*& WIDTH creates a box that shrinks to its content - confirmed by reading
-*& HBOX( )'s signature, WIDTH is OPTIONAL and nothing was passed - so the
-*& row was only ever as wide as the label plus a sliver, and a control
-*& inside it asking for WIDTH '100%' was asking for 100% of an undersized,
-*& indefinite box. That is the defect, not a guess at one: label-beside-
-*& control needed two widths to agree (the row's and the control's) and
-*& only one was ever set.
-*&
-*& LABEL-ABOVE NEEDS ONLY ONE WIDTH TO BE RIGHT, and it is set two levels
-*& up: BP_RENDER( ) gives the column itself WIDTH '100%' against the
-*& dialog's own CONTENTWIDTH, which is a real, resolved size rather than
-*& content-shrunk - so a control's WIDTH '100%' here resolves against an
-*& ancestor that actually has one.
-*&
-*& REQUIRED draws the asterisk. It is a promise and not a check: the refusal
-*& lives in BP_RUN_SEARCH( ), which is the half that matters.
-*&---------------------------------------------------------------------*
-    io_box->label( text      = zcl_rak_journey_util=>esc( iv_label )
-                   showcolon = abap_true
-                   required  = iv_required
-                   class     = 'sapUiTinyMarginTop' ).
-    ro_row = io_box.
-  ENDMETHOD.
-
-
-  METHOD BP_HANDLE.
-    CASE iv_event.
-      WHEN c_ev_bp_go.
-        " The Search By dropdown changed. Nothing to do but let the popup
-        " redraw: the answer decides which fields the form even has. This used
-        " to share an event with the Search button, which is why it had to test
-        " for a non-blank ID number before searching - and why pressing Search
-        " on an empty form did nothing at all.
-        rv_ok = abap_true.
-      WHEN c_ev_bp_run.
-        bp_run_search( io_ctx = io_ctx iv_subject = iv_subject ).
-        rv_ok = abap_true.
-      WHEN c_ev_bp_new.
-        " Resume Search clears the RESULT only; the search terms stay, because the
-        " commonest reason to search again is a typo in one digit.
-        io_ctx->set_val( iv_name = bp_fld( iv_subject = iv_subject iv_suffix = 'PARTNER' ) iv_value = '' ).
-        io_ctx->set_val( iv_name = bp_fld( iv_subject = iv_subject iv_suffix = 'NAME' )    iv_value = '' ).
-        io_ctx->set_val( iv_name = bp_fld( iv_subject = iv_subject iv_suffix = 'PHONE' )   iv_value = '' ).
-        io_ctx->set_val( iv_name = bp_fld( iv_subject = iv_subject iv_suffix = 'EMAIL' )   iv_value = '' ).
-        rv_ok = abap_true.
-      WHEN c_ev_bp_cxl.
-        io_ctx->close_popup( ).
-        rv_ok = abap_true.
-      WHEN OTHERS.
-    ENDCASE.
-  ENDMETHOD.
-
-
-  METHOD BP_NATIONALITIES.
-    SELECT land1 AS key, landx50 AS text
-    FROM t005t
-    WHERE spras = @sy-langu
-    ORDER BY land1 ASCENDING
-    INTO CORRESPONDING FIELDS OF TABLE @rt.
-    IF rt IS INITIAL AND sy-langu <> 'E'.
-      SELECT land1 AS key, landx50 AS text
-      FROM t005t
-      WHERE spras = 'E'
-      ORDER BY land1 ASCENDING
-      INTO CORRESPONDING FIELDS OF TABLE @rt.
-    ENDIF.
-  ENDMETHOD.
-
-
-  METHOD BP_PICK.
-    " Dynamic access for display text only. Every component that decides
-    " something (PARTNER, CATEGORY, EID, DOB) is named statically elsewhere.
-    SPLIT iv_names AT ',' INTO TABLE DATA(lt_try).
-    LOOP AT lt_try INTO DATA(lv_try).
-      ASSIGN COMPONENT to_upper( condense( lv_try ) ) OF STRUCTURE is_bp
-      TO FIELD-SYMBOL(<c>).
-      IF sy-subrc = 0 AND <c> IS NOT INITIAL.
-        rv = |{ <c> }|.
-        CONDENSE rv.
-        RETURN.
-      ENDIF.
-    ENDLOOP.
-  ENDMETHOD.
-
-
-  METHOD BP_RENDER.
-*   Every label below goes through ZCL_RAK_TEXT, not a literal: GET( ) for the
-*   three the engine's own catalogue already carries (BP_FIND, SEARCH, CLOSE),
-*   PICK( ) for the rest. Both
-*   follow the engine's RESOLVED language (ZCL_RAK_TEXT=>LANG( ), which the
-*   engine sets per request) rather than SY-LANGU, so a popup cannot end up in a
-*   different language from the step behind it. GET( ) also means a text the
-*   engine already owns stays single-sourced and overridable through
-*   ZRAK_T_CJ_TXT, exactly like every other engine caption.
-    DATA(lo_dlg) = io_popup->dialog(
-    title        = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-bp_find
+    ro = NEW zcl_rak_bp_popup(
+      io_ctx     = io_ctx
+      iv_subject = iv_subject
+      iv_title   = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-bp_find
                                       iv_default = `Find Business Partner` )
-    contentwidth = '46rem' ).
-
-    " ---- already found: show it, do not ask again ----------------------
-    DATA(lv_partner) = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'PARTNER' ) ).
-    IF lv_partner IS NOT INITIAL.
-*     NO FORM AT ALL. This card is four label/value pairs and it has now cost
-*     three rounds inside sap.ui.layout.form: ResponsiveGridLayout put the
-*     label and its value at opposite ends of the row in Arabic, pinning
-*     LABELSPAN with ADJUSTLABELSPAN off changed nothing, and ColumnLayout
-*     refused to render at all - "sap.m.Title is not a valid Form content",
-*     which took the whole app down, because the name below is a TITLE and
-*     ColumnLayout validates its content where the responsive grid tolerated
-*     it.
-*
-*     So the form is gone. Four HBOX rows, a fixed-width LABEL and a TEXT
-*     beside it: the gap between a label and its value is now a number in this
-*     method rather than something negotiated with a layout algorithm, and it
-*     reads the same in both directions because an HBOX follows the page.
-*
-*     C_BP_LBLW is this card's own label column now - see the constant's
-*     declaration for why it is still 8rem even though the search form no
-*     longer shares it.
-*     SHOWCOLON keeps the colon the form used to add; drawing our own labels
-*     means nothing adds it for us.
-      DATA(lo_res) = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
-*     THE NAME IS A BOLD LABEL, NOT A TITLE, AND THE REASON IS ARABIC. It was
-*     TITLE( LEVEL = 'H4' ) and came out bold in English and NOT in Arabic. On
-*     an Arabic journey ZCL_RAK_JOURNEY_CSS emits a universal family override -
-*     .sapUiBody *:not(.sapUiIcon) { font-family:'Dubai','Tajawal','Almarai',
-*     'Segoe UI',sans-serif !important } - which sets the FAMILY and never a
-*     weight, so anything whose boldness came from the theme's own font family
-*     rather than from a font-weight declaration loses it. The PREMIUM variant
-*     this journey uses puts a weight on .rakHdrTitle and the page header only,
-*     so a plain sap.m.Title has nothing of its own to survive on.
-*
-*     DESIGN 'Bold' IS A FONT-WEIGHT ON THE CONTROL, which the family swap
-*     cannot take away, and it is the mechanism already proven to render bold
-*     Arabic here - it is what JP1's three Arabic head lines use. Borrowing the
-*     engine's .rakBlkTitle would also have worked for the weight and was
-*     rejected: another variant gives that class a margin and a font-size of
-*     its own, so it would have moved and resized this line as a side effect.
-*
-*     WRAPPING, because a Label defaults it to FALSE where a Title does not,
-*     and a long partner name would have been truncated with an ellipsis
-*     rather than wrapped. The cost of the swap is that the name is body size
-*     now rather than H4 - bold, and no longer larger than the rows under it.
-      lo_res->label( text     = zcl_rak_journey_util=>esc(
-                     io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'NAME' ) ) )
-                     design   = 'Bold'
-                     wrapping = abap_true
-                     class    = 'sapUiTinyMarginBottom' ).
-
-      bp_pair( io_box   = lo_res
-               iv_label = zcl_rak_text=>pick( iv_base = `Partner` iv_ar = |الشريك| )
-               iv_value = lv_partner ).
-      bp_pair( io_box   = lo_res
-               iv_label = zcl_rak_text=>pick( iv_base = `Nationality` iv_ar = |الجنسية| )
-               iv_value = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'NAT' ) ) ).
-      bp_pair( io_box   = lo_res
-               iv_label = zcl_rak_text=>pick( iv_base = `Phone Number` iv_ar = |رقم الهاتف| )
-               iv_value = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'PHONE' ) ) ).
-      bp_pair( io_box   = lo_res
-               iv_label = zcl_rak_text=>pick( iv_base = `Email` iv_ar = |البريد الإلكتروني| )
-               iv_value = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'EMAIL' ) ) ).
-
-      DATA(lo_rb) = lo_dlg->buttons( ).
-      lo_rb->button( text  = zcl_rak_text=>pick( iv_base = `Resume Search` iv_ar = |استئناف البحث| )
-      icon  = 'sap-icon://synchronize'
-      press = io_ctx->event( c_ev_bp_new ) ).
-      lo_rb->button( text  = zcl_rak_text=>pick( iv_base = `Use this partner` iv_ar = |استخدام هذا الشريك| )
-      type  = 'Emphasized'
-      icon  = 'sap-icon://accept'
-      press = io_ctx->event( c_ev_bp_cxl ) ).
-      RETURN.
-    ENDIF.
-
-    " ---- the search form ----------------------------------------------
-    DATA(lv_by) = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'SEARCHBY' ) ).
-*   NO FORM HERE EITHER, for the reasons on the card above: a SimpleForm put
-*   each label at the far edge of its row from the control it belongs to, and
-*   its Arabic label column was too narrow for "رقم الهوية الإماراتية", which
-*   wrapped onto two lines and pushed its own control down.
-*
-*   LABEL ABOVE CONTROL, full width, matching the rest of the service and
-*   chosen over label-beside-control after that shape broke on screen twice -
-*   once with FlexItemData doing nothing, once with a control's WIDTH '100%'
-*   resolving against an HBOX row that had no width of its own. See BP_ROW( )
-*   for the mechanism this uses instead.
-*
-*   NO WIDTH ON THIS BOX, and the horizontal scrollbar is what taught us why.
-*   It carried WIDTH '100%' alongside SAPUISMALLMARGIN, which is a MARGIN of
-*   1rem a side - so the box was the full width of the dialog content PLUS
-*   2rem, overflowed by exactly that, and the dialog grew a scrollbar. The
-*   controls were never the problem: at '100%' they filled this box exactly.
-*
-*   AUTO IS RIGHT HERE, unlike on the HBOX row this replaced, and the
-*   difference is worth keeping straight. A block-level box with WIDTH auto
-*   fills its containing block MINUS its margins, and its used width is then
-*   DEFINITE - so a child's '100%' has something real to resolve against. The
-*   old row was a FLEX ITEM whose width came from its content, which is
-*   indefinite, and that is why a percentage inside it collapsed. Same
-*   property, opposite outcome, because of what the parent is.
-    DATA(lo_form) = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
-
-*   SELECT, NOT COMBOBOX - four keys this method appends itself, so there is
-*   nothing a citizen could usefully type. See BP_NAT_FIELD( ) for why
-*   FORCESELECTION has to be passed rather than left unsupplied.
-*
-*   AND NO BLANK LEADING ITEM. This one is the gate: with nothing chosen the
-*   method returns a Close button and no fields at all, so the form cannot
-*   proceed without it and a blank item would be a pickable value that takes
-*   the citizen back to an empty popup.
-    DATA(lo_r_by) = bp_row( io_box   = lo_form
-                            iv_label = zcl_rak_text=>pick( iv_base = `Search By`
-                                                           iv_ar   = |البحث بواسطة| ) ).
-    DATA(lo_by) = lo_r_by->select(
-          selectedkey    = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'SEARCHBY' ) )
-          forceselection = abap_false
-          width          = '100%'
-          class          = 'sapUiSmallMarginBottom'
-          change         = io_ctx->event( c_ev_bp_go ) ).
-    lo_by->item( key = c_bp_eid
-    text = zcl_rak_text=>pick( iv_base = `Emirates ID` iv_ar = |رقم الهوية الإماراتية| ) ).
-    lo_by->item( key = c_bp_pass
-    text = zcl_rak_text=>pick( iv_base = `Passport (Non EID Holder only)`
-                               iv_ar   = |جواز السفر (لغير حاملي الهوية الإماراتية فقط)| ) ).
-    lo_by->item( key = c_bp_unif
-    text = zcl_rak_text=>pick( iv_base = `Unified ID (Non EID Holder only)`
-                               iv_ar   = |الرقم الموحد (لغير حاملي الهوية الإماراتية فقط)| ) ).
-*   NO TRADE LICENCE. The WD offered it and it is dropped by request: every
-*   party this journey collects is a natural person - a divorcee, a witness -
-*   and a trade licence identifies a company. It was also the one branch that
-*   suppressed date of birth and nationality, so removing it makes those two
-*   unconditional, which is what let the mandatory rules below be stated once
-*   instead of per branch.
-
-    " Nothing else until a type is chosen: the answer decides what the rest of the
-    " form even is.
-    IF lv_by IS INITIAL.
-      lo_dlg->buttons( )->button(
-      text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-close iv_default = `Close` )
-      press = io_ctx->event( c_ev_bp_cxl ) ).
-      RETURN.
-    ENDIF.
-
-*   EVERY FIELD ON THIS FORM IS MANDATORY, on all three branches. REQUIRED on
-*   sap.m.Label draws the asterisk; BP_RUN_SEARCH refuses before the call, and
-*   that half is the one that matters - the asterisk is a promise, not a check.
-*
-*   Date of birth and nationality being mandatory is not only a UI tidy-up: they
-*   are the two values ZCL_RAK_BP_SEARCH's MOI cross-check compares
-*   (LS_BP-DOB <> IS_REQ-DOB, LS_BP-NATIONALITY <> IS_REQ-NATIONALITY). Left
-*   blank they did not skip the comparison, they FAILED it - a blank never equals
-*   what MOI holds - so the citizen got "Input data does not match with ID" for a
-*   field they had not filled in. Demanding them turns that into a message that
-*   names what is missing.
-    DATA(lo_r_id) = bp_row( io_box      = lo_form
-                            iv_required = abap_true
-                            iv_label    = SWITCH string( lv_by
-    WHEN c_bp_eid  THEN zcl_rak_text=>pick( iv_base = `Emirates ID`
-                                            iv_ar   = |رقم الهوية الإماراتية| )
-    WHEN c_bp_pass THEN zcl_rak_text=>pick( iv_base = `Passport Number`
-                                            iv_ar   = |رقم جواز السفر| )
-    ELSE                zcl_rak_text=>pick( iv_base = `Unified ID`
-                                            iv_ar   = |الرقم الموحد| ) ) ).
-*   THE EMIRATES ID BRANCH GETS A MASK, the other two do not. An Emirates ID
-*   is 784-YYYY-NNNNNNN-C: fifteen digits in four groups, and the first three
-*   are ALWAYS 784. The legacy screen made that four boxes with the 784 one
-*   filled in and disabled, and a citizen typing into it never presses Tab.
-*
-*   SAP.M.MASKINPUT IS THAT CONTROL, and it needs no JavaScript to be it -
-*   which matters, because a handler has no clean channel to deliver any. The
-*   mask's '9' is MaskInput's own built-in digit rule, so it is [0-9] without a
-*   MASK_INPUT_RULE( ) of ours. Everything that is not a '9' - the 784 and the
-*   three dashes - is a LITERAL: the citizen cannot type over it, cannot delete
-*   it, and the caret jumps across it, so entry flows 2026 -> 1234567 -> 8
-*   without a keystroke spent on separators. Fifteen digits is the whole mask,
-*   so it also cannot be overtyped or come up short unnoticed.
-*
-*   PASSPORT AND UNIFIED ID STAY A PLAIN INPUT. Neither has a fixed prefix or
-*   a fixed length - a passport number's shape depends on its issuing country,
-*   which is the reason nationality is part of that search key at all - so a
-*   mask there would refuse valid numbers.
-*
-*   MASK_INPUT( ) HAS NEITHER EDITABLE NOR CLASS - both checked against the
-*   signature, the second of them only after passing CLASS to it cost an
-*   activation error. It takes PLACEHOLDER, MASK, NAME, TEXTALIGN,
-*   TEXTDIRECTION, VALUE, WIDTH, VALUESTATE, VALUESTATETEXT,
-*   PLACEHOLDERSYMBOL, REQUIRED, SHOWCLEARICON, SHOWVALUESTATEMESSAGE,
-*   VISIBLE, FIELDWIDTH, LIVECHANGE and CHANGE, and nothing else. EDITABLE
-*   being missing is harmless here because this field is always editable -
-*   it is why the engine's own COUNT branch keeps a plain INPUT( ) for its
-*   read-only path.
-*
-*   SO THE BOTTOM MARGIN GOES ON A BOX AROUND IT. The VBOX is block-level and
-*   fills this column, which also gives the mask a definite width to take its
-*   '100%' from - the same reason the column itself carries no width.
-    IF lv_by = c_bp_eid.
-      lo_r_id->vbox( class = 'sapUiSmallMarginBottom' )->mask_input(
-            value = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'IDNUM' ) )
-            mask  = '784-9999-9999999-9'
-            width = '100%' ).
-    ELSE.
-      lo_r_id->input(
-            value = io_ctx->bind( bp_fld( iv_subject = iv_subject iv_suffix = 'IDNUM' ) )
-            width = '100%'
-            class = 'sapUiSmallMarginBottom' ).
-    ENDIF.
-
-*   ONE FIELD ORDER FOR ALL THREE: number, date of birth, nationality.
-*
-*   It used to branch, because the legacy screens branched - the passport and
-*   unified screens put nationality above date of birth and the Emirates ID one
-*   below it. Reproducing that faithfully made the popup look like it had been
-*   assembled by three different people, since the citizen sees all three by
-*   switching one dropdown rather than by opening three separate services the
-*   way the WebDynpros were. Consistency wins over fidelity here and the
-*   business asked for it explicitly.
-*
-*   NOT MERELY COSMETIC, WHICH IS WHY THE EMIRATES ID ORDER IS THE ONE KEPT. The
-*   two fields are not independent on the passport branch: a passport number is
-*   only unique within its issuing country, so nationality is part of that key
-*   and a wrong one returns "No data found" rather than a mismatch. Date of
-*   birth above nationality puts the fields in the order the search actually
-*   resolves them - identify, then qualify - on every branch.
-    bp_dob_field( io_ctx = io_ctx iv_subject = iv_subject io_form = lo_form ).
-    bp_nat_field( io_ctx = io_ctx iv_subject = iv_subject io_form = lo_form ).
-
-    DATA(lo_btns) = lo_dlg->buttons( ).
-*   ITS OWN EVENT, NOT C_EV_BP_GO. That event also backs the Search By
-*   dropdown's CHANGE, and while both did the same thing the only way to stop a
-*   type switch running a search was for the handler to require a non-blank ID
-*   number first - which meant pressing Search with the form empty did nothing
-*   at all, silently. Separated, the dropdown only re-renders and the button
-*   always validates, so an empty form now gets told what is missing.
-    lo_btns->button( text  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-search
-                                                iv_default = `Search` )
-    type  = 'Emphasized'
-    icon  = 'sap-icon://search'
-    press = io_ctx->event( c_ev_bp_run ) ).
-    lo_btns->button(
-    text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-close iv_default = `Close` )
-    press = io_ctx->event( c_ev_bp_cxl ) ).
+      is_search  = bp_search_opts( )
+      it_types   = VALUE #( ( zcl_rak_bp_popup=>c_eid )
+                            ( zcl_rak_bp_popup=>c_pass )
+                            ( zcl_rak_bp_popup=>c_unif ) )
+      iv_strict  = abap_true
+      it_detail  = VALUE #( ( `NATV` ) ) ).
   ENDMETHOD.
 
 
-  METHOD BP_RUN_SEARCH.
-    DATA(ls_req) = bp_search_opts( ).
-    DATA(lv_by)  = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'SEARCHBY' ) ).
-    DATA(lv_num) = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'IDNUM' ) ).
-
-*   MANDATORY FIELDS, and every one of them on all three branches. The
-*   asterisks BP_RENDER draws are a promise; this is the check. Nothing here is
-*   the engine's job - MISSING_REQUIRED works on ZRAK_T_JNY_FLD rows and these
-*   are popup fields, which no configuration table describes.
-*
-*   Every missing field is reported, not just the first, so a citizen who
-*   opened the passport branch and filled in nothing is told all four at once
-*   rather than four times in a row.
-    DATA(lv_gap) = abap_false.
-    IF bp_need( io_ctx = io_ctx iv_subject = iv_subject iv_suffix = 'IDNUM'
-                iv_en = SWITCH string( lv_by
-                          WHEN c_bp_eid  THEN `Emirates ID`
-                          WHEN c_bp_pass THEN `Passport Number`
-                          ELSE                `Unified ID` )
-                iv_ar = SWITCH string( lv_by
-                          WHEN c_bp_eid  THEN |رقم الهوية الإماراتية|
-                          WHEN c_bp_pass THEN |رقم جواز السفر|
-                          ELSE                |الرقم الموحد| ) ) = abap_true.
-      lv_gap = abap_true.
-    ENDIF.
-*   DATE OF BIRTH BEFORE NATIONALITY, to match the screen. BP_NEED( ) adds a
-*   message as it answers, so these three calls decide the order an empty form
-*   reports its gaps in - and a list that runs down the fields is easier to act
-*   on than one that jumps. Changed with the field order in BP_RENDER( ); if the
-*   fields are ever reordered again, reorder these with them.
-    IF bp_need( io_ctx = io_ctx iv_subject = iv_subject iv_suffix = 'DOB'
-                iv_en = `Date of Birth` iv_ar = |تاريخ الميلاد| ) = abap_true.
-      lv_gap = abap_true.
-    ENDIF.
-    IF bp_need( io_ctx = io_ctx iv_subject = iv_subject iv_suffix = 'NAT'
-                iv_en = `Nationality` iv_ar = |الجنسية| ) = abap_true.
-      lv_gap = abap_true.
-    ENDIF.
-    IF lv_gap = abap_true.
+  METHOD BP_DOB_FUTURE.
+*&---------------------------------------------------------------------*
+*& bp_dob_future — a date of birth in the future is refused here, before
+*& the popup is asked to do anything.
+*&
+*& OURS, AND THE ENGINE SAYS SO TWICE. NORM_DOB( ) normalises and
+*& deliberately does not judge a human being's birthday - "a caller
+*& wanting to know whether the result is a plausible date of birth (not in
+*& the future, not in 1823) owns that question" - and section 7 of the
+*& partner-search how-to repeats it. The boundary is right: the class
+*& makes a value sendable, the service decides whether it is sensible.
+*&
+*& AND IT NEEDS NO SUBCLASS, which is where round 20 left it and round 21
+*& corrected. ON_POPUP_EVENT( ) is OUR method, C_EV_RUN is public and the
+*& field is <SUBJECT>_DOB, so the guard runs before we delegate. Nothing
+*& is inherited, and nothing here breaks when the engine next restructures
+*& that class.
+*&
+*& THE WORDING IS THE WD'S OWN. ZEGA_BP_V_MAIN_DOB_MSG belongs to
+*& ZWDC_EGA_EBP_SRCH_CREATE, whose VALIDATE_SCREEN has this check and
+*& AS3's own WD does not - so the check is imported rather than migrated,
+*& and following the OTR keeps the sentence single-sourced with the screen
+*& a citizen may already know it from. SOTR_GET_TEXT_KEY swallows
+*& NO_ENTRY_FOUND, so the literal fallback is the documented contract and
+*& not defensive padding.
+*&
+*& AN UNPARSEABLE DATE IS NOT OURS TO REPORT. TO_DATS( ) returns empty for
+*& anything it cannot read, and SEARCH( ) already refuses exactly that, in
+*& both languages, at the choke point every popup goes through. Reporting
+*& it here as well would draw two messages for one bad date - the mistake
+*& the AS3 date guard was removed to avoid in round 18.
+*&
+*& COMPARED AS STRINGS ON PURPOSE. TO_DATS( ) returns YYYYMMDD in a string
+*& and CONV string( sy-datum ) is the same eight characters. Note that
+*& |{ sy-datum }| would NOT do: a string template formats a date in the
+*& USER's format, giving 14.09.2026 and a nonsense comparison.
+*&---------------------------------------------------------------------*
+    DATA(lv_raw) = io_ctx->get_val( |{ to_upper( iv_subject ) }_DOB| ).
+    IF lv_raw IS INITIAL.
       RETURN.
     ENDIF.
 
-*   THE EMIRATES ID IS FIFTEEN DIGITS, and the mask on the field is not the
-*   check - the same rule as the asterisks above. BP_RENDER( ) draws that
-*   branch as a sap.m.MaskInput, so an untouched or half-typed field arrives
-*   here carrying the mask's own literals rather than blank, and BP_NEED( )'s
-*   IS INITIAL test cannot see that: '784' with nothing after it is not empty.
-*   Counting digits is what separates the two, and 15 is the only length an
-*   Emirates ID has.
-*
-*   REPORTED THE WAY THE DATE IS REPORTED, through C_NO-BAD_FORMAT with the
-*   shape appended, so a citizen who stopped halfway is told what is wrong in
-*   the same words the rest of the popup uses. The pattern is not translated -
-*   784-YYYY-NNNNNNN-C reads the same either way.
-    IF lv_by = c_bp_eid.
-      DATA(lv_eid) = bp_eid_digits( lv_num ).
-      IF strlen( lv_eid ) <> 15.
-        DATA(lv_eid_lbl) = zcl_rak_text=>pick( iv_base = `Emirates ID`
-                                               iv_ar   = |رقم الهوية الإماراتية| ).
-        io_ctx->add_msg(
-          iv_type = 'Error'
-          iv_text = |{ zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-bad_format
-                                          iv_default = '&1 has an invalid format'
-                                          iv_v1      = lv_eid_lbl ) } (784-YYYY-NNNNNNN-C)| ).
-        RETURN.
-      ENDIF.
-*     THE DIGITS GO TO MOI, not the grouped form. LV_NUM is replaced rather
-*     than the model field, so the screen keeps the grouping the citizen typed
-*     into while the request carries the fifteen digits that identify them.
-      lv_num = lv_eid.
-    ENDIF.
-
-    ls_req-idtype      = lv_by.
-    ls_req-nationality = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'NAT' ) ).
-
-    " THE DATE OF BIRTH IS NORMALISED BEFORE IT LEAVES THIS METHOD, and that is
-    " the fix for the short dump described on the picker in BP_RENDER. Whatever
-    " sap.m.DatePicker could not parse arrives here as the citizen's raw
-    " keystrokes, and TY_REQ-DOB is a STRING, so nothing between here and the
-    " OData filter would have objected - the gateway was the first thing to
-    " look at the value, and it terminated the session rather than complaining.
-    "
-    " It can no longer be blank - the mandatory guard above refuses that - so
-    " what is left is FILLED BUT UNPARSABLE, which is reported rather than
-    " silently blanked. Blanking it would run the search with the MOI date
-    " cross-check quietly disabled and hand back a partner nobody had verified.
-    DATA(lv_dob_raw) = io_ctx->get_val( bp_fld( iv_subject = iv_subject iv_suffix = 'DOB' ) ).
-    DATA(lv_dob)     = bp_dob( lv_dob_raw ).
-    IF lv_dob_raw IS NOT INITIAL AND lv_dob IS INITIAL.
-      " C_NO-BAD_FORMAT is the framework's own "&1 has an invalid format", so
-      " this reads like every other format complaint in CJS in both languages.
-      " The pattern is appended rather than translated - dd.mm.yyyy is the same
-      " string either way, and a citizen who mistyped a date needs to be told
-      " the shape, which the catalogue text does not carry.
-      DATA(lv_dob_lbl) = zcl_rak_text=>pick( iv_base = `Date of Birth`
-                                             iv_ar   = |تاريخ الميلاد| ).
-      DATA(lv_dob_msg) = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-bad_format
-                                            iv_default = '&1 has an invalid format'
-                                            iv_v1      = lv_dob_lbl ).
-      io_ctx->add_msg( iv_type = 'Error'
-      iv_text = |{ lv_dob_msg } (dd.mm.yyyy)| ).
-      RETURN.
-    ENDIF.
-*   NOT A FUTURE DATE. ZWDC_EGA_EBP_SRCH_CREATE's VALIDATE_SCREEN has this and
-*   AS3's own WD does not, so the check is imported rather than migrated - which
-*   is why the OTR alias is that WD's: ZEGA_BP_V_MAIN_DOB_MSG, "Date of Birth can
-*   not be a future date". Following the OTR keeps the wording single-sourced
-*   with the screen the citizen may already know it from.
-*
-*   AFTER the parse, not before: a future date is only knowable once the text is
-*   a date, and BP_DOB( ) has already refused everything that is not one.
-*   Compared as STRINGS on purpose. LV_DOB is YYYYMMDD in a string and
-*   CONV STRING( sy-datum ) is the same eight characters, so the comparison is
-*   character-by-character with no type conversion to reason about. Note that
-*   |{ sy-datum }| would NOT do - a string template formats a date in the
-*   USER's format by default, giving 04.09.2026 and a nonsense comparison.
-    DATA(lv_today) = CONV string( sy-datum ).
-    IF lv_dob > lv_today.
-*     BLANK WHEN THE ALIAS IS MISSING - SOTR_GET_TEXT_KEY swallows
-*     NO_ENTRY_FOUND, exactly as noted on GET_OTR_TEXT_FOR_ALIAS - so the
-*     fallback is not defensive padding, it is the documented contract.
-      DATA(lv_fut) = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZEGA_BP_V_MAIN_DOB_MSG' ).
-      IF lv_fut IS INITIAL.
-        lv_fut = zcl_rak_text=>pick( iv_base = `Date of Birth can not be a future date`
-                                     iv_ar   = |لا يمكن أن يكون تاريخ الميلاد تاريخاً مستقبلياً| ).
-      ENDIF.
-      io_ctx->add_msg( iv_type = 'Error' iv_text = lv_fut ).
+    DATA(lv_dob) = zcl_rak_journey_util=>to_dats( lv_raw ).
+    IF lv_dob IS INITIAL OR lv_dob <= CONV string( sy-datum ).
       RETURN.
     ENDIF.
 
-    ls_req-dob = lv_dob.
-    " Written back so the picker redraws the parsed date instead of the text
-    " that failed to parse, and a second Search sends the same value again.
-    IF lv_dob <> lv_dob_raw.
-      io_ctx->set_val( iv_name  = bp_fld( iv_subject = iv_subject iv_suffix = 'DOB' )
-      iv_value = lv_dob ).
+    DATA(lv_txt) = get_otr_text_for_alias( 'Z_RAKEGA_MUNI/ZEGA_BP_V_MAIN_DOB_MSG' ).
+    IF lv_txt IS INITIAL.
+      lv_txt = zcl_rak_text=>pick( iv_base = `Date of Birth can not be a future date`
+                                   iv_ar   = |لا يمكن أن يكون تاريخ الميلاد تاريخاً مستقبلياً| ).
     ENDIF.
-
-*   ONE FIELD PER IDENTIFIER. Until engine round 9 all three numbers went out in
-*   TY_REQ-EID and IS_EID_TYPE( ) decided from IDTYPE what they were, which meant
-*   a passport search asked "which partner has EId = <passport number>" - not the
-*   question either predecessor asked. DOCUMENT_NUMBER and UID now exist, so each
-*   number goes in its own field and WHEN OTHERS keeps EID as the fallback for a
-*   type this popup does not know.
-*
-*   CALL_MOI ON ALL THREE, which is a change and a return to the source rather
-*   than a new idea. The comment here used to say MOI was the Emirates ID
-*   authority with nothing to say about the other two; every source disagrees.
-*   ZCRM_MOI_CR_UPD appends CallMoi = 'X' for selections 1, 2 AND 3 and only
-*   omits it for a partner-id lookup, and SET_MOI_QUERY_PARAM does the same. The
-*   consequence is the one that matters: VALIDATE( )'s date-of-birth and
-*   nationality cross-check only runs for CALL_MOI, and both fields are now
-*   mandatory on the passport and unified screens - collecting them and then not
-*   verifying them was the worst of the three options.
-*
-*   IT COULD NOT BE DONE BEFORE THIS ROUND. With the passport number still in
-*   TY_REQ-EID, CALL_MOI = X is exactly what sent it to MOI dressed as an
-*   Emirates ID - NORM_EID( ) strips hyphens on that path, and a hyphen can
-*   belong to a passport number. Its own field is what makes this safe.
-    CASE lv_by.
-      WHEN c_bp_eid.
-        ls_req-eid             = lv_num.
-      WHEN c_bp_pass.
-        ls_req-document_number = lv_num.
-      WHEN c_bp_unif.
-        ls_req-uid             = lv_num.
-      WHEN OTHERS.
-        ls_req-eid             = lv_num.
-    ENDCASE.
-*   GUARDED ON NO_MOI_CALL, which is how ZCL_RAK_BP_POPUP writes it since the
-*   engine took R10-2. BP_SEARCH_OPTS( ) does not set NO_MOI_CALL today, so the
-*   guard is a no-op right now - it is here so that the day it does, this popup
-*   honours it instead of asking for a verification the template just declined.
-*   Keeping the two implementations the same shape is the point; the last two
-*   defects on this popup were both a copy quietly disagreeing with the original.
-    IF ls_req-no_moi_call = abap_false.
-      ls_req-call_moi = abap_true.
-    ENDIF.
-
-    DATA(ls_res) = NEW zcl_rak_bp_search( )->search( is_req = ls_req ).
-
-    DATA(lv_err) = abap_false.
-    LOOP AT ls_res-msg INTO DATA(ls_m).
-      io_ctx->add_msg( iv_type = COND #( WHEN ls_m-type = 'E' OR ls_m-type = 'A' THEN 'Error'
-      WHEN ls_m-type = 'W' THEN 'Warning'
-      ELSE 'Information' )
-      iv_text = CONV string( ls_m-message ) ).
-      IF ls_m-type = 'E' OR ls_m-type = 'A'.
-        lv_err = abap_true.
-      ENDIF.
-    ENDLOOP.
-    " An expired licence or ID is an error and must NOT become a found partner.
-    IF lv_err = abap_true.
-      RETURN.
-    ENDIF.
-
-    READ TABLE ls_res-rows INTO DATA(ls_bp) INDEX 1.
-    IF sy-subrc <> 0.
-      RETURN.
-    ENDIF.
-
-    " Results land on the party being searched: <SUBJECT>_PARTNER / _NAME are the
-    " read-only fields shown on the Parties step, _PHONE / _EMAIL feed the card.
-    io_ctx->set_val( iv_name  = bp_fld( iv_subject = iv_subject iv_suffix = 'PARTNER' )
-    iv_value = CONV string( ls_bp-partner ) ).
-
-    " The BP row carries the whole name in both languages, so pick the one that
-    " matches the logon language rather than assembling it from parts.
-    io_ctx->set_val( iv_name  = bp_fld( iv_subject = iv_subject iv_suffix = 'NAME' )
-    iv_value = COND string( WHEN sy-langu = 'A' THEN ls_bp-arabic_full_name
-    ELSE ls_bp-english_full_name ) ).
-
-    io_ctx->set_val( iv_name  = bp_fld( iv_subject = iv_subject iv_suffix = 'PHONE' )
-    iv_value = CONV string( ls_bp-telephone_number ) ).
-    io_ctx->set_val( iv_name  = bp_fld( iv_subject = iv_subject iv_suffix = 'EMAIL' )
-    iv_value = bp_pick( is_bp    = ls_bp
-    iv_names = 'SMTP_ADDR,EMAIL,E_MAIL,EMAILADDRESS,EMAIL_ADDRESS,EMAIL_ID' ) ).
+    io_ctx->add_msg( iv_type = 'Error' iv_text = lv_txt ).
+    rv = abap_true.
   ENDMETHOD.
 
 
@@ -1069,49 +392,6 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
     IF lv_dats IS NOT INITIAL.
       rv_int = lv_dats.
     ENDIF.
-  ENDMETHOD.
-
-
-  METHOD BP_DOB.
-*&---------------------------------------------------------------------*
-*& bp_dob — the popup's date of birth, as ZCL_RAK_BP_SEARCH wants it:
-*& BLANK, or exactly eight digits.
-*&
-*& THE ENGINE'S PARSER, NOT OURS, AND THAT IS A CORRECTION. This used to go
-*& through CONV_DATE_INTERNAL( ), which falls back to
-*& CONVERT_DATE_TO_INTERNAL - and that resolves against the DIALOG USER's
-*& date-format setting. On a citizen-facing journey that setting belongs to
-*& whichever ICF service user happens to be running the request, which is
-*& not an input we control: with a month-first service user, '08/19/1987'
-*& would have been accepted as 19 August, turning a date the citizen did not
-*& mean into a valid-looking one. Silently wrong is worse than refused.
-*&
-*& TO_DATS( ) reads a fixed set instead - eight digits as the picker's
-*& VALUEFORMAT writes them, ISO yyyy-mm-dd, and the day-first forms
-*& dd.mm.yyyy / dd/mm/yyyy / dd-mm-yyyy, telling ISO and day-first apart by
-*& separator position - and returns EMPTY for anything else, including
-*& month-first and partial dates. It also range-checks month 1-12 and day
-*& 1-31, and it never assigns to a TYPE D field, so it cannot raise the
-*& CX_SY_CONVERSION_NO_DATE this guard exists to prevent.
-*&
-*& It is also the parser ZCL_RAK_JOURNEY_RULES normalises through for the
-*& DATE range check, and the one ZCL_RAK_BP_SEARCH=>NORM_DOB( ) delegates
-*& to, so the set of dates CJS will validate and the set it will send are
-*& the same by construction rather than two lists that drift.
-*&
-*& ONCE NORM_DOB( ) IS ACTIVE IN SAP this method is redundant - SEARCH( )
-*& normalises and refuses on its own, at the choke point every popup goes
-*& through. It is kept because it refuses EARLIER, with wording that names
-*& the expected pattern, which the framework message does not. Delete it, and
-*& the guard in BP_RUN_SEARCH, if that wording ever stops being worth 15
-*& lines.
-*&
-*& A blank answer means one of two different things and the CALLER has to
-*& tell them apart by looking at the raw value - empty in is legitimate
-*& (the date of birth is only the MOI cross-check), unparsable in is an
-*& error the citizen must see.
-*&---------------------------------------------------------------------*
-    rv = zcl_rak_journey_util=>to_dats( iv_raw ).
   ENDMETHOD.
 
 
@@ -2029,33 +1309,49 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
 
   METHOD ZIF_RAK_JOURNEY_LOGIC~ON_POPUP_EVENT.
 *&---------------------------------------------------------------------*
-*& ON_POPUP_EVENT — the Add-BP / partner search is owned by the reusable
-*& ZCL_RAK_BP_POPUP (render + MOI lookup + write-back of <SUBJECT>_PARTNER /
-*& <SUBJECT>_NAME). This handler only routes:
-*&  (a) the popup's own events (BPP_*) to the popup instance for the active
-*&      subject, and
-*&  (b) the four Add-BP open events, each setting BP_ACTIVE_SUBJECT and opening
-*&      the BP_<SUBJECT> popup.
-*& Everything else (the payment PAYNOW/PAYPOLL/… flow) is delegated to the
-*& superclass. Subjects: DIVORCEE, DIVORCER, WITNESS1, WITNESS2.
+*& ON_POPUP_EVENT — the partner search is ZCL_RAK_BP_POPUP's, and this
+*& method routes three things and owns one:
+*&  (a) the popup's own events (BPP_*) go to the popup for the subject
+*&      named by IV_ID,
+*&  (b) the three Add-BP open events open BP_<SUBJECT>, and
+*&  (c) everything else - the payment PAYNOW/PAYPOLL flow - is the
+*&      superclass's.
+*& The one thing owned here is the future-date-of-birth refusal, which runs
+*& BEFORE (a) delegates. Subjects: DIVORCEE, WITNESS1, WITNESS2.
 *&---------------------------------------------------------------------*
 
-    IF iv_event CP 'BPP_*' AND io_ctx->get_val( 'BP_ACTIVE_SUBJECT' ) IS NOT INITIAL.
-      bp_handle( io_ctx     = io_ctx
-      iv_event   = iv_event
-      iv_subject = io_ctx->get_val( 'BP_ACTIVE_SUBJECT' ) ).
+*   THE SUBJECT COMES FROM IV_ID, NOT FROM A FIELD OF OUR OWN. The engine
+*   passes MV_POPUP_ID as IV_ID on every popup event (ZCL_RAK_JOURNEY_ENGINE
+*   ~779), and ON_RENDER_POPUP already derives the subject the same way -
+*   so both hooks read ONE value and cannot disagree about which party is
+*   being searched. BP_ACTIVE_SUBJECT was a second copy of that answer and
+*   is gone with the popup it served.
+    IF iv_event CP 'BPP_*' AND iv_id CP 'BP_*'.
+      DATA(lv_subj) = substring_after( val = iv_id sub = 'BP_' ).
+
+*     OUR ONE CHECK, BEFORE THE ENGINE'S. A future date of birth is the
+*     journey's question, not the popup's - see BP_DOB_FUTURE( ) - and it
+*     is asked here rather than in a subclass because this method is
+*     already ours. On refusal we do NOT delegate: the search must not run.
+*
+*     THE COST, STATED: a future date is then reported on its own, where
+*     VALIDATE_FORM( ) would have listed it beside any other gap. For a
+*     typo this rare that is a better trade than an inheritance.
+      IF iv_event = zcl_rak_bp_popup=>c_ev_run
+         AND bp_dob_future( io_ctx = io_ctx iv_subject = lv_subj ) = abap_true.
+        RETURN.
+      ENDIF.
+
+      bp_popup( io_ctx = io_ctx iv_subject = lv_subj )->handle( iv_event ).
       RETURN.
     ENDIF.
 
     CASE iv_event.
       WHEN c_evt_bp_divorcee.
-        io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'DIVORCEE' ).
         io_ctx->open_popup( 'BP_DIVORCEE' ).
       WHEN c_evt_bp_witness1.
-        io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'WITNESS1' ).
         io_ctx->open_popup( 'BP_WITNESS1' ).
       WHEN c_evt_bp_witness2.
-        io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'WITNESS2' ).
         io_ctx->open_popup( 'BP_WITNESS2' ).
       WHEN OTHERS.
         super->zif_rak_journey_logic~on_popup_event(
@@ -2134,9 +1430,8 @@ CLASS ZCL_C022_KHULA_CERTI_LOGIC IMPLEMENTATION.
 *& is the id after 'BP_'. Non-BP popups fall through to the superclass.
 *&---------------------------------------------------------------------*
     IF iv_id CP 'BP_*'.
-      bp_render( io_ctx     = io_ctx
-      io_popup   = io_popup
-      iv_subject = substring_after( val = iv_id sub = 'BP_' ) ).
+      bp_popup( io_ctx     = io_ctx
+                iv_subject = substring_after( val = iv_id sub = 'BP_' ) )->render( io_popup ).
       RETURN.
     ENDIF.
     super->zif_rak_journey_logic~on_render_popup(
