@@ -494,21 +494,33 @@ CLASS zcl_rak_cj_project IMPLEMENTATION.
 *   and all of it that was wanted here.
     DATA(lo_r) = lo_top->hbox( class = 'rakPrjNums' ).
 
+*   A DASH WHERE THERE IS NO FIGURE, NOT A BLANK AND NOT A ZERO.
+*
+*   ARCOBJECTS COMES BACK EMPTY FROM THE LIVE SERVICE - verified against the
+*   portal's own response, where every one of the 207 rows has
+*   <d:ArcObjects/> - so there is genuinely no count to print. Drawing
+*   nothing was the honest answer and it was the wrong one on screen: a
+*   caption with a void under it reads as a column that failed to load,
+*   which is what was reported.
+*
+*   A ZERO WOULD BE WORSE. Zero is a count, and the service gave no count;
+*   writing one would be the single change here nobody could spot as wrong,
+*   and it would be read as "this project has no archive objects" when the
+*   truth is "this list does not carry that figure".
+*
+*   An en dash is the convention for exactly that difference. It applies to
+*   PERMITS too, which is usually filled but need not be.
     DATA(lo_c1) = lo_r->vbox( class = 'rakPrjNum' ).
     lo_c1->text( text = t( iv_en = `Permits` iv_ar = `التصاريح` ) class = 'rakPclMeta' ).
-*   NO SUBSTITUTED ZERO. ArcObjects comes back EMPTY from the live service
-*   too - verified against the portal's own response - so the caption
-*   draws with nothing under it, exactly as the real card does. A zero is
-*   a count, and no count was given.
-    IF is_p-perm IS NOT INITIAL.
-      lo_c1->text( text = is_p-perm class = 'rakPrjFig' ).
-    ENDIF.
+    lo_c1->text( text  = COND string( WHEN is_p-perm IS NOT INITIAL THEN is_p-perm ELSE `–` )
+                 class = COND string( WHEN is_p-perm IS NOT INITIAL
+                                      THEN 'rakPrjFig' ELSE 'rakPrjFig rakPrjNil' ) ).
 
     DATA(lo_c2) = lo_r->vbox( class = 'rakPrjNum' ).
     lo_c2->text( text = t( iv_en = `Arc. objects` iv_ar = `عناصر الأرشيف` ) class = 'rakPclMeta' ).
-    IF is_p-arc IS NOT INITIAL.
-      lo_c2->text( text = is_p-arc class = 'rakPrjFig' ).
-    ENDIF.
+    lo_c2->text( text  = COND string( WHEN is_p-arc IS NOT INITIAL THEN is_p-arc ELSE `–` )
+                 class = COND string( WHEN is_p-arc IS NOT INITIAL
+                                      THEN 'rakPrjFig' ELSE 'rakPrjFig rakPrjNil' ) ).
 
 *   ---- row two: the meta line and the quiet action -------------------
     DATA(lo_bot) = lo_p->hbox( alignitems = 'Center' class = 'rakPrjBot' ).

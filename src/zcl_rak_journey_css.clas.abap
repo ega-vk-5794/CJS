@@ -693,7 +693,13 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     card's rhythm plus a Select button on its own row under a divider,
 *     which made a 200px card out of 80px of content and turned six of them
 *     into a scroll.
-        |.rakPrjCard\{gap:.1rem;padding-block:.4rem;\}| &&
+*     TOP TIGHT, BOTTOM LOOSER. A flat .4rem both ways put the meta row six
+*     pixels off the bottom border, and a card whose last line sits on its
+*     own edge reads as cut off rather than as a card that ends - which is
+*     exactly how it was reported. The asymmetry is the fix: the heading has
+*     the counts block beside it and needs no room above, the closing row
+*     does.
+        |.rakPrjCard\{gap:.1rem;padding-block:.5rem .75rem;\}| &&
 *     THE NUMBER IS THE ACTION. sap.m.CustomListItem takes no PRESS through
 *     the z2ui5 wrapper, so a whole-card click is not available; a Link on
 *     the project number is the nearest affordance and is what the live card
@@ -713,6 +719,9 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakPrjNums\{margin-inline-start:auto;gap:1.4rem;\}| &&
         |.rakPrjNum\{align-items:flex-end;gap:.1rem;\}| &&
         |.rakPrjFig\{font-size:1rem;font-weight:600;\}| &&
+*     The "no figure given" dash is deliberately quieter than a real count,
+*     so a column of numbers still scans as numbers.
+        |.rakPrjNil\{color:#9aa4b2;font-weight:400;\}| &&
 *     Row two carries the meta line and the quiet action on ONE line, which
 *     is where the height saving comes from.
 *
