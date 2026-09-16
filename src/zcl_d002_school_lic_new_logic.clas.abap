@@ -501,6 +501,8 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
 
         io_ctx->set_val( iv_name = 'TRADE_NAME'        iv_value = |{ ls_bp-bp_name }| ).
         io_ctx->set_val( iv_name = 'TRADE_MOBILE'      iv_value = |{ ls_bp-mobile_number }| ).
+        io_ctx->set_val( iv_name = 'ESTABLISHMENT'     iv_value = |{ ls_bp-owner_id }| ).
+
 
       ENDIF.
 

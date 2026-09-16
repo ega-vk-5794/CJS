@@ -217,6 +217,10 @@ private section.
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY
       !IO_VIEW type ref to Z2UI5_CL_XML_VIEW .
+  methods OWN_EDIT
+    importing
+      !IO_CTX type ref to ZIF_RAK_JOURNEY
+      !IV_ID type STRING optional .
 ENDCLASS.
 
 
@@ -525,6 +529,12 @@ CLASS ZCL_M028_COD_LOGIC IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    IF iv_event CP c_edit_pop.
+      own_edit( io_ctx = io_ctx iv_id = substring( val = iv_event off = 9 ) ).
+      io_ctx->open_popup( c_pop_id ).
+      RETURN.
+    ENDIF.
+
     super->zif_rak_journey_logic~on_popup_event( io_ctx   = io_ctx
                                                   iv_id    = iv_id
                                                   iv_event = iv_event ).
@@ -704,9 +714,45 @@ CLASS ZCL_M028_COD_LOGIC IMPLEMENTATION.
         io_ctx  = io_ctx
         io_view = io_view.
 
-     IF io_ctx->get_step( ) = 2.
-      render_building_details( io_ctx = io_ctx io_view = io_view ).
+     IF io_ctx->get_step( ) = 1.
+*      render_building_details( io_ctx = io_ctx io_view = io_view ).
       RETURN.
     ENDIF.
   endmethod.
+
+
+  METHOD own_edit.
+
+*   Every field but HS Code was commented out here, so Edit opened with
+*   the row's own HS Code and thirteen blank fields regardless of what had
+*   actually been saved - it looked like a fresh Add, not an edit. Row
+*   layout is the one OWN_FORM_SAVE( ) writes: 1 HS Code, 2 Material,
+*   3 Chemical Name, 4 CAS, 5 Formula, 6 Packaging, 7 Quantity,
+*   8 Gross Weight, 9 UOM, 10 Invoice, 11 Origin, 12 End User, 13 BOL,
+*   14 Transport Company.
+    CONSTANTS c_grid TYPE string VALUE 'ADDBUILDING' ##NO_TEXT.
+    LOOP AT io_ctx->get_grid_data( c_grid )-rows INTO DATA(lt_r).
+
+      CHECK VALUE string( lt_r[ 1 ] OPTIONAL )  = iv_id.
+      io_ctx->set_val( iv_name = c_pop_name    iv_value = VALUE #( lt_r[ 1 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_pop_type    iv_value = VALUE #( lt_r[ 2 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_pop_usage   iv_value = VALUE #( lt_r[ 3 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_pop_cost    iv_value = VALUE #( lt_r[ 4 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_pop_hgt     iv_value = VALUE #( lt_r[ 5 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_pop_typ     iv_value = VALUE #( lt_r[ 6 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_pop_flr     iv_value = VALUE #( lt_r[ 7 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_pop_mezz    iv_value = VALUE #( lt_r[ 8 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_pop_roof    iv_value = VALUE #( lt_r[ 9 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_pop_heli    iv_value = VALUE #( lt_r[ 10 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_pop_base    iv_value = VALUE #( lt_r[ 11 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_pop_found   iv_value = VALUE #( lt_r[ 12 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_pop_const   iv_value = VALUE #( lt_r[ 13 ] OPTIONAL ) ).
+      io_ctx->set_val( iv_name = c_pop_syst    iv_value = VALUE #( lt_r[ 14 ] OPTIONAL ) ).
+      EXIT.
+    ENDLOOP.
+
+
+
+
+  ENDMETHOD.
 ENDCLASS.

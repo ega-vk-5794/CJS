@@ -1172,20 +1172,8 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     DATA(lo_dlg) = io_popup->dialog( title = 'Owner' contentwidth = '54rem' ).
     DATA(lo_c)   = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
 
-*   THE MESSAGES, INSIDE THE DIALOG THAT RAISED THEM.
-*   ZCL_RAK_JOURNEY_RENDER draws MT_MSG on the PAGE and RENDER_POPUP( ) runs
-*   after it, so every warning this popup's own OK handler raises - "Kindly
-*   enter shares as 100", "Kindly fill required details", the Emirates ID
-*   format refusal - was drawn behind a MODAL dialog. Correctly placed and
-*   unreadable: from the citizen's side the Add button simply stops working.
-*
-*   DIALOG_FORM( ) already solved this for every popup built through it, and
-*   its note records the same thing reported three times over. This dialog is
-*   hand-built - the comment below says why, and the DIALOG_FORM( ) call
-*   beside the live one is commented out - so it never inherited the fix.
-*
-*   Before the content so it reads first, and only when there is something to
-*   say: an empty loop adds no markup, so a dialog opening clean is unchanged.
+    lo_c->title( text = 'Owner Details' class = 'rakBlkTitle' ).
+
     LOOP AT io_ctx->msgs( ) INTO DATA(ls_pmsg).
       lo_c->message_strip( text     = ls_pmsg-text
                            type     = COND string( WHEN ls_pmsg-type IS NOT INITIAL
@@ -1193,9 +1181,6 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
                            showicon = abap_true
                            class    = 'sapUiTinyMarginBottom' ).
     ENDLOOP.
-
-    lo_c->title( text = 'Owner Details' class = 'rakBlkTitle' ).
-
 *   Same two-column SimpleForm/ResponsiveGridLayout combination DIALOG_FORM( )
 *   uses in ZCL_RAK_JOURNEY_LOGIC (it cannot be called directly here - it owns
 *   and closes its own dialog, with no room for the Documents section below -
@@ -1214,15 +1199,15 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
                                        labelspanm              = '12'
                                        adjustlabelspan         = 'false'
                                        singlecontainerfullsize = abap_false
-      )->content( ns = 'form' ).
+                                                                 )->content( ns = 'form' ).
 
     lo_form->label( text = 'Identification' required = abap_true ).
 *   Emirates ID is the only option, and OWN_FORM_LOAD now defaults it - so
 *   there is nothing left for the citizen to pick from this dropdown.
     lo_form->combobox( selectedkey = io_ctx->bind( c_identity )
-                        editable    = abap_false
-                        placeholder = 'select'
-      )->item( key = '1'     text = 'Emirates ID' ).
+                       editable    = abap_false
+                       placeholder = 'select'
+                                     )->item( key = '1' text = 'Emirates ID' ).
 *      )->item( key = '2'    text = 'Passport' ).
 
     lo_form->label( text = 'Emirates ID' required = abap_true ).
@@ -1233,13 +1218,13 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
                     showvaluehelp    = abap_true
                     valuehelprequest = io_ctx->event( c_evt_ownsr )
                     submit           = io_ctx->event( c_evt_ownsr ) ).
-            lo_form->button( text = 'Search' press = io_ctx->event( c_evt_ownsr ) ).
+    lo_form->button( text = 'Search' press = io_ctx->event( c_evt_ownsr ) ).
 
-    lo_form->label( text = 'Birth Date' required = abap_true DISPLAYONLY = abap_true ).
+    lo_form->label( text = 'Birth Date'  displayonly = abap_true  required = abap_true ).
     lo_form->date_picker( value         = io_ctx->bind( c_dob )
                           valueformat   = 'yyyy-MM-dd'
                           displayformat = 'dd.MM.yyyy'
-                          EDITABLE = abap_false ).
+                          editable      = abap_false ).
 
     lo_form->label( text = 'Nationality' required = abap_true ).
     DATA(lo_nat) = lo_form->combobox( selectedkey = io_ctx->bind( c_nat )
@@ -1291,15 +1276,15 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
     DATA(lo_dr2) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d3)  = lo_dr2->vbox( class = 'rakCell' ).
-    lo_d3->label( text = 'Introductory Statement'  required = abap_true ).
+    lo_d3->label( text = 'Introductory Statement' required = abap_true ).
     io_ctx->render_upload( io_view = lo_d3 iv_field = 'FE' iv_key = lv_id ).
     DATA(lo_d4)  = lo_dr2->vbox( class = 'rakCell' ).
-    lo_d4->label( text = 'Criminal Clearance certificate'  required = abap_true ).
+    lo_d4->label( text = 'Criminal Clearance certificate' required = abap_true ).
     io_ctx->render_upload( io_view = lo_d4 iv_field = '6P' iv_key = lv_id ).
 
     DATA(lo_dr3) = lo_c->hbox( class = 'rakRow' ).
     DATA(lo_d5)  = lo_dr3->vbox( class = 'rakCell' ).
-    lo_d5->label( text = 'Curriculum Vitae'  required = abap_true ).
+    lo_d5->label( text = 'Curriculum Vitae' required = abap_true ).
     io_ctx->render_upload( io_view = lo_d5 iv_field = 'FF' iv_key = lv_id ).
     DATA(lo_d6)  = lo_dr3->vbox( class = 'rakCell' ).
     lo_d6->label( text = 'Family Book' ).
@@ -1348,9 +1333,22 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-  method OWN_EDIT.
-    "When user click on edit pencil for OWNER ROW they should be able
-    "to see existing details and edit it
+  METHOD own_edit.
+
+    DATA iv_idnumber        TYPE bu_id_number.
+    DATA ev_partner         TYPE partner.
+    DATA ev_id_number       TYPE bu_id_number.
+    DATA ev_passport        TYPE bu_id_number.
+    DATA ev_name            TYPE bu_name1tx.
+    DATA ev_phone           TYPE farp_mobile.
+    DATA ev_email           TYPE ad_smtpadr.
+    DATA ev_nationality     TYPE natio50.
+    DATA ev_nationality_key TYPE bu_natio.
+    DATA ev_date_of_birth   TYPE bu_birthdt.
+    DATA ev_message         TYPE bapiret2-message.
+
+*   "When user click on edit pencil for OWNER ROW they should be able
+*   "to see existing details and edit it
     DATA(ls_g) = io_ctx->get_grid_data( c_grid ).
 
     LOOP AT ls_g-rows INTO DATA(lt_r).
@@ -1368,6 +1366,16 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *     key with it - changed on every Edit.
       io_ctx->set_val( iv_name  = c_own_bp
         iv_value = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_partner ) ).
+
+*
+**     "Identity
+*      io_ctx->set_val( iv_name = c_identity iv_value = '1' ).
+*
+**      "Emirates Id
+*
+*
+*        data(lv_eid) = io_ctx->get_val( iv_name = c_id ) .
+
 
 *     By column name. Columns 6 to 9 were being read on a grid that has five, so
 *     the Emirates ID and nationality came back empty; the popup then kept
@@ -1387,10 +1395,49 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       io_ctx->set_val( iv_name = c_dob
         iv_value = cell_of( it_cols = ls_g-columns it_row = lt_r iv_name = c_col_dob ) ).
       io_ctx->set_val( iv_name = c_identity iv_value = '1' ).
+
+
+
+*      "Get data for fields emrates id is there and edit button is clicked.
+      DATA(lv_eid) = io_ctx->get_val( c_id ).
+      IF lv_eid IS NOT INITIAL.
+        CONDENSE lv_eid .
+
+        iv_idnumber = lv_eid .
+        CALL FUNCTION 'ZFE_CJ_SEARCH_BP_BY_ID'
+          EXPORTING
+            iv_type            = 'YFS002'
+            iv_idnumber        = iv_idnumber
+*           IV_APP             = IV_APP
+          IMPORTING
+            ev_partner         = ev_partner
+            ev_id_number       = ev_id_number
+            ev_passport        = ev_passport
+            ev_name            = ev_name
+            ev_phone           = ev_phone
+            ev_email           = ev_email
+            ev_nationality     = ev_nationality
+            ev_nationality_key = ev_nationality_key
+            ev_date_of_birth   = ev_date_of_birth
+            ev_message         = ev_message.
+
+
+        io_ctx->set_val( iv_name = 'BIRTH_DATE'     iv_value = |{ ev_date_of_birth }| ).
+        io_ctx->set_val( iv_name = 'NATIONALITY' iv_value = |{ ev_nationality_key }| ).
+        io_ctx->set_val( iv_name = 'TELEPHONE_POP'  iv_value = |{ ev_phone }| ).
+        io_ctx->set_val( iv_name = 'EMAIL_POP'      iv_value = |{ ev_email }| ).
+        io_ctx->set_val( iv_name = 'EMIRATES_ID'    iv_value = |{ lv_eid }| ).
+        io_ctx->set_val( iv_name = c_own_bp         iv_value = |{ ev_partner }| ).
+        io_ctx->set_val( iv_name = 'NAME_POP'       iv_value = |{ ev_name }| ).
+
+      ENDIF.
+
       EXIT.
     ENDLOOP.
 
-  endmethod.
+
+
+  ENDMETHOD.
 
 
   METHOD zif_rak_journey_logic~on_before_attachments.
