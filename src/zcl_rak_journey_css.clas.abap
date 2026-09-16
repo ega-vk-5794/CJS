@@ -693,13 +693,27 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     card's rhythm plus a Select button on its own row under a divider,
 *     which made a 200px card out of 80px of content and turned six of them
 *     into a scroll.
-*     TOP TIGHT, BOTTOM LOOSER. A flat .4rem both ways put the meta row six
-*     pixels off the bottom border, and a card whose last line sits on its
-*     own edge reads as cut off rather than as a card that ends - which is
-*     exactly how it was reported. The asymmetry is the fix: the heading has
-*     the counts block beside it and needs no room above, the closing row
-*     does.
-        |.rakPrjCard\{gap:.1rem;padding-block:.5rem .75rem;\}| &&
+*     THE WHOLE BOX, DECLARED HERE, rather than three overrides on top of
+*     two other classes. The card wears .rakCard (margin, padding, radius,
+*     box-shadow) and .rakPclCard (background, border, red left edge,
+*     padding) and then this one, and the red edge was not running the
+*     card's full height while the other three sides were not visible at
+*     all. Which of those rules was winning cannot be settled from a
+*     screenshot, and the next override would have been another guess.
+*
+*     So every property that decides the box is set once, on the most
+*     specific class, and nothing is inherited: box-sizing so the 4px edge
+*     is inside the width, margin replacing .rakCard's 12px so cards sit in
+*     one column, and box-shadow:none because .rakCard's soft shadow was
+*     the faint full-width line under each card that read as a stray rule.
+*
+*     TOP TIGHT, BOTTOM LOOSER, deliberately: the heading has the counts
+*     block beside it and needs no room above, the closing row does - a
+*     card whose last line sits on its own edge reads as cut off.
+        |.rakPrjCard\{box-sizing:border-box;width:100%;gap:.1rem;| &&
+        |background:#fff;border:1px solid { g-line_clr };| &&
+        |border-inline-start:4px solid { g-brand };border-radius:10px;| &&
+        |padding:.5rem 1.1rem .75rem;margin:0 0 .6rem;box-shadow:none;\}| &&
 *     THE NUMBER IS THE ACTION. sap.m.CustomListItem takes no PRESS through
 *     the z2ui5 wrapper, so a whole-card click is not available; a Link on
 *     the project number is the nearest affordance and is what the live card
