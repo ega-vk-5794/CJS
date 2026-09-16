@@ -450,13 +450,17 @@ CLASS zcl_rak_cj_opts IMPLEMENTATION.
 
     DATA(lo_api) = NEW zcl_rak_fees_api( is_ctx = is_ctx ).
 
-*   IV_CASE IS THE CONTEXT'S INTRENO, and it is OPTIONAL on purpose.
-*   IS_CTX-INTRENO is io_ctx->get_case( ) - the live case guid, which on
-*   a brand new request does not exist yet. Blank is the normal state at
-*   the project step, and PROJECTS( ) simply omits the CaseId filter, so
-*   the read comes back as "every project this partner owns". That is
-*   exactly what step 1 has to offer.
-    DATA(ls_res) = lo_api->projects( iv_case = is_ctx-intreno ).
+*   NO FILTERS AT ALL FROM HERE, AND THAT IS THE FIX.
+*   This used to pass IS_CTX-INTRENO as the case, and PROJECTS( ) added a
+*   derived Dept of its own. The live portal screen sends ONE filter -
+*   Partner - and gets 207 projects; we sent three and got none, while
+*   telling the citizen they own no project.
+*
+*   IV_CASE is still available on the method, deliberately, for a screen
+*   that really is about one case. Step 1 of M028 is not: there is no case
+*   yet (io_ctx->get_case( ) is blank on a new request), and the question
+*   the step asks is "which of your projects", which is partner-wide.
+    DATA(ls_res) = lo_api->projects( ).
 
     IF ls_res-msg IS NOT INITIAL.
       ev_note = first_msg( ls_res-msg ).
@@ -512,9 +516,24 @@ CLASS zcl_rak_cj_opts IMPLEMENTATION.
                   |component matched. Extend the candidate list in | &&
                   |ZCL_RAK_CJ_OPTS->PROJECT_OPTS( ).|.
       ELSE.
+*       AND IT NAMES WHAT IT ASKED. "No project is registered against this
+*       partner" was shown to a citizen who owns 207 of them, because the
+*       filters were wrong - the sentence asserted a fact about their data
+*       when the only fact available was that a query came back empty.
+*       The filter string makes the two separable in one look, and it is
+*       the same text the portal puts in its own URL, so it can be pasted
+*       into a browser and compared.
         ev_note = COND string( WHEN sy-langu = 'E'
                                THEN 'No project is registered against this partner'
                                ELSE 'لا يوجد مشروع مسجل لهذا الشريك' ).
+*       E10 ONLY. The sentence above is for the citizen; the filter is for
+*       us, and a partner number on a production screen is exactly the
+*       technical disclosure that was swept out of this engine. IS_DEV( )
+*       is the same gate DEV_MSG( ) and TRACE_OK( ) use.
+        IF ls_res-flt IS NOT INITIAL
+           AND zcl_rak_journey_util=>is_dev( ) = abap_true.
+          ev_note = |{ ev_note } ({ ls_res-flt })|.
+        ENDIF.
       ENDIF.
     ENDIF.
   ENDMETHOD.

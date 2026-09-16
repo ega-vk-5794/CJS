@@ -71,6 +71,12 @@ CLASS zcl_rak_fees_api DEFINITION
     TYPES: BEGIN OF ty_project_res,
              rows TYPE tt_project_rows,
              msg  TYPE bapiret2_t,
+*            WHAT WAS ACTUALLY ASKED, in $filter form. An empty project list
+*            has two completely different causes - this partner owns nothing,
+*            or we filtered on something the live screen does not - and they
+*            look identical on screen. The caller puts this in its note so one
+*            run separates them instead of a round of theorising.
+             flt  TYPE string,
            END OF ty_project_res.
 
 *   The open fee items for this case. Feeds the FEES control and the
@@ -86,8 +92,29 @@ CLASS zcl_rak_fees_api DEFINITION
       RETURNING VALUE(rs) TYPE ty_tracker_res.
 
 *   Projects for the logged-on partner. M028 picks one here.
+*
+*   PARTNER IS THE ONLY FILTER BY DEFAULT, and that is copied from the live
+*   request, not chosen: the working portal screen asks
+*
+*     ProjectSet?sap-language=en&$filter=Partner eq '3000018329'
+*
+*   and gets 207 projects back. It sends no Dept and no CaseId, so neither
+*   is sent here unless a caller explicitly asks for one.
+*
+*   THIS METHOD USED TO SEND BOTH AND RETURNED NOTHING. MS_CTX-DEPARTMENT is
+*   derived, and ZCL_RAK_CJ_CTX's own header says the CJS category is not the
+*   portal department - so a value that is merely plausible went out as
+*   `Dept eq '<guess>'` and filtered 207 rows down to none, silently, with the
+*   citizen shown "No project is registered against this partner". The same
+*   trap is already recorded against FeesSet.
+*
+*   The two parameters stay available because the DPC really does declare
+*   those filters and a later screen may want them. They are opt-in now, which
+*   is the difference: a filter has to be asked for rather than arriving by
+*   default from a field somebody guessed.
     METHODS projects
       IMPORTING iv_case   TYPE string OPTIONAL
+                iv_dept   TYPE string OPTIONAL
       RETURNING VALUE(rs) TYPE ty_project_res.
 
   PROTECTED SECTION.
@@ -171,10 +198,33 @@ CLASS zcl_rak_fees_api IMPLEMENTATION.
   METHOD projects.
     DATA lt_flt TYPE /iwbep/t_mgw_select_option.
 
+*   PARTNER ONLY, unless the caller named the other two. See the header:
+*   the live screen sends exactly this one and gets the full list.
 *   ProjectSet reads Dept, not Department. Not a typo here.
-    filter( EXPORTING iv_property = `CaseId`  iv_value = iv_case            CHANGING ct_filter = lt_flt ).
-    filter( EXPORTING iv_property = `Dept`    iv_value = ms_ctx-department  CHANGING ct_filter = lt_flt ).
-    filter( EXPORTING iv_property = `Partner` iv_value = ms_ctx-partner     CHANGING ct_filter = lt_flt ).
+    filter( EXPORTING iv_property = `CaseId`  iv_value = iv_case        CHANGING ct_filter = lt_flt ).
+    filter( EXPORTING iv_property = `Dept`    iv_value = iv_dept        CHANGING ct_filter = lt_flt ).
+    filter( EXPORTING iv_property = `Partner` iv_value = ms_ctx-partner CHANGING ct_filter = lt_flt ).
+
+*   Readable back exactly as the portal writes it, so it can be compared with
+*   a browser URL character for character. Built by appending only the parts
+*   that were actually sent - a VALUE #( ) with blank rows would concatenate
+*   into " and  and Partner eq ...", which is worse than no diagnostic.
+    DATA lt_show TYPE string_table.
+    IF iv_case IS NOT INITIAL.
+      APPEND |CaseId eq '{ iv_case }'| TO lt_show.
+    ENDIF.
+    IF iv_dept IS NOT INITIAL.
+      APPEND |Dept eq '{ iv_dept }'| TO lt_show.
+    ENDIF.
+    IF ms_ctx-partner IS NOT INITIAL.
+      APPEND |Partner eq '{ ms_ctx-partner }'| TO lt_show.
+    ELSE.
+*     The one that matters most. No partner means no filter at all went out
+*     on the property the live screen keys on, and "no projects" then says
+*     nothing about the citizen's projects.
+      APPEND |Partner NOT RESOLVED| TO lt_show.
+    ENDIF.
+    rs-flt = concat_lines_of( table = lt_show sep = ` and ` ).
 
     TRY.
         projectset_get_entityset(
