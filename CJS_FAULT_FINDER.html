@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{color-scheme:light dark}
+  html,body{margin:0}
+  img{max-width:100%}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<title>CJS Fault Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@600;700&display=swap">
+
+<style>
+:root{
+  --paper:#f6f5f1;
+  --card:#fffefb;
+  --ink:#16202e;
+  --ink-2:#4a5464;
+  --ink-3:#7b8494;
+  --rule:#ded9cf;
+  --rule-2:#eae6dd;
+  --stop:#b30000;
+  --stop-bg:#fbeeee;
+  --look:#0f6f5c;
+  --look-bg:#e9f3f0;
+  --warn:#9a6300;
+  --warn-bg:#fbf2e2;
+  --mono-bg:#f0eee7;
+  --shadow:0 1px 2px rgba(22,32,46,.06),0 8px 24px -16px rgba(22,32,46,.25);
+}
+:root:not([data-theme="light"]){
+  @media (prefers-color-scheme: dark){
+    --paper:#141a22;
+    --card:#1b222c;
+    --ink:#e8e6e0;
+    --ink-2:#a7b0bd;
+    --ink-3:#7c8695;
+    --rule:#2c343f;
+    --rule-2:#232b35;
+    --stop:#ff6b62;
+    --stop-bg:#2a1a1a;
+    --look:#4fbfa5;
+    --look-bg:#15282a;
+    --warn:#dca84a;
+    --warn-bg:#2a2317;
+    --mono-bg:#222a34;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141a22;
+  --card:#1b222c;
+  --ink:#e8e6e0;
+  --ink-2:#a7b0bd;
+  --ink-3:#7c8695;
+  --rule:#2c343f;
+  --rule-2:#232b35;
+  --stop:#ff6b62;
+  --stop-bg:#2a1a1a;
+  --look:#4fbfa5;
+  --look-bg:#15282a;
+  --warn:#dca84a;
+  --warn-bg:#2a2317;
+  --mono-bg:#222a34;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  font-size:16px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:20px;padding-block:56px 96px}
+
+h1,h2,h3{font-family:"IBM Plex Serif",Georgia,serif;text-wrap:balance;margin:0}
+h1{font-size:clamp(2rem,5vw,2.9rem);font-weight:700;letter-spacing:-.02em;line-height:1.1}
+h2{font-size:1.5rem;font-weight:600;letter-spacing:-.01em}
+h3{font-size:1.0625rem;font-weight:600}
+p{margin:0}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+code{font-size:.86em;background:var(--mono-bg);padding:.1em .34em;border-radius:3px}
+
+.eyebrow{
+  font-family:"IBM Plex Mono",monospace;font-size:.72rem;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
+}
+header{display:flex;flex-direction:column;gap:14px;max-width:66ch}
+.lede{font-size:1.1rem;color:var(--ink-2);line-height:1.55}
+
+section{margin-top:64px;display:flex;flex-direction:column;gap:20px}
+.sechead{display:flex;flex-direction:column;gap:6px;max-width:68ch}
+.sechead p{color:var(--ink-2)}
+
+/* the one rule */
+.axiom{
+  background:var(--card);border:1px solid var(--rule);border-left:4px solid var(--stop);
+  border-radius:4px;padding:20px 22px;display:flex;flex-direction:column;gap:10px;
+  box-shadow:var(--shadow);
+}
+.axiom .t{font-family:"IBM Plex Serif",serif;font-size:1.18rem;font-weight:600;line-height:1.35}
+.axiom p{color:var(--ink-2);font-size:.95rem}
+
+/* diagram */
+.diagram{
+  background:var(--card);border:1px solid var(--rule);border-radius:4px;
+  padding:26px 18px;overflow-x:auto;box-shadow:var(--shadow);
+}
+.diagram pre{margin:0;text-align:center}
+
+/* tables */
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);border-radius:4px;background:var(--card);box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:.9rem}
+thead th{
+  text-align:left;font-family:"IBM Plex Mono",monospace;font-size:.68rem;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);
+  padding:12px 16px;border-bottom:1px solid var(--rule);white-space:nowrap;
+}
+tbody td{padding:14px 16px;border-bottom:1px solid var(--rule-2);vertical-align:top;color:var(--ink-2)}
+tbody tr:last-child td{border-bottom:none}
+tbody td:first-child{color:var(--ink);font-weight:500;width:27%}
+.bp{font-family:"IBM Plex Mono",monospace;font-size:.8rem;color:var(--look);font-weight:600;display:block;line-height:1.45}
+.why{display:block;margin-top:5px;font-size:.86rem}
+
+/* trace decode */
+.traces{display:grid;gap:12px}
+.tr{
+  display:grid;grid-template-columns:minmax(210px,26%) 1fr;gap:18px;align-items:start;
+  background:var(--card);border:1px solid var(--rule);border-radius:4px;padding:14px 16px;
+}
+.tr .line{font-family:"IBM Plex Mono",monospace;font-size:.8rem;color:var(--ink);font-weight:600;overflow-wrap:anywhere}
+.tr .means{font-size:.9rem;color:var(--ink-2)}
+
+/* rules list */
+.rules{display:grid;gap:14px;counter-reset:r}
+.rule{
+  display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start;
+  padding-bottom:14px;border-bottom:1px solid var(--rule-2);
+}
+.rule:last-child{border-bottom:none;padding-bottom:0}
+.rule .n{
+  counter-increment:r;font-family:"IBM Plex Mono",monospace;font-size:.72rem;font-weight:600;
+  color:var(--stop);padding-top:3px;
+}
+.rule .n::before{content:counter(r,decimal-leading-zero)}
+.rule h3{margin-bottom:3px}
+.rule p{color:var(--ink-2);font-size:.93rem}
+
+/* chips */
+.chip{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.68rem;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:3px;white-space:nowrap;
+}
+.chip.stop{background:var(--stop-bg);color:var(--stop)}
+.chip.look{background:var(--look-bg);color:var(--look)}
+.chip.warn{background:var(--warn-bg);color:var(--warn)}
+
+.case{
+  background:var(--look-bg);border:1px solid color-mix(in srgb,var(--look) 26%,transparent);
+  border-radius:4px;padding:18px 20px;display:flex;flex-direction:column;gap:8px;
+}
+.case .t{font-weight:600;color:var(--ink)}
+.case p{font-size:.92rem;color:var(--ink-2)}
+
+footer{margin-top:80px;padding-top:22px;border-top:1px solid var(--rule);color:var(--ink-3);font-size:.84rem;max-width:68ch}
+
+@media (max-width:640px){
+  .wrap{padding-block:36px 64px}
+  .tr{grid-template-columns:1fr;gap:6px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">CJS · Diagnostic reference</span>
+  <h1>CJS Fault Finder</h1>
+  <p class="lede">Where to put the breakpoint, in the order that finds it fastest. Written from the faults that actually cost us days &mdash; the payment that never read, the field that ate what you typed, the case id that was the string <code>CJS</code>.</p>
+</header>
+
+<section>
+  <div class="axiom">
+    <div class="t">Start with what is <em>different</em>, not with where it hurts.</div>
+    <p>D001&rsquo;s payment page never opened. Three rounds went into the gateway, the department map, <code>DFKKOP</code> and the payment screen. The actual cause: <code>ZCL_D001_SCHOOL_LIC_INIT_LOGIC</code> redefined <code>PREPARE_PAYMENT</code> with nothing in it, so payment preparation never ran on that one journey. Every other journey paid fine because none of them redefine it.</p>
+    <p><strong>If one journey misbehaves and the rest are fine, the framework is not the suspect.</strong> Open that journey&rsquo;s handler class first, every time.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sechead">
+    <span class="eyebrow">01 &middot; The round trip</span>
+    <h2>What runs, in what order</h2>
+    <p>Every request follows this path. Knowing where you are on it turns &ldquo;it doesn&rsquo;t work&rdquo; into one breakpoint.</p>
+  </div>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart TD
+  A["Browser event"] --> B["ZCL_RAK_JOURNEY_ENGINE<br/>Z2UI5_IF_APP~MAIN"]
+  B --> C["read_params( )<br/>MV_TRACE, launch key"]
+  C --> D{"first request?"}
+  D -- yes --> E["init( )<br/>clear_read_buffer + backend_create / backend_read"]
+  D -- no --> F["ensure_config( )<br/>rebuilt every round trip"]
+  E --> F
+  F --> G["instantiate HANDLER_CLASS"]
+  G --> H{"event"}
+  H -- "NEXT / SUBMIT" --> I["validate_step( )"]
+  I --> J["commit_step( ) → BE → BRIDGE → FM → BAdI"]
+  H -- "BACK" --> K["step - 1 then RE-READ the step"]
+  H -- "PAYNOW" --> L["commit_step → check_lock → PREPARE_PAYMENT → build_pay_url"]
+  H -- "CHANGE_ / ROWPICK_" --> M["on_change( ) hook"]
+  J --> N["RENDER_STEP( )"]
+  K --> N
+  L --> N
+  M --> N
+  N --> O["RENDER_BLOCK → RENDER_ONE → render_field hook"]
+  O --> P["SEND_VIEW( )<br/>markup hash: repaint or model-only"]
+</pre>
+  </div>
+</section>
+
+<section>
+  <div class="sechead">
+    <span class="eyebrow">02 &middot; Fast lookup</span>
+    <h2>Symptom &rarr; first breakpoint</h2>
+    <p>One line each. Set the breakpoint, launch with <code>&amp;trace=x</code>, and you will know within one round trip whether you are in the right method.</p>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Symptom</th><th>Break here first</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>One journey differs, the rest work</td>
+          <td><span class="bp">the journey&rsquo;s own handler class &mdash; the method matching the symptom</span>
+          <span class="why">An empty redefinition is a <em>deletion</em>, not a no-op. Look for a body that is only a commented-out <code>CALL METHOD SUPER-&gt;</code>. Four hooks do real work in the base: <code>ON_CUSTOM_VALIDATE</code> (the PAID gate), <code>RENDER_FIELD</code> (the fee card), <code>ON_POPUP_EVENT</code>, <code>PREPARE_PAYMENT</code>.</span></td>
+        </tr>
+        <tr>
+          <td>Field draws, accepts typing, is empty next round trip</td>
+          <td><span class="bp">ZCL_RAK_JOURNEY_RENDER-&gt;BIND_OF</span>
+          <span class="why">Returns blank when <code>ASSIGN COMPONENT</code> misses &mdash; the control binds to nothing, silently. Also check the ftype: <code>NUMBER</code>/<code>CURRENCY</code> once passed <code>type='Number'</code>, and an HTML number input blanks any value that is not a clean numeral.</span></td>
+        </tr>
+        <tr>
+          <td>Pay pressed, no tab, no message</td>
+          <td><span class="bp">ZCL_RAK_JOURNEY_LOGIC-&gt;PREPARE_PAYMENT, first line</span>
+          <span class="why">Three exits before the CPG read &mdash; <code>NOCASE</code>, <code>NOSCREEN</code>, and the <code>DFKKOP</code> open-item miss &mdash; and each traces its own name. <strong>Total silence means the method never ran</strong>, so suspect the handler&rsquo;s redefinition.</span></td>
+        </tr>
+        <tr>
+          <td>Gateway opens, payment never confirms</td>
+          <td><span class="bp">ZCL_RAK_PAY_ENGINE-&gt;POLL_STATUS</span>
+          <span class="why"><code>DEV_AUTOPAY( )</code> short-circuits to SUCCESS on <strong>E10 only</strong>, so the real path first runs in QA. Check the RFC destination <code>ZREAD_PAY_STATUS_DEST</code> and whether <code>ZETISLAT_TRANSAC</code> is being written.</span></td>
+        </tr>
+        <tr>
+          <td>Journey opens empty / read returns nothing</td>
+          <td><span class="bp">ZCL_RAK_QNV_BRIDGE-&gt;READ, after the CALL FUNCTION</span>
+          <span class="why">Check <code>ET_VALUES</code> count. Zero values with zero messages means the BAdI found neither case nor draft &mdash; usually the launch key is the wrong <em>shape</em>: <code>SCMG_T_CASE_ATTR-EXT_KEY</code> and a <code>VIBDCHARACT</code> INTRENO are different values.</span></td>
+        </tr>
+        <tr>
+          <td>Grid empty, or a column shows its neighbour&rsquo;s value</td>
+          <td><span class="bp">ZCL_RAK_JOURNEY_BE-&gt;BACKEND_READ_GRIDS</span>
+          <span class="why">Cells are positional at both ends. CJS reads <code>FIELD1..n</code> into spec columns 1..n; the BAdI writes <code>'FIELD' &amp;&amp; LIST_SEQUENCE</code>. Two columns sharing a sequence, or a blank one, and nothing reports it.</span></td>
+        </tr>
+        <tr>
+          <td>Field or whole section vanishes</td>
+          <td><span class="bp">ZCL_RAK_JOURNEY_BE-&gt;APPLY_CTRL</span>
+          <span class="why"><code>SET_HIDDEN( )</code> writes the handler-override table, which outranks <code>ZRAK_T_JNY_RULE</code> <em>and</em> the configured flag. Under <code>&amp;trace=x</code> the <code>CTRL the BAdI HID:</code> line names the fields.</span></td>
+        </tr>
+        <tr>
+          <td>A press does nothing at all</td>
+          <td><span class="bp">ZCL_RAK_JOURNEY_ENGINE-&gt;Z2UI5_IF_APP~MAIN, the event CASE</span>
+          <span class="why">An event name the dispatcher does not match is silent. Match with <code>CP</code>, never an offset: <code>IV_EVENT</code> is a <code>STRING</code> and <code>iv_event(8)</code> on a six-character name raises <code>CX_SY_RANGE_OUT_OF_BOUNDS</code>.</span></td>
+        </tr>
+        <tr>
+          <td>Server-side change does not appear on screen</td>
+          <td><span class="bp">ZCL_RAK_JOURNEY_RENDER-&gt;SEND_VIEW</span>
+          <span class="why">Hashes the markup and sends a model-only update when it matches. Correct by design &mdash; but if you changed something that does not alter the markup, this is why the page looks stale.</span></td>
+        </tr>
+        <tr>
+          <td>Config edited, journey unchanged</td>
+          <td><span class="bp">ZCL_RAK_CJ_CFG_CACHE=&gt;GET</span>
+          <span class="why">Config is cached per journey. A teardown or an edit outside the Studio needs <code>INVALIDATE( )</code>.</span></td>
+        </tr>
+        <tr>
+          <td>Uploaded documents gone after Back</td>
+          <td><span class="bp">ZCL_RAK_JOURNEY_RENDER-&gt;RENDER_CHIPS</span>
+          <span class="why">Draws staged files from <code>MT_ATTACH</code> and the case&rsquo;s own from <code>MT_BE_ATTACH</code>. Empty uploader with files on the case means the second list is not arriving &mdash; check <code>IDENTIFIER1</code>, which carries the field name.</span></td>
+        </tr>
+        <tr>
+          <td>Case id blank inside the BAdI</td>
+          <td><span class="bp">ZCL_EGA_CJ_*_ABS-&gt;ZIF_EGA_FW_CJI~MAPPER</span>
+          <span class="why"><code>GS_DATA</code> is restored by <code>RETRIVE_DATA( )</code> from <code>INDX(CJ)</code>, not built from what CJS sends. <code>READ</code> then passes the key as <code>IV_DRAFT</code>, never <code>IV_CASE_ID</code>.</span></td>
+        </tr>
+        <tr>
+          <td>Injected JavaScript does nothing, on a round trip that opens or redraws a POPUP</td>
+          <td><span class="bp">whether the snippet RAN &mdash; not what it does</span>
+          <span class="why"><code>FOLLOW_UP_ACTION( )</code> fires from the <strong>main</strong> view&rsquo;s <code>onAfterRendering</code>, and a round trip that only reopens a dialog need not re-render the main view. Cost four rounds on the popup attachment scroll and six on the parcel map, both spent editing a snippet that was never executed. <strong>Three failed variations of the same snippet is the tell</strong> &mdash; the fourth will fail too. Carry it in an inline event <strong>attribute</strong> as well: a 1&times;1 data-URI <code>&lt;img onload&gt;</code> renders inside the dialog fragment and fires when its DOM is inserted, the same channel <code>RENDER_UPLOADER( )</code>&rsquo;s <code>onchange</code> has always used. Make the payload idempotent so both channels may run.</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sechead">
+    <span class="eyebrow">03 &middot; Reading the trace</span>
+    <h2>Lines worth knowing</h2>
+    <p>Launch with <code>&amp;trace=x</code>. <span class="chip look">E10 only</span> &mdash; quality and production show nothing, whatever is appended to the URL.</p>
+  </div>
+  <div class="traces">
+    <div class="tr"><span class="line">KEYSHAP '…' SCMG_T_CASE_ATTR HIT / VIBDRO HIT</span><span class="means">What shape the launch key is. A hit on the first means a real case; a hit on the second means a real-estate INTRENO was handed over where a case was meant.</span></div>
+    <div class="tr"><span class="line">BUFFER INDX(CJ) id '…' cleared (row existed)</span><span class="means">The DOK/EPDA draft store was dropped before the entry read. <code>(no row)</code> on a relaunch means nothing is re-seeding it.</span></div>
+    <div class="tr"><span class="line">READ … n value(s) back · n message(s)</span><span class="means">Zero values and zero messages is the quietest failure in the framework: page renders, every field blank, looks like a citizen who has typed nothing.</span></div>
+    <div class="tr"><span class="line">READ grid X NOT overwritten · the citizen's copy wins</span><span class="means">Grid protection working. Scalars have no equivalent &mdash; only blank backend answers are skipped.</span></div>
+    <div class="tr"><span class="line">CTRL the BAdI HID: A, B, C</span><span class="means">Fields the legacy field control hid on this read. Outranks every CJS-side reason for them to be visible.</span></div>
+    <div class="tr"><span class="line">BIND &lt;field&gt; has NO model component</span><span class="means">The control will draw, accept typing and lose the value. Either the field is not in <code>ZRAK_T_JNY_FLD</code>, or its name exceeds 23 characters.</span></div>
+    <div class="tr"><span class="line">PAY dfkkop open item … found on ext_key …</span><span class="means">The open-item gate passed and the CPG read is about to run. Its absence, with no other <code>PAY</code> line, means <code>PREPARE_PAYMENT</code> never executed.</span></div>
+    <div class="tr"><span class="line">GATE n BLOCKER(S)</span><span class="means">Configuration defects <code>ZCL_RAK_CJS_XCHECK</code> found. &ldquo;Must not go to QA until cleared&rdquo; is meant literally.</span></div>
+    <div class="tr"><span class="line">SLOW … took n ms</span><span class="means">Time spent waiting on the backend, not rendering. Read the per-call lines above it.</span></div>
+  </div>
+</section>
+
+<section>
+  <div class="sechead">
+    <span class="eyebrow">04 &middot; Method</span>
+    <h2>Rules that shorten the hunt</h2>
+  </div>
+  <div class="rules">
+    <div class="rule"><span class="n"></span><div>
+      <h3>Verify by content, never by status</h3>
+      <p><span class="chip stop">costs days</span> A pull writes the source and leaves the object inactive; the runtime keeps running the old version while the Class Builder shows the new one. <em>Implemented / Active</em> proves nothing. Open the method and look for a string you added.</p>
+    </div></div>
+    <div class="rule"><span class="n"></span><div>
+      <h3>Silence is evidence</h3>
+      <p>Every path through a well-instrumented method traces something. If a method has four possible exits and all four are silent, it did not run &mdash; which is a completely different problem from any of the four.</p>
+    </div></div>
+    <div class="rule"><span class="n"></span><div>
+      <h3>Two rounds with no visible change &rarr; instrument, stop theorising</h3>
+      <p>A <code>message_strip</code> that renders unconditionally settles in one round trip what inference will not settle in five. Every diagnostic in the table above exists because guessing came first.</p>
+    </div></div>
+    <div class="rule"><span class="n"></span><div>
+      <h3>Compare the working case against the broken one</h3>
+      <p>Same journey on two systems, or two journeys on one. The variable between them is the bug &mdash; a handler version, a client, a config row. This is faster than reading either one in isolation.</p>
+    </div></div>
+    <div class="rule"><span class="n"></span><div>
+      <h3>Positional means silent</h3>
+      <p>Grid cells, backend table columns, hand-built rows: all positional at both ends, with the two orders set in different places. A mismatch renders the neighbouring value and raises nothing. Line the spec up against <code>/QNV/SB_UI_DEFIN</code> before believing it is a rendering bug.</p>
+    </div></div>
+    <div class="rule"><span class="n"></span><div>
+      <h3>Environment before code</h3>
+      <p><span class="chip warn">E10 / E20 / E30</span> Dev stubs (<code>DEV_STUBS_OK</code>), auto-pay (<code>DEV_AUTOPAY</code>) and the trace itself are all <strong>E10 only</strong>. Anything that works in dev and not in QA is that gate before it is anything else.</p>
+    </div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sechead">
+    <span class="eyebrow">05 &middot; Worked example</span>
+    <h2>How the D001 payment fault should have gone</h2>
+  </div>
+  <div class="case">
+    <div class="t">Symptom &mdash; Pay pressed, waiting card, gateway never opens. Every other journey pays.</div>
+    <p><strong>Rule 4 &mdash; compare.</strong> One journey differs &rArr; the handler, not the framework. <span class="chip look">30 seconds</span></p>
+    <p><strong>Rule 2 &mdash; silence.</strong> <code>PREPARE_PAYMENT</code> has four possible trace lines and produced none. It did not run.</p>
+    <p><strong>Breakpoint.</strong> <code>ZCL_D001_SCHOOL_LIC_INIT_LOGIC-&gt;PREPARE_PAYMENT</code> &mdash; body is a commented-out <code>SUPER-&gt;</code> template. Found.</p>
+    <p style="color:var(--ink-3)">What it took instead: the gateway route, <code>ZDT_PG_DEP_MAP</code>, the <code>DFKKOP</code> key width, the payment screen configuration, and three wrong diagnoses &mdash; all of them upstream of a method that was never called.</p>
+  </div>
+</section>
+
+<footer>
+  Written against <code>main</code> after the D001 payment, attachment and NUMBER-field hunts. Breakpoints are method names, not line numbers &mdash; lines move, methods do not. Add a row whenever a fault costs more than one round trip to find.
+</footer>
+
+</div>
+
+<!-- Mermaid: the artifact host renders .mermaid blocks natively; a standalone
+     file has to load the library itself. Pinned, and from the one CDN the
+     artifact CSP also admits, so both copies behave the same. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<script>
+  (function () {
+    var dark = matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: dark ? "dark" : "neutral",
+      flowchart: { curve: "basis", padding: 12 },
+      fontFamily: "IBM Plex Sans, system-ui, sans-serif"
+    });
+  })();
+</script>
+</body>
+</html>
