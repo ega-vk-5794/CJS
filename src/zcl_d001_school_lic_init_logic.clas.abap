@@ -896,10 +896,22 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *   rather than here: on an Arabic run the whole page is RTL, so a position
 *   pinned in CSS would put them at the END of the row, while swapping the
 *   cells follows the page in both languages.
+*   BACKTICKS AND REPLACE, NOT A | TEMPLATE. The braces have to reach the XML
+*   as the two characters \{ and \}, because the markup travels as an XML view
+*   ATTRIBUTE and UI5 reads a bare brace there as the start of a binding
+*   expression - which is what "Error found in Fragment ... [object Object]"
+*   is. Inside a |...| template, though, \{ is the TEMPLATE's own escape and
+*   collapses to a bare { before the string is ever built, so writing the
+*   escape there produces exactly the character it was meant to prevent.
+*   A backtick literal does no such processing, so the brace survives to the
+*   REPLACE and the REPLACE is what puts the backslash in. Same two lines
+*   RENDER_UPLOADER( ) and ZCL_RAK_CJ_GIS->CONTAINER( ) use, for this reason.
     DATA(lv_rtl) =
-      |<style>.rakFSCHOOLNAMEAR1 input,.rakFSCHOOLNAMEAR2 input,| &&
-      |.rakFSCHOOLNAMEAR3 input| &&
-      |\{direction:rtl;text-align:right;\}</style>|.
+      `<style>.rakFSCHOOLNAMEAR1 input,.rakFSCHOOLNAMEAR2 input,` &&
+      `.rakFSCHOOLNAMEAR3 input` &&
+      `{direction:rtl;text-align:right;}</style>`.
+    REPLACE ALL OCCURRENCES OF `{` IN lv_rtl WITH `\{`.
+    REPLACE ALL OCCURRENCES OF `}` IN lv_rtl WITH `\}`.
     io_view->html( content = lv_rtl sanitizecontent = abap_false ).
   ENDMETHOD.
 
