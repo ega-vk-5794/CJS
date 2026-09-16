@@ -2190,24 +2190,22 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   round trip and this is the state that quietly accumulates junk in quality.
 *   A standing marker on the bar is what turns it from something you are told
 *   once into something you are looking at.
-    bar->input( value       = mo_client->_bind_edit( mv_trkorr )
-                placeholder = 'Request (e.g. E10K900123)'
-                width       = '14rem'
-                class       = 'sapUiSmallMarginBegin' ).
-    IF mv_trkorr IS INITIAL.
-*     TITLE, NOT TOOLTIP - sap.m.ObjectStatus does not expose one through this
-*     wrapper, and the whole point of this marker is that the reason is
-*     readable without hovering anyway.
-      bar->object_status( text  = 'not recorded — stays in this client'
-                          state = 'Warning'
-                          icon  = 'sap-icon://alert'
-                          class = 'sapUiTinyMarginBegin' ).
-    ELSE.
-      bar->object_status( text  = to_upper( mv_trkorr )
-                          state = 'Success'
-                          icon  = 'sap-icon://sys-enter-2'
-                          class = 'sapUiTinyMarginBegin' ).
-    ENDIF.
+*   THE STATE GOES ON THE INPUT, NOT BESIDE IT. A separate ObjectStatus was
+*   tried and is the wrong control here: this bar already carries a journey
+*   dropdown, five buttons and the copy-to box, so the marker was handed
+*   whatever width was left - about sixty pixels at the right edge - and
+*   wrapped one word per line, outside the bar. VALUESTATE costs no width at
+*   all: UI5 colours the field's own border and shows VALUESTATETEXT under it,
+*   which is both more compact and more obviously about this input.
+    bar->input( value          = mo_client->_bind_edit( mv_trkorr )
+                placeholder    = 'Transport request'
+                width          = '13rem'
+                valuestate     = COND string( WHEN mv_trkorr IS INITIAL THEN 'Warning' ELSE 'Success' )
+                valuestatetext = COND string(
+                  WHEN mv_trkorr IS INITIAL
+                  THEN 'Not recorded — saves stay in this client and will not move'
+                  ELSE 'Saves, copies, deactivations and layout changes are recorded here' )
+                class          = 'sapUiSmallMarginBegin' ).
 
     ENDIF.   " mv_readonly - the write controls above are not drawn on a read client
 

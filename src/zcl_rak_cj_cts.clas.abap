@@ -44,12 +44,19 @@ CLASS zcl_rak_cj_cts DEFINITION
 
   PUBLIC SECTION.
 
-    "! One row per (function, parameter-name set) to try, in order of preference.
+*   One row per (function, parameter-name set) to try, in order of preference.
+*   K_TAB is how the two object tables are BOUND, not what they are called:
+*   a classic TABLES parameter and an IMPORTING table of the same name need
+*   different kinds, and passing the wrong one raises rather than misbehaves.
+*
+*   A plain comment, not ABAP Doc - the Class Builder rejects a "! block in
+*   front of a TYPES: chain as "ABAP Doc comment is in the wrong position".
     TYPES: BEGIN OF ty_cand,
              fm     TYPE string,
              p_req  TYPE string,
              p_e071 TYPE string,
              p_key  TYPE string,
+             k_tab  TYPE c LENGTH 1,
            END OF ty_cand.
     TYPES tt_cand TYPE STANDARD TABLE OF ty_cand WITH EMPTY KEY.
 
@@ -111,11 +118,22 @@ CLASS zcl_rak_cj_cts IMPLEMENTATION.
 *   request WI_TRKORR or IV_TRKORR, cannot be read from here. Getting one wrong
 *   is not a silent miss: a dynamic call naming a parameter the function does
 *   not declare RAISES, so that row simply does not match and the next is tried.
+*
+*   THE WT_ ROWS BIND AS **TABLES** AND THE IT_ ROWS AS EXPORTING, which is the
+*   half of this the Class Builder caught. A function module's parameter table
+*   is ABAP_FUNC_PARMBIND_TAB and has its own kind for a classic TABLES
+*   parameter; the "a TABLES parameter binds as CHANGING" rule is the METHOD
+*   rule (ABAP_PARMBIND_TAB) and does not apply here. The WT_ shape is the
+*   classic TABLES signature, the IT_ shape a modern importing table.
     rt = VALUE #(
-      ( fm = `TR_APPEND_TO_COMM_OBJS_KEYS` p_req = `WI_TRKORR` p_e071 = `WT_E071` p_key = `WT_E071K` )
-      ( fm = `TR_APPEND_TO_COMM_OBJS_KEYS` p_req = `IV_TRKORR` p_e071 = `IT_E071` p_key = `IT_E071K` )
-      ( fm = `TRINT_APPEND_COMM_OBJS_KEYS` p_req = `WI_TRKORR` p_e071 = `WT_E071` p_key = `WT_E071K` )
-      ( fm = `TRINT_APPEND_COMM_OBJS_KEYS` p_req = `IV_TRKORR` p_e071 = `IT_E071` p_key = `IT_E071K` ) ).
+      ( fm = `TR_APPEND_TO_COMM_OBJS_KEYS` p_req = `WI_TRKORR`
+        p_e071 = `WT_E071` p_key = `WT_E071K` k_tab = abap_func_tables )
+      ( fm = `TR_APPEND_TO_COMM_OBJS_KEYS` p_req = `IV_TRKORR`
+        p_e071 = `IT_E071` p_key = `IT_E071K` k_tab = abap_func_exporting )
+      ( fm = `TRINT_APPEND_COMM_OBJS_KEYS` p_req = `WI_TRKORR`
+        p_e071 = `WT_E071` p_key = `WT_E071K` k_tab = abap_func_tables )
+      ( fm = `TRINT_APPEND_COMM_OBJS_KEYS` p_req = `IV_TRKORR`
+        p_e071 = `IT_E071` p_key = `IT_E071K` k_tab = abap_func_exporting ) ).
   ENDMETHOD.
 
 
@@ -182,8 +200,12 @@ CLASS zcl_rak_cj_cts IMPLEMENTATION.
 *   The dynamic form with PARAMETER-TABLE raises CX_SY_DYN_CALL_* instead, which
 *   the CATCH below turns into a message.
 *
-*   A TABLES parameter binds as CHANGING in a parameter table - that is the
-*   documented mapping, not an approximation.
+*   ABAP_FUNC_PARMBIND_TAB, NOT ABAP_PARMBIND_TAB. They look interchangeable
+*   and are not: the second is for CALL METHOD and the Class Builder refuses it
+*   here outright ("the type of LT_PARM must be compatible with
+*   ABAP_FUNC_PARMBIND_TAB"). The difference that matters is that the function
+*   family has a real TABLES kind, so a classic TABLES parameter is bound as
+*   one rather than squeezed in as CHANGING.
     DATA lt_e071  TYPE STANDARD TABLE OF e071  WITH EMPTY KEY.
     DATA lt_e071k TYPE STANDARD TABLE OF e071k WITH EMPTY KEY.
 
@@ -201,8 +223,8 @@ CLASS zcl_rak_cj_cts IMPLEMENTATION.
     DATA lv_order TYPE trkorr.
     lv_order = iv_trkorr.
 
-    DATA lt_parm TYPE abap_parmbind_tab.
-    DATA lt_exc  TYPE abap_excpbind_tab.
+    DATA lt_parm TYPE abap_func_parmbind_tab.
+    DATA lt_exc  TYPE abap_func_excpbind_tab.
     DATA lo_err  TYPE REF TO cx_root.
     DATA lv_last TYPE string.
 
@@ -217,13 +239,13 @@ CLASS zcl_rak_cj_cts IMPLEMENTATION.
           CLEAR lt_parm.
           lt_parm = VALUE #(
             ( name  = ls_c-p_req
-              kind  = cl_abap_objectdescr=>exporting
+              kind  = abap_func_exporting
               value = REF #( lv_order ) )
             ( name  = ls_c-p_e071
-              kind  = cl_abap_objectdescr=>changing
+              kind  = ls_c-k_tab
               value = REF #( lt_e071 ) )
             ( name  = ls_c-p_key
-              kind  = cl_abap_objectdescr=>changing
+              kind  = ls_c-k_tab
               value = REF #( lt_e071k ) ) ).
 
           CALL FUNCTION ls_c-fm
