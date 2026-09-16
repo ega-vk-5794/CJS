@@ -117,6 +117,54 @@ One deliberate exception, and it is not portal config: `ZRAK_CJ_TESTKEY` writes 
 than touching anyone else's — the runtime rule that *nothing* writes that table (see `SIM_USERDATA( )`)
 still holds for everything that serves a citizen.
 
+### Moving CJS config between systems — the Studio records, and it records DELETIONS
+
+**The junk in quality was never an import problem. It was a delete that never travelled.**
+All nine CJS config tables are delivery class **`C`**, and the SM34 view cluster records what
+is maintained through it — but almost nothing is maintained through it. The Studio writes with
+a direct `INSERT` and deletes with a plain `DELETE FROM`, and a table written outside a
+maintenance dialog has no recording routine, so **nothing the Studio did ever reached a
+transport.** Adds partly survived that (a later touch on the same row in SM34 picks it up); a
+deletion never could, because after the Studio deletes the row there is nothing left in SM34
+to open. So the target system only grew: fields removed in development still live, still
+rendering, still posting — and the wipe-and-reload everyone reached for was a workaround for a
+move that could not delete.
+
+`ZCL_RAK_CJ_CTS` closes it, and the mechanism is the part worth knowing:
+
+- **One GENERIC key per table per journey** — `<client><journey padded to 30>*` — not a key
+  per row. A generic key makes the import a **replace** of everything matching it, so a
+  journey that lost a field in development loses it on import too. That is what makes
+  deletions travel with no deletion log, no tracking table and nothing to keep in step.
+- **The padding is not cosmetic.** `TABKEY` is fixed width per key field and `ZRAK_JOURNEY_ID`
+  is CHAR(30), so the key is built with offsets into an `E071K-TABKEY`, never a string
+  template — converting a type C field to a string strips exactly the trailing blanks that
+  keep `D001` from also carrying away `D0012`.
+- **The CTS call is DYNAMIC over four (function, parameter-name) rows**, per the rule below
+  about standard objects that cannot be opened from here. A wrong guess is a caught runtime
+  error, not a class that will not activate and not a dump in front of an author pressing
+  Save. **Run `ZRAK_CJ_CTS_DIAG`** — it prints each candidate's real signature out of
+  `FUPARAREF` — and cut `CANDIDATES( )` down to the row that answered.
+- **All four write paths call it**, including the Design tab: `SAVE_JOURNEY( )`,
+  `COPY_JOURNEY( )` (the *target*), `DEACTIVATE_JOURNEY( )` — a one-column `ACTIVE` update is
+  exactly the drift, a journey off launch here and still on the tile list in quality — and
+  `DSG_SAVE( )`. The Design tab's call sits in its **two callers, not in `DSG_SAVE( )`**
+  though that is the choke point, because both set `MV_MSG` after it returns and a note
+  written inside would be overwritten.
+- **Recording happens AFTER the commit**, never before: it is a database write in the same
+  LUW, and ahead of `SAVE_JOURNEY( )`'s all-or-nothing block it would leave a request naming
+  a journey whose save was rolled back.
+- **A blank request warns, never refuses.** `MV_TRKORR` is typed once per session on the
+  Studio toolbar (no CTS popup can be raised from a z2ui5 app) and rides the serialized
+  instance — deliberately **not** cleared by Load or New, because an author works through
+  several journeys on one request. When it is blank every write appends *"NOT in a transport"*
+  to its own message **and** the bar carries a standing `not recorded` marker, since a message
+  is gone by the next round trip and this is the state that quietly accumulates the junk.
+
+`ZRAK_T_MIG_RAW` is deliberately not in the list (migration staging, nothing reads it at
+runtime), and the application-data tables — `ZRAK_CJ_ATTX`, `_EVT`, `_AGG`, `_BKP`,
+`_CFG_VER`, `ZRAK_T_BE_LOC*`, `ZRAK_T_LICSMP` — must never move.
+
 ### Finding a fault fast
 
 [`CJS_FAULT_FINDER.html`](CJS_FAULT_FINDER.html) in the repo root, and published at

@@ -211,6 +211,13 @@ CLASS zcl_rak_cjs DEFINITION
     DATA mv_dsg_en   TYPE string.
     DATA mv_dsg_ar   TYPE string.
     DATA mv_copy_to TYPE string.
+*   THE TRANSPORT REQUEST EVERY WRITE ON THIS SCREEN IS RECORDED INTO.
+*   It rides the serialized app instance, so it is typed once per session and
+*   then applies to Save, Copy, Deactivate and the Design tab alike. It is
+*   deliberately NOT cleared by LOAD_JOURNEY( ) or NEW - an author works
+*   through several journeys on one request, and re-typing it per journey is
+*   how half a change set ends up unrecorded.
+    DATA mv_trkorr  TYPE string.
 
     " ---- header ----
     DATA mv_journey_id  TYPE string.
@@ -586,6 +593,13 @@ CLASS zcl_rak_cjs DEFINITION
 *   It sets the message strip itself, so a caller is one CHECK and needs no
 *   wording of its own.
     METHODS can_write RETURNING VALUE(rv) TYPE abap_bool.
+
+*   Records IV_JOURNEY into MV_TRKORR and APPENDS the outcome to MV_MSG.
+*   Appends rather than replaces on purpose: the caller has just said what it
+*   saved, and losing that to say something about transports would be the
+*   wrong half of the sentence. Returns nothing - every path here is a note on
+*   an action that already succeeded, never a refusal of it.
+    METHODS record_cfg IMPORTING iv_journey TYPE string.
 
     METHODS copy_journey       IMPORTING iv_strip_handler TYPE abap_bool DEFAULT abap_false.
     METHODS free_id            IMPORTING iv_base TYPE string RETURNING VALUE(rv) TYPE string.
@@ -1367,6 +1381,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     zcl_rak_cj_cfg_cache=>invalidate( iv_journey = mv_sel ).
     load_list( ).
     mv_msg = |{ mv_sel } deactivated — hidden from launch, still here to re-activate (load + Save)|. mv_mtype = 'Success'.
+*   Deactivation is a one-column UPDATE, and an unrecorded one is the exact
+*   shape of the drift: a journey taken off launch here and still on the tile
+*   list in quality, because ACTIVE never travelled.
+    record_cfg( mv_sel ).
   ENDMETHOD.
 
 
@@ -1550,6 +1568,37 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       mv_msg   = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-not_authorized
                                     iv_default = 'Not authorized.' ).
       mv_mtype = 'Error'.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD record_cfg.
+
+*   A BLANK REQUEST IS A WARNING, NEVER A REFUSAL, AND NEVER SILENCE.
+*   Refusing the save would be wrong: E10 client 100 is where authoring
+*   happens and plenty of it is throwaway. Saying nothing is what produced
+*   the problem this whole class exists for - a change that looked saved,
+*   was saved, and never left the client. So the save stands and the message
+*   says, in as many words, that it is going nowhere.
+    DATA(lv_err) = zcl_rak_cj_cts=>record_journey( iv_trkorr  = mv_trkorr
+                                                   iv_journey = iv_journey ).
+
+*   DSG_SAVE( ) reports nothing on a good save, so the separator is only
+*   written when there is something to separate from.
+    DATA(lv_sep) = COND string( WHEN mv_msg IS NOT INITIAL THEN | · | ).
+
+    IF lv_err IS INITIAL.
+      mv_msg = |{ mv_msg }{ lv_sep }recorded in { to_upper( mv_trkorr ) }|.
+      RETURN.
+    ENDIF.
+
+    mv_msg = |{ mv_msg }{ lv_sep }NOT in a transport: { lv_err }|.
+
+*   The severity is raised, but only from Success. A save that reported a
+*   Warning or an Error has something more important to say than this, and
+*   overwriting Error with Warning would downgrade a real failure.
+    IF mv_mtype = 'Success' OR mv_mtype IS INITIAL.
+      mv_mtype = 'Warning'.
     ENDIF.
   ENDMETHOD.
 
@@ -1763,6 +1812,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
              COND string( WHEN mt_lint IS NOT INITIAL
                           THEN |. { lines( mt_lint ) } finding(s) still open| ).
     mv_mtype = COND string( WHEN blocking_count( ) > 0 THEN 'Warning' ELSE 'Success' ).
+
+*   AFTER THE COMMIT, NOT BEFORE. Recording a key into a request is itself a
+*   database write in the same LUW; doing it ahead of the all-or-nothing block
+*   above would leave a request naming a journey whose save was rolled back.
+    record_cfg( jid ).
   ENDMETHOD.
 
 
@@ -1830,6 +1884,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     zcl_rak_cj_cfg_cache=>invalidate( iv_journey = lv_to ).
     load_list( ). mv_sel = lv_to. load_journey( ). CLEAR mv_copy_to.
     mv_msg = |Copied to { lv_to }|. mv_mtype = 'Success'.
+*   The TARGET, never the source - the source was only read.
+    record_cfg( lv_to ).
   ENDMETHOD.
 
 
@@ -2121,6 +2177,37 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                                    THEN 'Click again to take this journey off launch' )
                  press   = mo_client->_event( 'DEACT' )
                  class   = 'sapUiTinyMarginBegin' ).
+
+*   THE TRANSPORT REQUEST, ON THE BAR RATHER THAN IN A DIALOG.
+*   SE01 would normally ask for this in a popup owned by the CTS itself, and
+*   there is no way to raise one from a z2ui5 app - the request has to be typed
+*   somewhere on the page. Beside Save is the right somewhere: it is read by
+*   Save, Copy, Deactivate and the Design tab alike, and a control an author
+*   can see is a control they remember to fill.
+*
+*   AND WHEN IT IS BLANK, SAY SO HERE TOO. Every write already appends
+*   "NOT in a transport" to its own message, but a message is gone by the next
+*   round trip and this is the state that quietly accumulates junk in quality.
+*   A standing marker on the bar is what turns it from something you are told
+*   once into something you are looking at.
+    bar->input( value       = mo_client->_bind_edit( mv_trkorr )
+                placeholder = 'Request (e.g. E10K900123)'
+                width       = '14rem'
+                class       = 'sapUiSmallMarginBegin' ).
+    IF mv_trkorr IS INITIAL.
+*     TITLE, NOT TOOLTIP - sap.m.ObjectStatus does not expose one through this
+*     wrapper, and the whole point of this marker is that the reason is
+*     readable without hovering anyway.
+      bar->object_status( text  = 'not recorded — stays in this client'
+                          state = 'Warning'
+                          icon  = 'sap-icon://alert'
+                          class = 'sapUiTinyMarginBegin' ).
+    ELSE.
+      bar->object_status( text  = to_upper( mv_trkorr )
+                          state = 'Success'
+                          icon  = 'sap-icon://sys-enter-2'
+                          class = 'sapUiTinyMarginBegin' ).
+    ENDIF.
 
     ENDIF.   " mv_readonly - the write controls above are not drawn on a read client
 
@@ -3468,6 +3555,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       dsg_save( iv_step = mv_dsg_step it = dsg_plan( mv_dsg_step ) ).
       mv_msg   = |{ mv_dsg_step } is now laid out — existing pairs were kept|.
       mv_mtype = 'Success'.
+      record_cfg( to_upper( mv_journey_id ) ).
       RETURN.
     ENDIF.
 
@@ -3643,6 +3731,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       mv_mtype = COND string( WHEN lv_fill > 12 THEN 'Warning' ELSE 'Success' ).
     ENDIF.
 
+*   Outside the READ above, because the layout was persisted whether or not
+*   the moved field could be read back for the message.
+    record_cfg( to_upper( mv_journey_id ) ).
+
   ENDMETHOD.
 
 
@@ -3784,6 +3876,17 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     ENDLOOP.
 
     zcl_rak_cj_cfg_cache=>invalidate( to_upper( mv_journey_id ) ).
+
+*   THE DESIGN TAB IS A WRITE PATH TOO, AND ZRAK_CJ_LAYOUT IS IN THE LIST -
+*   a layout that does not travel is the quietest of these drifts: the journey
+*   imports, every field is present and correct, and the page is laid out the
+*   way it was before anybody opened this tab.
+*
+*   RECORD_CFG( ) IS CALLED BY THIS METHOD'S TWO CALLERS, NOT HERE, even
+*   though here is the choke point. Both of them set MV_MSG *after* this
+*   returns, so a note written from inside would be overwritten and the author
+*   would be told nothing about the transport on the one tab where the
+*   omission is hardest to spot afterwards.
 
   ENDMETHOD.
 
