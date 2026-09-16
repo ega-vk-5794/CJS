@@ -703,6 +703,10 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakPayChg\{width:100%;gap:.2rem;\}| &&
         |.rakPayChgHd\{color:{ g-brand };\}| &&
         |.rakPayChgLi\{padding-inline-start:.4rem;\}| &&
+*     The RAK Pay mark beside its radio. Height-constrained and width auto, so
+*     the 48x29 asset keeps its ratio if it is ever replaced by a wider one.
+        |.rakPayWith\{gap:.1rem;\}| &&
+        |.rakPayLogo\{height:1.6rem;width:auto;display:block;\}| &&
 *     ---- THE PROJECT CARD ------------------------------------------------
 *     It reuses .rakPclCard for the frame, the border and the red left edge,
 *     and overrides only where a project card differs from a parcel one.

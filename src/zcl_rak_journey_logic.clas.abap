@@ -229,6 +229,10 @@ CLASS zcl_rak_journey_logic DEFINITION
       IMPORTING io_ctx  TYPE REF TO zif_rak_journey
                 io_view TYPE REF TO z2ui5_cl_xml_view.
 
+    "! The RAK Pay mark as a data URI. See the method for why it is inline.
+    METHODS rak_pay_logo
+      RETURNING VALUE(rv) TYPE string.
+
     METHODS pay_engine
       IMPORTING io_ctx    TYPE REF TO zif_rak_journey
       RETURNING VALUE(ro) TYPE REF TO zcl_rak_pay_engine.
@@ -1032,6 +1036,38 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD rak_pay_logo.
+*   THE RAK PAY MARK, INLINE AS A DATA URI.
+*
+*   48x29 RGBA PNG, 1,446 bytes, supplied as the portal's own asset - not
+*   redrawn. A brand mark reconstructed by eye is visibly wrong and is the one
+*   thing worse on this page than the word it replaces.
+*
+*   INLINE RATHER THAN A URL, following Z2UI5_CL_EXT_WIDGETS, which carries its
+*   happiness faces the same way. A data URI needs no MIME repository entry, no
+*   ICF path, no CSP exception and cannot 404 - and a payment page that silently
+*   loses its payment brand is a page a citizen is right to distrust.
+*
+*   CHUNKED BECAUSE AN ABAP SOURCE LINE STOPS AT 255 CHARACTERS. Past that the
+*   Class Builder truncates and reports an unknown field at whatever the cut
+*   left behind, naming neither the length nor the real line. 180 per chunk
+*   leaves room for the operator and the indent.
+    rv = `data:image/png;base64,`
+      && `iVBORw0KGgoAAAANSUhEUgAAADAAAAAdCAYAAADsMO9vAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAU7SURBVHgB7VhpbFRVFD7nvteFYiFAgMYCURQ1be28TlkMakIEF1RQlCI/TFwgmBBt`
+      && `hB8sLUMfizEqRH9ooiSEKsaFalUYqIAB4g+WYDtDa6oNO0oqpGyBhrbz3j1+b4ZKB0spzTQZol9zl7nn3HfPufecc88t0X8CO8WkShlEIoqSDNwlNSgjSdOrZNAsEsrCyEm0c2gKb6EkQecKbJInQXkTvYko7bt+GGUkykVqQ/scn6EkwFWT`
+      && `2CxZVCVl2PXjEH4zRh5F24R2FXb9Hnqa70b/W5R+lE73UZLAjNZBmQRTqYSgmfgl+NsG4T+iZtpBM/jSP9xC56Jn5lAaJQnMK+3HEMwTvhztYuz2X3SLoF2BbAjeSP2pmB7ii3QLIebEQdmJegJKI0auv/tCw1APBs8faJu64HNRh6iVltPz`
+      && `/Cf1ImIKbJU7KUIb0CukG4XWm8NxKPMgwu5J6iXEC7tRRmDvUuLGeuKubZQB4yxBbyYUCECBlR3JBQWlo13XhPlqaVPGqd/D9rGO9PxC229o80wotOS49zsnx77NNCVv4ED+Zdcu28nPt4fgmEc6DteYcQtP5ROUKASlMqqAoruuJQmnrDVS`
+      && `eJRo1ZLOMsDntzccqLFf8GjWuBWjKOLuEXI8WUZ5Y2m3qfvF0bvPNas8y7KbWVGVFt5WX2vvjd0DGyXxcd0LxrG2U5MUcd8Kh8oGCtPDYJhhjbYnRAkRdzHqvZiV5Stc8ljHOabWAzD+g4ZpHgjRvOhYlOLF/KCko7cPC7ZSIsB0b1dkpFWZ`
+      && `+fkLhhmic11RWrl0KafQHoH1pyrSr2jiR0jMBWDd1j7HFdxVzG2s1XSigL6qgIlcx6Xt6M1LqAt3AWaez2bfYk3Sh4VKQ+Gyap9/OdIXyXRJvQgN72CmsXlW6XhP3yvTvKAwSJS7uqioaFpFRYUbU2AyH0MksqglGkqzkbwlAj6Uudcjishq`
+      && `2O96SPYdzCitsPA105Xbi7F/n2MTf4OG+8GWYbLp5WTvR+codw5FjBT4VdXBg7kwoYpVV534cW5GvZkShU0yHYJ0roCirUhd9odq7Hrf6MBMFlUikv0E3Gafdmhxba192mOzrGUHScmzFNERYakUJedrD9hHff5ls4X1DJ+vNJt6DZ4CQRGU`
+      && `cupFmNQT/Ci52MHMuDFNp5FDHenO9Ly8kqHt/ZaWrPOHDhX3OHDc/Atro/iRjdZB4D1xhejn7n7CTE0NmqlpR73SN/PsIctvl1APcfMn4NIRqP0BosHQuHGDGrr/EUpFhHk7a8iAd0+dOvsS4uEnlrV8u1KOX4uaDN/RpNVqh3SKoWhWS3Of`
+      && `uQ0NCy/6Cuz5cPqm2pD9WbwCNt66NutuLT2Nz6Oef0M+BPKuohkuMl1VVdxaMCbQQK5BLus+QkaGMvgrEMfjatjSN0WGt0b46/SMy0XjxpV90+bwCof4gY7fiZnQGFoffUaui15mCYB4wk+Kdelo5zxqUYHfbhTX8C6q8kH9abcX+0X0Qi36`
+      && `KYz1E0nz8rJyhNbZl9v4ZdESqqteWtfxK7ET8GzYe0YORi8oEUoMvDTwAvzl086IoqnCZecLpVMbw+FAvWUtzWHDeMMgPRFmNBxbEJ3nsLEmhdzXldBw3A2Lrv1OTIEp/CHexBcg/hwoMiJ+pR7czQyxicI43yUwuWOdcJwAraauZuVPUXZe`
+      && `6i1UbxUs+9IVYy2xhJk4mon+Wh04DCffAfpY7Vz6/t9LJTF8vkAufGIhfGMsnH5dqLrsnWt5ku4fVfEwIppUkwiveWaKvEf/IwnxN+qj+P6YzoCyAAAAAElFTkSuQmCC`
+      .
+  ENDMETHOD.
+
+
   METHOD pay_terms.
 *   The order is the legacy order and it is the right one: what is being used to
 *   pay, then what using it costs, then the one thing the citizen has to do to
@@ -1085,14 +1121,41 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
     io_view->label( text  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-pay_with
                                        iv_default = `Pay with` )
                     class = 'sapUiSmallMarginTop' ).
-    DATA(lo_c) = io_view->radio_button_group( selectedindex = '0' ).
     SPLIT lv_chan AT '|' INTO TABLE DATA(lt_chan).
-    LOOP AT lt_chan INTO DATA(lv_c).
-      CONDENSE lv_c.
-      IF lv_c IS NOT INITIAL.
-        lo_c->radio_button( text = zcl_rak_journey_util=>esc( lv_c ) ).
-      ENDIF.
-    ENDLOOP.
+    DELETE lt_chan WHERE table_line IS INITIAL.
+
+*   ---- THE MARK INSTEAD OF THE WORDS, AND ONLY WHEN IT IS THE MARK ------
+*   The legacy page shows the RAK Pay logo beside the radio, not the words
+*   "RAK Pay". So does this - but ONLY when the channel really is the single
+*   default. A journey that configures two or more channels through
+*   PAY_CHANNEL gets the text radios exactly as before, because one logo
+*   against a list of channels would label the wrong one, and labelling the
+*   wrong payment channel is not a cosmetic mistake.
+*
+*   The radio keeps an EMPTY text and the image sits beside it rather than the
+*   image going inside the control: sap.m.RadioButton takes a string, so there
+*   is no aggregation to put a picture in.
+*
+*   ALT IS THE WORDS IT REPLACED. With the text gone the mark is the only label
+*   this option has, so a reader who cannot see it gets nothing unless the alt
+*   carries it.
+    DATA(lv_single) = xsdbool( lines( lt_chan ) = 1
+                           AND to_upper( condense( VALUE #( lt_chan[ 1 ] OPTIONAL ) ) ) = 'RAK PAY' ).
+
+    IF lv_single = abap_true.
+      DATA(lo_pw) = io_view->hbox( alignitems = 'Center' class = 'rakPayWith' ).
+      lo_pw->radio_button_group( selectedindex = '0' )->radio_button( text = `` ).
+      lo_pw->html( content = `<img src="` && rak_pay_logo( ) &&
+                             `" alt="RAK Pay" class="rakPayLogo"/>` ).
+    ELSE.
+      DATA(lo_c) = io_view->radio_button_group( selectedindex = '0' ).
+      LOOP AT lt_chan INTO DATA(lv_c).
+        CONDENSE lv_c.
+        IF lv_c IS NOT INITIAL.
+          lo_c->radio_button( text = zcl_rak_journey_util=>esc( lv_c ) ).
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
 
 *   ---- what it costs to use it ----------------------------------------
 *   READ THIS BEFORE THE NEXT RELEASE. The defaults below are the RAK Government
