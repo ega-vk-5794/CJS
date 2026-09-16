@@ -949,12 +949,17 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 
     DATA(lo_card) = io_view->vbox( class = 'rakSearch' ).
 
-    DATA(lo_tab)  = lo_card->table( ).
-    DATA(lo_cols) = lo_tab->columns( ).
-    lo_cols->column( )->text( zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-description
-                                                 iv_default = `Description` ) ).
-    lo_cols->column( halign = 'End' )->text( zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-amount_aed
-                                                                iv_default = `Amount (AED)` ) ).
+*   ---- A FEE LIST, NOT A TABLE -----------------------------------------
+*   This was a sap.m.Table with a Description / Amount (AED) header band. The
+*   legacy page has no header and no band: one line per fee with the amount
+*   pushed right, a rule, then the total. A two-column header over a list that
+*   is usually ONE row reads as a report of something rather than as the price
+*   of what the citizen is about to do.
+*
+*   The columns are gone rather than hidden, so C_NO-DESCRIPTION and
+*   C_NO-AMOUNT_AED are no longer read here. Both stay in ZCL_RAK_TEXT: they
+*   are generic captions and nothing is gained by deleting text entries to
+*   match one screen.
 *   ---- NUMBER = RAW, NOT USER, AND THIS IS A REAL DEFECT ----------------
 *   NUMBER = USER formats with the DIALOG USER'S decimal notation out of their
 *   SU3 master. On a citizen-facing payment page there is no citizen user: the
@@ -968,22 +973,31 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *   matches the legacy page character for character, and on an amount somebody
 *   is about to be charged, a separator that moves with a setting nobody on the
 *   citizen's side controls is worse than one that never moves at all.
-    DATA(lo_items) = lo_tab->items( ).
     LOOP AT it_fee INTO DATA(ls_fee).
-      lo_items->column_list_item( )->cells(
-        )->text( ls_fee-desc
-        )->text( |{ ls_fee-amount NUMBER = RAW }| ).
+      DATA(lo_fr) = lo_card->hbox( alignitems = 'Center' class = 'rakPayFee' ).
+      lo_fr->text( text = ls_fee-desc ).
+*     CURRENCY BEFORE THE AMOUNT, matching the legacy line, and AED rather than
+*     the dirham glyph. The legacy page prints a symbol; the new UAE dirham sign
+*     has no dependable font coverage yet, and a glyph that does not resolve
+*     renders as a tofu box next to a figure somebody is about to be charged -
+*     which is worse than the three letters it replaced. Revisit when the symbol
+*     is safe, or when the portal's own icon font can be referenced.
+      lo_fr->text( text = |AED { ls_fee-amount NUMBER = RAW }| class = 'rakPayAmt' ).
     ENDLOOP.
+
+*   The rule the legacy page draws between the fees and the total.
+    lo_card->html( content = `<div class="rakPayRule"></div>` ).
 
     DATA(lo_tot) = lo_card->hbox( justifycontent = 'End'
                                   alignitems     = 'Center'
                                   class          = 'sapUiSmallMarginTop' ).
     lo_tot->label( zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-total
                                       iv_default = `Total` ) ).
-    lo_tot->object_number( number     = |{ iv_total NUMBER = RAW }|
-                           numberunit = 'AED'
-                           emphasized = abap_true
-                           class      = 'sapUiSmallMarginBegin' ).
+*   OBJECT_NUMBER PUT THE UNIT AFTER THE FIGURE and in its own muted style -
+*   "20.00 AED". The legacy total is "AED 20.00" in one weight, so this is a
+*   plain text now and the emphasis is CSS.
+    lo_tot->text( text  = |AED { iv_total NUMBER = RAW }|
+                  class = 'rakPayTot sapUiSmallMarginBegin' ).
 
     IF io_ctx->get_val( iv_field ) = 'PAID'.
       lo_card->object_status( text  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-pay_received
@@ -1047,11 +1061,20 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *   error, a button that appears not to work. The citizen is the only person who
 *   can fix it and they cannot fix what nobody told them - which is why this sits
 *   ABOVE the button rather than in the failure message afterwards.
-    io_view->message_strip( text     = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-pay_popup
-                                                    iv_default = `Please allow browser pop-ups to enable payment` )
-                            type     = 'Information'
-                            showicon = abap_true
-                            class    = 'sapUiTinyMarginTop' ).
+*   RED INLINE TEXT AND AN ICON, NOT A BLUE BOX. The legacy page puts this in
+*   the brand red with a small info icon and no container; CJS drew a full-width
+*   Information strip. The box is the louder control and it is the wrong kind of
+*   loud - a blue framed panel reads as the system explaining itself, where this
+*   is an instruction to the citizen about their own browser. Red, inline, next
+*   to the thing it is about.
+*
+*   It keeps the icon, because the icon is what stops it reading as an error.
+    DATA(lo_pop) = io_view->hbox( alignitems = 'Center'
+                                  class      = 'rakPayPop sapUiTinyMarginTop' ).
+    lo_pop->icon( src = 'sap-icon://message-information' ).
+    lo_pop->text( text  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-pay_popup
+                                             iv_default = `Please allow browser pop-ups to enable payment` )
+                  class = 'sapUiTinyMarginBegin' ).
 
 *   ---- Pay with -------------------------------------------------------
     DATA(lv_chan) = io_ctx->get_val( c_pay_channel ).
@@ -1094,12 +1117,34 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
         ( `The above bank charges are subject to VAT 5%` ) ).
     ENDIF.
 
-    DATA(lo_p) = io_view->vbox( class = 'rakSearch sapUiSmallMarginTop' ).
+*   THE FIRST LINE IS THE ANNOUNCEMENT, THE REST ARE CHARGES, and the legacy
+*   page shows that difference: the first sentence in brand red, the rates under
+*   it as a bulleted list. CJS ran all four through one plain text( ), so a
+*   citizen reading it met four equal-weight sentences and had to work out which
+*   were prices.
+*
+*   SY-TABIX RATHER THAN A FLAG, because the split IS positional here - whatever
+*   is first is the announcement, whether it came from the defaults above or
+*   from PAY_CHARGES. A caller reordering their own pipe-separated string
+*   reorders this with it, which is the behaviour to want: nothing here knows
+*   what any particular line says.
+    DATA(lo_p) = io_view->vbox( class = 'rakPayChg sapUiSmallMarginTop' ).
     LOOP AT lt_ch INTO DATA(lv_line).
+      DATA(lv_first) = xsdbool( sy-tabix = 1 ).
       CONDENSE lv_line.
-      IF lv_line IS NOT INITIAL.
-        lo_p->text( text = zcl_rak_journey_util=>esc( lv_line ) ).
+      IF lv_line IS INITIAL.
+        CONTINUE.
       ENDIF.
+      IF lv_first = abap_true.
+        lo_p->text( text  = zcl_rak_journey_util=>esc( lv_line )
+                    class = 'rakPayChgHd' ).
+        CONTINUE.
+      ENDIF.
+*     THE BULLET IS A CHARACTER, NOT A LIST CONTROL. sap.m.Text in a VBox is
+*     what every other line here is, and swapping to a real list for three rows
+*     would bring its own padding, separators and item chrome to argue with.
+      lo_p->text( text  = |• { zcl_rak_journey_util=>esc( lv_line ) }|
+                  class = 'rakPayChgLi' ).
     ENDLOOP.
   ENDMETHOD.
 

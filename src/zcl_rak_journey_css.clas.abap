@@ -681,6 +681,28 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakPclCard\{gap:.4rem;\}| &&
         |.rakPclCard .sapMTitle\{margin:0;\}| &&
         |.rakPclHint\{color:#6a7484;font-size:.82rem;\}| &&
+*     ---- THE PAYMENT CARD, matched to the legacy page -------------------
+*     One fee per line with the amount pushed right, which is what replaced the
+*     sap.m.Table and its Description / Amount (AED) header band.
+        |.rakPayFee\{width:100%;gap:.6rem;padding:.35rem 0;\}| &&
+        |.rakPayAmt\{margin-inline-start:auto;font-variant-numeric:tabular-nums;\}| &&
+*     The rule between the fees and the total. A bordered div rather than a
+*     sap.m.Toolbar separator, because a separator control brings its own height
+*     and margins to argue with.
+        |.rakPayRule\{width:100%;height:1px;background:{ g-line_clr };| &&
+        |margin:.35rem 0 0;\}| &&
+        |.rakPayTot\{font-weight:700;font-variant-numeric:tabular-nums;\}| &&
+*     The pop-up instruction: brand red, inline, no container. It is an
+*     instruction to the citizen about their own browser, not the system
+*     explaining itself, so it does not get a framed panel.
+        |.rakPayPop,.rakPayPop .sapMText,.rakPayPop .sapUiIcon| &&
+        |\{color:{ g-brand };\}| &&
+        |.rakPayPop .sapUiIcon\{font-size:1rem;\}| &&
+*     The charges block. The announcement carries the weight, the rates read as
+*     a list under it.
+        |.rakPayChg\{width:100%;gap:.2rem;\}| &&
+        |.rakPayChgHd\{color:{ g-brand };\}| &&
+        |.rakPayChgLi\{padding-inline-start:.4rem;\}| &&
 *     ---- THE PROJECT CARD ------------------------------------------------
 *     It reuses .rakPclCard for the frame, the border and the red left edge,
 *     and overrides only where a project card differs from a parcel one.
