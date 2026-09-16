@@ -3690,6 +3690,32 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           contentwidth = '42rem' ).
         DATA(lo_c)   = lo_dlg->content( ).
 
+*       THE MESSAGES, INSIDE THE DIALOG. RENDER( ) draws MT_MSG on the page
+*       and RENDER_POPUP( ) runs after it, so anything raised while a MODAL
+*       dialog is open is drawn correctly - behind the dialog, where it cannot
+*       be read. From the citizen's side the action simply does nothing.
+*
+*       This dialog is the one place the ENGINE itself renders an uploader
+*       inside a modal (see HAS_ATTACH below), so every attachment message -
+*       "x attached", the size refusal, the type refusal - landed there.
+*
+*       DIALOG_FORM( ) ALREADY DOES THIS and its own note says the same thing
+*       was reported three times over as "the message shows in the main screen,
+*       it should show in the add screen". That fix covered every handler popup
+*       built through it and left this one, because this dialog is built here.
+*
+*       Drawn before the content so it reads first, and only when there is
+*       something to say - an empty loop adds no markup, so a dialog opening
+*       clean looks exactly as it did.
+        LOOP AT mo_e->mt_msg INTO DATA(ls_bpm).
+          lo_c->message_strip(
+            text     = zcl_rak_journey_util=>esc( ls_bpm-text )
+            type     = COND string( WHEN ls_bpm-type IS NOT INITIAL
+                                    THEN ls_bpm-type ELSE 'Information' )
+            showicon = abap_true
+            class    = 'sapUiSmallMarginBeginEnd sapUiTinyMarginTop' ).
+        ENDLOOP.
+
         DATA(ls_bpf) = mo_e->safe_field( mo_e->mv_pop_field ).
         IF ls_bpf-has_attach = abap_true.
           DATA(lo_up) = lo_c->vbox( class = 'sapUiSmallMarginBeginEnd' ).
