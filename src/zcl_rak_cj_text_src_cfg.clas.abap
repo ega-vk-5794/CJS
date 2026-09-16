@@ -42,9 +42,32 @@ CLASS zcl_rak_cj_text_src_cfg DEFINITION
 *                needs a DDIC column or a TEXT:@nnn indirection - a real
 *                finding rather than a silent omission.
                  noar      TYPE c LENGTH 10 VALUE 'NOAR',
+*                GCOL - a grid column heading that lives in the PACKED SPEC
+*                in ZRAK_T_JNY_FLD-DEFAULT_VAL rather than in ZRAK_T_JNY_COL.
+*                Nothing read it, so a grid on the packed spec was not a gap
+*                in this report - it was ABSENT FROM IT. D001's Buildings
+*                grid rendered three English headings on a fully Arabic page
+*                and the export said nothing at all about them.
+*
+*                It is an ordinary translatable pair, NOT a NOAR: the spec's
+*                fifth slot (name:label:type:src:label_ar) is a real place to
+*                put an answer and GRID_COLS( ) already reads it. So this
+*                kind exports, gaps AND writes back, and is deliberately not
+*                excluded from the backfill the way NOAR is.
+                 gcol      TYPE c LENGTH 10 VALUE 'GCOL',
                END OF c_kind.
 
   PRIVATE SECTION.
+
+*   One entry of a packed grid spec, rebuilt with its Arabic heading in the
+*   fifth slot and everything else byte for byte. Blank means "nothing to
+*   do or refused" and the caller writes nothing.
+    METHODS spec_with_ar
+      IMPORTING iv_spec   TYPE string
+                iv_col    TYPE string
+                iv_en     TYPE string
+                iv_ar     TYPE string
+      RETURNING VALUE(rv) TYPE string.
 
     METHODS add
       IMPORTING iv_journey TYPE zif_rak_cj_text_src=>ty_key
@@ -61,6 +84,60 @@ ENDCLASS.
 
 
 CLASS ZCL_RAK_CJ_TEXT_SRC_CFG IMPLEMENTATION.
+
+
+  METHOD spec_with_ar.
+*   ONE ENTRY CHANGED, EVERY OTHER BYTE PRESERVED. The spec is
+*   configuration a person typed, and it carries directives (SEL:, FIX:,
+*   RX:) and slots this method has no opinion about. Anything that is not
+*   the named column goes back into the rebuilt string exactly as it came
+*   out, including spacing.
+    DATA lt_out TYPE STANDARD TABLE OF string WITH EMPTY KEY.
+    DATA(lv_hit) = abap_false.
+
+    SPLIT iv_spec AT '|' INTO TABLE DATA(lt_e).
+    LOOP AT lt_e INTO DATA(lv_e).
+      SPLIT lv_e AT ':' INTO DATA(lv_n) DATA(lv_l) DATA(lv_t)
+                            DATA(lv_s) DATA(lv_a).
+      IF to_upper( condense( lv_n ) ) <> to_upper( condense( iv_col ) ).
+        APPEND lv_e TO lt_out.
+        CONTINUE.
+      ENDIF.
+
+*     THE ENGLISH IS WRITTEN BACK TOO, but only when the file carries one.
+*     A translator may legitimately correct a heading's English while
+*     translating it, and the other kinds here all write both halves.
+      DATA(lv_lbl) = COND string( WHEN iv_en IS NOT INITIAL
+                                  THEN iv_en ELSE condense( lv_l ) ).
+
+*     ALWAYS FIVE SLOTS. A three-part entry needs two more colons and a
+*     two-part entry three, because SPLIT puts the unsplit remainder into
+*     the LAST target - one colon short and the Arabic lands in SRC, which
+*     is a data element name, while LABEL_AR stays blank and the heading
+*     stays English. That failure looks exactly like the import not having
+*     run.
+      APPEND |{ condense( lv_n ) }:{ lv_lbl }:{ condense( lv_t ) }:| &&
+             |{ condense( lv_s ) }:{ iv_ar }| TO lt_out.
+      lv_hit = abap_true.
+    ENDLOOP.
+
+    IF lv_hit = abap_false.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_new) = concat_lines_of( table = lt_out sep = `|` ).
+
+*   REFUSED RATHER THAN TRUNCATED. DEFAULT_VAL is CHAR(1000) and a longer
+*   string is cut on write, silently and mid-column, leaving a spec that no
+*   longer parses and a grid that no longer draws - from a translation
+*   import, which is the last place anybody would look for it. Blank tells
+*   the caller to write nothing.
+    IF strlen( lv_new ) > 1000.
+      RETURN.
+    ENDIF.
+
+    rv = lv_new.
+  ENDMETHOD.
 
 
   METHOD add.
@@ -142,7 +219,7 @@ CLASS ZCL_RAK_CJ_TEXT_SRC_CFG IMPLEMENTATION.
 
     SELECT step_id, field_name, zsection, zsection_ar, zlabel, zlabel_ar,
            placeholder, placeholder_ar, msg, msg_ar,
-           attach_label, descr
+           attach_label, descr, ftype, default_val
       FROM zrak_t_jny_fld
       WHERE journey_id = @lv_id
       ORDER BY step_id, seqnr
@@ -273,6 +350,61 @@ CLASS ZCL_RAK_CJ_TEXT_SRC_CFG IMPLEMENTATION.
            CHANGING  ct_txt     = rt_txt ).
     ENDLOOP.
 
+*   ---- GRID COLUMNS THAT LIVE IN THE PACKED SPEC ----------------------
+*   The loop above covers ZRAK_T_JNY_COL. A grid with no rows there falls
+*   back in GRID_COLS( ) to the spec in DEFAULT_VAL, and that path had no
+*   reader here at all - so those headings were invisible rather than
+*   missing, which is worse: a gap run reported full coverage on a journey
+*   whose grid was drawing English.
+*
+*   ONLY WHERE ZRAK_T_JNY_COL IS EMPTY FOR THE FIELD, because COL_ROWS_OF( )
+*   wins in the renderer. Emitting both would hand a translator the same
+*   heading twice and let the import write an answer into the copy nothing
+*   reads.
+*
+*   EDITABLE_TABLE ONLY. FTYPE TABLE also keeps a spec in DEFAULT_VAL and it
+*   is a DIFFERENT one - text|width|hAlign|KEYWORDS, read by COL_HEADER( ),
+*   which takes @nnn rather than a fifth slot. Parsing one as the other
+*   would report nonsense and, on write-back, destroy it.
+    LOOP AT lt_fld ASSIGNING FIELD-SYMBOL(<ls_g>)
+         WHERE ftype = 'EDITABLE_TABLE' AND default_val IS NOT INITIAL.
+
+      IF line_exists( lt_col[ step_id    = <ls_g>-step_id
+                              field_name = <ls_g>-field_name ] ).
+        CONTINUE.
+      ENDIF.
+
+      SPLIT CONV string( <ls_g>-default_val ) AT '|' INTO TABLE DATA(lt_ge).
+      LOOP AT lt_ge INTO DATA(lv_ge).
+        SPLIT lv_ge AT ':' INTO DATA(lv_gn) DATA(lv_gl) DATA(lv_gt)
+                                DATA(lv_gs) DATA(lv_ga).
+        DATA(lv_gnn) = to_upper( condense( lv_gn ) ).
+
+*       SEL, FIX and RX are DIRECTIVES, not columns - GRID_COLS( ) skips
+*       them by name before it treats an entry as a column, and a
+*       translator handed "SINGLE" to translate would rightly be baffled.
+        IF lv_gnn IS INITIAL
+           OR lv_gnn = 'SEL' OR lv_gnn = 'FIX' OR lv_gnn = 'RX'.
+          CONTINUE.
+        ENDIF.
+*       HIDE in the TYPE slot keeps the column in the payload and off the
+*       screen, so it has no heading anybody reads. Nor has a blank label.
+        IF condense( lv_gl ) IS INITIAL
+           OR to_upper( condense( lv_gt ) ) = 'HIDE'.
+          CONTINUE.
+        ENDIF.
+
+        add( EXPORTING iv_journey = CONV #( lv_id )
+                       iv_step    = CONV #( <ls_g>-step_id )
+                       iv_block   = CONV #( <ls_g>-field_name )
+                       iv_elem    = CONV #( condense( lv_gn ) )
+                       iv_kind    = c_kind-gcol
+                       iv_en      = condense( lv_gl )
+                       iv_ar      = condense( lv_ga )
+             CHANGING  ct_txt     = rt_txt ).
+      ENDLOOP.
+    ENDLOOP.
+
     SELECT step_id, field_name, opt_key, opt_text, opt_text_ar
       FROM zrak_t_jny_opt
       WHERE journey_id = @lv_id
@@ -368,6 +500,32 @@ CLASS ZCL_RAK_CJ_TEXT_SRC_CFG IMPLEMENTATION.
 *       writing the ENGLISH back from a translation file would let a
 *       translator silently reword a caption while believing they were
 *       translating it. Reported, never written.
+*       WRITTEN BACK INTO THE FIFTH SLOT, not into a column of its own.
+*       SPEC_WITH_AR( ) rebuilds the one entry and leaves every other byte
+*       of DEFAULT_VAL alone; it refuses rather than truncates if the
+*       result would pass CHAR(1000), because a truncated spec stops
+*       parsing and the grid stops drawing.
+        WHEN c_kind-gcol.
+          SELECT SINGLE default_val FROM zrak_t_jny_fld
+            WHERE journey_id = @lv_id
+              AND step_id    = @<ls_t>-step_id
+              AND field_name = @<ls_t>-block_id
+            INTO @DATA(lv_spec).
+          IF sy-subrc <> 0.
+            CONTINUE.
+          ENDIF.
+          DATA(lv_newspec) = spec_with_ar( iv_spec = CONV string( lv_spec )
+                                           iv_col  = CONV string( <ls_t>-elem_id )
+                                           iv_en   = lv_en
+                                           iv_ar   = lv_ar ).
+          IF lv_newspec IS INITIAL OR lv_newspec = lv_spec.
+            CONTINUE.
+          ENDIF.
+          UPDATE zrak_t_jny_fld SET default_val = @lv_newspec
+            WHERE journey_id = @lv_id
+              AND step_id    = @<ls_t>-step_id
+              AND field_name = @<ls_t>-block_id.
+
         WHEN c_kind-noar.
           CONTINUE.
 
