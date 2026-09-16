@@ -4685,6 +4685,57 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
     TRY.
         mo_e->mo_client->follow_up_action( lv_scroll ).
+
+*       ---- THE DIALOG, SEPARATELY AND LATER --------------------------
+*       LV_SCROLL above restores the dialog too, and it did not work. Two
+*       reasons, both mine.
+*
+*       IT RAN TOO EARLY. FOLLOW_UP_ACTION( ) fires from the MAIN view's
+*       onAfterRendering, and the dialog is drawn afterwards by
+*       POPUP_DISPLAY( ) in RENDER_POPUP( ). A setTimeout of 0 therefore
+*       measured the OLD dialog - or a new one not yet laid out - and set a
+*       scroll position on an element about to be thrown away. Retried at 0,
+*       120 and 350ms, which is the same shape the parcel map uses for the
+*       same reason: the work is idempotent, so the extra passes cost
+*       nothing and the last one lands after the fragment exists.
+*
+*       AND IT NAMED A CLASS I GUESSED. .sapMDialogScrollCont was written
+*       from memory of the UI5 DOM, and a selector that matches nothing fails
+*       silently - exactly like the bug it was meant to fix. It now finds the
+*       scroller by MEASUREMENT inside .sapMDialog, the same way PAGE( )
+*       already does for the page, so the class name stops mattering.
+*
+*       Separate from LV_SCROLL rather than folded into it: the page restore
+*       works and is correct at timeout 0, and making it retry three times
+*       would fight the citizen if they scrolled in between.
+        DATA(lv_dscroll) =
+          '(function()' && '{' && 'try' && '{' &&
+          'var D="rakScrollDlg";' &&
+          'var find=function()' && '{' &&
+          'var d=document.querySelector(".sapMDialog");' &&
+          'if(!d)' && '{' && 'return null;' && '}' &&
+          'var a=d.querySelectorAll("div"),i,el,best=null,bs=0,n;' &&
+          'for(i=0;i<a.length;i++)' && '{' && 'el=a[i];n=el.scrollHeight-el.clientHeight;' &&
+          'if(n>20&&n>bs)' && '{' && 'bs=n;best=el;' && '}' && '}' &&
+          'return best;' && '}' && ';' &&
+          'if(!window.rakDlgHook)' && '{' && 'window.rakDlgHook=1;' &&
+          'window.addEventListener("scroll",function(e)' && '{' && 'try' && '{' &&
+          'var t=e.target;' &&
+          'if(t&&t.closest&&t.closest(".sapMDialog")&&t.scrollTop>0)' && '{' &&
+          'sessionStorage.setItem(D,String(t.scrollTop));' && '}' &&
+          '}' && 'catch(a1)' && '{' && '}' && '}' && ',true);' && '}' &&
+          'var put=function()' && '{' && 'try' && '{' &&
+          'if(!document.querySelector(".sapMDialog"))' && '{' &&
+          'sessionStorage.removeItem(D);return;' && '}' &&
+          'var v=sessionStorage.getItem(D);if(!v)' && '{' && 'return;' && '}' &&
+          'var y=parseInt(v,10);if(!(y>0))' && '{' && 'return;' && '}' &&
+          'var el=find();if(el&&el.scrollTop!==y)' && '{' && 'el.scrollTop=y;' && '}' &&
+          '}' && 'catch(b1)' && '{' && '}' && '}' && ';' &&
+          'setTimeout(put,0);setTimeout(put,120);setTimeout(put,350);' &&
+          'return 1;' &&
+          '}' && 'catch(c1)' && '{' && 'return 0;' && '}' && '}' && ')()'.
+
+        mo_e->mo_client->follow_up_action( lv_dscroll ).
       CATCH cx_root ##NO_HANDLER.
 *       A diagnostic convenience must never be the reason a page fails to
 *       render. If the client cannot take another follow-up action, the
