@@ -842,7 +842,38 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     and declared after this one in some variants.
         |.rakRow>.rakWide\{flex:0 0 100%!important;max-width:100%;\}| &&
         |.rakRow\{flex-wrap:wrap!important;width:100%;gap:.75rem;\}| &&
-        |.rakRow>*\{flex:0 1 auto;min-width:0;max-width:100%;\}| &&
+*     CELLS DIVIDE THE ROW - flex:1 1 0, a ZERO basis.
+*
+*     This was flex:0 1 auto and the note beside .rakUpRow still explains the
+*     intent: a cell hugs its content, which is right when what it hugs is the
+*     control's CTRL_WIDTH( ). On screen it is not what happens. A cell hugs
+*     the WIDER of its label and its control, a label is short, and the pair
+*     ends up huddled at the left of a full-width card - which is D003
+*     CJSMIG-737 issues 1, 2 and 4, reported three times on three sections of
+*     one journey as "field should be aligned and fill Box".
+*
+*     THE PRECEDENT IS IN THIS FILE. .rakUpRow hit the same thing and took
+*     flex:1 1 0, with the note that a basis of AUTO is not enough because the
+*     content still sets the starting width and grow only divides the leftover
+*     - the same ragged result one step less obvious. An upload cell was
+*     described there as having nothing stable to hug; a label is no more
+*     stable, it is merely stable per field, which is why this reads as
+*     misalignment rather than as jitter.
+*
+*     BOTH DECLARATIONS OF THIS RULE ARE CHANGED. It exists twice, once per
+*     theme variant, and changing one would have fixed the journey on some
+*     themes and not others - which presents as intermittent.
+*
+*     .rakWide still wins: it carries !important against this rule, so a
+*     composite control or a guidance paragraph still claims the whole line.
+        |.rakRow>*\{flex:1 1 0;min-width:0;max-width:100%;\}| &&
+*     AND THE CONTROL FILLS THE CELL, which is the half that makes it visible.
+*     Growing the cell alone moves nothing: the control keeps the fixed rem
+*     CTRL_WIDTH( ) gives it by ftype, so a wider cell would only add empty
+*     space beside a 24rem input. Scoped to .rakRow, so a field that is NOT in
+*     a paired row keeps its type width exactly as it renders today.
+        |.rakRow .sapMInputBase,.rakRow .sapMSlt,| &&
+        |.rakRow .sapMComboBox\{width:100%;\}| &&
         |.rakCell\{min-width:0;gap:.25rem;\}| &&
         |.rakCellFlow\{gap:.5rem;flex-wrap:wrap;\}| &&
         |.rakCellFlow>*\{flex:0 0 auto;margin:0;\}| &&
@@ -966,8 +997,13 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     rakRow when the step sets COLUMNS 2..4, on purpose, so a twelve-file step
 *     is not four screens of scrolling. What was wrong is the sizing inside it.
 *
-*     .rakRow>* is flex:0 1 auto, so a cell hugs its content - right for a
-*     paired input, where the cell hugs the control's ctrl_width. An upload cell
+*     .rakRow>* WAS flex:0 1 auto, so a cell hugged its content. This note used
+*     to add "right for a paired input, where the cell hugs the control's
+*     ctrl_width" - and that turned out to be the thing D003 CJSMIG-737 was
+*     reporting three times over, because a cell hugs the wider of the label
+*     and the control and a label is short. It is flex:1 1 0 now, the same
+*     value this upload rule reaches for below and for the same reason. An
+*     upload cell
 *     has no ctrl_width and nothing stable to hug, so it sizes to whichever
 *     filename is currently attached: two uploads side by side come out at two
 *     different widths and both move whenever a file is added or removed.
@@ -1289,7 +1325,15 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
       |.rakCard tr.sapMListTblRow:hover\{background:rgba(0,0,0,.025)!important;\}| &&
       |.rakCard th.sapMListTblHeaderCell\{letter-spacing:.02em;\}| &&
       |.rakRow\{flex-wrap:wrap!important;width:100%;gap:.75rem;\}| &&
-      |.rakRow>*\{flex:0 1 auto;min-width:0;max-width:100%;\}| &&
+*     THE SECOND DECLARATION OF THIS RULE, and the reason it is called out:
+*     it is indented six spaces where the other is indented eight, so a
+*     replace-all on the rule text changed one and left this one. The fix
+*     would then have worked on some themes and not others, which presents as
+*     intermittent - the most expensive shape of bug in this file. See the
+*     full reasoning at the other declaration.
+      |.rakRow>*\{flex:1 1 0;min-width:0;max-width:100%;\}| &&
+      |.rakRow .sapMInputBase,.rakRow .sapMSlt,| &&
+      |.rakRow .sapMComboBox\{width:100%;\}| &&
       |.rakCell\{min-width:0;gap:.25rem;\}| &&
       |.rakCellFlow\{gap:.5rem;flex-wrap:wrap;\}| &&
       |.rakCellFlow>*\{flex:0 0 auto;margin:0;\}| &&
