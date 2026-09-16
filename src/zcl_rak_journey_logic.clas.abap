@@ -1519,6 +1519,43 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
         et_values  = DATA(lt_vals)
         et_msg     = DATA(lt_msg) ).
 
+*   ---- THE PAYMENT READ WRITES, AND NOBODY WAS COMMITTING IT -----------
+*   A READ that changes the database is not what the name suggests, and it is
+*   why CHECKOUTID kept coming back blank.
+*
+*   ZCL_EGA_PAYMENT_UTILITY->GATEWAY_CONNECTION( ), reached from this very
+*   call through GET_RB_CPG_DETAILS, registers the checkout with ATB and then
+*   writes the id it gets back:
+*
+*     LOOP AT lt_zetislat_transac ASSIGNING <ls_zetislat>.
+*       <ls_zetislat>-checkoutid = zcl_ega_payment_utility=>get_atb_check...
+*     ENDLOOP.
+*     UPDATE zetislat_transac FROM TABLE lt_zetislat_transac.
+*
+*   That UPDATE is the only place CHECKOUTID is ever set, and nothing on this
+*   path committed it. The poll runs in a LATER round trip, re-reads
+*   ZETISLAT_TRANSAC, finds CHECKOUTID blank, and CALL_ATB_DETAILS( ) has
+*   nothing to ask about - so an ATB payment polls to the end of its 48 ticks
+*   however well it actually went. The registration had already happened at
+*   the gateway; only our record of it was thrown away.
+*
+*   COMMITTED HERE BECAUSE IT CANNOT BE COMMITTED THERE. The utility is
+*   legacy and outside the namespace CJS may change, so the commit belongs at
+*   the CJS end of the call - which is also the honest place for it: this
+*   method knows it just asked for a gateway to be registered, and the
+*   utility does not know who called it.
+*
+*   AND WAIT, deliberately. The poll can fire about two and a half seconds
+*   later on a different work process, and a plain COMMIT WORK would let it
+*   read ahead of the write on a busy system - which would look exactly like
+*   the bug this fixes, intermittently.
+*
+*   SAFE BECAUSE THE READ IS SUPPOSED TO HAVE WRITTEN NOTHING ELSE. If a
+*   future BAdI change makes this read touch something it should not, this
+*   commit makes that permanent - which is an argument for fixing that, not
+*   for leaving a registered gateway payment unrecorded.
+    COMMIT WORK AND WAIT.
+
     IF iv_quiet = abap_false.
       LOOP AT lt_msg INTO DATA(ls_msg).
         io_ctx->add_msg( iv_type = ls_msg-type iv_text = ls_msg-text ).
