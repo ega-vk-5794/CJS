@@ -870,6 +870,37 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *                    icon  = 'sap-icon://add'
 *                    type  = 'Emphasized'
 *                    press = io_ctx->event( 'TRIGGER_POPUP' ) ). "c_mat_add ) ).
+
+*   ---- THE THREE ARABIC SCHOOL-NAME BOXES TAKE ARABIC ENTRY ---------------
+*   THE PAGE-LEVEL RTL BLOCK ONLY FIRES WHEN MV_LANG = 'A'. On an ENGLISH run
+*   these three are ordinary left-to-right inputs, so a citizen typing the
+*   school's Arabic name gets the caret at the wrong edge and any digits or
+*   punctuation in the name land on the wrong side of it. The field is
+*   Arabic BY DEFINITION - it is the column the licence prints in Arabic -
+*   so its direction follows the DATA, not the page.
+*
+*   A STYLE RULE, NOT RENDER_FIELD( ). Claiming the field would mean
+*   redrawing label, binding, editable, valuestate and the CHANGE event
+*   here, and a dropped CHANGE stops ON_CHANGE( ) for that field silently -
+*   RENDER_ONE( ) swallows a failing hook and falls back to the engine, so
+*   the mistake would not even show. Three CSS rules against the per-field
+*   RAKF<NAME> class the renderer now emits change nothing else.
+*
+*   A <style> in HTML( ) DOES apply, unlike a <script>. Style elements
+*   inserted as innerHTML are honoured by the browser; script elements are
+*   parsed and never executed. That difference is why the map snippet needs
+*   FOLLOW_UP_ACTION( ) and this does not.
+*
+*   NOT THE COLUMN POSITION. Moving these boxes to the left is a Design tab
+*   change - swap the two cells in ZRAK_CJ_LAYOUT - and it belongs there
+*   rather than here: on an Arabic run the whole page is RTL, so a position
+*   pinned in CSS would put them at the END of the row, while swapping the
+*   cells follows the page in both languages.
+    DATA(lv_rtl) =
+      |<style>.rakFSCHOOLNAMEAR1 input,.rakFSCHOOLNAMEAR2 input,| &&
+      |.rakFSCHOOLNAMEAR3 input| &&
+      |\{direction:rtl;text-align:right;\}</style>|.
+    io_view->html( content = lv_rtl sanitizecontent = abap_false ).
   ENDMETHOD.
 
 

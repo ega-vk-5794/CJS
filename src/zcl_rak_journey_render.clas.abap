@@ -3594,7 +3594,22 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         ELSE.
 *         MAXLENGTH - see the NUMBER branch above for why this and TEXTAREA
 *         get it and CURRENCY deliberately does not.
-          io_form->input( value          = lv_bind
+*
+*         RAKF<NAME> - A PER-FIELD HANDLE, and the whole of what the framework
+*         does here. This input carried no class at all, so a handler that
+*         wanted to say something about ONE field - right-to-left entry on an
+*         Arabic-name box, a monospace reference number - had no way to reach
+*         it, and the alternative was claiming the field in RENDER_FIELD( ) and
+*         redrawing the control: label, binding, editable, valuestate and the
+*         CHANGE event all copied, with the copy free to drift and a dropped
+*         CHANGE silently stopping ON_CHANGE( ) for that field.
+*
+*         Through COMP_NAME( ) because a field name is not automatically a
+*         legal CSS identifier and that helper already caps and normalises it
+*         for the model component. Additive: no existing markup changes, and a
+*         journey that styles nothing is unaffected.
+          io_form->input( class          = |rakF{ zcl_rak_journey_util=>comp_name( is_field-name ) }|
+                          value          = lv_bind
                           placeholder    = is_field-placeholder
                           editable       = lv_edit
                           change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
