@@ -210,6 +210,18 @@ CLASS zcl_rak_cjs DEFINITION
     DATA mv_dsg_dev  TYPE string.
     DATA mv_dsg_en   TYPE string.
     DATA mv_dsg_ar   TYPE string.
+*   WHICH COLUMN OF A GRID THE TWO INPUTS ABOVE ARE CURRENTLY EDITING.
+*   Blank means they are editing the FIELD'S OWN label, which is everything
+*   the Design tab could reach before: a grid's column headers are text the
+*   citizen reads and the Tt editor had no way to them, so a step laid out
+*   here could be fully translated by eye and still show English headings.
+*
+*   One extra member rather than a bound row per column. MV_DSG_EN and
+*   MV_DSG_AR are scalar and already survive the round trip; binding inputs
+*   straight into MT_COLS rows would be a new binding shape to get right for
+*   no gain, when picking a column and reusing the two proven inputs does the
+*   same job.
+    DATA mv_dsg_col  TYPE string.
     DATA mv_copy_to TYPE string.
 *   THE TRANSPORT REQUEST EVERY WRITE ON THIS SCREEN IS RECORDED INTO.
 *   It rides the serialized app instance, so it is typed once per session and
@@ -3519,16 +3531,52 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     ENDIF.
 
     IF lv_cmd = 'DSG_STEP'.
-      CLEAR: mv_dsg_fld, mv_dsg_en, mv_dsg_ar.
+      CLEAR: mv_dsg_fld, mv_dsg_en, mv_dsg_ar, mv_dsg_col.
       RETURN.
     ENDIF.
 
     IF lv_cmd = 'DSG_TXCA'.
-      CLEAR: mv_dsg_fld, mv_dsg_en, mv_dsg_ar.
+      CLEAR: mv_dsg_fld, mv_dsg_en, mv_dsg_ar, mv_dsg_col.
       RETURN.
     ENDIF.
 
     IF lv_cmd = 'DSG_TXOK'.
+
+*     A COLUMN HEADER, IF ONE IS OPEN. Same two inputs, a different target:
+*     MT_COLS for the in-memory copy the Design preview redraws from, and
+*     C_KIND-COLUMN for the write, which lands in ZRAK_T_JNY_COL's ZLABEL and
+*     ZLABEL_AR. Before this the Tt editor could only reach the field's own
+*     label, so a grid on a laid-out step could look fully translated and
+*     still head every column in English.
+*
+*     BLOCK IS THE GRID AND ELEM IS THE COLUMN, matching how the text source
+*     keys a column - get that pair the wrong way round and the write updates
+*     nothing while reporting success.
+      IF mv_dsg_col IS NOT INITIAL.
+        READ TABLE mt_cols ASSIGNING FIELD-SYMBOL(<tc>)
+             WITH KEY step_id    = to_upper( mv_dsg_step )
+                      field_name = to_upper( mv_dsg_fld )
+                      col_name   = to_upper( mv_dsg_col ).
+        IF sy-subrc = 0.
+          <tc>-label    = mv_dsg_en.
+          <tc>-label_ar = mv_dsg_ar.
+          NEW zcl_rak_cj_text_src_cfg( )->zif_rak_cj_text_src~write(
+            VALUE #( ( journey  = to_upper( mv_journey_id )
+                       step_id  = to_upper( mv_dsg_step )
+                       block_id = to_upper( mv_dsg_fld )
+                       elem_id  = to_upper( mv_dsg_col )
+                       txt_kind = zcl_rak_cj_text_src_cfg=>c_kind-column
+                       text_en  = mv_dsg_en
+                       text_ar  = mv_dsg_ar ) ) ).
+          mv_msg   = |{ mv_dsg_fld }.{ mv_dsg_col } header saved|.
+          mv_mtype = 'Success'.
+        ENDIF.
+*       The column stays open. An author fixing headers is usually fixing
+*       several, and closing the panel after each one would make them reopen
+*       the grid every time.
+        RETURN.
+      ENDIF.
+
       READ TABLE mt_fields ASSIGNING FIELD-SYMBOL(<tf>)
            WITH KEY step_id = to_upper( mv_dsg_step ) field_name = to_upper( mv_dsg_fld ).
       IF sy-subrc = 0.
@@ -3545,7 +3593,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         mv_msg   = |{ mv_dsg_fld } text saved|.
         mv_mtype = 'Success'.
       ENDIF.
-      CLEAR: mv_dsg_fld, mv_dsg_en, mv_dsg_ar.
+      CLEAR: mv_dsg_fld, mv_dsg_en, mv_dsg_ar, mv_dsg_col.
       RETURN.
     ENDIF.
 
@@ -3570,6 +3618,37 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         mv_dsg_fld = lv_fld.
         mv_dsg_en  = ls_tx-label.
         mv_dsg_ar  = ls_tx-label_ar.
+*       Opening the editor always starts on the field's own label, never on
+*       whichever column happened to be open last time.
+        CLEAR mv_dsg_col.
+      ENDIF.
+      RETURN.
+    ENDIF.
+
+*   PICK A COLUMN OF THE OPEN GRID. The two inputs then edit that column's
+*   header instead of the field's label, and DSG_TXOK writes it back to the
+*   column rather than the field.
+    IF lv_cmd = 'DSG_TC'.
+      READ TABLE mt_cols INTO DATA(ls_tc)
+           WITH KEY step_id    = to_upper( mv_dsg_step )
+                    field_name = to_upper( mv_dsg_fld )
+                    col_name   = lv_fld.
+      IF sy-subrc = 0.
+        mv_dsg_col = lv_fld.
+        mv_dsg_en  = ls_tc-label.
+        mv_dsg_ar  = ls_tc-label_ar.
+      ENDIF.
+      RETURN.
+    ENDIF.
+
+*   BACK TO THE FIELD'S OWN LABEL from a column.
+    IF lv_cmd = 'DSG_TF'.
+      READ TABLE mt_fields INTO DATA(ls_tf)
+           WITH KEY step_id = to_upper( mv_dsg_step ) field_name = to_upper( mv_dsg_fld ).
+      IF sy-subrc = 0.
+        CLEAR mv_dsg_col.
+        mv_dsg_en = ls_tf-label.
+        mv_dsg_ar = ls_tf-label_ar.
       ENDIF.
       RETURN.
     ENDIF.
@@ -5186,8 +5265,59 @@ TO rt.
       sanitizecontent = abap_false ).
 
     IF mv_dsg_fld IS NOT INITIAL.
-      DATA(tp) = left->panel( headertext = |Text — { mv_dsg_fld }|
-                              class      = 'sapUiTinyMarginBottom' )->content( ).
+      DATA(tp) = left->panel(
+        headertext = COND string(
+          WHEN mv_dsg_col IS NOT INITIAL
+          THEN |Text — { mv_dsg_fld }.{ mv_dsg_col }|
+          ELSE |Text — { mv_dsg_fld }| )
+        class = 'sapUiTinyMarginBottom' )->content( ).
+
+*     ---- A GRID'S COLUMN HEADERS ARE TEXT TOO -------------------------
+*     The Tt editor could only ever reach the field's own label, so a step
+*     laid out here could be checked for translation by eye and still head
+*     every column of its grid in English - the Author tab's column editor
+*     was the only way in, and nothing on this tab said so.
+*
+*     Drawn only when the open field actually HAS columns, so a scalar field
+*     is untouched. The field's own label is the first chip and stays
+*     selectable, because after fixing three headers the way back to the
+*     caption should not be closing and reopening the panel.
+      DATA lt_tcol TYPE tt_col.
+*     UPPER ON BOTH SIDES. Every other read of these two in this class goes
+*     through TO_UPPER( ), because MV_DSG_STEP and MV_DSG_FLD come back from
+*     an event key while MT_COLS was filled from the database - and a case
+*     mismatch here is a silent empty list, which looks exactly like a grid
+*     that has no columns.
+      DATA(lv_tstep) = to_upper( mv_dsg_step ).
+      DATA(lv_tfld)  = to_upper( mv_dsg_fld ).
+      LOOP AT mt_cols INTO DATA(ls_tcol)
+           WHERE step_id    = lv_tstep
+             AND field_name = lv_tfld.
+        APPEND ls_tcol TO lt_tcol.
+      ENDLOOP.
+
+      IF lt_tcol IS NOT INITIAL.
+        DATA(tc0) = tp->hbox( class = 'sapUiTinyMarginBottom' alignitems = 'Center' ).
+        tc0->label( text = 'Part' width = '3rem' ).
+        DATA(tc1) = tc0->hbox( ).
+        tc1->button( text  = 'Label'
+                     type  = COND string( WHEN mv_dsg_col IS INITIAL
+                                          THEN 'Emphasized' ELSE 'Transparent' )
+                     press = mo_client->_event( 'DSG_TF~X' ) ).
+        LOOP AT lt_tcol INTO DATA(ls_tc2).
+          tc1->button(
+            text  = COND string( WHEN ls_tc2-label IS NOT INITIAL
+                                 THEN ls_tc2-label ELSE ls_tc2-col_name )
+*           THE ONE WITHOUT ARABIC IS THE ONE TO FIX, so it is marked rather
+*           than left to be found by clicking every chip in turn.
+            icon  = COND string( WHEN ls_tc2-label_ar IS INITIAL
+                                 THEN 'sap-icon://alert' )
+            type  = COND string( WHEN to_upper( ls_tc2-col_name ) = to_upper( mv_dsg_col )
+                                 THEN 'Emphasized' ELSE 'Transparent' )
+            press = mo_client->_event( |DSG_TC~{ ls_tc2-col_name }| ) ).
+        ENDLOOP.
+      ENDIF.
+
       DATA(tf1) = tp->hbox( alignitems = 'Center' class = 'sapUiTinyMarginBottom' ).
       tf1->label( text = 'EN' width = '3rem' ).
       tf1->input( value = mo_client->_bind_edit( mv_dsg_en ) width = '20rem' ).
