@@ -213,6 +213,25 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   and stays UNBOUND when the chain is not active, which is a journey
 *   that renders its parcel field as a plain dropdown - not one that dies.
     DATA mo_pcl    TYPE REF TO zif_rak_cj_control.
+
+*   THE PROJECT SELECTOR'S BROWSE STATE, kept apart from the parcel one.
+*   Two card lists can legitimately be on one journey - M028 picks a
+*   project, M029 a parcel - and sharing MV_PCL_PAGE between them would
+*   make paging one of them page the other.
+    DATA mv_prj_field TYPE string.
+    DATA mv_prj_term  TYPE string.
+    DATA mv_prj_page  TYPE i.
+
+*   EVERY COMPOSITE CONTROL, ASKED IN TURN. This was a single MO_PCL, and
+*   the interface always anticipated more than one - "ABAP_FALSE means not
+*   mine" is in its header. A table is what makes that contract real: the
+*   renderer offers a field to each in order and takes the first that
+*   answers true, so adding the next control is one line in ENSURE_PARTS( )
+*   rather than a fourth copy of the dispatch.
+*
+*   MO_PCL STAYS, and is simply the first entry. Three places outside this
+*   class still name it and there is no behaviour to gain from renaming.
+    DATA mt_ctrl   TYPE STANDARD TABLE OF REF TO zif_rak_cj_control WITH EMPTY KEY.
     DATA mo_css    TYPE REF TO zcl_rak_journey_css.
     DATA mo_grid   TYPE REF TO zcl_rak_journey_grid.
     DATA mo_render TYPE REF TO zcl_rak_journey_render.
@@ -232,6 +251,14 @@ CLASS zcl_rak_journey_engine DEFINITION
     METHODS bp_of IMPORTING iv_in TYPE string RETURNING VALUE(rv) TYPE string.
 
     METHODS ensure_parts.
+
+*   Offers one event to every composite control in turn and stops at the
+*   first that claims it. Each is wrapped, because a control that dumps in
+*   ON_EVENT( ) must not take the round trip with it - the citizen pressed
+*   a card, not a diagnostic.
+    METHODS ctrl_event
+      IMPORTING iv_event          TYPE string
+      RETURNING VALUE(rv_handled) TYPE abap_bool.
     METHODS init.
     METHODS ensure_config.
     METHODS check_types.
@@ -1027,9 +1054,10 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         mv_close_page = abap_true.
       ENDIF.
 
-    ELSEIF mo_pcl IS BOUND AND strlen( lv_event ) > 3
-           AND substring( val = lv_event len = 3 ) = 'PCL'
-           AND mo_pcl->on_event( lv_event ) = abap_true.
+    ELSEIF mt_ctrl IS NOT INITIAL AND strlen( lv_event ) > 3
+           AND ( substring( val = lv_event len = 3 ) = 'PCL'
+              OR substring( val = lv_event len = 3 ) = 'PRJ' )
+           AND ctrl_event( lv_event ) = abap_true.
 *     Handled by the parcel control. The prefix is tested HERE as well as
 *     inside the control so an unbound control costs one comparison, and
 *     ON_EVENT( ) still answers false for a PCL event it does not know -
@@ -3854,12 +3882,44 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   ZCL_RAK_CJ_OPTS=>RESOLVE( ) with CALL METHOD (...): everything behind
 *   this class inherits the legacy DPC, and one inactive object down there
 *   must not stop every journey and the Studio from loading.
+    CLEAR mt_ctrl.
+
     TRY.
         CREATE OBJECT mo_pcl TYPE ('ZCL_RAK_CJ_PARCEL')
           EXPORTING io_engine = me.
+        APPEND mo_pcl TO mt_ctrl.
       CATCH cx_root.
         CLEAR mo_pcl.
     ENDTRY.
+
+*   THE PROJECT SELECTOR, IN ITS OWN TRY. Separately, so one inactive
+*   control cannot take the other down with it - which is the whole point
+*   of creating these by name rather than referencing the classes.
+    TRY.
+        DATA lo_prj TYPE REF TO zif_rak_cj_control.
+        CREATE OBJECT lo_prj TYPE ('ZCL_RAK_CJ_PROJECT')
+          EXPORTING io_engine = me.
+        APPEND lo_prj TO mt_ctrl.
+      CATCH cx_root ##NO_HANDLER.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD ctrl_event.
+    LOOP AT mt_ctrl INTO DATA(lo_c).
+      IF lo_c IS NOT BOUND.
+        CONTINUE.
+      ENDIF.
+      TRY.
+          IF lo_c->on_event( iv_event ) = abap_true.
+            rv_handled = abap_true.
+            RETURN.
+          ENDIF.
+        CATCH cx_root ##NO_HANDLER.
+*         Not this control's, or it failed. Either way the next one gets
+*         the event and, if none takes it, the engine's own dispatch does.
+      ENDTRY.
+    ENDLOOP.
   ENDMETHOD.
 
 

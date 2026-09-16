@@ -576,6 +576,18 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   THE FTYPE TEST MOVED HERE FROM THE RENDERER, and it has to be here now.
+*   RENDER_ONE( ) used to check PARCEL/PARCELS/PROPERTY/TITLEDEED before
+*   calling this method, so the renderer carried this control's list and a
+*   second control could not exist without extending it. It now offers the
+*   field to every control in turn and takes the first that answers true -
+*   which means a control that draws whatever it is handed would claim
+*   PROJECT, and the project selector would never be reached.
+    IF is_field-type <> 'PARCEL' AND is_field-type <> c_ftype_multi
+       AND is_field-type <> 'PROPERTY' AND is_field-type <> 'TITLEDEED'.
+      RETURN.
+    ENDIF.
+
 *   WHICH FIELD IS BEING DRAWN, and whether it owns the engine's shared
 *   browse state. Assigning MV_PCL_FIELD here unconditionally was the bug:
 *   with two selectors on one step the second overwrote the first, so both

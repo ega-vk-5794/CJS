@@ -267,11 +267,25 @@ START-OF-SELECTION.
 *   from "rows came back but no key component matched", which are
 *   different problems that look identical.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 10
-      field_name = 'MY_COMPONENT' ftype = 'SELECT' required = 'X'
+*   FTYPE 'PROJECT' - THE CARD LIST, NOT A DROPDOWN. This was SELECT plus
+*   CLOSED_LIST, and the list was never the problem: the trace read
+*   "207 option(s)" and every one of them was in the box. A closed
+*   dropdown showing 207 identical-looking numbers is simply the wrong
+*   control for a portfolio, and it cost a round on its own - unopened, a
+*   sap.m.Select with forceSelection off looks exactly like an empty list.
+*
+*   CLOSED_LIST AND THE API: DIRECTIVE BOTH STAY, deliberately. They are
+*   the fallback: ZCL_RAK_CJ_PROJECT is created by name and is UNBOUND
+*   whenever anything in the DPC chain is inactive, and RENDER_ONE( ) then
+*   falls through to the dropdown this used to be. Deleting them would
+*   turn a degraded screen into a blank one.
+      field_name = 'MY_COMPONENT' ftype = 'PROJECT' required = 'X'
       closed_list = 'X'
       default_val = 'API:PROJECT:ProjectSet'
       zsection = 'Select the project' zsection_ar = 'اختر المشروع'
       zlabel = 'Project' zlabel_ar = 'المشروع'
+      placeholder    = 'Please select a project from the list'
+      placeholder_ar = 'يرجى اختيار مشروع من القائمة'
       msg = 'REQUIRED:Choose a project before continuing'
       msg_ar = 'REQUIRED:يرجى اختيار مشروع قبل المتابعة' )
 

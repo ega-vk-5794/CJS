@@ -2517,7 +2517,8 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *     them finds one. A journey that wants the list closed sets
 *     CLOSED_LIST on the field like any other select.
       WHEN 'SELECT' OR 'PARCEL' OR 'PARCELS' OR 'PROPERTY' OR 'TITLEDEED'
-        OR 'CONTRACT' OR 'FLOORUNIT' OR 'BUILDINGS' OR 'ACCOM'.
+        OR 'CONTRACT' OR 'FLOORUNIT' OR 'BUILDINGS' OR 'ACCOM'
+        OR 'PROJECT'.
 
 *       THE PARCEL FAMILY IS NOT A DROPDOWN when the real control is
 *       available. RAKPARCELSELECTOR is a paginated card list with an
@@ -2527,17 +2528,33 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       page. It answers ABAP_FALSE when it has nothing to draw, and is
 *       UNBOUND whenever the wrapper chain is inactive, so the ComboBox
 *       below stays the fallback rather than being replaced by it.
-        IF mo_e->mo_pcl IS BOUND
-           AND ( is_field-type = 'PARCEL' OR is_field-type = 'PARCELS'
-                 OR is_field-type = 'PROPERTY'
-                 OR is_field-type = 'TITLEDEED' ).
+*       EVERY CONTROL IS ASKED, AND EACH ONE DECIDES. This used to test the
+*       ftype here and then call MO_PCL, which meant the renderer carried
+*       the parcel control's list of ftypes and a second control could not
+*       exist without extending it. The interface always said otherwise -
+*       "ABAP_FALSE means not mine" - so the test now lives in each
+*       control's own RENDER( ), where the list it serves belongs, and this
+*       loop takes the first that answers true.
+*
+*       ZCL_RAK_CJ_PARCEL GAINED THAT TEST IN THE SAME CHANGE. Without it
+*       it drew whatever it was handed, which was safe only because the
+*       caller filtered first.
+*
+*       FALLING THROUGH IS THE DESIGN, not a failure: a control that is
+*       unbound, that dumps, or that has nothing to draw leaves the plain
+*       dropdown below as the answer, which is what a journey got before
+*       any of these controls existed.
+        LOOP AT mo_e->mt_ctrl INTO DATA(lo_ctrl).
+          IF lo_ctrl IS NOT BOUND.
+            CONTINUE.
+          ENDIF.
           TRY.
-              IF mo_e->mo_pcl->render( io_view = io_form is_field = is_field ) = abap_true.
+              IF lo_ctrl->render( io_view = io_form is_field = is_field ) = abap_true.
                 RETURN.
               ENDIF.
             CATCH cx_root ##NO_HANDLER.
           ENDTRY.
-        ENDIF.
+        ENDLOOP.
 
         req_label( io_form = io_form is_field = is_field ).
 *       CLOSED_LIST switches this one field to sap.m.Select - not typable,

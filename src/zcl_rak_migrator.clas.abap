@@ -1041,8 +1041,17 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 
 *     A dropdown whose options ShapeIt decides client-side. It is still a
 *     select here; the dependent behaviour belongs in a rule or on_change.
-      WHEN 'RAKSELECTUSAGETYPE' OR 'RAK_PROJECTLIST' OR 'ENTITY_SELECT'.
+      WHEN 'RAKSELECTUSAGETYPE' OR 'ENTITY_SELECT'.
         cs_row-ftype = 'SELECT'.    cs_row-role = c_interact.
+
+*     RAK_PROJECTLIST IS ITS OWN CONTROL NOW, and it was in the line above.
+*     Calling it a SELECT was right about the binding and wrong about the
+*     shape: the citizen who found this owns 207 projects, and the dropdown
+*     held every one of them - correct data, unusable control, and unopened
+*     it reads on screen as an empty list. ZCL_RAK_CJ_PROJECT draws the
+*     searchable card list the live screen has.
+      WHEN 'RAK_PROJECTLIST'.
+        cs_row-ftype = 'PROJECT'.   cs_row-role = c_interact.
 
 *     THE ONE GROUP THAT WORKS ON FIRST MIGRATION. All five are the same
 *     business-partner search - person and company alike, which is what
@@ -2768,7 +2777,12 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 *       ACCOM joins them now that ZCL_RAK_ACCOM_API serves it. It was in the
 *       counted-drop list below while nothing could answer a port
 *       accommodation query; ZEGA_CJ_EPDA_PORT_OBJECTS answers it.
-        OR 'ACCOM'.
+        OR 'ACCOM'
+*       PROJECT is the seventh and draws through ZCL_RAK_CJ_PROJECT rather
+*       than the SELECT branch - but it reaches the screen the same way and
+*       degrades to that branch when the control is unbound, so it belongs
+*       in this whitelist for exactly the reason the other six do.
+        OR 'PROJECT'.
         rv = to_upper( iv_ftype ).
 *     PAYFEE passes through. The field loop above decides whether to keep
 *     it - it has IV_HANDLER and this method does not - so a blanket drop
