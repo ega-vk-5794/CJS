@@ -885,6 +885,13 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     DATA(lo_box) = io_parent->vbox( class = 'rakSearch' ).
     IF lv_chrome = abap_true.
       DATA(lo_bar) = lo_box->hbox( justifycontent = 'End' alignitems = 'Center' ).
+*     Through MSG_TOKEN( ) so an @nnn or OTR: reference resolves - ATTACH_LABEL
+*     has no _AR twin, so a reference is the only way it can be bilingual. A
+*     plain literal comes back untouched.
+      DATA(lv_gadd) = zcl_rak_journey_util=>msg_token(
+                        iv_raw     = CONV string( is_field-attach_label )
+                        iv_lang    = mo_e->mv_lang
+                        iv_journey = mo_e->mv_journey ).
       lo_bar->button(
 *       COND STRING AND NOT COND #. The two branches are no longer the same
 *       type - ATTACH_LABEL is a DDIC character field and GET( ) returns a
@@ -892,8 +899,8 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *       the thing that has stopped being obvious. Naming the type is one word
 *       against an activation error in the class every grid on every journey
 *       draws through.
-        text  = COND string( WHEN is_field-attach_label IS NOT INITIAL
-                             THEN is_field-attach_label
+        text  = COND string( WHEN lv_gadd IS NOT INITIAL
+                             THEN lv_gadd
                              ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-grid_add
                                                      iv_v1      = CONV string( is_field-label )
                                                      iv_default = |Add { is_field-label }| ) )

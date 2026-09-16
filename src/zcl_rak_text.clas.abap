@@ -375,6 +375,16 @@ CLASS zcl_rak_text DEFINITION
         col_block_name      TYPE symsgno VALUE '183',
         col_floors          TYPE symsgno VALUE '184',
         col_rooms           TYPE symsgno VALUE '185',
+*       ---- THE ATTACHMENT LABEL FALLBACKS ----
+*       ATTACH_LABEL has NO _AR TWIN IN THE DDIC, which is why the text
+*       report emits it as kind NOAR with the Arabic side permanently
+*       blank - an export can collect an Arabic the import has nowhere to
+*       write. Both places that fall back when it is empty appended an
+*       English literal, so blanking the column - the obvious way to let
+*       the field's own bilingual LABEL through - produced
+*       "<Arabic label> - attachment". These make that fallback safe.
+        att_suffix          TYPE symsgno VALUE '186',
+        att_support         TYPE symsgno VALUE '187',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -850,7 +860,10 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
 *     confirming against the department's own word, which may be كتلة.
       ( msgno = c_no-col_block_name en = `Block Name`    ar = `اسم المبنى` )
       ( msgno = c_no-col_floors     en = `No. of floors` ar = `عدد الطوابق` )
-      ( msgno = c_no-col_rooms      en = `No. of rooms`  ar = `عدد الغرف` ) ).
+      ( msgno = c_no-col_rooms      en = `No. of rooms`  ar = `عدد الغرف` )
+*     &1 is the field's own LABEL, which is already bilingual.
+      ( msgno = c_no-att_suffix  en = `&1 - attachment`     ar = `&1 - مرفق` )
+      ( msgno = c_no-att_support en = `Supporting document` ar = `مستند داعم` ) ).
   ENDMETHOD.
 
 

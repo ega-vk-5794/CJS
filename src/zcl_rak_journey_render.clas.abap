@@ -554,9 +554,25 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   CSS-class marker after REQ_LABEL( ) moved to the native property - and the
 *   class alone draws nothing. Same REQUIRED property, same result.
     DATA(lv_req) = mo_e->mo_rules->is_required( is_field ).
+*   ATTACH_LABEL THROUGH MSG_TOKEN( ), and the fallback through the catalogue.
+*   The column has no _AR twin in the DDIC - the text report emits it as kind
+*   NOAR for exactly that reason - so the only two ways it can be bilingual are
+*   an @nnn / OTR: reference, which MSG_TOKEN( ) already resolves for TABLE
+*   headers and MSG clauses, or leaving it blank and letting the field's own
+*   LABEL through. Both now work: the second used to append the English word
+*   "attachment" to an Arabic label, which is why blanking it was not a fix.
+*   A plain literal is returned untouched, so every label configured today
+*   renders exactly as it does now.
+    DATA(lv_attlbl) = zcl_rak_journey_util=>msg_token(
+                        iv_raw     = CONV string( is_field-attach_label )
+                        iv_lang    = mo_e->mv_lang
+                        iv_journey = mo_e->mv_journey ).
     io_form->label(
-      text     = zcl_rak_journey_util=>esc( COND #( WHEN is_field-attach_label IS NOT INITIAL
-                              THEN is_field-attach_label ELSE |{ is_field-label } - attachment| ) )
+      text     = zcl_rak_journey_util=>esc( COND #(
+                   WHEN lv_attlbl IS NOT INITIAL THEN lv_attlbl
+                   ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-att_suffix
+                                           iv_v1      = CONV string( is_field-label )
+                                           iv_default = |{ is_field-label } - attachment| ) ) )
       class    = 'sapUiFormLabelNoColon'
       required = lv_req ).
     DATA(lo_box) = io_form->vbox( ).
@@ -3719,9 +3735,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         DATA(ls_bpf) = mo_e->safe_field( mo_e->mv_pop_field ).
         IF ls_bpf-has_attach = abap_true.
           DATA(lo_up) = lo_c->vbox( class = 'sapUiSmallMarginBeginEnd' ).
-          lo_up->label( text = COND #( WHEN ls_bpf-attach_label IS NOT INITIAL
-                                       THEN ls_bpf-attach_label
-                                       ELSE 'Supporting document' ) ).
+          DATA(lv_bpatt) = zcl_rak_journey_util=>msg_token(
+                             iv_raw     = CONV string( ls_bpf-attach_label )
+                             iv_lang    = mo_e->mv_lang
+                             iv_journey = mo_e->mv_journey ).
+          lo_up->label( text = COND #(
+            WHEN lv_bpatt IS NOT INITIAL THEN lv_bpatt
+            ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-att_support
+                                    iv_default = 'Supporting document' ) ) ).
           mo_e->zif_rak_journey~render_upload( io_view  = lo_up
                                                iv_field = ls_bpf-name ).
         ENDIF.
