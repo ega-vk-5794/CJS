@@ -603,26 +603,37 @@ CLASS ZCL_RAK_PAY_ENGINE IMPLEMENTATION.
           DATA lr_ctx TYPE REF TO data.
           CREATE DATA lr_ctx TYPE ('ZCL_RAK_CJ_API=>TY_CTX').
 
+*         PARAMETER-TABLE TAKES A VARIABLE, NEVER A CONSTRUCTOR EXPRESSION.
+*         Written inline as VALUE abap_parmbind_tab( ... ) the parser reports
+*         `"." or "EXCEPTION-TABLE ..." expected after "VALUE"` - it has
+*         finished reading the statement and does not expect an expression
+*         there at all, so the message names the keyword rather than the
+*         mistake. Same family as the TYPE HANDLE trap: declare it, then pass
+*         the name.
+          DATA lt_pnew TYPE abap_parmbind_tab.
+          lt_pnew = VALUE #( ( name  = 'IS_CTX'
+                               kind  = cl_abap_objectdescr=>exporting
+                               value = lr_ctx ) ).
+
           DATA lo_api TYPE REF TO object.
           CREATE OBJECT lo_api TYPE ('ZCL_RAK_FEES_API')
-            PARAMETER-TABLE VALUE abap_parmbind_tab(
-              ( name  = 'IS_CTX'
-                kind  = cl_abap_objectdescr=>exporting
-                value = lr_ctx ) ).
+            PARAMETER-TABLE lt_pnew.
 
           DATA lr_res TYPE REF TO data.
           CREATE DATA lr_res TYPE ('ZCL_RAK_FEES_API=>TY_PAY_RES').
           FIELD-SYMBOLS <res> TYPE any.
           ASSIGN lr_res->* TO <res>.
 
+          DATA lt_pcall TYPE abap_parmbind_tab.
+          lt_pcall = VALUE #( ( name  = 'IV_INTRENO'
+                                kind  = cl_abap_objectdescr=>exporting
+                                value = REF #( lv_intreno ) )
+                              ( name  = 'RS'
+                                kind  = cl_abap_objectdescr=>receiving
+                                value = lr_res ) ).
+
           CALL METHOD lo_api->('PAYMENT_STATUS')
-            PARAMETER-TABLE VALUE abap_parmbind_tab(
-              ( name  = 'IV_INTRENO'
-                kind  = cl_abap_objectdescr=>exporting
-                value = REF #( lv_intreno ) )
-              ( name  = 'RS'
-                kind  = cl_abap_objectdescr=>receiving
-                value = lr_res ) ).
+            PARAMETER-TABLE lt_pcall.
 
           ASSIGN COMPONENT 'STATUS' OF STRUCTURE <res> TO FIELD-SYMBOL(<st>).
           IF sy-subrc = 0.
