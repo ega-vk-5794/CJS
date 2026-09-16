@@ -79,6 +79,59 @@ legacy-side edit.
 In scope for changes: `ZRAK_*`, `Z2UI5_*`, and the BAdI chain despite it serving the legacy path —
 `ZIF_EGA_FW_CJI`, `ZCL_EGA_CJ_*_ABS`, `ZCL_EGA_CJ_ENH_IMPL_*`, `ZFM_EGA_CJ_FW_*`, `ZEGA_T_CJ_*`.
 
+### The RAK Digital portal config is READ, and written in exactly one shape
+
+`ZEGA_T_CJ_GRP` / `_ID` / `_IDT` are the **portal's** landing-page configuration, shared with
+every department and every service, most of which have nothing to do with CJS. They are in the
+`ZEGA_T_CJ_*` namespace above, so they are technically writable — and that is exactly the trap.
+**A CJS run destroyed a quality landscape's landing page through these three tables**, and the
+recovery took a change log, three rebuilt CSVs and a row-by-row audit.
+
+**One rule covers it: CJS owns its own leaf and nothing else.**
+
+| | |
+| --- | --- |
+| **The journey's own tile** (`c_tile` / `lv_tile4`) | `MODIFY` freely — CJS created it, CJS owns it, a re-run should update its own title |
+| **The parent group** (`c_main` / `lv_main4`, usually `901`) | `SELECT` first, `INSERT` only if genuinely absent, **never overwrite**. Its description, `LEVELNO` and `ORDERNO` belong to whoever created it |
+| **Anything else in those tables** | not ours, at all |
+
+Three writers follow this and all three had to be fixed to: `ZCL_RAK_MIGRATOR->ADD_PORTAL_TILE( )`,
+`ZRAK_C022_LOAD` and `ZRAK_C061_JUDG_PUBL_LOAD`. The two loaders `MODIFY`'d group `901`
+unconditionally — relabelling a real production group carrying ~25 journeys as *"AI Driven
+Journeys"* in both languages and rewriting its ordering, on **every run**. The migrator was fixed
+for this and the loaders were missed, which is the argument for the rule rather than for
+remembering.
+
+**DELETE is not available on these tables at all.** `ZCL_RAK_MIGRATOR->TEARDOWN( )` used to remove
+the tile rows alongside the CJS configuration and that is what wiped the landing page: the blast
+radius was decided by a `ZRAK_T_JNY` row while the rows deleted belonged to the portal. Teardown
+now clears CJS configuration only. `ZRAK_CJ_PORTAL_FIX` lost its removal branch for the same
+reason — its guards were real (one department, one group, only leaves it believed CJS had created,
+test run by default) and the damage still happened, because classifying a leaf as "ours" is a
+guess. **If a tile genuinely has to go, it is the portal owner's operation, in their transaction,
+with their transport.** That report still lists what is there and can restore a group from values
+you type in; it cannot delete.
+
+One deliberate exception, and it is not portal config: `ZRAK_CJ_TESTKEY` writes its own row to
+`ZEGA_T_CJ_US_LOG` to stand in for a portal login. Dry run by default, and it creates a key rather
+than touching anyone else's — the runtime rule that *nothing* writes that table (see `SIM_USERDATA( )`)
+still holds for everything that serves a citizen.
+
+### Finding a fault fast
+
+[`CJS_FAULT_FINDER.html`](CJS_FAULT_FINDER.html) in the repo root, and published at
+<https://claude.ai/artifact/JhZw5L29Wvo9yALKTS6Tuw> — the round trip as a flow diagram, a
+symptom → first-breakpoint table, what each trace line means, and the method rules. Read it before
+a long hunt, and **add a row whenever a fault costs more than one round trip to find**.
+
+The one that earns its place at the top: **start with what is *different*, not where it hurts.**
+D001's payment page never opened, and three rounds went into the gateway, `ZDT_PG_DEP_MAP`,
+`DFKKOP` and the payment screen. The cause was `ZCL_D001_SCHOOL_LIC_INIT_LOGIC` redefining
+`PREPARE_PAYMENT` with nothing in it. **If one journey misbehaves and the rest are fine, the
+framework is not the suspect — open that journey's handler class first.** Its companion:
+**silence is evidence.** `PREPARE_PAYMENT( )` has four possible trace lines and produced none,
+which is not any of its four exits; it is the method never running.
+
 ## Handler classes
 
 ```abap
