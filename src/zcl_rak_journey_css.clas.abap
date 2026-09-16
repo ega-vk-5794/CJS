@@ -700,7 +700,7 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     looks like in any case. Sized up, because it is also the heading.
         |.rakPrjNo .sapMLnk,.rakPrjNo\{font-size:1.05rem;font-weight:600;| &&
         |letter-spacing:.01em;\}| &&
-        |.rakPrjDate\{color:{ g-navy_mut_clr };font-size:.9rem;\}| &&
+        |.rakPrjDate\{color:#6a7484;font-size:.9rem;\}| &&
 *     PLAIN AND RIGHT-ALIGNED, NO CHIP. The counts were drawn in
 *     .rakPclBadge, which is the parcel card's acquisition-type pill - a
 *     coloured lozenge with padding, right for one short word and wrong for
@@ -715,7 +715,7 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     The chosen card says so itself. With 207 of them the strip above the
 *     list is the primary answer, but a reader scrolling back should not
 *     have to look up to see which one they picked.
-        |.rakPrjOn\{border-color:{ g-brand_clr };\}| &&
+        |.rakPrjOn\{border-color:{ g-brand };\}| &&
 *     THE WAIT OVERLAY, over the parcel map frame.
 *
 *     A framed map has a silent gap that nothing else can fill. The frame
