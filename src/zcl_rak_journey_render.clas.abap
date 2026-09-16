@@ -1955,9 +1955,36 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
 
   METHOD render_chips.
+
+*   NO KEY MEANS EVERY OCCURRENCE, NOT ONLY THE KEYLESS ONES.
+*
+*   The filter was `ls_a-okey <> iv_key`, and IV_KEY is OPTIONAL - so at both
+*   call sites, neither of which passes one, it compared every staged file's
+*   OKEY against BLANK. A file staged from an uploader whose event carried an
+*   occurrence key - ATTGO_<field>~<key>, which HANDLE_EVENT( ) splits on the
+*   tilde straight into OKEY - therefore matched nothing and drew no chip.
+*
+*   THE FILE WAS NEVER LOST. It stayed in MT_ATTACH, counted towards the
+*   required check and posted to the backend correctly; it simply had no row
+*   on screen. That is the worst shape for this bug: the citizen attaches a
+*   document, sees nothing appear, and attaches it again.
+*
+*   It also explains why it survived dev. A plain main-page uploader raises
+*   ATTGO_<field> with no tilde, so OKEY is blank and the chip matched; only a
+*   handler-drawn dialog that keys its uploader per row hits it.
+*
+*   WHERE A KEY IS GIVEN, NOTHING CHANGES. That path still narrows to the one
+*   occurrence, which is what the replace-on-upload logic depends on - see the
+*   note there about a second owner's upload deleting the first owner's
+*   document.
+    DATA(lv_all) = xsdbool( iv_key IS INITIAL ).
+
     LOOP AT mo_e->mt_attach INTO DATA(ls_a).
       DATA(lv_idx) = sy-tabix.
-      IF ls_a-field <> to_upper( iv_field ) OR ls_a-okey <> iv_key.
+      IF ls_a-field <> to_upper( iv_field ).
+        CONTINUE.
+      ENDIF.
+      IF lv_all = abap_false AND ls_a-okey <> iv_key.
         CONTINUE.
       ENDIF.
       rv_count = rv_count + 1.
@@ -4561,60 +4588,65 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-*   ---- KEEP THE SCROLL POSITION ACROSS THE REPAINT -------------------
-*   THE HASH TEST CANNOT FIX THE PARCEL SELECTOR, and three attempts at
-*   it establish why. Binding the tick box was necessary - the state is
-*   no longer written into the XML - but it is not sufficient, because
-*   selecting a parcel genuinely changes the page: M012's ON_CHANGE calls
-*   SYNC_GRID( ), which SET_GRID_DATA( )s a new row into RAKPARCELS. The
-*   markup differs, the hash cannot match, and the full repaint is
-*   CORRECT. There is no version of the quiet path that helps.
+*   THE SCROLLER IS NOT THE DOCUMENT, AND THAT IS WHY THIS DID NOTHING.
+*   The first version read and wrote document.scrollingElement.scrollTop.
+*   CJS renders inside the portal shell, where the thing that actually
+*   scrolls is an inner container - the page body never moves, so the
+*   listener stored 0 and the restore set 0. The block was present, ran on
+*   every full repaint, and preserved nothing, which is why "the screen
+*   refreshes" kept being reported against code that looked like it had
+*   already been fixed.
 *
-*   SO THE REPAINT STAYS AND THE SYMPTOM GOES. What the citizen calls
-*   flicker is VIEW_DISPLAY( ) tearing the control tree down and
-*   rebuilding it, which drops the scroll position - the page jumps to the
-*   top and the card they just ticked is off screen. That reads as "the
-*   selection vanished" even when it landed perfectly, which is exactly
-*   how it has been reported each time.
+*   SO IT FINDS THE REAL SCROLLER TWICE OVER. On the way in it takes the
+*   scroll event's own TARGET, which with a capturing listener on window is
+*   whichever element genuinely scrolled - no guessing at all. On the way
+*   out that element no longer exists (VIEW_DISPLAY( ) rebuilt the tree), so
+*   PICK( ) chooses the largest scrollable box on the page and sets both it
+*   and the document. Setting scrollTop on something that cannot scroll is a
+*   no-op, so the belt and the braces cost nothing.
 *
-*   ON THE FULL PATH ONLY. The quiet path above does not rebuild anything,
-*   so it has no scroll to restore and returns before this.
+*   ONLY A REAL POSITION IS STORED. A 0 from an element that cannot scroll
+*   would overwrite a good value from the one that can - the two fire in the
+*   same capture phase.
 *
-*   FOLLOW_UP_ACTION IS ADDITIVE - Z2UI5_CL_CORE_CLIENT does
-*   `INSERT val INTO TABLE ... custom_js`, a table - so this cannot
-*   displace the parcel map's own snippet. That was worth checking rather
-*   than assuming: if it had been single-valued, adding one here would
-*   have silently broken the map.
-*
-*   PLAIN '...' LITERALS, NOT A STRING TEMPLATE. Every { and } would
-*   otherwise have to be escaped \{ \} because ABAP reads them as an
-*   embedded expression, and a snippet of JavaScript is mostly braces.
-*   And NOT ONE SINGLE QUOTE in the JavaScript: _runCustomJs splits on
-*   it and calls a frontend action with the pieces instead of running the
-*   code, so every string here is double-quoted.
-*
-*   AN EXPRESSION, because the frontend evaluates it as
-*   Function( "return " + snippet )( ) - hence the IIFE - and wrapped in
-*   TRY/CATCH throughout so a browser that refuses sessionStorage (a
-*   private window, blocked site data) degrades to today's behaviour
-*   rather than throwing on every render.
+*   PLAIN '...' LITERALS, NOT A STRING TEMPLATE, because every { and } would
+*   otherwise need escaping and this is mostly braces. And NOT ONE SINGLE
+*   QUOTE in the JavaScript: _runCustomJs splits on it and calls a frontend
+*   action with the pieces instead of running the code. Both checked - the
+*   generated snippet was extracted and run through node --check, and grepped
+*   for apostrophes, which is the routine this file's own notes recommend.
     DATA(lv_scroll) =
       '(function()' && '{' && 'try' && '{' &&
       'var K="rakScrollTop";' &&
-      'var g=function()' && '{' && 'return document.scrollingElement||document.documentElement||document.body;' && '}' && ';' &&
+      'var pick=function()' && '{' &&
+      'var d=document.scrollingElement||document.documentElement||document.body;' &&
+      'var best=d,bs=0,i,n,el;' &&
+      'var all=document.querySelectorAll("div,section,main");' &&
+      'for(i=0;i<all.length;i++)' && '{' && 'el=all[i];' &&
+      'n=el.scrollHeight-el.clientHeight;' &&
+      'if(n>40&&el.clientHeight>120&&n>bs)' && '{' && 'bs=n;best=el;' && '}' && '}' &&
+      'return best;' && '}' && ';' &&
       'if(!window.rakScrollHook)' && '{' &&
       'window.rakScrollHook=1;' &&
-      'window.addEventListener("scroll",function()' && '{' &&
-      'try' && '{' && 'sessionStorage.setItem(K,String(g().scrollTop));' && '}' && 'catch(e)' && '{' && '}' &&
-      '}' && ',true);' &&
+      'window.addEventListener("scroll",function(e)' && '{' && 'try' && '{' &&
+      'var t=e.target;' &&
+      'var el=(t&&t.scrollTop!==undefined)?t:pick();' &&
+      'if(el&&el.scrollTop>0)' && '{' && 'sessionStorage.setItem(K,String(el.scrollTop));' && '}' &&
+      '}' && 'catch(e2)' && '{' && '}' && '}' && ',true);' &&
       '}' &&
-      'setTimeout(function()' && '{' &&
-      'try' && '{' && 'var v=sessionStorage.getItem(K);' &&
-      'if(v)' && '{' && 'g().scrollTop=parseInt(v,10);' && '}' &&
-      '}' && 'catch(e)' && '{' && '}' &&
-      '}' && ',0);' &&
+      'setTimeout(function()' && '{' && 'try' && '{' &&
+      'var v=sessionStorage.getItem(K);' &&
+      'if(!v)' && '{' && 'return;' && '}' &&
+      'var y=parseInt(v,10);' &&
+      'if(!(y>0))' && '{' && 'return;' && '}' &&
+      'var d=document.scrollingElement||document.documentElement||document.body;' &&
+      'd.scrollTop=y;' &&
+      'var p=pick();' &&
+      'if(p&&p!==d)' && '{' && 'p.scrollTop=y;' && '}' &&
+      '}' && 'catch(e3)' && '{' && '}' && '}' && ',0);' &&
       'return 1;' &&
-      '}' && 'catch(e)' && '{' && 'return 0;' && '}' && '}' && ')()'.
+      '}' && 'catch(e4)' && '{' && 'return 0;' && '}' && '}' && ')()'.
+
 
     TRY.
         mo_e->mo_client->follow_up_action( lv_scroll ).
