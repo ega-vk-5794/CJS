@@ -60,11 +60,36 @@
 *&    journey posts, returns success and creates nothing. ATTACHMENT is
 *&    needed on NACO_1_2 for the uploader. Rule X16 in ZCL_RAK_CJS_XCHECK
 *&    reports this from the CJS side once the journey exists.
-*& 2. PRM_PRJ_TYPE has no option list here. The export names the field and
-*&    its COMBOBOX type but no search help, so the values come from
-*&    somewhere the definition table does not reach. An empty dropdown is
-*&    deliberate: a hand-typed list that drifts from the backend lets a
-*&    citizen pick a code the case cannot accept.
+*& 2. PRM_PRJ_TYPE IS RESOLVED - the BAdI answered it. This note used to
+*&    say the values came from somewhere the definition table does not
+*&    reach, and that an empty dropdown was the deliberate, safe choice.
+*&    The first half was true and the second was wrong: a REQUIRED,
+*&    CLOSED_LIST select with no options cannot be answered at all, so
+*&    step 2 was unpassable and the Studio was right to report it as a
+*&    blocker rather than as configuration doing its job.
+*&
+*&    ZCL_EGA_CJ_FW_RO_DML_ABS_2_V1->PARCEL_TYPE_FREEHOLD_CHECK( ) reads
+*&    the value as ct_item_data[ technicalname = 'PROJECT_TYPE' ], types
+*&    it ZDE_MUN_PRM_PRJ_TYPE and branches on EQ '01' "Off-Plan. So the
+*&    list is that data element's DOMAIN - which is exactly what ROLLNAME
+*&    makes the renderer resolve, with no hand-typed options to drift.
+*&    The abstract even carries its own GET_DOMAIN( ) for the same values.
+*&
+*&    AND THE TECHNICAL NAME IS NOT THE FIELD NAME. The field is
+*&    PRM_PRJ_TYPE and the BAdI reads PROJECT_TYPE; TECH_NAME carries the
+*&    difference. Named the other way round the value posts under a name
+*&    nothing reads, which is silent.
+*&
+*&    OFF-PLAN IS GATED FURTHER, and not here: on '01' the BAdI checks the
+*&    parcel's land-register type is freehold (05/06/07/08) and refuses
+*&    with ZMSG_EGA_CJ 095 otherwise. That is the backend's rule and must
+*&    not be copied into CJS config.
+*& 2a. EVERY POSTING FIELD NOW CARRIES TECH_NAME, and none did before.
+*&    ZCL_RAK_JOURNEY_BE only sends an item where TECH_NAME is filled, so
+*&    this journey collected, validated and rendered every value and
+*&    posted not one of them. The Studio said so on nearly every row -
+*&    "no tech_name, value won't post to the backend" - and it was read
+*&    as noise because the red blockers were louder.
 *& 3. The two numbered term paragraphs (TERM1/TERM11/TERM2/TERM21 in the
 *&    export) carry no LABEL_CON, so their wording is not readable from
 *&    /QNV/SB_LABELT. They are seeded as a TEXT: reference rather than
@@ -249,7 +274,8 @@ START-OF-SELECTION.
 *   No ZRAK_T_JNY_OPT rows on purpose - see note 2 in the header.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 30
       field_name = 'PRM_PRJ_TYPE' ftype = 'SELECT' required = 'X'
-      closed_list = 'X'
+      closed_list = 'X' tech_name = 'PROJECT_TYPE'
+      rollname = 'ZDE_MUN_PRM_PRJ_TYPE'
       zlabel = 'Project Type' zlabel_ar = 'نوع المشروع'
       msg = 'REQUIRED:Choose the project type'
       msg_ar = 'REQUIRED:يرجى اختيار نوع المشروع' )
@@ -332,23 +358,23 @@ START-OF-SELECTION.
 *   them in the payload and the citizen never sees them. Hidden and
 *   readonly, written by the handler when a consultant is picked.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 90
-      field_name = 'CONSULTANT_BP' ftype = 'DISPLAY'
+      field_name = 'CONSULTANT_BP' ftype = 'DISPLAY' tech_name = 'CONSULTANT_BP'
       hidden = 'X' readonly = 'X'
       zlabel = 'Consultant BP' zlabel_ar = 'الشريك التجاري للاستشاري' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 100
-      field_name = 'CONSULTANTNAME' ftype = 'DISPLAY'
+      field_name = 'CONSULTANTNAME' ftype = 'DISPLAY' tech_name = 'CONSULTANTNAME'
       hidden = 'X' readonly = 'X'
       zlabel = 'Consultant name' zlabel_ar = 'اسم الاستشاري' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 110
-      field_name = 'TRADELICENSE' ftype = 'DISPLAY'
+      field_name = 'TRADELICENSE' ftype = 'DISPLAY' tech_name = 'TRADELICENSE'
       hidden = 'X' readonly = 'X'
       zlabel = 'Trade licence' zlabel_ar = 'الرخصة التجارية' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 120
-      field_name = 'LICENSEEXPIRY' ftype = 'DISPLAY'
+      field_name = 'LICENSEEXPIRY' ftype = 'DISPLAY' tech_name = 'LICENSEEXPIRY'
       hidden = 'X' readonly = 'X'
       zlabel = 'Licence expiry' zlabel_ar = 'انتهاء الرخصة' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 130
-      field_name = 'GRADE' ftype = 'DISPLAY'
+      field_name = 'GRADE' ftype = 'DISPLAY' tech_name = 'GRADE'
       hidden = 'X' readonly = 'X'
       zlabel = 'Grade' zlabel_ar = 'التصنيف' ) ) ).
 

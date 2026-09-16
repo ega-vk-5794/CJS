@@ -73,6 +73,35 @@
 *& 1. ZEGA_T_CJ_UI_MAP must carry NCOD_1_1..1_3. A screen correct in
 *&    /QNV and missing from the map posts, returns success and creates
 *&    nothing. Rule X16 in ZCL_RAK_CJS_XCHECK reports it CJS-side.
+*& 1a. EVERY POSTING FIELD NOW CARRIES TECH_NAME, and none did before.
+*&    ZCL_RAK_JOURNEY_BE sends an item only where TECH_NAME is filled
+*&    (its own comment says so), so this journey collected, validated and
+*&    rendered every value and posted not one of them. The Studio said so
+*&    on nearly every row - "no tech_name, value won't post to the
+*&    backend" - and it read as noise beside the red blockers.
+*&
+*&    The names are the BAdI's, read off ZCL_EGA_CJ_FW_RO_DML_ABS_V1 and
+*&    not invented: INTRENO_PROJECT (UPDATE's WHEN branch),
+*&    CONSULTANTNAME / TRADELICENSE / GRADE / LICENSEEXPIRY (READ fills
+*&    them from BUT000 for the YE0001 partner), and the six discipline
+*&    pairs STRUCTURENG / ARCHITECTUREENG / ELECTRICALENG / MECHANICALENG
+*&    / ETISALAT / RAKWA with their _INPUT twins.
+*&
+*&    CB5 AND CB6 ARE INFERRED, the other four are not. COD_1_4_CHB1..4
+*&    resolve to Structural / Architecture / Electrical / Mechanical in
+*&    the label table, which matches the BAdI one for one. CHB5 and CHB6
+*&    resolve to nothing, so ETISALAT and RAKWA are taken from ORDER:
+*&    the BAdI's UPDATE processes the six in that sequence and GET_FEES( )
+*&    maps CJ27..CJ32 to STRC/ARCH/ELEC/MECH/ETIS/RKWA in the same one.
+*&    Strong, but it is an inference - confirm against the live screen
+*&    before trusting a fee that depends on it.
+*&
+*&    STATUS IS NOT HERE AND MUST NOT BE ADDED. M028 creates its case on
+*&    an item with FIELDNAME 'STATUS' and value 'SUBMIT' - note fieldname,
+*&    not technicalname - and ZCL_RAK_QNV_BRIDGE already sends exactly
+*&    that when ZCL_RAK_JOURNEY_ENGINE submits. A configured STATUS field
+*&    would duplicate it, and CLAUDE.md lists bare STATUS among the names
+*&    that can bind a data object in the BAdI's own program.
 *& 2. MY_COMPONENT IS API-BOUND NOW and this note used to say it was a
 *&    deliberately empty dropdown. That was true when it was written and
 *&    stopped being true when DEFAULT_VAL gained
@@ -249,7 +278,7 @@ START-OF-SELECTION.
 *   Carrier - TOSAVE in the export, no control on the screen. Written by
 *   the handler when a project is chosen.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 20
-      field_name = 'INTRENO_PROJECT' ftype = 'DISPLAY'
+      field_name = 'INTRENO_PROJECT' ftype = 'DISPLAY' tech_name = 'INTRENO_PROJECT'
       hidden = 'X' readonly = 'X'
       zlabel = 'Project key' zlabel_ar = 'مفتاح المشروع' ) ) ).
 
@@ -266,18 +295,18 @@ START-OF-SELECTION.
 *   validation loop for some checks and READONLY is what takes a field
 *   out of it.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 10
-      field_name = 'NAME_DATA' ftype = 'DISPLAY' readonly = 'X'
+      field_name = 'NAME_DATA' ftype = 'DISPLAY' readonly = 'X' tech_name = 'CONSULTANTNAME'
       zsection = 'Current Consultant' zsection_ar = 'الاستشاري الحالي'
       zlabel = 'Consultant' zlabel_ar = 'الاستشاري' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 20
-      field_name = 'LICENS_DATA' ftype = 'DISPLAY' readonly = 'X'
+      field_name = 'LICENS_DATA' ftype = 'DISPLAY' readonly = 'X' tech_name = 'TRADELICENSE'
       zlabel = 'Trade License No' zlabel_ar = 'رقم الرخصة التجارية' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 30
-      field_name = 'EXPIRY_DATA' ftype = 'DISPLAY' readonly = 'X'
+      field_name = 'EXPIRY_DATA' ftype = 'DISPLAY' readonly = 'X' tech_name = 'LICENSEEXPIRY'
       zlabel = 'Trade License Expiry Date'
       zlabel_ar = 'تاريخ انتهاء الرخصة التجارية' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP2' seqnr = 40
-      field_name = 'GRADE_DATA' ftype = 'DISPLAY' readonly = 'X'
+      field_name = 'GRADE_DATA' ftype = 'DISPLAY' readonly = 'X' tech_name = 'GRADE'
       zlabel = 'Grade' zlabel_ar = 'التصنيف' )
 
 *   ---- the building list ---------------------------------------------
@@ -397,58 +426,58 @@ START-OF-SELECTION.
 * only honest source, and a blank there is visible rather than wrong.
   INSERT zrak_t_jny_fld FROM TABLE @( VALUE #(
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 10
-      field_name = 'CB1' ftype = 'CHECKBOX'
+      field_name = 'CB1' ftype = 'CHECKBOX' tech_name = 'STRUCTURENG'
       zsection = 'Please select the required discipline(s)'
       zsection_ar = 'يرجى اختيار التخصصات المطلوبة'
       zlabel    = lcl_txt=>en( iv_code = 'COD_1_4_CHB1' iv_fb = 'Structural Engineer' )
       zlabel_ar = lcl_txt=>ar( iv_code = 'COD_1_4_CHB1' iv_fb = 'مهندس إنشائي' ) )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 20
-      field_name = 'SI1' ftype = 'STEPPER' hidden = 'X'
+      field_name = 'SI1' ftype = 'STEPPER' hidden = 'X' tech_name = 'STRUCTURENG_INPUT'
       min_val = '0' max_val = '99'
       zlabel = 'Minimum drawings to be uploaded'
       zlabel_ar = 'الحد الأدنى للمخططات المطلوب رفعها' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 30
-      field_name = 'CB2' ftype = 'CHECKBOX'
+      field_name = 'CB2' ftype = 'CHECKBOX' tech_name = 'ARCHITECTUREENG'
       zlabel    = lcl_txt=>en( iv_code = 'COD_1_4_CHB2' iv_fb = 'Architecture Engineer' )
       zlabel_ar = lcl_txt=>ar( iv_code = 'COD_1_4_CHB2' iv_fb = 'مهندس معماري' ) )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 40
-      field_name = 'SI2' ftype = 'STEPPER' hidden = 'X'
+      field_name = 'SI2' ftype = 'STEPPER' hidden = 'X' tech_name = 'ARCHITECTUREENG_INPUT'
       min_val = '0' max_val = '99'
       zlabel = 'Minimum drawings to be uploaded'
       zlabel_ar = 'الحد الأدنى للمخططات المطلوب رفعها' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 50
-      field_name = 'CB3' ftype = 'CHECKBOX'
+      field_name = 'CB3' ftype = 'CHECKBOX' tech_name = 'ELECTRICALENG'
       zlabel    = lcl_txt=>en( iv_code = 'COD_1_4_CHB3' iv_fb = 'Electrical Engineer' )
       zlabel_ar = lcl_txt=>ar( iv_code = 'COD_1_4_CHB3' iv_fb = 'مهندس كهربائي' ) )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 60
-      field_name = 'SI3' ftype = 'STEPPER' hidden = 'X'
+      field_name = 'SI3' ftype = 'STEPPER' hidden = 'X' tech_name = 'ELECTRICALENG_INPUT'
       min_val = '0' max_val = '99'
       zlabel = 'Minimum drawings to be uploaded'
       zlabel_ar = 'الحد الأدنى للمخططات المطلوب رفعها' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 70
-      field_name = 'CB4' ftype = 'CHECKBOX'
+      field_name = 'CB4' ftype = 'CHECKBOX' tech_name = 'MECHANICALENG'
       zlabel    = lcl_txt=>en( iv_code = 'COD_1_4_CHB4' iv_fb = 'Mechanical Engineer' )
       zlabel_ar = lcl_txt=>ar( iv_code = 'COD_1_4_CHB4' iv_fb = 'مهندس ميكانيكي' ) )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 80
-      field_name = 'SI4' ftype = 'STEPPER' hidden = 'X'
+      field_name = 'SI4' ftype = 'STEPPER' hidden = 'X' tech_name = 'MECHANICALENG_INPUT'
       min_val = '0' max_val = '99'
       zlabel = 'Minimum drawings to be uploaded'
       zlabel_ar = 'الحد الأدنى للمخططات المطلوب رفعها' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 90
-      field_name = 'CB5' ftype = 'CHECKBOX'
+      field_name = 'CB5' ftype = 'CHECKBOX' tech_name = 'ETISALAT'
       zlabel    = lcl_txt=>en( iv_code = 'COD_1_4_CHB5' iv_fb = 'COD_1_4_CHB5' )
       zlabel_ar = lcl_txt=>ar( iv_code = 'COD_1_4_CHB5' iv_fb = 'COD_1_4_CHB5' ) )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 100
-      field_name = 'SI5' ftype = 'STEPPER' hidden = 'X'
+      field_name = 'SI5' ftype = 'STEPPER' hidden = 'X' tech_name = 'ETISALAT_INPUT'
       min_val = '0' max_val = '99'
       zlabel = 'Minimum drawings to be uploaded'
       zlabel_ar = 'الحد الأدنى للمخططات المطلوب رفعها' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 110
-      field_name = 'CB6' ftype = 'CHECKBOX'
+      field_name = 'CB6' ftype = 'CHECKBOX' tech_name = 'RAKWA'
       zlabel    = lcl_txt=>en( iv_code = 'COD_1_4_CHB6' iv_fb = 'COD_1_4_CHB6' )
       zlabel_ar = lcl_txt=>ar( iv_code = 'COD_1_4_CHB6' iv_fb = 'COD_1_4_CHB6' ) )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 120
-      field_name = 'SI6' ftype = 'STEPPER' hidden = 'X'
+      field_name = 'SI6' ftype = 'STEPPER' hidden = 'X' tech_name = 'RAKWA_INPUT'
       min_val = '0' max_val = '99'
       zlabel = 'Minimum drawings to be uploaded'
       zlabel_ar = 'الحد الأدنى للمخططات المطلوب رفعها' ) ) ).
