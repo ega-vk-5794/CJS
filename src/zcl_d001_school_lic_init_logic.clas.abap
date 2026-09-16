@@ -1141,6 +1141,28 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     DATA(lo_dlg) = io_popup->dialog( title = 'Owner' contentwidth = '54rem' ).
     DATA(lo_c)   = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
 
+*   THE MESSAGES, INSIDE THE DIALOG THAT RAISED THEM.
+*   ZCL_RAK_JOURNEY_RENDER draws MT_MSG on the PAGE and RENDER_POPUP( ) runs
+*   after it, so every warning this popup's own OK handler raises - "Kindly
+*   enter shares as 100", "Kindly fill required details", the Emirates ID
+*   format refusal - was drawn behind a MODAL dialog. Correctly placed and
+*   unreadable: from the citizen's side the Add button simply stops working.
+*
+*   DIALOG_FORM( ) already solved this for every popup built through it, and
+*   its note records the same thing reported three times over. This dialog is
+*   hand-built - the comment below says why, and the DIALOG_FORM( ) call
+*   beside the live one is commented out - so it never inherited the fix.
+*
+*   Before the content so it reads first, and only when there is something to
+*   say: an empty loop adds no markup, so a dialog opening clean is unchanged.
+    LOOP AT io_ctx->msgs( ) INTO DATA(ls_pmsg).
+      lo_c->message_strip( text     = ls_pmsg-text
+                           type     = COND string( WHEN ls_pmsg-type IS NOT INITIAL
+                                                   THEN ls_pmsg-type ELSE 'Information' )
+                           showicon = abap_true
+                           class    = 'sapUiTinyMarginBottom' ).
+    ENDLOOP.
+
     lo_c->title( text = 'Owner Details' class = 'rakBlkTitle' ).
 
 *   Same two-column SimpleForm/ResponsiveGridLayout combination DIALOG_FORM( )
