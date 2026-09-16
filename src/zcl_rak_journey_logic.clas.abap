@@ -861,7 +861,7 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
         `updates by itself.</div>` &&
         `<div style="margin-top:1.1rem;display:inline-flex;gap:1.6rem;align-items:baseline;` &&
         `font-family:monospace;font-size:.85rem;opacity:.6;">` &&
-        `<span>AED ` && zcl_rak_journey_util=>esc( |{ iv_total NUMBER = USER }| ) && `</span>` &&
+        `<span>AED ` && zcl_rak_journey_util=>esc( |{ iv_total NUMBER = RAW }| ) && `</span>` &&
         `<span>` && lv_el && `</span></div></div>`.
       REPLACE ALL OCCURRENCES OF `{` IN lv_w WITH `\{`.
       REPLACE ALL OCCURRENCES OF `}` IN lv_w WITH `\}`.
@@ -955,11 +955,24 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
                                                  iv_default = `Description` ) ).
     lo_cols->column( halign = 'End' )->text( zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-amount_aed
                                                                 iv_default = `Amount (AED)` ) ).
+*   ---- NUMBER = RAW, NOT USER, AND THIS IS A REAL DEFECT ----------------
+*   NUMBER = USER formats with the DIALOG USER'S decimal notation out of their
+*   SU3 master. On a citizen-facing payment page there is no citizen user: the
+*   whole portal runs under one technical account, so every citizen sees
+*   whatever separator that one account happens to be set to - and it is
+*   currently set to comma, which is why the fee reads "20,00" where the legacy
+*   page reads "20.00". Nobody can fix it from the outside and nothing on the
+*   screen says where it came from.
+*
+*   RAW is a period decimal, always, independent of any user master. That
+*   matches the legacy page character for character, and on an amount somebody
+*   is about to be charged, a separator that moves with a setting nobody on the
+*   citizen's side controls is worse than one that never moves at all.
     DATA(lo_items) = lo_tab->items( ).
     LOOP AT it_fee INTO DATA(ls_fee).
       lo_items->column_list_item( )->cells(
         )->text( ls_fee-desc
-        )->text( |{ ls_fee-amount NUMBER = USER }| ).
+        )->text( |{ ls_fee-amount NUMBER = RAW }| ).
     ENDLOOP.
 
     DATA(lo_tot) = lo_card->hbox( justifycontent = 'End'
@@ -967,7 +980,7 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
                                   class          = 'sapUiSmallMarginTop' ).
     lo_tot->label( zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-total
                                       iv_default = `Total` ) ).
-    lo_tot->object_number( number     = |{ iv_total NUMBER = USER }|
+    lo_tot->object_number( number     = |{ iv_total NUMBER = RAW }|
                            numberunit = 'AED'
                            emphasized = abap_true
                            class      = 'sapUiSmallMarginBegin' ).
