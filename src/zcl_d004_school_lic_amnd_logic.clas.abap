@@ -989,6 +989,31 @@ super->zif_rak_journey_logic~on_render_popup(
     ENDIF.
 
     io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
+
+*   ---- THE FILES FOLLOW THE OWNER TO THEIR REAL KEY -------------------
+*   Same defect as D001 and the same fix. OWN_NEW( ) mints a TIMESTAMP into
+*   C_OWN_ID and the four uploaders stage their files under it; this method
+*   and OWN_EDIT( ) both identify a row by its NAME. A timestamp is not a
+*   name, so re-opening an owner asked for files under a key nothing was
+*   stored under and the chips came back empty - while the files themselves
+*   sat in staging, posted correctly, and satisfied the required check.
+*
+*   It reads as "only the newest owner loses them" because RENDER_CHIPS( )
+*   also draws the backend's filed list: an owner posted on an earlier round
+*   trip gets their documents back from there regardless of the local key.
+*
+*   MATCHED ON NAME HERE, not ROW_KEY_OF( ) - D004 has no PARTNER column
+*   (OWNERS_SEARCH is the five-column packed spec, see the note above) and
+*   NAME is what both the loop above and OWN_EDIT( ) compare. Using a
+*   different key here than the one Edit searches by would move the files
+*   somewhere nothing looks.
+    DATA(lv_final_key) = zcl_rak_journey_util=>cell_of( it_cols = ls_g-columns
+                                                        it_row  = lt_new_row
+                                                        iv_name = 'NAME' ).
+    IF lv_final_key IS NOT INITIAL.
+      io_ctx->rekey_attachments( iv_from = lv_id
+                                 iv_to   = lv_final_key ).
+    ENDIF.
   ENDMETHOD.
 
 

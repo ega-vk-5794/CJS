@@ -553,6 +553,32 @@ INTERFACE zif_rak_journey
               iv_field TYPE string
               iv_key   TYPE string OPTIONAL.
 
+  " Move every file staged under one key to another, for one field or for all
+  " of them. Answers how many rows moved, so a caller can tell "nothing to do"
+  " from "did not match".
+  "
+  " WHY THIS HAS TO EXIST. The note above says to key an uploader on something
+  " stable, and a dialog that adds a NEW subject has nothing stable yet - the
+  " partner number arrives from a search that may not have run, and the row it
+  " will live in does not exist. So a dialog mints a temporary id, keys its
+  " uploads on that, and only learns the real key when the row is saved.
+  "
+  " Without this, those two keys never meet again: the files sit in staging
+  " under the temporary id while every later read asks for the real one. They
+  " still post, and they still satisfy a required check that tests the field
+  " alone - so nothing fails, the chips are simply empty, and the citizen
+  " attaches the document a second time. D001's owner dialog is exactly that
+  " shape: it mints a TIMESTAMP on Add and looks the row up by PARTNER on
+  " Edit.
+  "
+  " Call it once, where the real key becomes known - the save - and not on
+  " every render.
+  METHODS rekey_attachments
+    IMPORTING iv_from        TYPE string
+              iv_to          TYPE string
+              iv_field       TYPE string OPTIONAL
+    RETURNING VALUE(rv_moved) TYPE i.
+
   METHODS get_attachment_files
     RETURNING VALUE(rt) TYPE /qnv/sbuild_attachments_tt.
 

@@ -4510,6 +4510,40 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_rak_journey~rekey_attachments.
+
+*   A NO-OP WHEN THERE IS NOTHING TO MOVE, and deliberately silent about it.
+*   A dialog calls this on every save, including saves where the key never
+*   changed - an Edit of an existing row - so "moved nothing" is the normal
+*   case and not worth a message.
+    IF iv_from IS INITIAL OR iv_to IS INITIAL OR iv_from = iv_to.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_fld) = to_upper( iv_field ).
+
+    LOOP AT mt_attach ASSIGNING FIELD-SYMBOL(<ls_rk>) WHERE okey = iv_from.
+*     IV_FIELD NARROWS, BLANK MEANS ALL. A dialog with six uploaders keyed on
+*     one subject moves all six with one call; a caller that wants only one
+*     of them names it.
+      IF lv_fld IS NOT INITIAL AND <ls_rk>-field <> lv_fld.
+        CONTINUE.
+      ENDIF.
+      <ls_rk>-okey = iv_to.
+      rv_moved = rv_moved + 1.
+    ENDLOOP.
+
+*   THE STORE IS NOT TOUCHED. OKEY is how CJS groups staged files while they
+*   wait; the file itself lives in ZRAK_CJ_ATTX under its own guid and the
+*   guid does not change. So this is a relabel, not a move, and nothing has
+*   to be re-uploaded or re-read.
+    IF rv_moved > 0.
+      trace( |ATTACH  re-keyed { rv_moved } file(s) from { iv_from } to { iv_to }| &&
+             COND string( WHEN lv_fld IS NOT INITIAL THEN | on { lv_fld }| ) ).
+    ENDIF.
+  ENDMETHOD.
+
+
   METHOD zif_rak_journey~get_attachment_files.
     rt = mo_be->attachments_for_backend( ).
   ENDMETHOD.

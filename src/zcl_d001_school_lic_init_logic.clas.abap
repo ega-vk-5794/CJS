@@ -1032,6 +1032,37 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
     io_ctx->set_grid_data( iv_field = c_grid is_data = ls_new ).
 
+*   ---- THE FILES FOLLOW THE OWNER TO THEIR REAL KEY -------------------
+*   THE TWO KEYS NEVER MET. OWN_NEW( ) mints a TIMESTAMP into C_OWN_ID and
+*   every uploader in the dialog stages its files under it. OWN_EDIT( ) sets
+*   C_OWN_ID from ROW_KEY_OF( ), which returns the PARTNER - or the NAME when
+*   there is no partner column. A timestamp is neither, so re-opening an owner
+*   asked for files under a key nothing was ever stored under, and the chips
+*   came back empty.
+*
+*   THE FILES WERE NEVER LOST, which is what made it hard to see: they stayed
+*   in staging, posted correctly, and satisfied a required check that tests
+*   the field. Only the chips were missing - so the citizen attached the same
+*   document again.
+*
+*   AND IT LOOKED LIKE IT ONLY AFFECTED THE NEWEST OWNER, because
+*   RENDER_CHIPS( ) also draws the BACKEND's filed list. An owner posted on an
+*   earlier round trip gets their documents back from there whatever the local
+*   key says; the one added since has only the staged copy, so it is the only
+*   one where the broken key shows.
+*
+*   RE-KEYED HERE, AT THE SAVE, because this is the first moment both values
+*   are known - LV_ID is what the files were staged under, and ROW_KEY_OF( )
+*   on the row just built is what every later read will ask for. Field left
+*   blank so all six uploaders move together.
+*
+*   AN EDIT MOVES NOTHING. The two keys are already equal there, and
+*   REKEY_ATTACHMENTS( ) returns without touching anything when they match.
+    DATA(lv_final_key) = row_key_of( it_cols = ls_g-columns it_row = lt_row ).
+    IF lv_final_key IS NOT INITIAL.
+      io_ctx->rekey_attachments( iv_from = lv_id
+                                 iv_to   = lv_final_key ).
+    ENDIF.
 
   ENDMETHOD.
 
