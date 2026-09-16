@@ -4426,7 +4426,12 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *     does nothing at all - silently, which is the same failure mode as the two
 *     scroll attempts before this. The hint is the last visible thing an
 *     uploader draws, so landing on it brings the whole control into view.
-      io_box->text( text = |{ lv_hint } · up to { lv_mb } MB| class = |rakAttHint{ lv_jump }| ).
+      io_box->text(
+        text  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-att_hint
+                                   iv_v1      = lv_hint
+                                   iv_v2      = |{ lv_mb }|
+                                   iv_default = |{ lv_hint } · up to { lv_mb } MB| )
+        class = |rakAttHint{ lv_jump }| ).
     ENDIF.
 
 *   ---- SECOND CHANNEL: THE DIALOG'S OWN DOM --------------------------------

@@ -251,7 +251,14 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       WHEN 'BUILDINGS'.
         " Column order matches the export's LEVEL_CON='T' children of
         " BUILDINGS: BLOCK_NAME_1, FLOORS_CNT_1, ROOMS_CNT_1.
-        rs_data-columns = VALUE #( ( `Block Name` ) ( `No. of floors` ) ( `No. of rooms` ) ).
+*       NOT LITERALS. RS_DATA-COLUMNS is a plain string table with no _AR
+*       twin, so a literal header shows English to an Arabic reader while
+*       every configured label beside it turns over - which is exactly how
+*       this was spotted on the Academic Details step.
+        rs_data-columns = VALUE #(
+          ( zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-col_block_name iv_default = `Block Name` ) )
+          ( zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-col_floors     iv_default = `No. of floors` ) )
+          ( zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-col_rooms      iv_default = `No. of rooms` ) ) ).
 
 *       DATA(lt_bldg_rows) = io_ctx->get_val( 'BUILDINGS' ).   " REVIEW: retrieval API unconfirmed
         " ... deserialize lt_bldg_rows into rs_table-rows here ...
@@ -474,11 +481,20 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
         DATA lv_miss TYPE abap_bool.
         CLEAR lv_miss.
 
+*       THE DOCUMENT NAME TRAVELS INTO THE MESSAGE AS &1, so a literal here
+*       reaches the citizen through an otherwise translated sentence - the
+*       Arabic run said "يرجى إرفاق Criminal Clearance certificate." These
+*       are the SAME four entries the uploader labels in the dialog use, so
+*       the message and the label the citizen is hunting for cannot drift.
         DATA(lt_req_doc) = VALUE zif_rak_journey=>tt_kv(
-          ( key = '60' value = 'Emirates ID Copy' )
-          ( key = 'FE'    value = 'Introductory Statement' )
-          ( key = '6P'   value = 'Criminal Clearance certificate' )
-          ( key = 'FF'    value = 'Curriculum Vitae' ) ).
+          ( key = '60' value = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_doc_eid
+                                     iv_default = 'Emirates ID Copy' ) )
+          ( key = 'FE' value = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_doc_intro
+                                     iv_default = 'Introductory Statement' ) )
+          ( key = '6P' value = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_doc_criminal
+                                     iv_default = 'Criminal Clearance certificate' ) )
+          ( key = 'FF' value = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_doc_cv
+                                     iv_default = 'Curriculum Vitae' ) ) ).
 
         LOOP AT lt_req_doc INTO DATA(ls_req_doc).
           DATA(lv_want_id1) = COND string(

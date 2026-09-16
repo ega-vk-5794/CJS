@@ -886,7 +886,17 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     IF lv_chrome = abap_true.
       DATA(lo_bar) = lo_box->hbox( justifycontent = 'End' alignitems = 'Center' ).
       lo_bar->button(
-        text  = COND #( WHEN is_field-attach_label IS NOT INITIAL THEN is_field-attach_label ELSE |Add { is_field-label }| )
+*       COND STRING AND NOT COND #. The two branches are no longer the same
+*       type - ATTACH_LABEL is a DDIC character field and GET( ) returns a
+*       STRING - and # infers from the operands, so the inference is exactly
+*       the thing that has stopped being obvious. Naming the type is one word
+*       against an activation error in the class every grid on every journey
+*       draws through.
+        text  = COND string( WHEN is_field-attach_label IS NOT INITIAL
+                             THEN is_field-attach_label
+                             ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-grid_add
+                                                     iv_v1      = CONV string( is_field-label )
+                                                     iv_default = |Add { is_field-label }| ) )
         icon  = 'sap-icon://add'
         type  = 'Emphasized'
         press = mo_e->mo_client->_event( |GRIDADD_{ is_field-name }| ) ).

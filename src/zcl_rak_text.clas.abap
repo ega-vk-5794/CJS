@@ -355,6 +355,26 @@ CLASS zcl_rak_text DEFINITION
         d012_need_grade     TYPE symsgno VALUE '178',
         d012_end_after      TYPE symsgno VALUE '179',
         d012_end_before     TYPE symsgno VALUE '180',
+*       ---- FRAMEWORK, NOT D-FAMILY, AND FOUND FROM A D001 SCREENSHOT ----
+*       Two literals sat in the engine itself, so they showed English on
+*       EVERY journey in Arabic, not only these four. Both are caught here
+*       rather than worked around per journey.
+*
+*       ATT_HINT is RENDER_UPLOADER( )'s size line. &1 is the extension
+*       list (PDF, JPG, PNG - not translated, they are file formats) and
+*       &2 the megabyte figure; only the words around them were English.
+        att_hint            TYPE symsgno VALUE '181',
+*       GRID_ADD is the Add button over a grid. &1 is the grid's own LABEL,
+*       which is ALREADY bilingual from ZLABEL_AR - so the button read
+*       "<Arabic label> Add", half translated, which is the tell that the
+*       verb and not the noun was the literal.
+        grid_add            TYPE symsgno VALUE '182',
+*       ---- D001's BUILDINGS grid headers ----
+*       Hard-coded in GET_TABLE( ) as RS_DATA-COLUMNS, which is a plain
+*       string table with no _AR twin - the shape ~28 handlers share.
+        col_block_name      TYPE symsgno VALUE '183',
+        col_floors          TYPE symsgno VALUE '184',
+        col_rooms           TYPE symsgno VALUE '185',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -816,7 +836,21 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
         ar = `يجب أن ينتهي النشاط بعد وقت بدايته.` )
       ( msgno = c_no-d012_end_before
         en = `The activity end date cannot be before the start date.`
-        ar = `لا يمكن أن يكون تاريخ انتهاء النشاط قبل تاريخ بدايته.` ) ).
+        ar = `لا يمكن أن يكون تاريخ انتهاء النشاط قبل تاريخ بدايته.` )
+*     FRAMEWORK. &1 is the extension list and stays untranslated - PDF and
+*     JPG are file formats, not words.
+      ( msgno = c_no-att_hint
+        en = `&1 · up to &2 MB`
+        ar = `&1 · حتى &2 ميجابايت` )
+*     &1 is the grid's own label, already bilingual from ZLABEL_AR.
+      ( msgno = c_no-grid_add
+        en = `Add &1`
+        ar = `إضافة &1` )
+*     D001's BUILDINGS grid. "Block" is the campus building block - worth
+*     confirming against the department's own word, which may be كتلة.
+      ( msgno = c_no-col_block_name en = `Block Name`    ar = `اسم المبنى` )
+      ( msgno = c_no-col_floors     en = `No. of floors` ar = `عدد الطوابق` )
+      ( msgno = c_no-col_rooms      en = `No. of rooms`  ar = `عدد الغرف` ) ).
   ENDMETHOD.
 
 
