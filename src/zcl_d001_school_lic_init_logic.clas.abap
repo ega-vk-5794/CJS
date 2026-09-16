@@ -252,9 +252,22 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
         " Column order matches the export's LEVEL_CON='T' children of
         " BUILDINGS: BLOCK_NAME_1, FLOORS_CNT_1, ROOMS_CNT_1.
 *       NOT LITERALS. RS_DATA-COLUMNS is a plain string table with no _AR
-*       twin, so a literal header shows English to an Arabic reader while
-*       every configured label beside it turns over - which is exactly how
-*       this was spotted on the Academic Details step.
+*       twin, so a literal header shows English to an Arabic reader.
+*
+*       THIS IS NOT WHAT DRAWS THE BUILDINGS HEADINGS ON SCREEN, and the
+*       distinction cost a round. BUILDINGS renders as a GRID, and
+*       ZCL_RAK_JOURNEY_GRID->GRID_COLS( ) takes its headings from
+*       ZRAK_T_JNY_COL-ZLABEL/ZLABEL_AR, or from the packed DEFAULT_VAL spec
+*       when no column rows exist - it never calls GET_TABLE( ). The only
+*       callers of GET_TABLE( ) are the four TABLE branches in
+*       ZCL_RAK_JOURNEY_RENDER. So an Arabic BUILDINGS heading is CONFIG:
+*       fill ZLABEL_AR on the three ZRAK_T_JNY_COL rows (Studio column
+*       editor, "Label (AR)"), or add the fifth spec slot
+*       name:label:type:src:label_ar in DEFAULT_VAL.
+*
+*       Kept anyway, and only because it is correct for the path it is on:
+*       if BUILDINGS is ever configured as a TABLE this branch becomes live
+*       and would otherwise reintroduce three English literals.
         rs_data-columns = VALUE #(
           ( zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-col_block_name iv_default = `Block Name` ) )
           ( zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-col_floors     iv_default = `No. of floors` ) )
