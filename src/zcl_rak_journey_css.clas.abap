@@ -693,7 +693,7 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     card's rhythm plus a Select button on its own row under a divider,
 *     which made a 200px card out of 80px of content and turned six of them
 *     into a scroll.
-        |.rakPrjCard\{gap:.25rem;padding-block:.55rem;\}| &&
+        |.rakPrjCard\{gap:.1rem;padding-block:.4rem;\}| &&
 *     THE NUMBER IS THE ACTION. sap.m.CustomListItem takes no PRESS through
 *     the z2ui5 wrapper, so a whole-card click is not available; a Link on
 *     the project number is the nearest affordance and is what the live card
@@ -705,13 +705,26 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     .rakPclBadge, which is the parcel card's acquisition-type pill - a
 *     coloured lozenge with padding, right for one short word and wrong for
 *     two stacked figures. Only its margin-inline-start:auto was wanted.
+*     TOP-ALIGNED, overriding .rakPclTop's align-items:center. The counts
+*     block is two lines tall and the number is one, so centring made the
+*     whole row as tall as the block and floated the number in the middle
+*     of it - half the card's excess height was this one inherited rule.
+        |.rakPrjCard .rakPclTop\{align-items:flex-start;\}| &&
         |.rakPrjNums\{margin-inline-start:auto;gap:1.4rem;\}| &&
         |.rakPrjNum\{align-items:flex-end;gap:.1rem;\}| &&
         |.rakPrjFig\{font-size:1rem;font-weight:600;\}| &&
 *     Row two carries the meta line and the quiet action on ONE line, which
 *     is where the height saving comes from.
-        |.rakPrjBot\{width:100%;gap:.6rem;\}| &&
-        |.rakPrjBtn\{margin-inline-start:auto;\}| &&
+*
+*     SPACE-BETWEEN, NOT AN AUTO MARGIN ON THE BUTTON. The first version put
+*     margin-inline-start:auto on .rakPrjBtn and the button stayed welded to
+*     the end of the meta text instead of moving to the card edge. The class
+*     lands on sap.m.Button's own root element, and UI5's .sapMBtn margin
+*     rule has the same specificity and comes later in the cascade, so it
+*     wins. Two children and space-between needs no margin at all and cannot
+*     be overridden that way.
+        |.rakPrjBot\{width:100%;gap:.6rem;justify-content:space-between;\}| &&
+        |.rakPrjBot .sapMBtn\{margin:0;\}| &&
 *     The chosen card says so itself. With 207 of them the strip above the
 *     list is the primary answer, but a reader scrolling back should not
 *     have to look up to see which one they picked.
