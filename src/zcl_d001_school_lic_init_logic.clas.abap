@@ -925,12 +925,43 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *   the caret at the right edge and keeps digits and punctuation in the
 *   school's name on the correct side of it. That is the half that is about
 *   the data rather than the layout.
+*   ---- AND THE SIX NAME CELLS TAKE HALF THE ROW EACH --------------------
+*   THE COLUMN COUNT IS A STEP SETTING, NOT A ROW ONE. RENDER_BLOCK( ) reads
+*   IS_STEP-COLUMNS once and puts rakRowC3 on EVERY row of the step, so each
+*   cell is a third of the row - which is right for Curriculum Type /
+*   Curriculum / Location below, and leaves the name rows filling two slots
+*   of three with an empty third. That is the short right edge: the pair
+*   stops where the second column ends instead of where the third does.
+*
+*   It cannot be fixed by the step setting, because changing COLUMNS to 2
+*   would take the three dropdown rows down to two as well.
+*
+*   .RAKROW> AND NOT .RAKROWC3>, deliberately. Two classes beat rakRowC3>*'s
+*   one, so no !important is needed, and rakRow is on the row whatever the
+*   step's column count happens to be - so this keeps working if somebody
+*   later makes the step 2 or 4 wide.
+*
+*   The .75rem is rakRow's own gap, subtracted once because these rows have
+*   two cells and therefore one gap between them.
+*
+*   FLEX ONLY, NO MAX-WIDTH, and that is not tidiness. The phone rule is
+*   @media (max-width:700px) .rakRowEq>* {flex:1 1 100%!important} - it wins
+*   on !important however specific this is, but it only overrides FLEX. A
+*   max-width beside it would survive the media query and cap these six cells
+*   at half a phone screen, with nothing in the rule that fires on a phone
+*   saying so. The rakRowCn rules this copies set flex alone for the same
+*   reason, and flex-grow 0 / shrink 0 / basis 50% already pins the width.
+    DATA(lv_half) = `flex:0 0 calc((100% - .75rem)/2);`.
     DATA(lv_rtl) =
       `<style>.rakCSCHOOLNAMEAR1,.rakCSCHOOLNAMEAR2,.rakCSCHOOLNAMEAR3` &&
       `{text-align:right;}` &&
       `.rakFSCHOOLNAMEAR1 input,.rakFSCHOOLNAMEAR2 input,` &&
       `.rakFSCHOOLNAMEAR3 input` &&
-      `{direction:rtl;text-align:right;}</style>`.
+      `{direction:rtl;text-align:right;}` &&
+      `.rakRow>.rakCSCHOOLNAMEEN1,.rakRow>.rakCSCHOOLNAMEAR1,` &&
+      `.rakRow>.rakCSCHOOLNAMEEN2,.rakRow>.rakCSCHOOLNAMEAR2,` &&
+      `.rakRow>.rakCSCHOOLNAMEEN3,.rakRow>.rakCSCHOOLNAMEAR3` &&
+      `{` && lv_half && `}</style>`.
     REPLACE ALL OCCURRENCES OF `{` IN lv_rtl WITH `\{`.
     REPLACE ALL OCCURRENCES OF `}` IN lv_rtl WITH `\}`.
     io_view->html( content = lv_rtl sanitizecontent = abap_false ).
