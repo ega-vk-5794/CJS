@@ -506,6 +506,25 @@ CLASS lcl_app IMPLEMENTATION.
           CONTINUE.
         ENDIF.
 
+*       NOAR NEVER REACHES THE BACKFILL OR THE GAP FILE. ATTACH_LABEL and
+*       DESCR are visible on screen and have NO _AR column in
+*       ZRAK_T_JNY_FLD, so their Arabic side is permanently blank - which
+*       means they look exactly like a gap to both tests above and are
+*       neither.
+*
+*       Left in, the backfill would look each one up and fail to write it
+*       anywhere, and the GAP FILE - the one handed to a translator as the
+*       real remaining work - would carry rows with nowhere to put the
+*       answer. A translator returning them would see the import accept the
+*       file and change nothing, which is the worst of the three outcomes.
+*
+*       They still appear in the DETAIL run, which is where they belong:
+*       a finding that needs a DDIC column or a TEXT:@nnn indirection,
+*       not a translation.
+        IF ls_t-txt_kind = zcl_rak_cj_text_src_cfg=>c_kind-noar.
+          CONTINUE.
+        ENDIF.
+
 *       OPTION texts come from the VALUE table, everything else from the
 *       LABEL table - the same split LOAD_TEXT_CACHES( ) makes.
 *       NOT EVERY "ENGLISH TEXT" IS A CAPTION, and the ones that are not
