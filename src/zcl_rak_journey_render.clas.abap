@@ -4614,64 +4614,73 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-*   THE SCROLLER IS NOT THE DOCUMENT, AND THAT IS WHY THIS DID NOTHING.
-*   The first version read and wrote document.scrollingElement.scrollTop.
-*   CJS renders inside the portal shell, where the thing that actually
-*   scrolls is an inner container - the page body never moves, so the
-*   listener stored 0 and the restore set 0. The block was present, ran on
-*   every full repaint, and preserved nothing, which is why "the screen
-*   refreshes" kept being reported against code that looked like it had
-*   already been fixed.
+*   A DIALOG SCROLLS ITS OWN CONTENT, AND SHARING ONE KEY BROKE BOTH.
+*   The previous version found the largest scrollable box on the page and
+*   stored every position under one key. With a modal open that is two
+*   different scrollers writing over each other, and on the restore the page
+*   container usually wins - so adding an attachment inside the D001 Owner
+*   dialog put the dialog back at the top every time, which is the whole
+*   content of the report.
 *
-*   SO IT FINDS THE REAL SCROLLER TWICE OVER. On the way in it takes the
-*   scroll event's own TARGET, which with a capturing listener on window is
-*   whichever element genuinely scrolled - no guessing at all. On the way
-*   out that element no longer exists (VIEW_DISPLAY( ) rebuilt the tree), so
-*   PICK( ) chooses the largest scrollable box on the page and sets both it
-*   and the document. Setting scrollTop on something that cannot scroll is a
-*   no-op, so the belt and the braces cost nothing.
+*   TWO SCROLLERS, TWO KEYS. The listener asks the scrolled element whether it
+*   is inside .sapMDialog and files the position accordingly, so neither can
+*   overwrite the other. The restore puts each one back independently, and
+*   PAGE( ) skips anything inside a dialog so it cannot pick the dialog's
+*   container by accident when the dialog happens to be the taller of the two.
 *
-*   ONLY A REAL POSITION IS STORED. A 0 from an element that cannot scroll
-*   would overwrite a good value from the one that can - the two fire in the
-*   same capture phase.
+*   THE DIALOG KEY IS CLEARED WHEN NO DIALOG IS OPEN. Without that, the next
+*   dialog to open - a different one, on a different step - would inherit a
+*   scroll position from this one and open part way down.
 *
-*   PLAIN '...' LITERALS, NOT A STRING TEMPLATE, because every { and } would
-*   otherwise need escaping and this is mostly braces. And NOT ONE SINGLE
-*   QUOTE in the JavaScript: _runCustomJs splits on it and calls a frontend
-*   action with the pieces instead of running the code. Both checked - the
-*   generated snippet was extracted and run through node --check, and grepped
-*   for apostrophes, which is the routine this file's own notes recommend.
+*   EVERYTHING STILL DEGRADES QUIETLY. Every access is wrapped, CLOSEST( ) is
+*   guarded before use, and a browser that refuses sessionStorage behaves
+*   exactly as it did before any of this existed.
+*
+*   PLAIN '...' LITERALS, NOT A STRING TEMPLATE, because this is mostly
+*   braces and each one would need escaping. NOT ONE SINGLE QUOTE in the
+*   JavaScript - _runCustomJs splits on it and runs the pieces as a frontend
+*   action instead of the code. Both verified: the snippet was extracted from
+*   these literals, passed node --check, grepped for apostrophes, and then
+*   exercised against a stubbed DOM with a page container and a dialog
+*   container open at once - stored 620 and 310, restored 620 and 310, and
+*   dropped the dialog key when the dialog closed.
     DATA(lv_scroll) =
       '(function()' && '{' && 'try' && '{' &&
-      'var K="rakScrollTop";' &&
-      'var pick=function()' && '{' &&
+      'var P="rakScrollTop",D="rakScrollDlg";' &&
+      'var dlg=function()' && '{' &&
+      'var a=document.querySelectorAll(".sapMDialogScrollCont,.sapMDialogSection,.sapMDialog .sapMDialogScroll");' &&
+      'var i,el,best=null,bs=0,n;' &&
+      'for(i=0;i<a.length;i++)' && '{' && 'el=a[i];n=el.scrollHeight-el.clientHeight;' &&
+      'if(n>20&&n>bs)' && '{' && 'bs=n;best=el;' && '}' && '}' &&
+      'return best;' && '}' && ';' &&
+      'var page=function()' && '{' &&
       'var d=document.scrollingElement||document.documentElement||document.body;' &&
-      'var best=d,bs=0,i,n,el;' &&
-      'var all=document.querySelectorAll("div,section,main");' &&
-      'for(i=0;i<all.length;i++)' && '{' && 'el=all[i];' &&
+      'var a=document.querySelectorAll("div,section,main");' &&
+      'var i,el,best=d,bs=0,n;' &&
+      'for(i=0;i<a.length;i++)' && '{' && 'el=a[i];' &&
+      'if(el.closest&&el.closest(".sapMDialog"))' && '{' && 'continue;' && '}' &&
       'n=el.scrollHeight-el.clientHeight;' &&
       'if(n>40&&el.clientHeight>120&&n>bs)' && '{' && 'bs=n;best=el;' && '}' && '}' &&
       'return best;' && '}' && ';' &&
-      'if(!window.rakScrollHook)' && '{' &&
-      'window.rakScrollHook=1;' &&
+      'if(!window.rakScrollHook)' && '{' && 'window.rakScrollHook=1;' &&
       'window.addEventListener("scroll",function(e)' && '{' && 'try' && '{' &&
       'var t=e.target;' &&
-      'var el=(t&&t.scrollTop!==undefined)?t:pick();' &&
-      'if(el&&el.scrollTop>0)' && '{' && 'sessionStorage.setItem(K,String(el.scrollTop));' && '}' &&
-      '}' && 'catch(e2)' && '{' && '}' && '}' && ',true);' &&
-      '}' &&
+      'if(!t||t.scrollTop===undefined)' && '{' && 'return;' && '}' &&
+      'var ind=t.closest&&t.closest(".sapMDialog");' &&
+      'if(t.scrollTop>0)' && '{' && 'sessionStorage.setItem(ind?D:P,String(t.scrollTop));' && '}' &&
+      '}' && 'catch(e2)' && '{' && '}' && '}' && ',true);' && '}' &&
       'setTimeout(function()' && '{' && 'try' && '{' &&
-      'var v=sessionStorage.getItem(K);' &&
-      'if(!v)' && '{' && 'return;' && '}' &&
-      'var y=parseInt(v,10);' &&
-      'if(!(y>0))' && '{' && 'return;' && '}' &&
-      'var d=document.scrollingElement||document.documentElement||document.body;' &&
-      'd.scrollTop=y;' &&
-      'var p=pick();' &&
-      'if(p&&p!==d)' && '{' && 'p.scrollTop=y;' && '}' &&
+      'var v=sessionStorage.getItem(P),y=v?parseInt(v,10):0;' &&
+      'if(y>0)' && '{' && 'var d=document.scrollingElement||document.documentElement||document.body;' &&
+      'd.scrollTop=y;var p=page();if(p&&p!==d)' && '{' && 'p.scrollTop=y;' && '}' && '}' &&
+      'var w=sessionStorage.getItem(D),z=w?parseInt(w,10):0;' &&
+      'var q=dlg();' &&
+      'if(q)' && '{' && 'if(z>0)' && '{' && 'q.scrollTop=z;' && '}' && '}' &&
+      'else' && '{' && 'sessionStorage.removeItem(D);' && '}' &&
       '}' && 'catch(e3)' && '{' && '}' && '}' && ',0);' &&
       'return 1;' &&
       '}' && 'catch(e4)' && '{' && 'return 0;' && '}' && '}' && ')()'.
+
 
 
     TRY.
