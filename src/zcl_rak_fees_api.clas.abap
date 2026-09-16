@@ -117,6 +117,41 @@ CLASS zcl_rak_fees_api DEFINITION
                 iv_dept   TYPE string OPTIONAL
       RETURNING VALUE(rs) TYPE ty_project_res.
 
+    TYPES: BEGIN OF ty_pay_res,
+*            SUCCESS / OPEN / FAILED exactly as the DPC writes them, or BLANK
+*            when the call could not be made at all. Blank is not a status and
+*            must never be treated as one - it means "ask somebody else", which
+*            is what the caller's fallback is for.
+             status TYPE string,
+             msg    TYPE bapiret2_t,
+           END OF ty_pay_res.
+
+*   PAYMENT STATUS, ASKED OF THE DPC INSTEAD OF REIMPLEMENTED.
+*
+*   ZCL_RAK_PAY_ENGINE->POLL_STATUS( ) is a port of PAYMENTSET_GET_ENTITYSET
+*   and its own header says so. Ports drift, and this one has: the original
+*   handles a PP payment-id short link, a CRM billing document and a
+*   BUS2000116 tenancy contract, none of which CJS knows about - and on ATB it
+*   accepts CLOSED and CONFIRMED with ORDERSTATUS 2 as success, treats READY as
+*   open and DECLINED or EXPIRED as FAILED, where the port tests only for the
+*   literal 'Success' and calls everything else OPEN. So an ATB payment that
+*   closes as CONFIRMED polls forever in CJS, and a declined one never reports
+*   declined.
+*
+*   IT IS SAFE TO CALL OUTSIDE GATEWAY, and that is read off the method rather
+*   than assumed: PAYMENTSET_GET_ENTITYSET never references
+*   IO_TECH_REQUEST_CONTEXT. It takes one filter, Intreno, and nothing else.
+*   That puts it with FeesSet, TrackerSet and ProjectSet in the safe group.
+*
+*   IV_INTRENO TAKES WHATEVER THE CALLER HOLDS. The DPC resolves a case ext_key,
+*   an RE INTRENO, a CRM object id and a PP short link from that one filter, so
+*   the resolution that CJS does before calling is not needed - but passing a
+*   resolved case is harmless, because a case ext_key is one of the four shapes
+*   it already handles.
+    METHODS payment_status
+      IMPORTING iv_intreno TYPE string
+      RETURNING VALUE(rs)  TYPE ty_pay_res.
+
   PROTECTED SECTION.
   PRIVATE SECTION.
 
@@ -275,6 +310,69 @@ CLASS zcl_rak_fees_api IMPLEMENTATION.
                  |— TEST PARTNER, E10 ONLY, NOT THIS USER|.
       ENDIF.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD payment_status.
+
+*   DYNAMIC, AND FOR THE ONE REASON THIS REPOSITORY ALREADY LEARNED THE HARD
+*   WAY. ET_ENTITYSET needs a table of the generated MPC's Payment row type,
+*   and ZCL_ZEGA_CJ_MPC is not in this repository - it exists only in SAP. The
+*   name TT_PAYMENT is an inference from five confirmed siblings (TT_FEES,
+*   TT_TRACKER, TT_PROJECT, TT_PROPERTIES, TT_PARTNER all follow the entity
+*   name), which is a good inference and still a guess.
+*
+*   Written statically, a wrong guess is an ACTIVATION failure - and this class
+*   has callers, so it would surface at each of them as "method unknown",
+*   pointing nowhere near the cause. That is exactly how ZCL_RAK_CJ_REQ_CTX
+*   cost three rounds. Named at RUNTIME instead, a wrong guess is a catchable
+*   CX_SY_CREATE_DATA_ERROR, this method returns blank, and the caller falls
+*   back to the code it has always run.
+    DATA lr_tab TYPE REF TO data.
+    FIELD-SYMBOLS <t> TYPE STANDARD TABLE.
+
+    TRY.
+        CREATE DATA lr_tab TYPE ('ZCL_ZEGA_CJ_MPC=>TT_PAYMENT').
+        ASSIGN lr_tab->* TO <t>.
+        IF <t> IS NOT ASSIGNED.
+          RETURN.
+        ENDIF.
+
+        DATA lt_flt TYPE /iwbep/t_mgw_select_option.
+        filter( EXPORTING iv_property = `Intreno` iv_value = iv_intreno
+                CHANGING  ct_filter   = lt_flt ).
+
+        DATA(lt_parm) = VALUE abap_parmbind_tab(
+          ( name  = 'IV_ENTITY_NAME'
+            kind  = cl_abap_objectdescr=>exporting value = REF #( `Payment` ) )
+          ( name  = 'IV_ENTITY_SET_NAME'
+            kind  = cl_abap_objectdescr=>exporting value = REF #( `PaymentSet` ) )
+          ( name  = 'IT_FILTER_SELECT_OPTIONS'
+            kind  = cl_abap_objectdescr=>exporting value = REF #( lt_flt ) )
+          ( name  = 'ET_ENTITYSET'
+            kind  = cl_abap_objectdescr=>importing value = lr_tab ) ).
+
+*       THE METHOD NAME IS DYNAMIC TOO, so a DPC that does not declare it - an
+*       older release, a different service - degrades the same way rather than
+*       refusing to load this class.
+        CALL METHOD me->('PAYMENTSET_GET_ENTITYSET')
+          PARAMETER-TABLE lt_parm.
+
+*       ONE ROW, ONE COMPONENT. The DPC answers a single-row table whose only
+*       interesting component is STATUS, read by ASSIGN COMPONENT rather than
+*       by naming a component of a structure this environment cannot open.
+        LOOP AT <t> ASSIGNING FIELD-SYMBOL(<r>).
+          ASSIGN COMPONENT 'STATUS' OF STRUCTURE <r> TO FIELD-SYMBOL(<s>).
+          IF sy-subrc = 0.
+            rs-status = to_upper( condense( CONV string( <s> ) ) ).
+          ENDIF.
+          EXIT.
+        ENDLOOP.
+
+      CATCH cx_root INTO DATA(lx).
+        CLEAR rs-status.
+        to_msg( EXPORTING io_exc = lx CHANGING ct_msg = rs-msg ).
+    ENDTRY.
   ENDMETHOD.
 
 
