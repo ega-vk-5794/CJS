@@ -119,6 +119,28 @@ CLASS zcl_rak_fees_api DEFINITION
 
   PROTECTED SECTION.
   PRIVATE SECTION.
+
+*   A TEST PARTNER, FOR E10 ONLY, AND ONLY FOR PROJECTS.
+*   3000018329 is the partner whose ProjectSet answers 207 rows on the live
+*   portal - the number in the walkthrough screenshots. The partner CJS
+*   resolves on E10 owns none, so M028 step 1 had nothing to draw and no way
+*   to tell a broken read from an empty portfolio.
+*
+*   It is used as a FALLBACK by PROJECTS( ), never as an identity. See the
+*   block there for the three conditions that gate it. DELETE THIS CONSTANT
+*   AND THAT BLOCK once the resolved partner owns projects of its own.
+    CONSTANTS c_test_partner TYPE string VALUE '3000018329'.
+
+*   The read itself, with the partner as a parameter rather than taken from
+*   MS_CTX. Extracted for exactly one reason: the fallback has to issue the
+*   same call twice with two different partners, and a second hand-written
+*   copy of a nine-parameter DPC call is how the two drift apart.
+    METHODS read_projects
+      IMPORTING iv_partner TYPE string
+                iv_case    TYPE string OPTIONAL
+                iv_dept    TYPE string OPTIONAL
+      RETURNING VALUE(rs)  TYPE ty_project_res.
+
 ENDCLASS.
 
 
@@ -195,15 +217,76 @@ CLASS zcl_rak_fees_api IMPLEMENTATION.
   ENDMETHOD.
 
 
+
   METHOD projects.
+
+*   THE REAL PARTNER FIRST, ALWAYS. The test partner below is a fallback and
+*   never a replacement - so the moment identity resolves correctly this
+*   method behaves as though the fallback were not there, and nobody has to
+*   remember to take it out before it stops being harmless.
+    rs = read_projects( iv_partner = ms_ctx-partner
+                        iv_case    = iv_case
+                        iv_dept    = iv_dept ).
+
+*   ---- DEV-ONLY TEST PARTNER -----------------------------------------
+*   WHY THIS EXISTS. ProjectSet answers 207 projects for 3000018329 on the
+*   live portal, and the partner CJS resolves on E10 owns none - so step 1
+*   of M028 had nothing to draw and no way to tell a broken read from an
+*   empty portfolio. This makes the step testable while the identity
+*   question is settled separately.
+*
+*   THREE THINGS KEEP IT SAFE, and each is deliberate:
+*
+*   IS_DEV( ) - E10 only. The same gate DEV_MSG( ) and TRACE_OK( ) use. On
+*   E20 and E30 this block does not exist, so no citizen can ever be shown
+*   another partner's projects.
+*
+*   FALLBACK, NOT OVERRIDE - it runs only when the real read came back with
+*   NO ROWS AND NO ERROR. A partner who owns projects sees their own; an
+*   error is left alone, because substituting data on top of a failed read
+*   is how a broken service starts looking healthy.
+*
+*   PROJECTS ONLY - this is not an identity change. MS_CTX-PARTNER is
+*   untouched, so fees, parcels, the tracker and every post still run as
+*   the real citizen. A test partner that leaked into identity would be a
+*   far worse bug than the empty list it fixes.
+*
+*   AND IT SAYS SO. RS-FLT is what the caller prints, and it names the test
+*   partner in capitals - test data that does not announce itself is how a
+*   demo ends up quoted as a real figure.
+*
+*   REMOVE THIS BLOCK AND C_TEST_PARTNER once the partner CJS resolves owns
+*   projects of its own. It is one constant and one IF.
+    IF rs-rows IS INITIAL
+       AND rs-msg IS INITIAL
+       AND ms_ctx-partner <> c_test_partner
+       AND zcl_rak_journey_util=>is_dev( ) = abap_true.
+
+      DATA(ls_test) = read_projects( iv_partner = c_test_partner
+                                     iv_case    = iv_case
+                                     iv_dept    = iv_dept ).
+      IF ls_test-rows IS NOT INITIAL.
+        rs-rows = ls_test-rows.
+*       BOTH HALVES, because the first one is the finding. Overwriting the
+*       real filter with the test one would hide the very thing worth
+*       knowing - that the partner this journey actually resolved owns no
+*       projects - behind a list that now looks healthy.
+        rs-flt = |{ rs-flt } → 0 rows; retried as { ls_test-flt } | &&
+                 |— TEST PARTNER, E10 ONLY, NOT THIS USER|.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD read_projects.
     DATA lt_flt TYPE /iwbep/t_mgw_select_option.
 
 *   PARTNER ONLY, unless the caller named the other two. See the header:
 *   the live screen sends exactly this one and gets the full list.
 *   ProjectSet reads Dept, not Department. Not a typo here.
-    filter( EXPORTING iv_property = `CaseId`  iv_value = iv_case        CHANGING ct_filter = lt_flt ).
-    filter( EXPORTING iv_property = `Dept`    iv_value = iv_dept        CHANGING ct_filter = lt_flt ).
-    filter( EXPORTING iv_property = `Partner` iv_value = ms_ctx-partner CHANGING ct_filter = lt_flt ).
+    filter( EXPORTING iv_property = `CaseId`  iv_value = iv_case    CHANGING ct_filter = lt_flt ).
+    filter( EXPORTING iv_property = `Dept`    iv_value = iv_dept    CHANGING ct_filter = lt_flt ).
+    filter( EXPORTING iv_property = `Partner` iv_value = iv_partner CHANGING ct_filter = lt_flt ).
 
 *   Readable back exactly as the portal writes it, so it can be compared with
 *   a browser URL character for character. Built by appending only the parts
@@ -216,8 +299,8 @@ CLASS zcl_rak_fees_api IMPLEMENTATION.
     IF iv_dept IS NOT INITIAL.
       APPEND |Dept eq '{ iv_dept }'| TO lt_show.
     ENDIF.
-    IF ms_ctx-partner IS NOT INITIAL.
-      APPEND |Partner eq '{ ms_ctx-partner }'| TO lt_show.
+    IF iv_partner IS NOT INITIAL.
+      APPEND |Partner eq '{ iv_partner }'| TO lt_show.
     ELSE.
 *     The one that matters most. No partner means no filter at all went out
 *     on the property the live screen keys on, and "no projects" then says

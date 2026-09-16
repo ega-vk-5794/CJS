@@ -536,6 +536,23 @@ CLASS zcl_rak_cj_opts IMPLEMENTATION.
         ENDIF.
       ENDIF.
     ENDIF.
+
+*   ---- AND WHEN THE LIST IS FULL BUT NOT THIS USER'S -----------------
+*   The block above only speaks when the list came back EMPTY, which is
+*   precisely when the E10 test-partner fallback in ZCL_RAK_FEES_API has
+*   NOT fired. So without this, the one case that most needs saying out
+*   loud - a working list of somebody else's 207 projects - would be the
+*   one case that says nothing at all.
+*
+*   Keyed on the marker the API writes rather than on a partner number
+*   repeated here: the constant lives in one place and this reads whatever
+*   it produced. Still E10 only, and it disappears on its own the day the
+*   fallback stops firing.
+    IF et_opt IS NOT INITIAL
+       AND ls_res-flt CS 'TEST PARTNER'
+       AND zcl_rak_journey_util=>is_dev( ) = abap_true.
+      ev_note = |Showing TEST data - { ls_res-flt }|.
+    ENDIF.
   ENDMETHOD.
 
 
