@@ -4364,6 +4364,25 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     DATA(lv_mb)    = mo_e->att_max_mb( iv_maxmb ).
     DATA(lv_bytes) = lv_mb * 1048576.
 
+*   ---- MARK THE UPLOADER THAT WAS JUST USED --------------------------
+*   RAKJUMP is what the scroll snippet looks for. The engine records the
+*   field an ATTGO_ event named and clears it on the next round trip, so at
+*   most one uploader on the page carries this at a time and only on the
+*   render that immediately follows an attachment.
+*
+*   WHY A MARKER AND NOT A REMEMBERED PIXEL POSITION. Two attempts restored
+*   scrollTop and neither held, for a reason that is structural rather than a
+*   bug: the dialog is torn down and rebuilt, and the "x attached" strip
+*   appears at the TOP of it on exactly that render - so the content is
+*   taller than when the offset was captured and the same number points
+*   somewhere else. SCROLLINTOVIEW asks the browser to find whichever
+*   ancestor scrolls and put this element in the middle of it, which needs no
+*   offset, no guess at a UI5 class name, and works the same in a dialog, on
+*   the page, and in anything either of them is nested in.
+    DATA(lv_jump) = COND string( WHEN mo_e->mv_att_focus IS NOT INITIAL
+                             AND to_upper( mo_e->mv_att_focus ) = to_upper( iv_field )
+                                 THEN ` rakJump` ).
+
     io_box->input( value = mo_e->mo_client->_bind_edit( mo_e->mv_att_name ) class = |rakHide rakAttName_{ lv_f }| ).
     io_box->input( value = mo_e->mo_client->_bind_edit( mo_e->mv_att_b64 )  class = |rakHide rakAttB64_{ lv_f }| ).
     io_box->button( text  = 'go'
@@ -4402,7 +4421,12 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   A popup's uploaders keep their own hint: the strip is on the step behind the
 *   dialog, where the citizen cannot read it.
     IF mv_att_hint_hide = abap_false OR iv_scope IS NOT INITIAL.
-      io_box->text( text = |{ lv_hint } · up to { lv_mb } MB| class = 'rakAttHint' ).
+*     RAKJUMP RIDES THE HINT LINE, not the hidden bridge inputs above it.
+*     Those carry rakHide, so they have no layout box and SCROLLINTOVIEW on one
+*     does nothing at all - silently, which is the same failure mode as the two
+*     scroll attempts before this. The hint is the last visible thing an
+*     uploader draws, so landing on it brings the whole control into view.
+      io_box->text( text = |{ lv_hint } · up to { lv_mb } MB| class = |rakAttHint{ lv_jump }| ).
     ENDIF.
   ENDMETHOD.
 
@@ -4736,6 +4760,40 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           '}' && 'catch(c1)' && '{' && 'return 0;' && '}' && '}' && ')()'.
 
         mo_e->mo_client->follow_up_action( lv_dscroll ).
+
+*       ---- COME BACK TO THE UPLOADER, NOT TO A PIXEL -----------------
+*       Two attempts restored the dialog's scrollTop and neither held. The
+*       reason is structural, not a bug in either: the dialog is torn down and
+*       rebuilt on the round trip that adds a file, and the "x attached" strip
+*       appears at the TOP of it on that same render - so the content is taller
+*       than when the offset was captured and the same number points somewhere
+*       else. Restoring a number was never going to work.
+*
+*       SCROLLINTOVIEW ASKS THE BROWSER INSTEAD. It finds whichever ancestor
+*       scrolls and centres the element in it, so this needs no offset, no
+*       guess at a UI5 class name, and behaves the same in a dialog, on the
+*       page, and in anything either is nested inside. RENDER_UPLOADER( )
+*       stamps rakJump on the hint line of the uploader the engine says was
+*       just used, and MV_ATT_FOCUS is cleared on the next event - so at most
+*       one element carries it, on exactly one render.
+*
+*       0, 120 AND 350ms for the same reason as the dialog restore:
+*       FOLLOW_UP_ACTION( ) fires from the MAIN view's onAfterRendering and
+*       POPUP_DISPLAY( ) draws the dialog afterwards, so a single pass at 0
+*       runs before the element exists. Idempotent, so the extra passes cost
+*       nothing.
+        DATA(lv_jump) =
+          '(function()' && '{' && 'try' && '{' &&
+          'var go=function()' && '{' && 'try' && '{' &&
+          'var j=document.querySelector(".rakJump");' &&
+          'if(!j||!j.scrollIntoView)' && '{' && 'return;' && '}' &&
+          'j.scrollIntoView(' && '{' && 'block:"center",inline:"nearest"' && '}' && ');' &&
+          '}' && 'catch(a)' && '{' && '}' && '}' && ';' &&
+          'setTimeout(go,0);setTimeout(go,120);setTimeout(go,350);' &&
+          'return 1;' &&
+          '}' && 'catch(b)' && '{' && 'return 0;' && '}' && '}' && ')()'.
+
+        mo_e->mo_client->follow_up_action( lv_jump ).
       CATCH cx_root ##NO_HANDLER.
 *       A diagnostic convenience must never be the reason a page fails to
 *       render. If the client cannot take another follow-up action, the

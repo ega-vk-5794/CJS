@@ -150,6 +150,12 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mv_closed      TYPE abap_bool.
     DATA mt_bp_hits     TYPE tt_bp_hit.
     DATA mt_attach      TYPE tt_att.
+*   THE FIELD WHOSE UPLOADER WAS JUST USED, for exactly one round trip.
+*   RENDER_UPLOADER( ) stamps rakJump on that uploader and the scroll snippet
+*   brings it back into view, so adding a file no longer throws the citizen to
+*   the top of a long dialog. Cleared at the top of every event, so a later
+*   round trip cannot re-scroll to an uploader nobody touched.
+    DATA mv_att_focus   TYPE string.
 
 *   ---- parcel selector state. EIGHT SCALARS, and deliberately not the
 *   rows: a citizen can hold hundreds of parcels and the list is re-read
@@ -803,7 +809,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     DATA(ls_get)   = mo_client->get( ).
     DATA(lv_event) = ls_get-event.
-    CLEAR mv_quiet_evt.
+    CLEAR: mv_quiet_evt, mv_att_focus.
 
 *   Refresh the rule state against THIS round trip's field values before
 *   dispatching the event. An INPUT-triggered rule's field arrives already
@@ -1196,6 +1202,10 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                           okey  = lv_att_key ) TO mt_attach.
           set_field_state( iv_name = lv_att_field iv_state = 'None' iv_text = '' ).
           mt_msg = VALUE #( ( type = 'Success' text = |{ mv_att_name } attached| ) ).
+*         AND COME BACK TO THIS UPLOADER. Set here rather than in the renderer
+*         because this is the only place that knows which field the file went
+*         to; the render that follows reads it and stamps the marker.
+          mv_att_focus = lv_att_field.
           IF mo_logic IS BOUND.
             TRY.
                 mo_logic->on_attach( io_ctx = me iv_field = lv_att_field ).
