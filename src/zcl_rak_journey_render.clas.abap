@@ -4179,8 +4179,27 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       IF is_step-columns BETWEEN 2 AND 4 AND mo_e->zif_rak_journey~get_val( 'ROW_FREE' ) <> 'X'.
         lv_eqc = |rakRowEq rakRowC{ is_step-columns }|.
       ENDIF.
+*     ---- TOP-ALIGNED, BECAUSE A LABEL IS AT THE TOP OF ITS CELL ---------
+*
+*     This was ALIGNITEMS = 'End', which is align-items: flex-end - the cells in a
+*     row line up by their BOTTOMS. Every cell is a vbox with its label above
+*     its value, so the moment ONE value wraps to a second line every shorter
+*     cell beside it is pushed down and its label sits lower than the
+*     neighbour's. Two fields that are level on one school become staggered on
+*     the next, purely because the name is longer - which reads as a layout
+*     bug that comes and goes.
+*
+*     D012 shows it plainly: License Number beside a School Name that wraps,
+*     and School Name English beside School Name Arabic.
+*
+*     'START' IS ALREADY THE ANSWER ELSEWHERE. The uploader row above builds the
+*     same rakRow of labelled rakCells and uses Start; this was the odd one
+*     out. And the case End was presumably chosen for - a bare button sitting
+*     level with the input beside it - does not arise here: FLOW puts that
+*     button INSIDE the field's own cell, not in a sibling cell, so the row
+*     never sees it.
       DATA(lo_row) = lo_form->hbox( class          = condense( |rakRow { lv_eqc }| )
-                                    alignitems     = 'End'
+                                    alignitems     = 'Start'
                                     justifycontent = 'Start' ).
       LOOP AT is_step-fields INTO DATA(ls_rf) FROM lv_ix TO lv_nx.
         IF mo_e->mo_rules->is_hidden( ls_rf ) = abap_true.
