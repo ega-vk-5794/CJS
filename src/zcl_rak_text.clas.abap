@@ -375,6 +375,17 @@ CLASS zcl_rak_text DEFINITION
         col_block_name      TYPE symsgno VALUE '183',
         col_floors          TYPE symsgno VALUE '184',
         col_rooms           TYPE symsgno VALUE '185',
+*       ---- SAVE AS DRAFT ----
+*       Two sheet findings in one line of engine code: the confirmation was
+*       an English literal on an Arabic page, AND it printed MV_INTRENO -
+*       which before a case exists is a GUID_22, so the citizen was shown
+*       twenty-two characters of technical key as their "draft number".
+*
+*       TWO ENTRIES, NOT ONE WITH AN OPTIONAL &1. A reference is only worth
+*       printing when it is one the citizen could use, and a template with
+*       an empty substitution leaves a dangling dash.
+        draft_saved         TYPE symsgno VALUE '188',
+        draft_saved_ref     TYPE symsgno VALUE '189',
 *       ---- THE ATTACHMENT LABEL FALLBACKS ----
 *       ATTACH_LABEL has NO _AR TWIN IN THE DDIC, which is why the text
 *       report emits it as kind NOAR with the Arabic side permanently
@@ -867,6 +878,13 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
       ( msgno = c_no-col_block_name en = `Block Name`    ar = `اسم المبنى` )
       ( msgno = c_no-col_floors     en = `No. of floors` ar = `عدد الطوابق` )
       ( msgno = c_no-col_rooms      en = `No. of rooms`  ar = `عدد الغرف` )
+      ( msgno = c_no-draft_saved
+        en = `Saved as draft`
+        ar = `تم الحفظ كمسودة` )
+*     &1 is the case number, never the journey key - see the engine.
+      ( msgno = c_no-draft_saved_ref
+        en = `Saved as draft - &1`
+        ar = `تم الحفظ كمسودة - &1` )
 *     &1 is the field's own LABEL, which is already bilingual.
       ( msgno = c_no-att_suffix  en = `&1 - attachment`     ar = `&1 - مرفق` )
       ( msgno = c_no-att_support en = `Supporting document` ar = `مستند داعم` ) ).

@@ -414,6 +414,11 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   the same walk RENDER_FOOTER( ) already does to relabel Next as Done - so
 *   the lock and that relabelling agree by construction. Journeys with no fee
 *   are untouched: no PAYFEE field means no lock until submit.
+*   The Save as Draft confirmation, with a reference only when there is
+*   one worth printing. Both draft paths go through it so they cannot
+*   drift - they had already drifted to an em dash and a hyphen.
+    METHODS draft_msg RETURNING VALUE(rv) TYPE string.
+
     METHODS nav_locked RETURNING VALUE(rv) TYPE abap_bool.
 *   Says why the press did nothing. A refusal with no message is the same
 *   screen twice and reads as the page being stuck.
@@ -2421,8 +2426,15 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       IF ms_handle-request_id IS NOT INITIAL.
         mv_intreno = ms_handle-request_id.
       ENDIF.
-      APPEND VALUE #( type = 'Success'
-        text = |Saved as draft — { mv_intreno }| ) TO mt_msg.
+*   THE REFERENCE IS THE CASE NUMBER, OR THERE IS NO REFERENCE.
+*   This printed MV_INTRENO, and before a case exists that is a GUID_22 -
+*   so the citizen pressing Save as Draft was handed twenty-two characters
+*   of technical key and told it was their draft number. MV_CASE_NUMBER is
+*   the one value here a citizen could ever quote back, and TAKE_CASE( )
+*   fills it only when the backend actually returned a case. When it has
+*   not, saying "Saved as draft" and nothing more is the honest answer: a
+*   draft is resumed from the portal's own list, not by typing a number.
+      APPEND VALUE #( type = 'Success' text = draft_msg( ) ) TO mt_msg.
       RETURN.
     ENDIF.
 
@@ -2445,7 +2457,8 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         mt_msg = lt_ret.
         RETURN.
       ENDIF.
-      mt_msg = VALUE #( ( type = 'Success' text = |Saved as draft - { mv_intreno }| ) ).
+*     Same message, same reasoning - see the backend path above.
+      mt_msg = VALUE #( ( type = 'Success' text = draft_msg( ) ) ).
     ELSE.
       mt_msg = VALUE #( ( type = 'Warning'
         text = 'No backend is configured for this journey — nothing was saved.' ) ).
@@ -2801,6 +2814,22 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       text = zcl_rak_text=>get(
         iv_no      = zcl_rak_text=>c_no-nav_locked
         iv_default = 'The fee has been paid, so the earlier steps are closed. Press Done to finish.' ) ) ).
+  ENDMETHOD.
+
+
+  METHOD draft_msg.
+*   MV_CASE_NUMBER is filled by TAKE_CASE( ) only when the backend
+*   returned a case. MV_INTRENO is deliberately NOT used as a fallback:
+*   that is the journey key, and before a case exists it is a GUID_22 -
+*   which is the technical string this method exists to stop showing.
+    IF mv_case_number IS NOT INITIAL.
+      rv = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-draft_saved_ref
+                              iv_v1      = mv_case_number
+                              iv_default = |Saved as draft - { mv_case_number }| ).
+    ELSE.
+      rv = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-draft_saved
+                              iv_default = |Saved as draft| ).
+    ENDIF.
   ENDMETHOD.
 
 
