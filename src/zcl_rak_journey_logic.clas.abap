@@ -1409,14 +1409,30 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *     WORDING ONLY: the wait, the event and the RETURN below are the same
 *     ones this branch has always taken, so a journey that used to sit
 *     here and poll still sits here and polls.
+*     WARNING, NOT ERROR, and the comment four lines up is the argument:
+*     both of these are legitimate "not yet" states. Nothing failed. The
+*     application is saved, the case or the open item is on its way, and the
+*     citizen's only instruction is to come back shortly - which is the same
+*     thing C_NO-PAY_PREP_WAIT says one method down, as a Warning.
+*
+*     On screen it was worse than merely wrong. The blue "Preparing your
+*     payment. This takes a few seconds." strip is raised by the same round
+*     trip, so the citizen was shown a red failure and a calm please-wait
+*     together and had to decide which one to believe. A red strip on a
+*     government payment page reads as money gone or an application lost.
+*
+*     NOT Information either: the press did not do what the citizen asked
+*     and they have to return to finish paying. Warning is the honest middle,
+*     and it is the severity the rest of the payment path already uses for
+*     exactly this. Wording, the event and the RETURN are all unchanged.
       IF iv_quiet = abap_false.
         IF ls_ck-is_case = abap_false.
-          io_ctx->add_msg( iv_type = 'Error'
+          io_ctx->add_msg( iv_type = 'Warning'
             iv_text = `The application's case has not been created yet, so the payment `
                    && `page cannot open. The application is saved - reopen it in a few `
                    && `minutes to pay.` ).
         ELSE.
-          io_ctx->add_msg( iv_type = 'Error'
+          io_ctx->add_msg( iv_type = 'Warning'
             iv_text = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-pay_nofee
                           iv_default = `The fee for this application has not been raised yet, so `
                                     && `the payment page cannot open. The application is saved - `
