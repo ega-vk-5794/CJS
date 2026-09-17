@@ -156,7 +156,34 @@ CLASS lcl_app IMPLEMENTATION.
       ( en = 'MANAGER NAME'        ar = 'اسم المدير' )
       ( en = 'MANAGER PHONE'       ar = 'هاتف المدير' )
       ( en = 'PASSPORT'            ar = 'جواز السفر' )
-      ( en = 'ACTIVITY'            ar = 'النشاط' ) ).
+      ( en = 'ACTIVITY'            ar = 'النشاط' )
+*     ---- ADDED FROM THE REAL EXPORT ------------------------------------
+*     The first version of this list was written from the specs visible at
+*     the time, and the run then reported everything it could not answer -
+*     which is what NO ARABIC is for. A full ZRAK_T_JNY_FLD export across
+*     the four journeys named the rest, and these are they.
+*
+*     THE ONLY THREE GAPS LEFT IN THE FOUR JOURNEYS ARE ALL EMAIL_ADDRESS
+*     - D011's MANAGER_1 and OWNERS_1, and D012's OWNERS_DISP - and each
+*     labels it something the generic EMAIL rows above do not match:
+*     "Manager Email" and "Owner Email" rather than "Email" or "Email
+*     Address". Answering those with a looser lookup is exactly what this
+*     dictionary must not do, so they get their own rows.
+      ( en = 'MANAGER EMAIL'       ar = 'بريد المدير الإلكتروني' )
+      ( en = 'OWNER EMAIL'         ar = 'بريد المالك الإلكتروني' )
+*     D001's OWNERS_SEARCH columns. The report SKIPS that field today
+*     because it has ZRAK_T_JNY_COL rows and those win in GRID_COLS( );
+*     these are here so the answer does not vanish if those rows are ever
+*     removed and the grid falls back to its packed spec.
+      ( en = 'ID TYPE'             ar = 'نوع الهوية' )
+      ( en = 'NEW ITEM'            ar = 'عنصر جديد' )
+      ( en = 'NATIONALITY KEY'     ar = 'رمز الجنسية' )
+      ( en = 'BIRTH DATE'          ar = 'تاريخ الميلاد' )
+*     D002's NOC_SEL, which this report cannot reach - NOC_SEL is READONLY
+*     and its spec is read by the record-view parser rather than
+*     GRID_COLS( ). The wording belongs with the rest, so it waits here
+*     for whenever that path gets the same treatment.
+      ( en = 'NOC REFERENCE'       ar = 'مرجع شهادة عدم الممانعة' ) ).
   ENDMETHOD.
 
   METHOD arabic_of.
