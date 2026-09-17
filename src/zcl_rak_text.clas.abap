@@ -455,6 +455,27 @@ CLASS zcl_rak_text DEFINITION
                 iv_default     TYPE string
       RETURNING VALUE(rv_text) TYPE string.
 
+*   Does a journey key written here name the journey now running?
+*
+*   THE KEYS IN THIS CLASS ARE SERVICE CODES AND MS_CONFIG-JOURNEY_ID IS NOT.
+*   A ZRAK_T_JNY key is the full spelling - DOK_D002_SCHOOL_LIC_NEW - while
+*   everyone writing an entry here, in this repo and in every discussion of
+*   these journeys, calls it D002. An exact READ TABLE therefore matched
+*   nothing for the whole DOK family, silently: LONG( ) returns IV_DEFAULT
+*   when it misses, so a declaration keyed 'D002' rendered as the field's
+*   own one-word ZLABEL and looked like a field that had never been
+*   configured. That is what it did.
+*
+*   A SEGMENT MATCH, not a substring one. The id is split on '_' and the
+*   key has to equal a whole segment, so 'D001' does not also answer for
+*   DOK_D0012_* - which a CS or CP test would have done. An exact match is
+*   tried first and still wins, so 'EC01' against journey EC01 behaves
+*   precisely as it did and so does every other family.
+    CLASS-METHODS jny_match
+      IMPORTING iv_key    TYPE string
+                iv_journey TYPE string
+      RETURNING VALUE(rv) TYPE abap_bool.
+
     CLASS-METHODS catalogue
       RETURNING VALUE(rt_txt) TYPE tt_txt.
 
@@ -923,9 +944,19 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
                                 ELSE gv_journey ).
 
     IF lv_jny IS NOT INITIAL.
-      READ TABLE overrides( ) INTO DATA(ls_ov)
-           WITH KEY journey_id = lv_jny msgno = iv_no.
-      IF sy-subrc = 0.
+*     THROUGH JNY_MATCH( ) FOR THE SAME REASON LONG( ) IS - see the note at
+*     its declaration. An override keyed 'D002' against a running journey
+*     called DOK_D002_SCHOOL_LIC_NEW missed, silently, and the catalogue's
+*     generic wording was served instead of the journey's own.
+      DATA ls_ov TYPE ty_over.
+      DATA(lt_ov) = overrides( ).
+      LOOP AT lt_ov INTO DATA(ls_ovt).
+        IF ls_ovt-msgno = iv_no AND jny_match( iv_key = ls_ovt-journey_id iv_journey = lv_jny ) = abap_true.
+          ls_ov = ls_ovt.
+          EXIT.
+        ENDIF.
+      ENDLOOP.
+      IF ls_ov IS NOT INITIAL.
         IF is_arabic( ) = abap_true AND ls_ov-ar IS NOT INITIAL.
           rv_text = ls_ov-ar.
         ELSE.
@@ -1147,10 +1178,19 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    READ TABLE long_texts( ) INTO DATA(ls_long)
-         WITH KEY journey_id = to_upper( iv_journey )
-                  field_name = to_upper( iv_field ).
-    IF sy-subrc <> 0.
+    DATA(lv_fld)  = to_upper( iv_field ).
+    DATA(lt_long) = long_texts( ).
+    DATA ls_long TYPE ty_long.
+    LOOP AT lt_long INTO DATA(ls_try).
+      IF ls_try-field_name <> lv_fld.
+        CONTINUE.
+      ENDIF.
+      IF jny_match( iv_key = ls_try-journey_id iv_journey = iv_journey ) = abap_true.
+        ls_long = ls_try.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+    IF ls_long IS INITIAL.
       RETURN.
     ENDIF.
 
@@ -1159,6 +1199,27 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
     ELSEIF ls_long-en IS NOT INITIAL.
       rv_text = ls_long-en.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD jny_match.
+*   See the note at the declaration. Exact first, then whole-segment.
+    DATA(lv_key) = to_upper( condense( iv_key ) ).
+    DATA(lv_jny) = to_upper( condense( iv_journey ) ).
+    IF lv_key IS INITIAL OR lv_jny IS INITIAL.
+      RETURN.
+    ENDIF.
+    IF lv_key = lv_jny.
+      rv = abap_true.
+      RETURN.
+    ENDIF.
+    SPLIT lv_jny AT '_' INTO TABLE DATA(lt_seg).
+    LOOP AT lt_seg INTO DATA(lv_seg).
+      IF lv_seg = lv_key.
+        rv = abap_true.
+        RETURN.
+      ENDIF.
+    ENDLOOP.
   ENDMETHOD.
 
 

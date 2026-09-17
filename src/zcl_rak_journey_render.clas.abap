@@ -4781,9 +4781,17 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       one: SYMSGNO is three characters, so the CONV above cannot make a
 *       message number out of it. The field then falls back to its own
 *       label, which is why that declaration rendered as the single word
-*       "Declaration" rather than as a declaration. It is a LONG_TEXTS( )
-*       entry now and its DEFAULT_VAL wants clearing.
-        rv_text = is_field-label.
+*       "Declaration" rather than as a declaration.
+*
+*       THE FALLBACK NOW ASKS LONG_TEXTS( ) BEFORE GIVING UP, which is what
+*       the no-directive branch above would have done had the directive not
+*       been there. Clearing D001's DEFAULT_VAL is still the tidy answer -
+*       but a reference nobody can resolve should land on the paragraph
+*       that is registered for the field rather than on a one-word label,
+*       and that makes the config row optional instead of load-bearing.
+        rv_text = zcl_rak_text=>long( iv_journey = mo_e->ms_config-journey_id
+                                      iv_field   = is_field-name
+                                      iv_default = is_field-label ).
     ENDTRY.
     subst_fields( CHANGING cv_text = rv_text ).
   ENDMETHOD.
