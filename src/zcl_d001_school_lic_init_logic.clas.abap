@@ -952,6 +952,13 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *   saying so. The rakRowCn rules this copies set flex alone for the same
 *   reason, and flex-grow 0 / shrink 0 / basis 50% already pins the width.
     DATA(lv_half) = `flex:0 0 calc((100% - .75rem)/2);`.
+
+*   TEMPORARY - see the note at its use below. Delete this and the
+*   && LV_FILL in the style string to revoke.
+    DATA(lv_fill) =
+      `.rakCell .sapMInputBase,.rakCell .sapMSelect,` &&
+      `.rakCell .sapMComboBox,.rakCell .sapMStepInput` &&
+      `{width:100%!important;}`.
 *   ---- AND THE MIRROR, FOR THE ARABIC RUN --------------------------------
 *   ON AN ARABIC PAGE THE PROBLEM IS THE OTHER THREE. The whole page is RTL
 *   there, so it is now the ENGLISH name boxes that take their text from the
@@ -989,7 +996,29 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       `.rakRow>.rakCSCHOOLNAMEEN1,.rakRow>.rakCSCHOOLNAMEAR1,` &&
       `.rakRow>.rakCSCHOOLNAMEEN2,.rakRow>.rakCSCHOOLNAMEAR2,` &&
       `.rakRow>.rakCSCHOOLNAMEEN3,.rakRow>.rakCSCHOOLNAMEAR3` &&
-      `{` && lv_half && `}</style>`.
+      `{` && lv_half && `}` &&
+*     ================= TEMPORARY - DELETE LV_FILL AND THIS ==============
+*     Asked for in code so it can be taken out again in one edit. The
+*     supported way is ZRAK_T_JNY_FLD-WIDTH ("Width" in the Studio) set to
+*     100% per field, which is config, transports as data and moves only the
+*     fields somebody chose. This moves EVERY control on EVERY D001 step.
+*
+*     To revoke: delete LV_FILL and the && LV_FILL below. Nothing else
+*     refers to it.
+*
+*     WHY !IMPORTANT, and it is not laziness. CTRL_WIDTH( ) is passed as the
+*     control's WIDTH PROPERTY, so UI5 writes it as an inline style on the
+*     element - and an inline style beats any plain stylesheet rule whatever
+*     its specificity. Without !important this rule is simply ignored, which
+*     would read as the CSS not being loaded.
+*
+*     FOUR ROOTS, BECAUSE THEY ARE NOT ONE FAMILY. Input, DatePicker,
+*     MaskInput and TextArea all carry .sapMInputBase and ComboBox inherits
+*     it; sap.m.Select does NOT - it is a separate control with its own
+*     root - and StepInput has its own too. Dropping either of the last two
+*     leaves exactly the controls in this screenshot untouched.
+      lv_fill &&
+      `</style>`.
     REPLACE ALL OCCURRENCES OF `{` IN lv_rtl WITH `\{`.
     REPLACE ALL OCCURRENCES OF `}` IN lv_rtl WITH `\}`.
     io_view->html( content = lv_rtl sanitizecontent = abap_false ).
