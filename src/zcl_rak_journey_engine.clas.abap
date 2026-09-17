@@ -836,6 +836,20 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     mo_rules->eval_rules( ).
 
     IF strlen( lv_event ) > 7 AND substring( val = lv_event len = 7 ) = 'SEARCH_'.
+*     QUIET, LIKE CHANGE_ AND THE ATTACHMENT EVENTS. A partner search writes
+*     what it found into the model - birth date, nationality, mobile, email,
+*     the name beside the id - and every one of those is a bound VALUE. The
+*     markup does not move, so there is nothing to gain by rebuilding the
+*     page or the dialog around it, and a dialog rebuilt mid-search is the
+*     same flash the uploader used to have.
+*
+*     THE FLAG ONLY PERMITS IT. SEND_VIEW( ) and SEND_POPUP( ) still compare
+*     the markup, so a search that genuinely changes the shape - reveals a
+*     field, fills a results table, fails and writes a message strip - does
+*     not match and repaints exactly as it does today. That is why this is
+*     safe to set for every handler's ON_SEARCH( ) without knowing what any
+*     of them do: the test is the markup, never a promise made here.
+      mv_quiet_evt = abap_true.
       IF mo_logic IS BOUND.
         mo_logic->on_search( io_ctx = me iv_field = substring( val = lv_event off = 7 ) ).
       ENDIF.
