@@ -625,7 +625,24 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     draws its OWN content - the BP search, the owner form, every
 *     hand-drawn popup - and that is page text by any reasonable reading.
 *     It keeps 1rem.
-        |.sapMPopover .sapMBtnContent\{font-size:.875rem;\}| &&
+*     SEGBBTN TOO, AND IT IS THE ONE THAT WAS ACTUALLY PUSHING THINGS OUT.
+*     The generic rule lists .sapMSegBBtn SEPARATELY from .sapMBtnContent,
+*     so scoping only the latter left AM / PM oversized - and AM / PM sits
+*     in the same top row as the hour and minute boxes. The row then
+*     measured wider than the popover, which shoved the hour box past the
+*     left edge and left the minute box with nowhere to draw its value:
+*     one overflow, reported as two faults - a truncated hour and a minute
+*     that "does not set" when picked. The dial was updating the whole
+*     time; there was simply no visible box left to show it in.
+        |.sapMPopover .sapMBtnContent,.sapMPopover .sapMSegBBtn| &&
+        |\{font-size:.875rem;\}| &&
+*     AND LET THE ROW WRAP RATHER THAN CLIP. A belt-and-braces line, because
+*     the font is only one of the things that can make that row too wide -
+*     a longer AM/PM in another locale would do it again at any size, and
+*     the failure mode is a control pushed outside its own popup rather
+*     than anything that looks like a CSS problem.
+        |.sapMPopover .sapMTimePickerContainer,| &&
+        |.sapMPopover .sapMTPCContainer\{flex-wrap:wrap;\}| &&
 *     A message strip whose text does not wrap makes the page wider than the
 *     viewport. In LTR that clips harmlessly on the right; in RTL the overflow
 *     goes the other way and the page is pushed off screen. The &trace=X lines
