@@ -1009,6 +1009,42 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
 *
 *   The Arabic is a translation of the same reconstruction and carries the
 *   same caveat.
+*   THE SCHOOL DECLARATION, ONCE, FOR FOUR JOURNEYS.
+*   D002, D011 and D012 build the identical sentence in their own BAdIs
+*   under WHEN 'DECLARATION_NAME' - the same words, both languages - and
+*   D001's is the same text again. Four copies of four hundred characters
+*   in one table is four chances for them to drift, so it is written here
+*   once and referenced below.
+*
+*   STILL FOUR ROWS, NOT ONE SHARED KEY. LONG( ) reads journey plus field,
+*   and a department that wants to reword its own declaration should be
+*   able to without touching the other three. The text is shared; the
+*   entries are not.
+    DATA(lv_decl_en) =
+      `I, {APPLICANTNAME} as the company owner, hereby declare that all ` &&
+      `information provided in this application and in attached documents ` &&
+      `are true and accurate, that I will be responsible for any consequences ` &&
+      `of them, and I will be abide by all relevant regular conditions, ` &&
+      `instructions and guidelines to avoid legal action in case of violations ` &&
+      `and that I authorize our representative to follow up all the related ` &&
+      `to the activity.`.
+    DATA(lv_decl_ar) =
+      `أنا، {APPLICANTNAME} بصفتي مالك الشركة، أقر بموجب هذا أن جميع ` &&
+      `المعلومات المقدمة في هذا الطلب والمستندات المرفقة صحيحة ودقيقة، ` &&
+      `وأنني سأكون مسؤولاً عن أي عواقب تترتب عليها، وسوف ألتزم بجميع ` &&
+      `الشروط والتعليمات والمبادئ التوجيهية النظامية ذات الصلة لتجنب ` &&
+      `اتخاذ الإجراءات القانونية في حالة وجود مخالفات وأنني أفوض مندوبنا ` &&
+      `بمتابعة كل ما يتعلق بالنشاط.`.
+
+*   The same sentence with the token the OTHER three journeys can answer.
+*   REPLACE and not a second copy, so a reword lands in both.
+    DATA(lv_decl_o_en) = replace( val  = lv_decl_en
+                                  sub  = `{APPLICANTNAME}`
+                                  with = `{APP_NAME}` ).
+    DATA(lv_decl_o_ar) = replace( val  = lv_decl_ar
+                                  sub  = `{APPLICANTNAME}`
+                                  with = `{APP_NAME}` ).
+
     rt_long = VALUE tt_long(
       ( journey_id = 'EC01'
         field_name = 'DECLARATION'
@@ -1073,21 +1109,35 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
 *     CONCATENATE 'I,' gs_data-partner_name '<arabic>' - so an Arabic
 *     reader gets "I, <name> بصفتي مالك الشركة...". The Arabic below opens
 *     with أنا، instead. Everything after the name is verbatim.
-      ( journey_id = 'D001'
-        field_name = 'DECLARE'
-        en         = `I, {APPLICANTNAME} as the company owner, hereby declare that all ` &&
-                     `information provided in this application and in attached documents ` &&
-                     `are true and accurate, that I will be responsible for any consequences ` &&
-                     `of them, and I will be abide by all relevant regular conditions, ` &&
-                     `instructions and guidelines to avoid legal action in case of violations ` &&
-                     `and that I authorize our representative to follow up all the related ` &&
-                     `to the activity.`
-        ar         = `أنا، {APPLICANTNAME} بصفتي مالك الشركة، أقر بموجب هذا أن جميع ` &&
-                     `المعلومات المقدمة في هذا الطلب والمستندات المرفقة صحيحة ودقيقة، ` &&
-                     `وأنني سأكون مسؤولاً عن أي عواقب تترتب عليها، وسوف ألتزم بجميع ` &&
-                     `الشروط والتعليمات والمبادئ التوجيهية النظامية ذات الصلة لتجنب ` &&
-                     `اتخاذ الإجراءات القانونية في حالة وجود مخالفات وأنني أفوض مندوبنا ` &&
-                     `بمتابعة كل ما يتعلق بالنشاط.` ) ).
+      ( journey_id = 'D001' field_name = 'DECLARE'
+        en = lv_decl_en ar = lv_decl_ar )
+*     D002, D011 AND D012 HAD NO DECLARATION ON SCREEN AT ALL. Their BAdIs
+*     build one - the sentence above - and CJS never drew it, because none
+*     of the three carries a DECLARE field in ZRAK_T_JNY_FLD the way D001
+*     does. So the legacy screens ask the citizen to declare and the CJS
+*     versions did not, which is a compliance gap rather than a cosmetic
+*     one.
+*
+*     THE ENTRY ALONE IS NOT ENOUGH. Each journey still needs a CHECKBOX
+*     field named DECLARE on its last input step, REQUIRED, with
+*     DEFAULT_VAL left EMPTY - a TEXT: default is never seeded as a value,
+*     and anything else there would render the box pre-ticked and pass its
+*     own required check.
+*     AND THE PLACEHOLDER IS NOT THE SAME FIELD ON ALL FOUR. D001 calls the
+*     applicant's name APPLICANTNAME; D002, D011 and D012 all call it
+*     APP_NAME. SUBST_FIELDS( ) resolves {NAME} by asking GET_VAL( NAME ),
+*     and a field the journey does not have answers BLANK AND SILENT - so
+*     sharing D001's token verbatim would have given the other three a
+*     declaration that names nobody, with nothing anywhere to say why.
+*
+*     Swapped rather than duplicated: one sentence, one place to reword it,
+*     and the token corrected per journey.
+      ( journey_id = 'D002' field_name = 'DECLARE'
+        en = lv_decl_o_en ar = lv_decl_o_ar )
+      ( journey_id = 'D011' field_name = 'DECLARE'
+        en = lv_decl_o_en ar = lv_decl_o_ar )
+      ( journey_id = 'D012' field_name = 'DECLARE'
+        en = lv_decl_o_en ar = lv_decl_o_ar ) ).
   ENDMETHOD.
 
 
