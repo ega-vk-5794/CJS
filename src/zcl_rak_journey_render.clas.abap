@@ -3483,7 +3483,20 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       nothing on screen to turn red, leaving a message with no field to
 *       point at (a FTYPE 'INPUT' + READONLY='X' field renders identically
 *       and already binds both, which is what masked this until now).
-        io_form->input( value          = lv_bind
+*       AND THE DATA ELEMENT'S OWN READING, WHERE IT HAS ONE - same as the
+*       DISPLAY branch. THE BINDING IS ONLY GIVEN UP WHEN THE EXIT ACTUALLY
+*       CHANGED SOMETHING, and that guard is the whole safety of it: a
+*       converted value has to be a literal, there being no bound path for
+*       one, and a literal is one way. Every field whose element declares no
+*       exit keeps LV_BIND and behaves precisely as it does today. Only
+*       padded keys stop being bound, and those are the ones nobody edits.
+        DATA(lv_rraw) = mo_e->zif_rak_journey~get_val( is_field-name ).
+        DATA(lv_rcv)  = zcl_rak_journey_util=>conv_out(
+                          iv_value    = lv_rraw
+                          iv_rollname = is_field-rollname ).
+        io_form->input( value          = COND string( WHEN lv_rcv <> lv_rraw
+                                                      THEN zcl_rak_journey_util=>esc( lv_rcv )
+                                                      ELSE lv_bind )
                         editable       = abap_false
                         width          = lv_w
                         class          = mo_e->mo_css->cls( 'INPUT' )
@@ -3601,6 +3614,26 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                 lv_dtxt = zcl_rak_journey_util=>opt_text( iv_key  = ls_dopt-key
                                                           iv_text = ls_dopt-text ).
               ENDIF.
+            ENDIF.
+          ENDIF.
+
+*         AND WITH NO LIST, THE DATA ELEMENT STILL GETS A SAY. CONV_OUT( )
+*         applies the field's own conversion exit, so a licence number typed
+*         as RECNNR shows 2500005 rather than the padded 0000002500005 the
+*         table keeps. A field with no ROLLNAME, or one whose element
+*         declares no exit, comes back identical and takes the binding below
+*         exactly as it did.
+*
+*         A LITERAL, for the same reason the resolved option text is one -
+*         see the note above. The converted value is IN the markup, so
+*         SEND_VIEW( )'s hash changes when it changes and the repaint follows.
+          IF lv_dtxt IS INITIAL.
+            DATA(lv_draw) = mo_e->zif_rak_journey~get_val( is_field-name ).
+            DATA(lv_dcv)  = zcl_rak_journey_util=>conv_out(
+                              iv_value    = lv_draw
+                              iv_rollname = is_field-rollname ).
+            IF lv_dcv <> lv_draw.
+              lv_dtxt = lv_dcv.
             ENDIF.
           ENDIF.
 

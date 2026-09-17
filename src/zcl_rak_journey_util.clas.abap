@@ -332,6 +332,29 @@ CLASS zcl_rak_journey_util DEFINITION
 *   every other config column this is called with) cannot be handed to a TYPE
 *   string parameter at all: "is not type-compatible with formal parameter".
 *   VALUE( ) passes by value, which converts.
+*   A value as its DATA ELEMENT says it should be READ, not as the table
+*   stores it. RECNNR keeps a licence number zero-padded, so 0000002500005
+*   comes back where the citizen's licence says 2500005 - and
+*   CONVERSION_EXIT_ALPHA_OUTPUT is the answer SAP already ships for it.
+*
+*   DRIVEN BY THE DDIC, NOT BY A FIELD NAME. The alternative was matching on
+*   LICENCE_NO / LICNO / CASE_ID and stripping zeros from whatever they held.
+*   That is the branch-on-the-family trap: it would strip a PO Box of 007 the
+*   first time somebody reused it. DD04L-CONVEXIT already records which values
+*   are padded keys, per data element, and it is right for BP and material
+*   numbers too without anyone maintaining a list.
+*
+*   OPT-IN BY CONSEQUENCE. A field with no ROLLNAME, or one whose data element
+*   declares no exit, comes back unchanged - so nothing on any journey moves
+*   until somebody sets ROLLNAME on the field that needs it.
+*
+*   BLANK IN, BLANK OUT, and every failure returns the input untouched. A
+*   display helper must never be able to empty a value it could not convert.
+    CLASS-METHODS conv_out
+      IMPORTING VALUE(iv_value)    TYPE string
+                VALUE(iv_rollname) TYPE clike
+      RETURNING VALUE(rv)          TYPE string.
+
     CLASS-METHODS comp_name IMPORTING VALUE(iv_key) TYPE string
                              RETURNING VALUE(rv)     TYPE string.
 
@@ -1181,6 +1204,58 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
         rv = |{ lv_y }{ lv_m }{ lv_d }|.
       ENDIF.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD conv_out.
+    rv = iv_value.
+    IF rv IS INITIAL OR iv_rollname IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   CACHED PER DATA ELEMENT. This runs once per DISPLAY field per render, so
+*   a SELECT and a dynamic CALL FUNCTION each time would be paid on every
+*   round trip of every journey. The answer never changes within a session -
+*   it is a DDIC property - and a blank cached entry is a real answer
+*   meaning "this element has no exit", which is the common case and the one
+*   worth caching hardest.
+    TYPES: BEGIN OF ty_cx,
+             roll TYPE string,
+             exit TYPE string,
+           END OF ty_cx.
+    STATICS st_cx TYPE SORTED TABLE OF ty_cx WITH UNIQUE KEY roll.
+
+    DATA(lv_roll) = to_upper( condense( CONV string( iv_rollname ) ) ).
+    READ TABLE st_cx INTO DATA(ls_cx) WITH TABLE KEY roll = lv_roll.
+    IF sy-subrc <> 0.
+      SELECT SINGLE convexit FROM dd04l
+        INTO @DATA(lv_exit)
+        WHERE rollname = @lv_roll
+          AND as4local = 'A'.
+      ls_cx = VALUE #( roll = lv_roll exit = condense( CONV string( lv_exit ) ) ).
+      INSERT ls_cx INTO TABLE st_cx.
+    ENDIF.
+
+    IF ls_cx-exit IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   DYNAMIC, AND WRAPPED. The exit is a name out of the DDIC, so the module
+*   may not exist, may not be callable, or may dump on a value it does not
+*   recognise. Every one of those leaves the caller holding what it passed
+*   in - a licence number shown padded is a cosmetic fault, a licence number
+*   shown blank is a missing licence.
+    DATA lv_out TYPE string.
+    TRY.
+        CALL FUNCTION |CONVERSION_EXIT_{ ls_cx-exit }_OUTPUT|
+          EXPORTING  input  = rv
+          IMPORTING  output = lv_out
+          EXCEPTIONS OTHERS = 1.
+        IF sy-subrc = 0 AND lv_out IS NOT INITIAL.
+          rv = lv_out.
+        ENDIF.
+      CATCH cx_root ##NO_HANDLER.
+    ENDTRY.
   ENDMETHOD.
 
 
