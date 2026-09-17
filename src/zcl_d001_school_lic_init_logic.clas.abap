@@ -1540,11 +1540,34 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
     lo_form->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-bpp_eid iv_default = 'Emirates ID' ) required = abap_true ).
 *   The search icon and Enter both do the same thing. Somebody who has just
 *   typed fifteen digits should not have to reach for the mouse.
-    lo_form->input( value            = io_ctx->bind( c_id )
-                    placeholder      = '784-xxxx-xxxxxxx-x'
-                    showvaluehelp    = abap_true
-                    valuehelprequest = io_ctx->event( c_evt_ownsr )
-                    submit           = io_ctx->event( c_evt_ownsr ) ).
+*   ---- THE HYPHENS APPEAR AS THE CITIZEN TYPES -------------------------
+*   A MASK, NOT A FIX-UP. MASK_EID( ) tidies the value when Search or Add
+*   is pressed, and that is too late to be the answer: the citizen is
+*   looking at the box while they type it, and what they want is the
+*   grouping their card shows, forming under their fingers. sap.m.MaskInput
+*   does that; sap.m.Input cannot, at any amount of server-side effort.
+*
+*   784 IS A LITERAL IN THE MASK, so it is never typed and never mistyped,
+*   and the field shows 784-____-_______-_ before a key is pressed. 9 is
+*   MaskInput's digit rule, so nothing but digits goes into the twelve
+*   remaining slots - which is most of the format check, enforced at the
+*   keyboard instead of after the fact.
+*
+*   THE VALUE STILL GOES THROUGH MASK_EID( ) ON SEARCH AND ON ADD, and
+*   that is not redundant. A half-filled mask comes back carrying
+*   underscores, MASK_EID( ) cannot make fifteen digits of it and returns
+*   it unchanged, and the regex then refuses it - which is the right
+*   answer for a half-typed Emirates ID.
+*
+*   WHAT THIS COSTS, because MASK_INPUT does not offer them: the value-help
+*   icon and Enter-to-search are gone. Both ran C_EVT_OWNSR, and the Search
+*   button beside this field still does. CHANGE is deliberately NOT wired
+*   to the search in their place - BP_QUERY writes, costs at least five
+*   seconds by construction and forces a COMMIT, so it belongs on a button
+*   the citizen presses and nowhere else.
+    lo_form->mask_input( value             = io_ctx->bind( c_id )
+                         mask              = '784-9999-9999999-9'
+                         placeholder       = '784-xxxx-xxxxxxx-x' ).
     lo_form->button( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-search iv_default = 'Search' ) press = io_ctx->event( c_evt_ownsr ) ).
 
     lo_form->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_dob iv_default = 'Birth Date' ) displayonly = abap_true required = abap_true ).
