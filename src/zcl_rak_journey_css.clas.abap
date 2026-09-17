@@ -625,24 +625,45 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     draws its OWN content - the BP search, the owner form, every
 *     hand-drawn popup - and that is page text by any reasonable reading.
 *     It keeps 1rem.
-*     SEGBBTN TOO, AND IT IS THE ONE THAT WAS ACTUALLY PUSHING THINGS OUT.
-*     The generic rule lists .sapMSegBBtn SEPARATELY from .sapMBtnContent,
-*     so scoping only the latter left AM / PM oversized - and AM / PM sits
-*     in the same top row as the hour and minute boxes. The row then
-*     measured wider than the popover, which shoved the hour box past the
-*     left edge and left the minute box with nowhere to draw its value:
-*     one overflow, reported as two faults - a truncated hour and a minute
-*     that "does not set" when picked. The dial was updating the whole
-*     time; there was simply no visible box left to show it in.
+*     AND THE FONT WAS NOT THE CAUSE. Two rounds went on font size before
+*     the theme's OWN segmented-button block a hundred lines up was read:
+*
+*         .sapMSegBBtn\{min-width:5.5rem;padding:0 1.2rem;\}
+*         .sapMSegB,.sapMSegBBtn\{width:auto!important;max-width:none!important;\}
+*
+*     5.5rem MINIMUM plus 1.2rem of padding on each side, on EVERY
+*     segmented button on the page. That styling is for the journey's own
+*     Yes / No controls, where a wide comfortable target is right. The time
+*     picker's AM and PM are segmented buttons too, so together they claim
+*     roughly 200px before the hour, the colon and the minute have asked
+*     for anything - and all four sit in one row inside a popover the
+*     control sized for its own furniture.
+*
+*     THAT IS BOTH REPORTED FAULTS FROM ONE OVERFLOW. The row measures
+*     wider than the popover, so the hour is pushed past the left edge and
+*     reads as truncated, and the minute box is pushed out with it and
+*     appears not to take the value when a minute is picked. The dial was
+*     updating the whole time; there was no visible box left to show it in.
+*
+*     SO THE SIZING IS NEUTRALISED, NOT THE FONT. Inside a popover a
+*     control is drawing its own furniture to its own measurements and
+*     nothing here should be imposing a target size on it. !important is
+*     required because the rules above carry it; two classes beat one, so
+*     these win on specificity rather than on order.
+        |.sapMPopover .sapMSegBBtn\{min-width:0!important;| &&
+        |padding:0 .5rem!important;font-weight:400!important;\}| &&
+        |.sapMPopover .sapMSegB,.sapMPopover .sapMSegBBtn| &&
+        |\{max-width:none!important;\}| &&
         |.sapMPopover .sapMBtnContent,.sapMPopover .sapMSegBBtn| &&
         |\{font-size:.875rem;\}| &&
-*     AND LET THE ROW WRAP RATHER THAN CLIP. A belt-and-braces line, because
-*     the font is only one of the things that can make that row too wide -
-*     a longer AM/PM in another locale would do it again at any size, and
-*     the failure mode is a control pushed outside its own popup rather
-*     than anything that looks like a CSS problem.
-        |.sapMPopover .sapMTimePickerContainer,| &&
-        |.sapMPopover .sapMTPCContainer\{flex-wrap:wrap;\}| &&
+*     THE SELECTED SEGMENT KEEPS ITS OWN COLOUR TOO. The theme paints
+*     .sapMSegBBtnSel in the brand red, which is right for a consent
+*     control the citizen answers and wrong for the clock's own hour and
+*     minute chips - a picked minute rendered as a red box that reads like
+*     an error rather than a selection.
+        |.sapMPopover .sapMSegBBtnSel,| &&
+        |.sapMPopover .sapMSegBBtnSel .sapMSegBBtnInner| &&
+        |\{background:transparent!important;color:inherit!important;\}| &&
 *     A message strip whose text does not wrap makes the page wider than the
 *     viewport. In LTR that clips harmlessly on the right; in RTL the overflow
 *     goes the other way and the page is pushed off screen. The &trace=X lines
