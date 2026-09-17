@@ -1486,6 +1486,34 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       lo_nat->item( key = ls_nat-key text = ls_nat-text ).
     ENDLOOP.
 
+*   ---- MOBILE AND EMAIL, WHICH THE SEARCH ALREADY FETCHES --------------
+*   THE PLUMBING WAS NEVER MISSING. C_EVT_OWNSR writes TELEPHONE_POP and
+*   EMAIL_POP from the partner search, OWN_FORM_SAVE( ) reads them back
+*   and PUT_CELLs them into the MOBILE_NUMBER and EMAIL_ADDRESS columns,
+*   and OWN_EDIT( ) re-loads them. Both are real fields on this journey,
+*   so none of those set_val calls was silently going nowhere. The dialog
+*   simply never drew them, so nobody could see whether the search had
+*   found anything - and the saved row showing two empty columns is the
+*   only symptom that reaches the citizen.
+*
+*   READ-ONLY, LIKE BIRTH DATE AND NATIONALITY ABOVE. These are the
+*   partner's own contact details as the BP holds them; typing over them
+*   here would put a value in the case that disagrees with the master
+*   record the case points at. One word - EDITABLE - if that turns out to
+*   be wanted.
+*
+*   AND THIS IS ALSO THE DIAGNOSTIC. If the boxes fill after Search and
+*   the list row is still blank, the fault is in the save. If they stay
+*   blank here too, the partner has no phone or email stored and there is
+*   nothing to show - which is a data question, not a code one.
+    lo_form->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-col_mobile_number
+                                              iv_default = 'Mobile Number' ) ).
+    lo_form->input( value = io_ctx->bind( 'TELEPHONE_POP' ) editable = abap_false ).
+
+    lo_form->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_col_email
+                                              iv_default = 'Email Address' ) ).
+    lo_form->input( value = io_ctx->bind( 'EMAIL_POP' ) editable = abap_false ).
+
     lo_form->label( text = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-own_shares_pct iv_default = 'Shares %' ) required = abap_true ).
     lo_form->input( value = io_ctx->bind( c_share ) type = 'Number' ).
 
