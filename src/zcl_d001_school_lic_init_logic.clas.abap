@@ -955,8 +955,14 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 
 *   TEMPORARY - see the note at its use below. Delete this and the
 *   && LV_FILL in the style string to revoke.
+*   SAPMSLT, NOT SAPMSELECT. sap.m.Select's root class is .sapMSlt - the
+*   theme's own .rakRow rule a few hundred lines into ZCL_RAK_JOURNEY_CSS
+*   has always used it. I wrote the name I expected instead of the one that
+*   exists, so the rule matched every text input and not one dropdown: the
+*   boxes widened, the three selects did not, and the screen looked like the
+*   change had half worked. It had entirely worked, on half the selectors.
     DATA(lv_fill) =
-      `.rakCell .sapMInputBase,.rakCell .sapMSelect,` &&
+      `.rakCell .sapMInputBase,.rakCell .sapMSlt,` &&
       `.rakCell .sapMComboBox,.rakCell .sapMStepInput` &&
       `{width:100%!important;}`.
 *   ---- AND THE MIRROR, FOR THE ARABIC RUN --------------------------------
@@ -981,15 +987,36 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *   sits in the body and the theme is injected into the head. Two classes
 *   win outright and stop that being load-order trivia.
     DATA(lv_rtl) =
-      `<style>.rakRow>.rakCSCHOOLNAMEAR1,.rakRow>.rakCSCHOOLNAMEAR2,` &&
+*     START AND END, NOT LEFT AND RIGHT - and this is the fix for the two
+*     labels colliding in the middle of the Arabic page.
+*
+*     LEFT/RIGHT WAS WRONG BECAUSE THE CELLS SWAP SIDES. The English cell is
+*     first in the DOM and the Arabic cell second, so on an LTR page English
+*     is the left half and Arabic the right, and on an RTL page it is the
+*     other way round. Pinning the English label left and the Arabic label
+*     right therefore puts them at the OUTER edges of the row in English -
+*     which is what looked right - and at the two INNER edges in Arabic,
+*     where they meet in the middle with nothing between them. Same two
+*     rules, opposite result, purely because the halves had swapped.
+*
+*     START and END are resolved against the writing direction by the
+*     browser, so "the near edge of my own cell" and "the far edge of my own
+*     cell" stay the same intent in both languages: first cell to START,
+*     second to END, labels at the outer edges of the row either way. No
+*     language test, and nothing to keep in step when a page turns over.
+*
+*     Direction still follows the CONTENT and not the page - an Arabic name
+*     box is RTL on an English page and an English name box is LTR on an
+*     Arabic one. That half was right and is unchanged.
+      `<style>.rakRow>.rakCSCHOOLNAMEEN1,.rakRow>.rakCSCHOOLNAMEEN2,` &&
+      `.rakRow>.rakCSCHOOLNAMEEN3` &&
+      `{text-align:start;}` &&
+      `.rakRow>.rakCSCHOOLNAMEAR1,.rakRow>.rakCSCHOOLNAMEAR2,` &&
       `.rakRow>.rakCSCHOOLNAMEAR3` &&
-      `{text-align:right;}` &&
+      `{text-align:end;}` &&
       `.rakFSCHOOLNAMEAR1 input,.rakFSCHOOLNAMEAR2 input,` &&
       `.rakFSCHOOLNAMEAR3 input` &&
       `{direction:rtl;text-align:right;}` &&
-      `.rakRow>.rakCSCHOOLNAMEEN1,.rakRow>.rakCSCHOOLNAMEEN2,` &&
-      `.rakRow>.rakCSCHOOLNAMEEN3` &&
-      `{text-align:left;}` &&
       `.rakFSCHOOLNAMEEN1 input,.rakFSCHOOLNAMEEN2 input,` &&
       `.rakFSCHOOLNAMEEN3 input` &&
       `{direction:ltr;text-align:left;}` &&
