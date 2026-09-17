@@ -1220,6 +1220,33 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
                         iv_val  = condense( io_ctx->get_val( c_own_bp ) )
               CHANGING  ct_row  = lt_row ).
 
+*   ---- WHY MOBILE AND EMAIL ARRIVE EMPTY IN THE LIST -------------------
+*   PUT_CELL( ) HAS THREE SILENT CHECKS - column not found, row shorter
+*   than the column index, READ that missed - and any one of them drops
+*   the value without a word. Name and Nationality land and these two do
+*   not, through the same call with the same column list, so one of those
+*   three is answering differently for them and none of it is visible.
+*
+*   This prints what was read and where each cell went. E10 ONLY, through
+*   IS_DEV( ): it names configuration columns, which is not something a
+*   citizen should ever be shown. Remove it once the cause is known.
+    IF zcl_rak_journey_util=>is_dev( ) = abap_true.
+      DATA(lv_dbg) = |OWNER SAVE · cols=| && |{ lines( ls_g-columns ) }| &&
+                     | cells=| && |{ lines( lt_row ) }|.
+      LOOP AT ls_g-columns INTO DATA(lv_dbgc).
+        lv_dbg = lv_dbg && | [| && |{ sy-tabix }| && |]| && condense( lv_dbgc ).
+      ENDLOOP.
+      io_ctx->add_msg( iv_type = 'Information' iv_text = lv_dbg ).
+      io_ctx->add_msg( iv_type = 'Information'
+        iv_text = |OWNER SAVE · MOBILE ix=| &&
+                  |{ col_ix( it_cols = ls_g-columns iv_name = c_col_mobile ) }| &&
+                  | val=[| && lv_mob && |] · EMAIL ix=| &&
+                  |{ col_ix( it_cols = ls_g-columns iv_name = c_col_email ) }| &&
+                  | val=[| && lv_eaddr && |] · NAME ix=| &&
+                  |{ col_ix( it_cols = ls_g-columns iv_name = c_col_name ) }| &&
+                  | val=[| && lv_name && |]| ).
+    ENDIF.
+
 *   EMIRATES_ID has a column and persists. BIRTH_DATE has none, so PUT_CELL( )
 *   skips it; written anyway so that adding the ZRAK_T_JNY_COL row is all it
 *   takes to make it persist and let Edit restore the date - no code change.
