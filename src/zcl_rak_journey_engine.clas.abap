@@ -150,13 +150,6 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mv_closed      TYPE abap_bool.
     DATA mt_bp_hits     TYPE tt_bp_hit.
     DATA mt_attach      TYPE tt_att.
-*   THE FIELD WHOSE UPLOADER WAS JUST USED, for exactly one round trip.
-*   RENDER_UPLOADER( ) stamps rakJump on that uploader and the scroll snippet
-*   brings it back into view, so adding a file no longer throws the citizen to
-*   the top of a long dialog. Cleared at the top of every event, so a later
-*   round trip cannot re-scroll to an uploader nobody touched.
-    DATA mv_att_focus   TYPE string.
-
 *   ---- parcel selector state. EIGHT SCALARS, and deliberately not the
 *   rows: a citizen can hold hundreds of parcels and the list is re-read
 *   per round trip rather than carried in the serialized app state. See
@@ -814,7 +807,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     DATA(ls_get)   = mo_client->get( ).
     DATA(lv_event) = ls_get-event.
-    CLEAR: mv_quiet_evt, mv_att_focus.
+    CLEAR mv_quiet_evt.
 
 *   Refresh the rule state against THIS round trip's field values before
 *   dispatching the event. An INPUT-triggered rule's field arrives already
@@ -1206,11 +1199,23 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                           dtype = lv_att_dtyp
                           okey  = lv_att_key ) TO mt_attach.
           set_field_state( iv_name = lv_att_field iv_state = 'None' iv_text = '' ).
-          mt_msg = VALUE #( ( type = 'Success' text = |{ mv_att_name } attached| ) ).
-*         AND COME BACK TO THIS UPLOADER. Set here rather than in the renderer
-*         because this is the only place that knows which field the file went
-*         to; the render that follows reads it and stamps the marker.
-          mv_att_focus = lv_att_field.
+*         ---- NO "x attached" STRIP, AND NO FOCUS MARKER ----------------
+*         Both existed to tell the citizen the upload worked and then to put
+*         the page back where the telling had moved it.
+*
+*         THE STRIP WAS PART OF THE PROBLEM IT ANNOUNCED. It draws at the TOP
+*         of the page (RENDER( )), so it pushed everything below it down on
+*         the very render that also swapped the picker for the filed row -
+*         which is why no pixel-based scroll restore could ever be right.
+*
+*         AND IT SAID WHAT THE SCREEN ALREADY SHOWS. The file's name appears
+*         in the control the citizen just used, with a delete button beside
+*         it. That is a better confirmation than a line of text at the top of
+*         a form they may have scrolled well past.
+*
+*         ERRORS AND WARNINGS STILL USE MT_MSG - a refusal has nowhere else
+*         to appear, and the whole point of the strip is that it is hard to
+*         miss. Only the Success line is gone.
           IF mo_logic IS BOUND.
             TRY.
                 mo_logic->on_attach( io_ctx = me iv_field = lv_att_field ).
@@ -4711,13 +4716,27 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     ensure_parts( ).
-    mo_render->render_uploader( io_box   = io_view
-                                iv_field = ls_f-name
-                                iv_types = ls_f-attach_types
-                                iv_maxmb = ls_f-attach_maxmb
-                                iv_scope = '_POP'
-                                iv_key   = iv_key ).
-    mo_render->render_chips( io_box = io_view iv_field = ls_f-name iv_key = iv_key ).
+
+*   CHIPS FIRST, THEN THE PICKER, AND THE PICKER ONLY WHEN THERE IS NO FILE.
+*   This used to draw them the other way round, so a handler-drawn dialog put
+*   a new file BELOW its picker while every uploader on a page put it above -
+*   two orders for one control, and only one of them could match what the
+*   citizen had just been looking at.
+*
+*   The gate is the same one RENDER_ATTACH( ) applies: one file per uploader,
+*   which the engine enforces at ATTSAVE_ regardless of what was drawn, and
+*   no picker at all once the case is frozen.
+    DATA(lv_popcnt) = mo_render->render_chips( io_box   = io_view
+                                               iv_field = ls_f-name
+                                               iv_key   = iv_key ).
+    IF lv_popcnt = 0 AND case_mode( ) = c_mode_edit.
+      mo_render->render_uploader( io_box   = io_view
+                                  iv_field = ls_f-name
+                                  iv_types = ls_f-attach_types
+                                  iv_maxmb = ls_f-attach_maxmb
+                                  iv_scope = '_POP'
+                                  iv_key   = iv_key ).
+    ENDIF.
   ENDMETHOD.
 
 

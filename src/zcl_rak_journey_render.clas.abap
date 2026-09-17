@@ -983,10 +983,22 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           lo_uph->label( text = `` required = abap_true class = 'sapUiFormLabelNoColon' ).
         ENDIF.
         DATA(lo_ub) = io_parent->vbox( class = 'rakSearch' ).
-        render_chips( io_box = lo_ub iv_field = is_field-name ).
-*       Same reason as RENDER_ATTACH( ) - see the note there. The chips
-*       stay: the citizen should still see what is filed against the case.
-        IF mo_e->case_mode( ) = mo_e->c_mode_edit.
+        DATA(lv_upcnt) = render_chips( io_box = lo_ub iv_field = is_field-name ).
+*       THE SAME TWO GATES AS RENDER_ATTACH( ), and the chip count is the
+*       one that was missing. An UPLOAD block drew its picker BESIDE the
+*       filed row while a HAS_ATTACH field replaced one with the other, so
+*       the same file on the same journey behaved differently depending on
+*       which of the two draw paths its field happened to take - and the
+*       block path grew by a whole row on upload instead of swapping.
+*
+*       One file per uploader is the engine's rule, not the renderer's:
+*       ATTSAVE_ replaces on (FIELD, OKEY) whichever path drew the picker,
+*       so a second picker here was never able to hold a second file.
+*
+*       The chips stay on a frozen case - the citizen should still see what
+*       is filed against it - and only the picker goes.
+        IF lv_upcnt = 0
+           AND mo_e->case_mode( ) = mo_e->c_mode_edit.
           render_uploader( io_box   = lo_ub
                            iv_field = is_field-name
                            iv_types = is_field-attach_types
@@ -2090,18 +2102,42 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         CONTINUE.
       ENDIF.
       rv_count = rv_count + 1.
-      DATA(lo_row) = io_box->hbox( alignitems = 'Center' class = 'rakFileRow' ).
-      lo_row->icon( src = 'sap-icon://document' class = 'sapUiTinyMarginEnd' ).
+*     RAKATTBOX IS THE WHOLE OF THE ANTI-JUMP FIX, and it is a layout rule
+*     rather than a scroll one. The picker and the filed row are the two
+*     states of one control, they are swapped on the round trip that stages
+*     a file, and they used to be different shapes - a pill button with a
+*     hint line under it, against a borderless row of an icon, a link and
+*     two buttons. Everything below the control therefore moved on every
+*     upload, and four separate pieces of JavaScript existed to chase the
+*     viewport back to where it had been.
+*
+*     Both states now draw the SAME BORDERED BOX at the same min-height
+*     (see BUILD_THEME_CSS, appended last so it outranks every variant), so
+*     the swap is pixel-neutral and there is nothing left to chase. The
+*     scroll machinery that used to compensate - RAKJUMP, the 1x1 onload
+*     pin, LV_JUMP in SEND_VIEW( ) and MV_ATT_FOCUS on the engine - is gone
+*     with it. Do not re-introduce a scroll restore here: if the control
+*     ever moves again the cause is a height difference between these two
+*     states, and that is what to fix.
+      DATA(lo_row) = io_box->hbox( alignitems = 'Center' class = 'rakFileRow rakAttBox' ).
+*     THE FILENAME IS THE FIRST CHILD, and the CSS pins the grow on
+*     :first-child. The document icon that used to lead the row is gone -
+*     it said nothing the filename does not - so anything inserted ahead of
+*     the link here makes the trash button the elastic one instead.
       lo_row->link( text   = zcl_rak_journey_util=>esc( ls_a-name )
                     href   = zcl_rak_journey_util=>att_url( ls_a-guid )
                     target = '_blank'
                     class  = 'rakFileName' ).
-      lo_row->button( icon    = 'sap-icon://display'
+*     NO VIEW BUTTON. It raised ATTVIEW_<n>, which costs a round trip to
+*     open the very URL the link beside it already carries on HREF with
+*     TARGET=_blank. The event is still handled in the engine - a handler
+*     drawing its own row may still raise it - it is simply not drawn.
+*     RAKATTDEL CARRIES THE DIVIDER, and it is on the button rather than on
+*     the row's last child because a FILED row's last child is the "Filed"
+*     badge - which must not get a divider it has no action behind.
+      lo_row->button( icon    = 'sap-icon://delete'
                       type    = 'Transparent'
-                      tooltip = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-view iv_default = 'View' )
-                      press   = mo_e->mo_client->_event( |ATTVIEW_{ lv_idx }| ) ).
-      lo_row->button( icon    = 'sap-icon://decline'
-                      type    = 'Transparent'
+                      class   = 'rakAttDel'
                       tooltip = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-remove_row iv_default = 'Remove' )
                       press   = mo_e->mo_client->_event( |ATTDEL_{ lv_idx }| ) ).
     ENDLOOP.
@@ -2123,8 +2159,10 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           ENDTRY.
         ENDIF.
         rv_count = rv_count + 1.
-        DATA(lo_frow) = io_box->hbox( alignitems = 'Center' class = 'rakFileRow' ).
-        lo_frow->icon( src = 'sap-icon://document' class = 'sapUiTinyMarginEnd' ).
+*       Same box as the staged row above, and the same reason: a handler
+*       reporting a filed document must not draw a control of a different
+*       height from the one it replaces.
+        DATA(lo_frow) = io_box->hbox( alignitems = 'Center' class = 'rakFileRow rakAttBox' ).
         lo_frow->link( text   = zcl_rak_journey_util=>esc( ls_fl-title )
                        href   = lv_url
                        target = '_blank'
@@ -2180,8 +2218,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         CONTINUE.
       ENDIF.
       rv_count = rv_count + 1.
-      DATA(lo_brow) = io_box->hbox( alignitems = 'Center' class = 'rakFileRow' ).
-      lo_brow->icon( src = 'sap-icon://document' class = 'sapUiTinyMarginEnd' ).
+      DATA(lo_brow) = io_box->hbox( alignitems = 'Center' class = 'rakFileRow rakAttBox' ).
       lo_brow->text( text  = zcl_rak_journey_util=>esc( CONV string( ls_be-file_name ) )
                      class = 'rakFileName' ).
       lo_brow->object_status(
@@ -4562,25 +4599,24 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     DATA(lv_mb)    = mo_e->att_max_mb( iv_maxmb ).
     DATA(lv_bytes) = lv_mb * 1048576.
 
-*   ---- MARK THE UPLOADER THAT WAS JUST USED --------------------------
-*   RAKJUMP is what the scroll snippet looks for. The engine records the
-*   field an ATTGO_ event named and clears it on the next round trip, so at
-*   most one uploader on the page carries this at a time and only on the
-*   render that immediately follows an attachment.
+*   ---- NO SCROLL MARKER, AND NOTHING TO MARK -------------------------
+*   This method used to stamp a RAKJUMP class on its hint line and draw a 1x1
+*   onload pin beside it, both so that a snippet in SEND_VIEW( ) could scroll
+*   the viewport back to the uploader after a file was staged. All of it is
+*   gone, for two reasons.
 *
-*   WHY A MARKER AND NOT A REMEMBERED PIXEL POSITION. Two attempts restored
-*   scrollTop and neither held, for a reason that is structural rather than a
-*   bug: the dialog is torn down and rebuilt, and the "x attached" strip
-*   appears at the TOP of it on exactly that render - so the content is
-*   taller than when the offset was captured and the same number points
-*   somewhere else. SCROLLINTOVIEW asks the browser to find whichever
-*   ancestor scrolls and put this element in the middle of it, which needs no
-*   offset, no guess at a UI5 class name, and works the same in a dialog, on
-*   the page, and in anything either of them is nested in.
-    DATA(lv_jump) = COND string( WHEN mo_e->mv_att_focus IS NOT INITIAL
-                             AND to_upper( mo_e->mv_att_focus ) = to_upper( iv_field )
-                                 THEN ` rakJump` ).
-
+*   IT COULD NOT FIRE WHERE IT WAS NEEDED. RENDER_ATTACH( ) stops calling this
+*   method once a chip exists, so on the one render the marker was written for
+*   - the one immediately after a successful upload - this method does not run
+*   and neither the class nor the pin was drawn at all. MV_ATT_FOCUS was set by
+*   the engine and read by nobody.
+*
+*   AND IT WAS TREATING THE SYMPTOM. The viewport moved because the picker and
+*   the filed row were different heights; five separate restorers then argued
+*   over where to put it back. Both states now draw the same RAKATTBOX at the
+*   same min-height - see RENDER_CHIPS( ) and BUILD_THEME_CSS( ) - so nothing
+*   moves and nothing needs restoring. If an uploader ever jumps again, measure
+*   the two states before reaching for JavaScript.
     io_box->input( value = mo_e->mo_client->_bind_edit( mo_e->mv_att_name ) class = |rakHide rakAttName_{ lv_f }| ).
     io_box->input( value = mo_e->mo_client->_bind_edit( mo_e->mv_att_b64 )  class = |rakHide rakAttB64_{ lv_f }| ).
     io_box->button( text  = 'go'
@@ -4601,75 +4637,49 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       `g('.rakAttGo_` && lv_f && `').firePress();me.value='';};` &&
       `r.readAsDataURL(f);`.
     DATA(lv_pick) = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-choose_file iv_default = 'Choose file' ).
+
+*   ---- THE HINT GOES INSIDE THE BOX, NOT UNDER IT ---------------------
+*   It used to be a sap.m.Text drawn as a SIBLING of the picker, and that
+*   single line was most of the jump: staging a file removes the picker and
+*   its hint together, so the control lost about 1.5rem of height on every
+*   upload and everything below it rose to meet the gap.
+*
+*   Inside the box it costs no height of its own - the box is the same
+*   min-height with it and without it, and the same min-height as the filed
+*   row that replaces the whole thing.
+*
+*   STILL SILENT when RENDER_STEP( ) has already said it once at the top of
+*   the step. A popup's uploaders keep their own: the step's strip is behind
+*   the dialog, where the citizen cannot read it.
+    DATA(lv_hint) = to_upper( COND string( WHEN iv_types IS NOT INITIAL
+                                           THEN iv_types ELSE `pdf,jpg,jpeg,png` ) ).
+    REPLACE ALL OCCURRENCES OF `,` IN lv_hint WITH `, `.
+    DATA lv_hintel TYPE string.
+    IF mv_att_hint_hide = abap_false OR iv_scope IS NOT INITIAL.
+      lv_hintel = `<span class="rakAttHint">` &&
+                  zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-att_hint
+                                     iv_v1      = lv_hint
+                                     iv_v2      = |{ lv_mb }|
+                                     iv_default = |{ lv_hint } · up to { lv_mb } MB| ) &&
+                  `</span>`.
+    ENDIF.
+
+*   RAKATTBOX beside RAKUP: the bordered, fixed-height container the filed
+*   row also draws. RAKUP keeps every rule that already targets the file
+*   input itself, so nothing about the picker's own styling changes.
     DATA(lv_html) =
-      `<div class="rakUp"><label class="rakUpLbl"><span>` && lv_pick && `</span>` &&
+      `<div class="rakUp rakAttBox"><label class="rakUpLbl"><span>` && lv_pick && `</span>` &&
       `<input type="file" accept="` &&
       COND string( WHEN iv_types IS NOT INITIAL
                    THEN `.` && replace( val = iv_types sub = `,` with = `,.` occ = 0 )
                    ELSE `.pdf,.jpg,.jpeg,.png` ) &&
-      `" onchange="` && lv_js && `"/></label></div>`.
+      `" onchange="` && lv_js && `"/></label>` && lv_hintel && `</div>`.
+*   The hint is brace-escaped here with the rest of the markup, which is why
+*   it is concatenated in raw above - escaping it twice would print the
+*   backslashes.
     REPLACE ALL OCCURRENCES OF `{` IN lv_html WITH `\{`.
     REPLACE ALL OCCURRENCES OF `}` IN lv_html WITH `\}`.
     io_box->html( content = lv_html sanitizecontent = abap_false ).
-
-    DATA(lv_hint) = to_upper( COND string( WHEN iv_types IS NOT INITIAL
-                                           THEN iv_types ELSE `pdf,jpg,jpeg,png` ) ).
-    REPLACE ALL OCCURRENCES OF `,` IN lv_hint WITH `, `.
-*   Silent when RENDER_STEP( ) has already said it once at the top of the step.
-*   A popup's uploaders keep their own hint: the strip is on the step behind the
-*   dialog, where the citizen cannot read it.
-    IF mv_att_hint_hide = abap_false OR iv_scope IS NOT INITIAL.
-*     RAKJUMP RIDES THE HINT LINE, not the hidden bridge inputs above it.
-*     Those carry rakHide, so they have no layout box and SCROLLINTOVIEW on one
-*     does nothing at all - silently, which is the same failure mode as the two
-*     scroll attempts before this. The hint is the last visible thing an
-*     uploader draws, so landing on it brings the whole control into view.
-      io_box->text(
-        text  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-att_hint
-                                   iv_v1      = lv_hint
-                                   iv_v2      = |{ lv_mb }|
-                                   iv_default = |{ lv_hint } · up to { lv_mb } MB| )
-        class = |rakAttHint{ lv_jump }| ).
-    ENDIF.
-
-*   ---- SECOND CHANNEL: THE DIALOG'S OWN DOM --------------------------------
-*   FOLLOW_UP_ACTION( ) RUNS FROM THE MAIN VIEW'S onAfterRendering, AND A ROUND
-*   TRIP THAT ONLY REOPENS A DIALOG NEED NOT RE-RENDER THE MAIN VIEW. That is
-*   documented, it is the trap the parcel map hit, and it is why three attempts
-*   at this scroll went out through FOLLOW_UP_ACTION( ) and none of them ran.
-*   The snippet was never wrong; it was never executed.
-*
-*   The remedy is the documented one: carry the same instruction in an inline
-*   event ATTRIBUTE as well. This 1x1 transparent GIF is drawn INSIDE the
-*   dialog fragment, so its onload fires when the dialog DOM is inserted, on
-*   the same channel the uploader's own onchange FileReader has always used -
-*   no dependence on the main view rendering at all.
-*
-*   IT SCROLLS ITSELF, not a queried element. THIS in an onload is the image,
-*   it sits at the end of the uploader, and SCROLLINTOVIEW walks up to whichever
-*   ancestor actually scrolls - so this needs no selector, no UI5 class name and
-*   no offset, and behaves identically in a dialog and on the page.
-*
-*   OUTSIDE THE HINT'S IF, DELIBERATELY. RAKJUMP rides the hint line, and the
-*   hint is suppressed on a step whose header already carried it - so on the
-*   main page the marker was not being drawn at all. The pin is guarded only by
-*   LV_JUMP, so the uploader just used always carries exactly one.
-*
-*   IDEMPOTENT ON PURPOSE, so this and FOLLOW_UP_ACTION( ) may both run:
-*   scrolling to the same place twice is not visible.
-    IF lv_jump IS NOT INITIAL.
-      DATA(lv_pinjs) =
-        `var e=this;var g=function(){try{e.scrollIntoView(` &&
-        `{block:'center',inline:'nearest'});}catch(x){}};` &&
-        `g();setTimeout(g,120);setTimeout(g,350);`.
-      DATA(lv_pin) =
-        `<img alt="" style="width:1px;height:1px;opacity:0" src="data:image/gif;base64,` &&
-        `R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onload="` &&
-        lv_pinjs && `"/>`.
-      REPLACE ALL OCCURRENCES OF `{` IN lv_pin WITH `\{`.
-      REPLACE ALL OCCURRENCES OF `}` IN lv_pin WITH `\}`.
-      io_box->html( content = lv_pin sanitizecontent = abap_false ).
-    ENDIF.
   ENDMETHOD.
 
 
@@ -5024,39 +5034,20 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
         mo_e->mo_client->follow_up_action( lv_dscroll ).
 
-*       ---- COME BACK TO THE UPLOADER, NOT TO A PIXEL -----------------
-*       Two attempts restored the dialog's scrollTop and neither held. The
-*       reason is structural, not a bug in either: the dialog is torn down and
-*       rebuilt on the round trip that adds a file, and the "x attached" strip
-*       appears at the TOP of it on that same render - so the content is taller
-*       than when the offset was captured and the same number points somewhere
-*       else. Restoring a number was never going to work.
+*       ---- AND NO THIRD SNIPPET CHASING THE UPLOADER -----------------
+*       A .rakJump scrollIntoView used to run here as well, to put the
+*       viewport back on the uploader after a file was staged. It is gone,
+*       and deliberately not replaced.
 *
-*       SCROLLINTOVIEW ASKS THE BROWSER INSTEAD. It finds whichever ancestor
-*       scrolls and centres the element in it, so this needs no offset, no
-*       guess at a UI5 class name, and behaves the same in a dialog, on the
-*       page, and in anything either is nested inside. RENDER_UPLOADER( )
-*       stamps rakJump on the hint line of the uploader the engine says was
-*       just used, and MV_ATT_FOCUS is cleared on the next event - so at most
-*       one element carries it, on exactly one render.
+*       It never ran on the page path - RENDER_UPLOADER( ), which stamped the
+*       class, is not called once a chip exists - and where it did run, in a
+*       dialog, CENTRING the control is itself a movement: an uploader the
+*       citizen had near the bottom of the viewport was pulled to the middle.
 *
-*       0, 120 AND 350ms for the same reason as the dialog restore:
-*       FOLLOW_UP_ACTION( ) fires from the MAIN view's onAfterRendering and
-*       POPUP_DISPLAY( ) draws the dialog afterwards, so a single pass at 0
-*       runs before the element exists. Idempotent, so the extra passes cost
-*       nothing.
-        DATA(lv_jump) =
-          '(function()' && '{' && 'try' && '{' &&
-          'var go=function()' && '{' && 'try' && '{' &&
-          'var j=document.querySelector(".rakJump");' &&
-          'if(!j||!j.scrollIntoView)' && '{' && 'return;' && '}' &&
-          'j.scrollIntoView(' && '{' && 'block:"center",inline:"nearest"' && '}' && ');' &&
-          '}' && 'catch(a)' && '{' && '}' && '}' && ';' &&
-          'setTimeout(go,0);setTimeout(go,120);setTimeout(go,350);' &&
-          'return 1;' &&
-          '}' && 'catch(b)' && '{' && 'return 0;' && '}' && '}' && ')()'.
-
-        mo_e->mo_client->follow_up_action( lv_jump ).
+*       The height no longer changes when a file is staged (one RAKATTBOX,
+*       both states), so there is nothing to come back to. Restoring a
+*       position is now the page restore above and the dialog restore beside
+*       it, and nothing else writes scrollTop on an attachment round trip.
       CATCH cx_root ##NO_HANDLER.
 *       A diagnostic convenience must never be the reason a page fails to
 *       render. If the client cannot take another follow-up action, the

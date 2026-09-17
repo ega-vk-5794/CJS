@@ -1175,7 +1175,7 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     width cell. Inside a cell, the cell decides.
         |.rakUpCell .rakUp input[type=file]\{max-width:100%;\}| &&
 
-*     CHIP ROWS. One row is icon, filename link, then buttons. In a half-width
+*     CHIP ROWS. One row is the filename link, then Remove. In a half-width
 *     cell a long citizen-supplied filename had nothing stopping it: it wrapped
 *     under its own buttons, or pushed Remove past the edge of the cell. Remove
 *     is the control that undoes the mistake, so it is the worst one to lose.
@@ -1187,7 +1187,7 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     rakAttName_D028 is a different class token - but the next person reading
 *     both files will assume it does and go hunting a bug that is not there.
         |.rakFileRow\{width:100%;min-width:0;gap:.15rem;\}| &&
-*     nth-child(2), NOT .rakFileName, and this is why the child order is pinned
+*     :first-child, NOT .rakFileName, and this is why the child order is pinned
 *     in render_chips. sap.m.FlexBox at renderType Div wraps every child in its
 *     own item div, so the flex item is that wrapper and not the Link - the same
 *     trap documented on .rakRow>* above. The wrapper is what must grow and what
@@ -1195,10 +1195,16 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     min-width:auto, which refuses to go below the content and is precisely
 *     what let the filename shove the buttons out.
 *
-*     Everything else on the row keeps its size: the icon, View, Remove and the
-*     Filed status are all flex:0 0 auto.
+*     IT WAS nth-child(2) AND THE ROW LED WITH A DOCUMENT ICON. The icon is
+*     gone - it said nothing the filename does not - so the name is the first
+*     child now. Anything inserted ahead of it makes the Remove button the
+*     elastic one and the filename the fixed one, which is the bug this rule
+*     exists to prevent, inverted.
+*
+*     Everything else on the row keeps its size: Remove and the Filed status
+*     are flex:0 0 auto.
         |.rakFileRow>*\{flex:0 0 auto;min-width:0;\}| &&
-        |.rakFileRow>*:nth-child(2)\{flex:1 1 auto;\}| &&
+        |.rakFileRow>*:first-child\{flex:1 1 auto;\}| &&
 *     display:block is required - text-overflow does nothing on an inline box,
 *     and sap.m.Link renders an inline <a>.
         |.rakFileName,.rakFileName .sapMLnkText\{display:block;max-width:100%;| &&
@@ -1362,6 +1368,50 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *   the PINNED shape this project has already retired once.
     lv_css = lv_css &&
       |.rakCard .rakSearch\{margin-left:0;margin-right:0;box-shadow:none;\}|.
+
+*   ---- THE ATTACHMENT BOX. ONE SHAPE FOR BOTH STATES ------------------
+*   An uploader has two states - a picker before a file is staged and a
+*   filed row after - and they are swapped on a round trip that repaints the
+*   whole page. While they were different heights, everything below the
+*   control moved on every upload, and four separate pieces of JavaScript
+*   existed to drag the viewport back. They are all gone; this is what
+*   replaced them.
+*
+*   MIN-HEIGHT IS THE WHOLE MECHANISM. Both states draw .rakAttBox, both are
+*   2.75rem tall whatever they contain, so the swap changes nothing about
+*   the layout and there is nothing to restore. The type-and-size hint now
+*   sits INSIDE the box for the same reason - as a sibling line underneath,
+*   it disappeared with the picker and took its own height with it.
+*
+*   APPENDED HERE, LAST, for the reason argued on .rakCard .rakSearch above:
+*   .rakUp and .rakFileRow are already styled in five theme variants and in
+*   LEGACY_CHROME( ), and editing six places is how one gets left behind.
+*   This block is emitted after all of them, so it wins on source order
+*   without having to out-specify anything.
+*
+*   22REM MATCHES the cap .rakUp input[type=file] already carries, so a
+*   boxed picker is the width an unboxed one was.
+    lv_css = lv_css &&
+      |.rakAttBox\{display:flex;align-items:center;gap:.6rem;box-sizing:border-box;| &&
+      |width:100%;max-width:22rem;min-height:2.75rem;padding:0 .25rem 0 .75rem;| &&
+      |background:#fff;border:1px solid { g-line_clr };border-radius:4px;\}| &&
+*     The picker's own dashed inner border and background would draw a second
+*     box inside this one.
+      |.rakAttBox.rakUp input[type=file]\{border:none;background:none;padding:0;\}| &&
+*     Inside the box the hint is a trailing note on one line, not the block
+*     element it was as a sibling. Pushed to the right so a long filename and
+*     a short hint occupy the same visual column.
+      |.rakAttBox .rakAttHint\{display:inline;margin:0 0 0 auto;padding-inline-end:.35rem;| &&
+      |white-space:nowrap;\}| &&
+*     The divider in front of the delete button, which is what makes the
+*     trash read as an action ON the row rather than another item in it. On
+*     the button's own class, not on the row's last child: a FILED row ends
+*     with a status badge and a divider in front of that would promise an
+*     action that is not there.
+      |.rakAttBox .rakAttDel\{border-inline-start:1px solid { g-line_clr };border-radius:0;\}| &&
+*     A transparent sap.m.Button carries its own margins; inside a 2.75rem box
+*     they push the row taller than the picker's.
+      |.rakFileRow.rakAttBox .sapMBtn\{margin:0;\}|.
 
     DATA lv_hash TYPE string.
     TRY.
@@ -1534,11 +1584,13 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
       |.rakUpCell\{min-width:0;\}| &&
       |.rakUpCell .rakUp input[type=file]\{max-width:100%;\}| &&
 
-*     CHIP ROWS. nth-child(2) and not .rakFileName, for the same FlexBox wrapper
+*     CHIP ROWS. :first-child and not .rakFileName, for the same FlexBox wrapper
 *     reason as .rakRow>* above: the wrapper is what grows and what must shrink.
+*     First rather than second since the leading document icon was dropped -
+*     see the longer note on the same rule in BUILD_THEME_CSS( ).
       |.rakFileRow\{width:100%;min-width:0;gap:.15rem;\}| &&
       |.rakFileRow>*\{flex:0 0 auto;min-width:0;\}| &&
-      |.rakFileRow>*:nth-child(2)\{flex:1 1 auto;\}| &&
+      |.rakFileRow>*:first-child\{flex:1 1 auto;\}| &&
       |.rakFileName,.rakFileName .sapMLnkText\{display:block;max-width:100%;| &&
       |overflow:hidden;text-overflow:ellipsis;white-space:nowrap;\}| &&
 
