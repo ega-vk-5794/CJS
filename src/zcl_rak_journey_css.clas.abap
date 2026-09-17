@@ -1427,7 +1427,27 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
       |border-inline-start:1px solid { g-line_clr };border-radius:0;\}| &&
 *     A transparent sap.m.Button carries its own margins; inside a 2.75rem box
 *     they push the row taller than the picker's.
-      |.rakFileRow.rakAttBox .sapMBtn\{margin:0;\}|.
+      |.rakFileRow.rakAttBox .sapMBtn\{margin:0;\}| &&
+
+*     ---- SPACING IN A DIALOG, WHICH HAS NO FORM TO SUPPLY IT --------
+*     On the page RENDER_ATTACH( ) puts its label and its box inside a
+*     SimpleForm, and the form owns the vertical rhythm between one field
+*     and the next. A handler-drawn dialog does not: it stacks a label and
+*     an uploader as bare siblings in a vbox.rakCell (see D001's Documents
+*     block), so the box has whatever margin it declares and nothing else -
+*     which was none, leaving each row's label sitting against the box
+*     above it.
+*
+*     SCOPED TO THE DIALOG ON PURPOSE. The page's spacing is right and a
+*     margin here would change every journey's Documents step to fix
+*     something only dialogs have.
+*
+*     .sapMDialog IS THE ONE UI5 CLASS NAME THIS FILE RELIES ON, and it is
+*     the one that has been proven on screen - the dialog scroll restore in
+*     SEND_VIEW( ) finds its scroller inside .sapMDialog and works, after an
+*     earlier attempt at .sapMDialogScrollCont matched nothing and failed
+*     silently. Do not add a second guessed one beside it.
+      |.sapMDialog .rakAttBox\{margin:.15rem 0 .6rem;\}|.
 
     DATA lv_hash TYPE string.
     TRY.
