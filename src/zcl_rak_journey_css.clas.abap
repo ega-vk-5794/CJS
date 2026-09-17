@@ -597,6 +597,35 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.sapMText,.sapMLabel,.sapMInputBaseInner,.sapMBtnContent,.sapMLnk,| &&
         |.sapMObjStatusText,.sapMCbLabel,.sapMRbBLabel,.sapMSegBBtn,| &&
         |.sapMListTblCell,.sapMLIBContent,.sapMMsgStripMessage\{font-size:1rem;\}| &&
+*     ---- AND NOT INSIDE A CONTROL'S OWN POPUP -------------------------
+*     THE TIME PICKER'S HOUR BOX WAS CLIPPING "11" TO "1". The clock's
+*     hour, minute and AM/PM buttons are fixed-width boxes that the base
+*     theme sizes for ITS font, and the rule above raises every
+*     .sapMBtnContent on the page to 1rem - so two digits no longer fit
+*     and the second one is cut off. It showed as a stray full stop, which
+*     reads as a formatting oddity rather than as missing data. Present
+*     before the AM/PM change and visible on the old three-segment clock
+*     too, where 45 and 30 rendered as "4." and "3.".
+*
+*     THE RULE ABOVE IS FOR PAGE TEXT, AND A CONTROL'S OWN POPUP IS NOT
+*     PAGE TEXT. Inside a popover the control is drawing its own furniture
+*     to its own measurements - the clock, the calendar's month and year
+*     buttons, an overflow menu - and none of it was laid out against a
+*     font this stylesheet chose. Scoping by .sapMPopover rather than by
+*     the clock's own class is deliberate: it needs no guess at a UI5
+*     internal, and the calendar carries the same clipping risk for the
+*     same reason, so it is fixed here too.
+*
+*     0.875rem is UI5's own control size. Written AFTER the generic rule
+*     on purpose - see the ORDER MATTERS note above; this is a named
+*     exception and it only wins because it comes later and is more
+*     specific.
+*
+*     DIALOGS ARE DELIBERATELY NOT INCLUDED. A sap.m.Dialog is where CJS
+*     draws its OWN content - the BP search, the owner form, every
+*     hand-drawn popup - and that is page text by any reasonable reading.
+*     It keeps 1rem.
+        |.sapMPopover .sapMBtnContent\{font-size:.875rem;\}| &&
 *     A message strip whose text does not wrap makes the page wider than the
 *     viewport. In LTR that clips harmlessly on the right; in RTL the overflow
 *     goes the other way and the page is pushed off screen. The &trace=X lines
