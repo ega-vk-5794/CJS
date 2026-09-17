@@ -73,6 +73,10 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   travel, nothing is rebuilt. It rides the serialized instance, so a fresh
 *   session starts blank and gets a full view, which is correct.
     DATA mv_view_sig  TYPE string.
+*   The popup's own signature. MV_VIEW_SIG guards the page and a dialog is a
+*   SEPARATE view slot with its own markup, its own render and its own
+*   update call - so one hash could never have covered both. See SEND_POPUP( ).
+    DATA mv_popup_sig TYPE string.
 *   Set only for a CHANGE_ round trip. The signature test alone would be
 *   enough - identical markup repaints to an identical DOM - but keeping the
 *   quiet path off navigation, submit and popup events bounds what this can
@@ -1254,6 +1258,25 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         ENDIF.
       ENDIF.
 
+    ELSEIF strlen( lv_event ) > 8 AND substring( val = lv_event len = 8 ) = 'ATTDELP_'
+           AND case_mode( ) = c_mode_edit.
+*     THE DIALOG'S DELETE, keyed by occurrence. Same reasoning as ATTDELF_
+*     below - a stable event name keeps the fragment's markup stable - but it
+*     carries the occurrence after a tilde, exactly as ATTSAVE_ does, so one
+*     owner's document is never removed by another owner's press.
+      DATA lv_delp_f TYPE string.
+      DATA lv_delp_k TYPE string.
+*     Into a variable first, the way ATTSAVE_ above does it - a functional
+*     call as a SPLIT source is one more shape nothing here compiles to check.
+      DATA(lv_delp_raw) = substring( val = lv_event off = 8 ).
+      SPLIT lv_delp_raw AT '~' INTO lv_delp_f lv_delp_k.
+      lv_delp_f = to_upper( lv_delp_f ).
+      LOOP AT mt_attach INTO DATA(ls_delp) WHERE field = lv_delp_f AND okey = lv_delp_k.
+        zcl_rak_cj_att_store=>delete( ls_delp-guid ).
+      ENDLOOP.
+      DELETE mt_attach WHERE field = lv_delp_f AND okey = lv_delp_k.
+      mv_quiet_evt = abap_true.
+
     ELSEIF strlen( lv_event ) > 8 AND substring( val = lv_event len = 8 ) = 'ATTDELF_'
            AND case_mode( ) = c_mode_edit.
 *     ---- DELETE BY FIELD, NOT BY POSITION --------------------------------
@@ -1817,7 +1840,19 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *       type into an upload block - and it has exactly the same two states.
         IF ls_field-has_attach = abap_true OR ls_field-type = 'UPLOAD'.
 *         _ATTFN the staged file's name, _ATTUR the link it opens at.
-          LOOP AT VALUE string_table( ( `_ATTFN` ) ( `_ATTUR` ) ) INTO DATA(lv_atts).
+*         BOTH SCOPES, AND THEY MUST NOT SHARE. A field drawn on the page and
+*         again inside a dialog is rendered TWICE in one round trip - the main
+*         view is rebuilt whether or not a popup is open - so one set of
+*         components would have the two writers overwriting each other and the
+*         dialog showing the page's filename or the reverse. _ATTP* is the
+*         popup's set; only one dialog is ever open, so one set covers every
+*         occurrence a repeating uploader has.
+*
+*         _ATTPFN IS SEVEN CHARACTERS, which lands exactly on the DDIC ceiling
+*         of 30 against COMP_NAME( )'s 23-character base - the same budget
+*         _IDTYPE already spends. There is no room for an eighth.
+          LOOP AT VALUE string_table( ( `_ATTFN` ) ( `_ATTUR` )
+                                      ( `_ATTPFN` ) ( `_ATTPUR` ) ) INTO DATA(lv_atts).
             DATA(lv_attsn) = |{ lv_name }{ lv_atts }|.
             READ TABLE lt_comp WITH KEY name = lv_attsn TRANSPORTING NO FIELDS.
             IF sy-subrc <> 0.
@@ -1828,7 +1863,8 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *         not one negated: a z2ui5 binding is a plain model path, so the
 *         inverse has to exist as its own value rather than as an expression
 *         the renderer would have to write by hand into the markup.
-          LOOP AT VALUE string_table( ( `_ATTON` ) ( `_ATTOF` ) ) INTO DATA(lv_attb).
+          LOOP AT VALUE string_table( ( `_ATTON` ) ( `_ATTOF` )
+                                      ( `_ATTPON` ) ( `_ATTPOF` ) ) INTO DATA(lv_attb).
             DATA(lv_attbn) = |{ lv_name }{ lv_attb }|.
             READ TABLE lt_comp WITH KEY name = lv_attbn TRANSPORTING NO FIELDS.
             IF sy-subrc <> 0.
@@ -4806,15 +4842,19 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *   no picker at all once the case is frozen.
     DATA(lv_popcnt) = mo_render->render_chips( io_box   = io_view
                                                iv_field = ls_f-name
-                                               iv_key   = iv_key ).
-    IF lv_popcnt = 0 AND case_mode( ) = c_mode_edit.
-      mo_render->render_uploader( io_box   = io_view
-                                  iv_field = ls_f-name
-                                  iv_types = ls_f-attach_types
-                                  iv_maxmb = ls_f-attach_maxmb
-                                  iv_scope = '_POP'
-                                  iv_key   = iv_key ).
-    ENDIF.
+                                               iv_key   = iv_key
+                                               iv_bound = abap_true ).
+*   THE SAME PAIR THE PAGE DRAWS, in the dialog's own component scope. Both
+*   states are in the fragment all the time and switch on their bound values,
+*   so staging a file in a dialog no longer changes the fragment's markup -
+*   which is what lets SEND_POPUP( ) refresh the model instead of rebuilding
+*   the dialog. The frozen-case and one-file-per-uploader gates that used to
+*   sit here are folded into _ATTPOF.
+    mo_render->render_att_pair( io_box   = io_view
+                                is_field = ls_f
+                                iv_other = lv_popcnt
+                                iv_key   = iv_key
+                                iv_pop   = abap_true ).
   ENDMETHOD.
 
 

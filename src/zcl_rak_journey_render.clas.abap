@@ -67,9 +67,13 @@ CLASS zcl_rak_journey_render DEFINITION
                              RETURNING VALUE(rv_count) TYPE i.
 *   The two states of one uploader, drawn TOGETHER and told apart by their
 *   bound visibility rather than by which of them was rendered.
+*   IV_POP picks the popup's own set of model components and the popup's own
+*   delete event - see the note in the method.
     METHODS render_att_pair  IMPORTING io_box   TYPE REF TO z2ui5_cl_xml_view
                                        is_field TYPE zif_rak_journey=>ty_field
-                                       iv_other TYPE i.
+                                       iv_other TYPE i
+                                       iv_key   TYPE string OPTIONAL
+                                       iv_pop   TYPE abap_bool DEFAULT abap_false.
 *   Writes one attachment companion on the journey model. Not through
 *   VAL_SET( ), which normalises anything that looks like a date and would
 *   blank a filename such as 0000-00-00.png.
@@ -77,6 +81,8 @@ CLASS zcl_rak_journey_render DEFINITION
                                        iv_suffix TYPE string
                                        iv_value  TYPE any.
     METHODS render_popup.
+*   The dialog's single exit, and the popup twin of SEND_VIEW( ).
+    METHODS send_popup IMPORTING iv_xml TYPE string.
     METHODS render_footer    IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view
                                        iv_linear TYPE abap_bool.
     METHODS render_feedback IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view.
@@ -701,10 +707,10 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   and a blank OKEY must compare as an empty STRING - `okey = space` would
 *   compare against a one-blank character field, which a string does not
 *   equal.
-    DATA lv_nokey TYPE string.
     DATA(lv_up) = to_upper( lv_name ).
+    DATA(lv_key) = iv_key.
     READ TABLE mo_e->mt_attach INTO DATA(ls_a)
-         WITH KEY field = lv_up okey = lv_nokey.
+         WITH KEY field = lv_up okey = lv_key.
     IF sy-subrc = 0.
       lv_fn = ls_a-name.
       lv_ur = zcl_rak_journey_util=>att_url( ls_a-guid ).
@@ -719,10 +725,19 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                         AND iv_other = 0
                         AND mo_e->case_mode( ) = mo_e->c_mode_edit ).
 
-    att_put( iv_field = lv_name iv_suffix = '_ATTFN' iv_value = lv_fn ).
-    att_put( iv_field = lv_name iv_suffix = '_ATTUR' iv_value = lv_ur ).
-    att_put( iv_field = lv_name iv_suffix = '_ATTON' iv_value = lv_on ).
-    att_put( iv_field = lv_name iv_suffix = '_ATTOF' iv_value = lv_off ).
+*   ---- WHICH SET OF COMPONENTS, AND WHY THERE ARE TWO ---------------
+*   A field can be drawn on the page AND inside a dialog in the SAME round
+*   trip: the main view is rebuilt whether or not a popup is open. One set of
+*   components would leave the two writers overwriting each other, and the
+*   dialog would show the page's filename or the page the dialog's. _ATTP* is
+*   the dialog's set. Only one dialog is ever open at a time, so one set
+*   serves every occurrence of a repeating uploader.
+    DATA(lv_sfx) = COND string( WHEN iv_pop = abap_true THEN `_ATTP` ELSE `_ATT` ).
+
+    att_put( iv_field = lv_name iv_suffix = |{ lv_sfx }FN| iv_value = lv_fn ).
+    att_put( iv_field = lv_name iv_suffix = |{ lv_sfx }UR| iv_value = lv_ur ).
+    att_put( iv_field = lv_name iv_suffix = |{ lv_sfx }ON| iv_value = lv_on ).
+    att_put( iv_field = lv_name iv_suffix = |{ lv_sfx }OF| iv_value = lv_off ).
 
 *   ---- A MODEL WITHOUT THE COMPANIONS STILL HAS TO DRAW --------------
 *   BUILD_MODEL( ) runs at launch and when dynamic steps merge, NOT on every
@@ -736,10 +751,10 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   from what this round trip knows instead of from a binding. That is
 *   exactly how this worked before, flash included, and it corrects itself
 *   the next time the journey is launched. Degrade, never draw nonsense.
-    DATA(lv_bfn) = bind_of( iv_name = lv_name iv_suffix = '_ATTFN' ).
-    DATA(lv_bur) = bind_of( iv_name = lv_name iv_suffix = '_ATTUR' ).
-    DATA(lv_bon) = bind_of( iv_name = lv_name iv_suffix = '_ATTON' ).
-    DATA(lv_bof) = bind_of( iv_name = lv_name iv_suffix = '_ATTOF' ).
+    DATA(lv_bfn) = bind_of( iv_name = lv_name iv_suffix = |{ lv_sfx }FN| ).
+    DATA(lv_bur) = bind_of( iv_name = lv_name iv_suffix = |{ lv_sfx }UR| ).
+    DATA(lv_bon) = bind_of( iv_name = lv_name iv_suffix = |{ lv_sfx }ON| ).
+    DATA(lv_bof) = bind_of( iv_name = lv_name iv_suffix = |{ lv_sfx }OF| ).
 
     IF lv_bfn IS INITIAL.
       lv_bfn = zcl_rak_journey_util=>esc( lv_fn ).
@@ -771,12 +786,24 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                     class   = 'rakAttDel'
                     tooltip = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-remove_row
                                                  iv_default = 'Remove' )
-                    press   = mo_e->mo_client->_event( |ATTDELF_{ to_upper( lv_name ) }| ) ).
+*   ATTDELP_ IN A DIALOG, and it carries the occurrence after a tilde the way
+*   ATTSAVE_ already does. Deleting on FIELD alone there would take a second
+*   owner's document with it. The key is fixed for as long as one dialog is
+*   open, so the markup is stable where it has to be; opening a DIFFERENT
+*   occurrence is a different key, a different signature, and a real redraw,
+*   which is correct.
+                    press   = mo_e->mo_client->_event(
+                                COND string(
+                                  WHEN iv_pop = abap_true
+                                  THEN |ATTDELP_{ to_upper( lv_name ) }~{ iv_key }|
+                                  ELSE |ATTDELF_{ to_upper( lv_name ) }| ) ) ).
 
     render_uploader( io_box     = io_box
                      iv_field   = lv_name
                      iv_types   = is_field-attach_types
                      iv_maxmb   = is_field-attach_maxmb
+                     iv_scope   = COND string( WHEN iv_pop = abap_true THEN `_POP` )
+                     iv_key     = iv_key
                      iv_visible = lv_bof ).
   ENDMETHOD.
 
@@ -2245,13 +2272,13 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       IF lv_all = abap_false AND ls_a-okey <> iv_key.
         CONTINUE.
       ENDIF.
-*     UNDER IV_BOUND THE KEYLESS FILE IS SOMEBODY ELSE'S ROW.
-*     RENDER_ATT_PAIR( ) draws it bound, so that it is in the markup whether
-*     or not a file exists and the view stops changing shape on upload. A
-*     KEYED file still comes through here: its row belongs to one occurrence
-*     of a repeating uploader, there is no per-occurrence model component to
-*     bind it to, and it does not change on a main-page upload anyway.
-      IF iv_bound = abap_true AND ls_a-okey IS INITIAL.
+*     UNDER IV_BOUND, THIS KEY'S FILE IS SOMEBODY ELSE'S ROW.
+*     RENDER_ATT_PAIR( ) draws it bound, so it is in the markup whether or not
+*     a file exists and the view stops changing shape on upload. The row it
+*     covers is the one matching IV_KEY - blank on the page, the occurrence in
+*     a dialog - so each caller skips exactly its own and keeps drawing the
+*     others, which do not change on that caller's upload.
+      IF iv_bound = abap_true AND ls_a-okey = iv_key.
         CONTINUE.
       ENDIF.
       rv_count = rv_count + 1.
@@ -4020,6 +4047,13 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         mo_e->mo_client->popup_destroy( ).
         CLEAR mo_e->mv_popup_shown.
       ENDIF.
+*     THE SIGNATURE GOES WITH THE DIALOG. Left behind, a later dialog whose
+*     markup happened to match this one's would be refreshed rather than
+*     drawn - POPUP_MODEL_UPDATE( ) against a fragment that is no longer on
+*     screen, so nothing opens. MV_QUIET_EVT already stops that (opening a
+*     popup is never a quiet event) but this is the guard that does not
+*     depend on every future caller remembering it.
+      CLEAR mo_e->mv_popup_sig.
       RETURN.
     ENDIF.
 
@@ -4157,8 +4191,60 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                         press = mo_e->mo_client->_event( 'POPCLOSE' ) ).
     ENDCASE.
 
-    mo_e->mo_client->popup_display( lo_pop->stringify( ) ).
+    send_popup( lo_pop->stringify( ) ).
     mo_e->mv_popup_shown = abap_true.
+  ENDMETHOD.
+
+
+  METHOD send_popup.
+*   ---- WHY A DIALOG FLASHED WHEN THE PAGE HAD STOPPED -----------------
+*   SEND_VIEW( ) compares the page's markup against MV_VIEW_SIG and, when
+*   nothing changed, refreshes the model instead of redrawing. RENDER_POPUP( )
+*   had no such check: it called POPUP_DISPLAY( ) on every round trip while a
+*   dialog was open, so the fragment was destroyed and rebuilt each time - the
+*   flash that was left after the page stopped flashing.
+*
+*   A DIALOG IS ITS OWN VIEW SLOT, which is why this is a second method and
+*   not a parameter on the first. It carries its own markup, its own signature
+*   and its own update call (POPUP_MODEL_UPDATE( ), which sets CHECK_UPDATE_MODEL
+*   on the popup slot exactly as VIEW_MODEL_UPDATE( ) does on the main one).
+*   Sharing one hash between them would make every page change redraw the
+*   dialog and every dialog change redraw the page.
+*
+*   THE TWO GUARDS ARE SEND_VIEW( )'S, unchanged in meaning. MV_POPUP_SIG must
+*   already hold something, so the first render of any dialog is always a real
+*   one - that is what makes OPENING a dialog, or opening a different dialog,
+*   draw rather than quietly refresh the one before it. And MV_QUIET_EVT is set
+*   only by the round trips that cannot change a dialog's shape, so a handler
+*   event that rebuilds its own popup content still repaints.
+*
+*   MV_POPUP_SHOWN IS NOT TOUCHED HERE. The dialog is on screen either way -
+*   this decides whether it is redrawn, not whether it exists - and clearing
+*   it would make RENDER_POPUP( )'s next pass destroy a dialog that is still
+*   open.
+    DATA lv_sig TYPE string.
+    TRY.
+        cl_abap_message_digest=>calculate_hash_for_char(
+          EXPORTING
+            if_algorithm  = 'SHA1'
+            if_data       = iv_xml
+          IMPORTING
+            ef_hashstring = lv_sig ).
+      CATCH cx_root.
+*       No hash means no safe comparison, so take the path that is always
+*       correct rather than the one that is usually faster.
+        CLEAR lv_sig.
+    ENDTRY.
+
+    IF lv_sig IS NOT INITIAL
+       AND lv_sig = mo_e->mv_popup_sig
+       AND mo_e->mv_quiet_evt = abap_true.
+      mo_e->mo_client->popup_model_update( ).
+      RETURN.
+    ENDIF.
+
+    mo_e->mv_popup_sig = lv_sig.
+    mo_e->mo_client->popup_display( iv_xml ).
   ENDMETHOD.
 
 
