@@ -656,14 +656,22 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |\{max-width:none!important;\}| &&
         |.sapMPopover .sapMBtnContent,.sapMPopover .sapMSegBBtn| &&
         |\{font-size:.875rem;\}| &&
-*     THE SELECTED SEGMENT KEEPS ITS OWN COLOUR TOO. The theme paints
-*     .sapMSegBBtnSel in the brand red, which is right for a consent
-*     control the citizen answers and wrong for the clock's own hour and
-*     minute chips - a picked minute rendered as a red box that reads like
-*     an error rather than a selection.
-        |.sapMPopover .sapMSegBBtnSel,| &&
-        |.sapMPopover .sapMSegBBtnSel .sapMSegBBtnInner| &&
-        |\{background:transparent!important;color:inherit!important;\}| &&
+*     THE SELECTED SEGMENT'S COLOUR IS DELIBERATELY LEFT ALONE, and this
+*     is a correction rather than an omission.
+*
+*     A previous version of this block made .sapMSegBBtnSel transparent
+*     with colour:inherit, on the reasoning that the theme's brand red
+*     reads as an error on a clock chip. Nobody had reported the colour.
+*     The theme pairs that red with WHITE TEXT on the inner element, and
+*     inherit did not reach whichever element actually carries the glyphs -
+*     so the background went white, the text stayed white, and the picked
+*     minute became invisible. It looked like the minute was not being
+*     taken at all, which is a far worse fault than a chip being the wrong
+*     colour, and it was introduced by a change nobody asked for.
+*
+*     White on red is legible. Leave it. If the colour is ever genuinely
+*     wanted different here, set an explicit foreground - never INHERIT
+*     against a rule that sets colour with !important further in.
 *     A message strip whose text does not wrap makes the page wider than the
 *     viewport. In LTR that clips harmlessly on the right; in RTL the overflow
 *     goes the other way and the page is pushed off screen. The &trace=X lines
