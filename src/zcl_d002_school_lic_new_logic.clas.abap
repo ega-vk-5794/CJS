@@ -419,7 +419,13 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
       DATA: lv_eid_no   TYPE bu_id_number,
             lv_eid_type TYPE bu_id_type.
 
-      lv_eid_no = lv_eid.
+*     THE FORM BUT0ID ACTUALLY HOLDS. A read of the table under type YFS002
+*     shows IDNUMBER stored as 784-1967-6281068-5 - hyphens and all - and this
+*     passed whatever the citizen typed straight to the FM. MASK_EID( ) returns
+*     exactly that shape, prepends a missing 784 for someone who typed only the
+*     twelve digits their card groups, and returns anything it cannot make into
+*     fifteen digits unchanged, so a junk value behaves as it did.
+      lv_eid_no = zcl_rak_bp_search=>mask_eid( lv_eid ).
       lv_eid_type = lv_idtype.
 
       DATA ev_partner         TYPE partner.
@@ -488,7 +494,7 @@ CLASS ZCL_D002_SCHOOL_LIC_NEW_LOGIC IMPLEMENTATION.
         io_ctx->add_msg( iv_type = 'Warning'
                          iv_text = zcl_rak_text=>get(
                                      iv_no      = zcl_rak_text=>c_no-d002_trade_enter
-                                     iv_default = |Enter valid Trade ID to search| ) ).
+                                     iv_default = |Enter Trade License Number| ) ).
       ELSE.
         SELECT SINGLE partner FROM but0id INTO @DATA(lv_trade_partner) WHERE idnumber EQ @lv_trade_id AND type EQ 'YP0001'.
         IF lv_trade_partner IS INITIAL.

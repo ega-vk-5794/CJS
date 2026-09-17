@@ -801,9 +801,12 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
       ( msgno = c_no-d001_fill_required
         en = `Kindly fill required details.`
         ar = `يرجى تعبئة البيانات المطلوبة.` )
+*     REWORDED ON REQUEST. Was "Kindly enter shares as 100", which told the
+*     citizen the total rather than naming the field they had left empty -
+*     and it fires when SHARE_PER is BLANK, not when the shares fail to sum.
       ( msgno = c_no-d001_shares_100
-        en = `Kindly enter shares as 100`
-        ar = `يرجى إدخال مجموع الحصص بحيث يساوي 100` )
+        en = `Kindly enter Share %`
+        ar = `يرجى إدخال نسبة الحصص %` )
       ( msgno = c_no-d001_eid_format
         en = `Emirates ID must be in the format 784-XXXX-XXXXXXX-X.`
         ar = `يجب أن تكون الهوية الإماراتية بالصيغة 784-XXXX-XXXXXXX-X.` )
@@ -821,9 +824,12 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
       ( msgno = c_no-d002_search_min
         en = `Enter at least &1 characters to search`
         ar = `أدخل &1 أحرف على الأقل للبحث` )
+*     REWORDED ON REQUEST, and it now matches the field's own label, which
+*     is "Trade License Number" - the message used to call the same thing a
+*     Trade ID.
       ( msgno = c_no-d002_trade_enter
-        en = `Enter valid Trade ID to search`
-        ar = `أدخل رقم رخصة تجارية صحيحاً للبحث` )
+        en = `Enter Trade License Number`
+        ar = `أدخل رقم الرخصة التجارية` )
 *     The double space after "No" is the literal's own and is kept so the
 *     English is unchanged. Worth correcting in SM30, not in this pass.
       ( msgno = c_no-d002_trade_nobp

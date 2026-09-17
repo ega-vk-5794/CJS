@@ -453,7 +453,7 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
           io_ctx->add_msg( iv_type = 'Warning'
                            iv_text = zcl_rak_text=>get(
                                        iv_no      = zcl_rak_text=>c_no-d001_shares_100
-                                       iv_default = 'Kindly enter shares as 100' ) ).
+                                       iv_default = 'Kindly enter Share %' ) ).
           RETURN.
         ENDIF.
 
@@ -574,7 +574,13 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
           DATA ev_date_of_birth   TYPE bu_birthdt.
           DATA ev_message         TYPE bapiret2-message.
 
-          iv_idnumber = lv_eid .
+*         THE FORM BUT0ID ACTUALLY HOLDS. A read of the table under type YFS002
+*         shows IDNUMBER stored as 784-1967-6281068-5 - hyphens and all - and this
+*         passed whatever the citizen typed straight to the FM. MASK_EID( ) returns
+*         exactly that shape, prepends a missing 784 for someone who typed only the
+*         twelve digits their card groups, and returns anything it cannot make into
+*         fifteen digits unchanged, so a junk value behaves as it did.
+          iv_idnumber = zcl_rak_bp_search=>mask_eid( CONV string( lv_eid ) ).
           CALL FUNCTION 'ZFE_CJ_SEARCH_BP_BY_ID'
             EXPORTING
               iv_type            = 'YFS002'
@@ -1632,7 +1638,8 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
       IF lv_eid IS NOT INITIAL.
         CONDENSE lv_eid .
 
-        iv_idnumber = lv_eid .
+*       See the owner search above - BUT0ID holds the dashed form.
+        iv_idnumber = zcl_rak_bp_search=>mask_eid( CONV string( lv_eid ) ).
         CALL FUNCTION 'ZFE_CJ_SEARCH_BP_BY_ID'
           EXPORTING
             iv_type            = 'YFS002'
