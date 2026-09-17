@@ -1043,7 +1043,51 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
                      `described, complete, correct and true. Thus, I would be held responsible ` &&
                      `for any incorrect or false information provided.`
         ar         = `أقر بموجب هذا أن جميع المعلومات المقدمة في هذا الطلب صحيحة ودقيقة وكاملة، ` &&
-                     `وبالتالي أتحمل المسؤولية عن أي معلومات غير صحيحة أو مضللة.` ) ).
+                     `وبالتالي أتحمل المسؤولية عن أي معلومات غير صحيحة أو مضللة.` )
+
+*     D001 - THE SCHOOL LICENCE DECLARATION, AND UNLIKE EC01 ABOVE THIS ONE
+*     IS NOT RECONSTRUCTED. It is copied verbatim from the department's own
+*     BAdI implementations - ZCL_EGA_CJ_ENH_IMPL_D002, _D011 and _D012 all
+*     build the identical sentence under WHEN 'DECLARATION_NAME', in both
+*     languages. That is the wording the citizen already sees on the live
+*     screen, which is exactly what "as per current application" asked for.
+*
+*     WHY THE FIELD SHOWED ONLY THE WORD "Declaration". D001's DEFAULT_VAL
+*     reads TEXT:@D001DECL, and the @ branch of LONG_TEXT( ) does
+*     CONV symsgno( 'D001DECL' ) - SYMSGNO is three characters, so that
+*     conversion fails, the TRY swallows it and the field falls back to its
+*     own label. The declaration was never rendering at all.
+*
+*     SO IT LIVES HERE RATHER THAN IN A @nnn ROW, and that is the better
+*     home regardless: ZRAK_T_CJ_TXT is CHAR255 and this sentence is over
+*     four hundred characters, so a text row could not have held it whole.
+*     Clearing DEFAULT_VAL is the config half - see the note handed over
+*     with this change.
+*
+*     {APPLICANTNAME} IS SUBSTITUTED BY SUBST_FIELDS( ), which the LONG( )
+*     branch of LONG_TEXT( ) already calls. The legacy builds the same
+*     thing by CONCATENATEing GS_DATA-PARTNER_NAME.
+*
+*     ONE DEPARTURE FROM THE LEGACY, AND IT IS A DEFECT THERE. All three
+*     BAdIs prefix the ARABIC sentence with the English literal 'I,' -
+*     CONCATENATE 'I,' gs_data-partner_name '<arabic>' - so an Arabic
+*     reader gets "I, <name> بصفتي مالك الشركة...". The Arabic below opens
+*     with أنا، instead. Everything after the name is verbatim.
+      ( journey_id = 'D001'
+        field_name = 'DECLARE'
+        en         = `I, {APPLICANTNAME} as the company owner, hereby declare that all ` &&
+                     `information provided in this application and in attached documents ` &&
+                     `are true and accurate, that I will be responsible for any consequences ` &&
+                     `of them, and I will be abide by all relevant regular conditions, ` &&
+                     `instructions and guidelines to avoid legal action in case of violations ` &&
+                     `and that I authorize our representative to follow up all the related ` &&
+                     `to the activity.`
+        ar         = `أنا، {APPLICANTNAME} بصفتي مالك الشركة، أقر بموجب هذا أن جميع ` &&
+                     `المعلومات المقدمة في هذا الطلب والمستندات المرفقة صحيحة ودقيقة، ` &&
+                     `وأنني سأكون مسؤولاً عن أي عواقب تترتب عليها، وسوف ألتزم بجميع ` &&
+                     `الشروط والتعليمات والمبادئ التوجيهية النظامية ذات الصلة لتجنب ` &&
+                     `اتخاذ الإجراءات القانونية في حالة وجود مخالفات وأنني أفوض مندوبنا ` &&
+                     `بمتابعة كل ما يتعلق بالنشاط.` ) ).
   ENDMETHOD.
 
 

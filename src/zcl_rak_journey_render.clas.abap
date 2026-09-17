@@ -4656,7 +4656,20 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         rv_text = zcl_rak_text=>get( iv_no      = CONV symsgno( lv_no )
                                      iv_default = is_field-label
                                      iv_journey = mo_e->ms_config-journey_id ).
+*       SUBSTITUTED HERE TOO. The other two branches of this method both
+*       call SUBST_FIELDS( ) and this one did not, so a {FIELD} placeholder
+*       worked in a plain TEXT: default and in a LONG_TEXTS( ) entry, and
+*       printed as literal braces through a TEXT:@nnn reference. Nothing
+*       configured today uses one, which is why it had not been noticed -
+*       and a paragraph naming the citizen is exactly what @nnn is for.
+        subst_fields( CHANGING cv_text = rv_text ).
       CATCH cx_root.
+*       A NON-NUMERIC REFERENCE LANDS HERE, and D001's TEXT:@D001DECL is
+*       one: SYMSGNO is three characters, so the CONV above cannot make a
+*       message number out of it. The field then falls back to its own
+*       label, which is why that declaration rendered as the single word
+*       "Declaration" rather than as a declaration. It is a LONG_TEXTS( )
+*       entry now and its DEFAULT_VAL wants clearing.
         rv_text = is_field-label.
     ENDTRY.
     subst_fields( CHANGING cv_text = rv_text ).
