@@ -1393,22 +1393,38 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *   boxed picker is the width an unboxed one was.
     lv_css = lv_css &&
       |.rakAttBox\{display:flex;align-items:center;gap:.6rem;box-sizing:border-box;| &&
-      |width:100%;max-width:22rem;min-height:2.75rem;padding:0 .25rem 0 .75rem;| &&
+      |width:100%;max-width:22rem;min-height:2.75rem;padding:0 0 0 .75rem;| &&
       |background:#fff;border:1px solid { g-line_clr };border-radius:4px;\}| &&
-*     The picker's own dashed inner border and background would draw a second
-*     box inside this one.
-      |.rakAttBox.rakUp input[type=file]\{border:none;background:none;padding:0;\}| &&
-*     Inside the box the hint is a trailing note on one line, not the block
-*     element it was as a sibling. Pushed to the right so a long filename and
-*     a short hint occupy the same visual column.
-      |.rakAttBox .rakAttHint\{display:inline;margin:0 0 0 auto;padding-inline-end:.35rem;| &&
-      |white-space:nowrap;\}| &&
+*     THE PICKER. The box IS the label, so the whole of it is the click
+*     target - the clip, the words, and the empty space between them.
+      |.rakAttPick\{cursor:pointer;\}| &&
+*     The native file input has to stay in the DOM and stay scriptable (the
+*     onchange FileReader is the only channel a file arrives on), so it is
+*     hidden the way .rakHide hides the bridge controls rather than with
+*     display:none, which would stop it firing.
+      |.rakAttPick>input[type=file]\{position:absolute!important;width:1px!important;| &&
+      |height:1px!important;opacity:0!important;overflow:hidden;border:0!important;| &&
+      |padding:0!important;\}| &&
+*     The placeholder occupies the column the filename occupies when there is
+*     one, and truncates the same way, so the two states line up exactly.
+      |.rakAttPh\{flex:1 1 auto;min-width:0;color:#8a93a2;overflow:hidden;| &&
+      |text-overflow:ellipsis;white-space:nowrap;\}| &&
+*     The clip sits where the trash sits, behind the same divider, full box
+*     height so the two states have the same vertical rule in the same place.
+      |.rakAttPin\{flex:0 0 auto;display:flex;align-items:center;align-self:stretch;| &&
+      |padding:0 .55rem;color:#5b6474;border-inline-start:1px solid { g-line_clr };\}| &&
+      |.rakAttPick:hover .rakAttPin\{color:{ b };\}| &&
 *     The divider in front of the delete button, which is what makes the
 *     trash read as an action ON the row rather than another item in it. On
 *     the button's own class, not on the row's last child: a FILED row ends
 *     with a status badge and a divider in front of that would promise an
 *     action that is not there.
-      |.rakAttBox .rakAttDel\{border-inline-start:1px solid { g-line_clr };border-radius:0;\}| &&
+*
+*     ALIGN-SELF:STRETCH SO IT MATCHES THE CLIP'S. Both states draw a full
+*     box-height rule in the same place; a button-height one would sit
+*     short and the two states would stop being the same shape.
+      |.rakAttBox .rakAttDel\{align-self:stretch;display:flex;align-items:center;| &&
+      |border-inline-start:1px solid { g-line_clr };border-radius:0;\}| &&
 *     A transparent sap.m.Button carries its own margins; inside a 2.75rem box
 *     they push the row taller than the picker's.
       |.rakFileRow.rakAttBox .sapMBtn\{margin:0;\}|.

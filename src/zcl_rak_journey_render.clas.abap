@@ -4636,47 +4636,69 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       `g('.rakAttB64_` && lv_f && `').setValue(r.result);` &&
       `g('.rakAttGo_` && lv_f && `').firePress();me.value='';};` &&
       `r.readAsDataURL(f);`.
-    DATA(lv_pick) = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-choose_file iv_default = 'Choose file' ).
+    DATA(lv_pick) = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-choose_file iv_default = 'Select a file' ).
 
-*   ---- THE HINT GOES INSIDE THE BOX, NOT UNDER IT ---------------------
-*   It used to be a sap.m.Text drawn as a SIBLING of the picker, and that
-*   single line was most of the jump: staging a file removes the picker and
-*   its hint together, so the control lost about 1.5rem of height on every
-*   upload and everything below it rose to meet the gap.
+*   ---- THE EMPTY STATE IS THE FILLED STATE WITH NOTHING IN IT ---------
+*   The same bordered box, the same height, the same divider in the same
+*   place: a greyed placeholder where the filename goes, and a paperclip
+*   where the trash goes. Two states of one control that look like it.
 *
-*   Inside the box it costs no height of its own - the box is the same
-*   min-height with it and without it, and the same min-height as the filed
-*   row that replaces the whole thing.
+*   THE WHOLE BOX IS THE LABEL, so a click anywhere in it opens the file
+*   dialog - the clip, the words, the empty space to the right of them. A
+*   picker that only responds on a small button is the shape citizens miss.
 *
-*   STILL SILENT when RENDER_STEP( ) has already said it once at the top of
-*   the step. A popup's uploaders keep their own: the step's strip is behind
-*   the dialog, where the citizen cannot read it.
+*   THE CLIP IS AN INLINE SVG, NOT AN ICON-FONT CODEPOINT. sap-icon://attachment
+*   is drawn from the SAP-icons font at a codepoint nothing here can read, and
+*   guessing one renders a different glyph or a blank box - the same class of
+*   mistake as hand-writing the signature of a standard class. This path is
+*   ours, it is four line segments, and it inherits CURRENTCOLOR so it follows
+*   the theme with no second colour to keep in step.
+    DATA(lv_clip) =
+      `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" ` &&
+      `stroke="currentColor" stroke-width="2" stroke-linecap="round" ` &&
+      `stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19` &&
+      `a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19` &&
+      `a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>`.
+
+*   ---- THE HINT IS A TOOLTIP NOW, NOT A LINE OF ITS OWN ---------------
+*   As a sap.m.Text drawn BESIDE the picker it was most of the jump: staging
+*   a file removed the picker and its hint together, so the control lost
+*   about 1.5rem on every upload and everything below rose to meet the gap.
+*   In the box it competed with the placeholder for the same row.
+*
+*   On TITLE it costs no height at all and is still on the control the
+*   question is about. RENDER_STEP( ) already states the same types and size
+*   once at the top of a step whose uploaders agree, which is where a citizen
+*   reads it before picking anything; MV_ATT_HINT_HIDE stays honoured so a
+*   popup's uploaders, which sit in front of that strip, keep their own.
     DATA(lv_hint) = to_upper( COND string( WHEN iv_types IS NOT INITIAL
                                            THEN iv_types ELSE `pdf,jpg,jpeg,png` ) ).
     REPLACE ALL OCCURRENCES OF `,` IN lv_hint WITH `, `.
-    DATA lv_hintel TYPE string.
+    DATA lv_title TYPE string.
     IF mv_att_hint_hide = abap_false OR iv_scope IS NOT INITIAL.
-      lv_hintel = `<span class="rakAttHint">` &&
-                  zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-att_hint
-                                     iv_v1      = lv_hint
-                                     iv_v2      = |{ lv_mb }|
-                                     iv_default = |{ lv_hint } · up to { lv_mb } MB| ) &&
-                  `</span>`.
+      lv_title = ` title="` &&
+                 zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-att_hint
+                                    iv_v1      = lv_hint
+                                    iv_v2      = |{ lv_mb }|
+                                    iv_default = |{ lv_hint } · up to { lv_mb } MB| ) &&
+                 `"`.
     ENDIF.
 
-*   RAKATTBOX beside RAKUP: the bordered, fixed-height container the filed
-*   row also draws. RAKUP keeps every rule that already targets the file
-*   input itself, so nothing about the picker's own styling changes.
+*   RAKATTPICK RATHER THAN RAKUPLBL, and the box is the LABEL element itself.
+*   The old classes styled a blue pill button and are left where they are
+*   rather than re-cut in six theme variants; nothing draws them any more.
     DATA(lv_html) =
-      `<div class="rakUp rakAttBox"><label class="rakUpLbl"><span>` && lv_pick && `</span>` &&
+      `<label class="rakAttBox rakAttPick"` && lv_title && `>` &&
+      `<span class="rakAttPh">` && lv_pick && `</span>` &&
+      `<span class="rakAttPin">` && lv_clip && `</span>` &&
       `<input type="file" accept="` &&
       COND string( WHEN iv_types IS NOT INITIAL
                    THEN `.` && replace( val = iv_types sub = `,` with = `,.` occ = 0 )
                    ELSE `.pdf,.jpg,.jpeg,.png` ) &&
-      `" onchange="` && lv_js && `"/></label>` && lv_hintel && `</div>`.
-*   The hint is brace-escaped here with the rest of the markup, which is why
-*   it is concatenated in raw above - escaping it twice would print the
-*   backslashes.
+      `" onchange="` && lv_js && `"/></label>`.
+*   The placeholder and the tooltip are brace-escaped here with the rest of
+*   the markup, which is why they are concatenated in raw above - escaping
+*   either twice would print the backslashes.
     REPLACE ALL OCCURRENCES OF `{` IN lv_html WITH `\{`.
     REPLACE ALL OCCURRENCES OF `}` IN lv_html WITH `\}`.
     io_box->html( content = lv_html sanitizecontent = abap_false ).
