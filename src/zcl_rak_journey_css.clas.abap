@@ -650,12 +650,42 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     nothing here should be imposing a target size on it. !important is
 *     required because the rules above carry it; two classes beat one, so
 *     these win on specificity rather than on order.
-        |.sapMPopover .sapMSegBBtn\{min-width:0!important;| &&
+*     SCOPED TO .SAPMTPCBUTTONS, WHICH IS THE CLOCK'S OWN BUTTON ROW AND IS
+*     READ FROM THE DOM RATHER THAN GUESSED. Two rounds of this block used
+*     .sapMPopover, which worked on a desktop and WOULD HAVE MISSED A PHONE
+*     ENTIRELY: the picker is a ResponsivePopover, so it renders as a
+*     Popover on a desktop and as a sap.m.Dialog on a phone. Scoping to the
+*     row itself covers both and cannot reach anything else, because
+*     .sapMTPCButtons exists nowhere but in a time picker.
+        |.sapMTPCButtons .sapMSegBBtn\{min-width:0!important;| &&
         |padding:0 .5rem!important;font-weight:400!important;\}| &&
-        |.sapMPopover .sapMSegB,.sapMPopover .sapMSegBBtn| &&
+        |.sapMTPCButtons .sapMSegB,.sapMTPCButtons .sapMSegBBtn| &&
         |\{max-width:none!important;\}| &&
-        |.sapMPopover .sapMBtnContent,.sapMPopover .sapMSegBBtn| &&
+        |.sapMTPCButtons .sapMBtnContent,.sapMTPCButtons .sapMSegBBtn| &&
         |\{font-size:.875rem;\}| &&
+*     ---- AND THE PICKED CHIP IS WHITE ON WHITE --------------------------
+*     THE MINUTE WAS NEVER MISSING. A DOM read showed the box holding the
+*     text "47" in rgb(255,255,255) while the hour beside it held "11" in
+*     rgb(51,51,51) - the value was there and invisible, every time it was
+*     reported as "the minute is not setting". Four rounds went on width
+*     because the symptom looked like truncation.
+*
+*     NOTHING IN THIS STYLESHEET SETS THAT WHITE. Grepping it for color:#fff
+*     finds only .sapMBtnEmphasized, .rakHdr, .rakRecCard and
+*     .sapMSegBBtnSel, and the chip carries none of them - it is
+*     .sapMToggleBtnPressed, UI5's own pressed-toggle state, which expects
+*     to sit on the filled background its own theme gives it.
+*
+*     SO BOTH HALVES ARE SET HERE, not one. Setting only the colour leaves
+*     the next theme change free to fill the background and make it
+*     unreadable the other way round, which is the same bug with the
+*     values swapped. A tinted ground with dark text is a selection
+*     affordance that cannot disagree with itself.
+        |.sapMTPCButtons .sapMToggleBtnPressed| &&
+        |\{background:#EAF1FB!important;border-color:#7FA8D8!important;\}| &&
+        |.sapMTPCButtons .sapMToggleBtnPressed .sapMBtnContent,| &&
+        |.sapMTPCButtons .sapMToggleBtnPressed .sapMBtnContent bdi| &&
+        |\{color:#0A2A4A!important;\}| &&
 *     THE SELECTED SEGMENT'S COLOUR IS DELIBERATELY LEFT ALONE, and this
 *     is a correction rather than an omission.
 *
