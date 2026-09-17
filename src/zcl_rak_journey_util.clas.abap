@@ -355,6 +355,16 @@ CLASS zcl_rak_journey_util DEFINITION
                 VALUE(iv_rollname) TYPE clike
       RETURNING VALUE(rv)          TYPE string.
 
+*   Whether that data element declares a conversion exit at all, asked
+*   WITHOUT a value. A grid cell cannot be converted where it is drawn - the
+*   row template is shared by every row - so the converted text has to live
+*   in a model companion, and BUILD_MODEL( ) has to decide whether to create
+*   one before any row exists. This is that decision, and it reads the same
+*   cache CONV_OUT( ) fills.
+    CLASS-METHODS has_conv_exit
+      IMPORTING VALUE(iv_rollname) TYPE clike
+      RETURNING VALUE(rv)          TYPE abap_bool.
+
     CLASS-METHODS comp_name IMPORTING VALUE(iv_key) TYPE string
                              RETURNING VALUE(rv)     TYPE string.
 
@@ -555,6 +565,12 @@ CLASS zcl_rak_journey_util DEFINITION
              exit TYPE string,
            END OF ty_convexit.
     CLASS-DATA gt_convexit TYPE SORTED TABLE OF ty_convexit WITH UNIQUE KEY roll.
+
+*   The cached DD04L lookup both public methods go through, so there is one
+*   SELECT and one cache rather than two that can disagree.
+    CLASS-METHODS conv_exit_of
+      IMPORTING VALUE(iv_rollname) TYPE clike
+      RETURNING VALUE(rv)          TYPE string.
 
 *   The three RAK systems. Private: everything outside this class asks a
 *   question about capability, never about which system it is on.
@@ -1217,18 +1233,15 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD conv_out.
-    rv = iv_value.
-    IF rv IS INITIAL OR iv_rollname IS INITIAL.
+  METHOD conv_exit_of.
+*   ONE SELECT AND ONE CACHE for both callers. A DDIC property cannot
+*   change inside a session, and a BLANK cached answer - "this element
+*   declares no exit" - is the common case and the one worth caching
+*   hardest, because it is the one asked on every field of every render.
+    IF iv_rollname IS INITIAL.
       RETURN.
     ENDIF.
 
-*   CACHED PER DATA ELEMENT. This runs once per DISPLAY field per render, so
-*   a SELECT and a dynamic CALL FUNCTION each time would be paid on every
-*   round trip of every journey. The answer never changes within a session -
-*   it is a DDIC property - and a blank cached entry is a real answer
-*   meaning "this element has no exit", which is the common case and the one
-*   worth caching hardest.
     DATA(lv_roll) = to_upper( condense( CONV string( iv_rollname ) ) ).
     READ TABLE gt_convexit INTO DATA(ls_cx) WITH TABLE KEY roll = lv_roll.
     IF sy-subrc <> 0.
@@ -1246,7 +1259,29 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
       INSERT ls_cx INTO TABLE gt_convexit.
     ENDIF.
 
-    IF ls_cx-exit IS INITIAL.
+    rv = ls_cx-exit.
+  ENDMETHOD.
+
+
+  METHOD has_conv_exit.
+    rv = xsdbool( conv_exit_of( iv_rollname ) IS NOT INITIAL ).
+  ENDMETHOD.
+
+
+  METHOD conv_out.
+    rv = iv_value.
+    IF rv IS INITIAL OR iv_rollname IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   CACHED PER DATA ELEMENT. This runs once per DISPLAY field per render, so
+*   a SELECT and a dynamic CALL FUNCTION each time would be paid on every
+*   round trip of every journey. The answer never changes within a session -
+*   it is a DDIC property - and a blank cached entry is a real answer
+*   meaning "this element has no exit", which is the common case and the one
+*   worth caching hardest.
+    DATA(lv_ex) = conv_exit_of( iv_rollname ).
+    IF lv_ex IS INITIAL.
       RETURN.
     ENDIF.
 
@@ -1262,7 +1297,7 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
 *       restriction has already cost this codebase a class that would not
 *       load - PARAMETER-TABLE refusing a constructor expression. Cheap
 *       insurance on a class every journey and the Studio load through.
-        DATA(lv_fm) = |CONVERSION_EXIT_{ ls_cx-exit }_OUTPUT|.
+        DATA(lv_fm) = |CONVERSION_EXIT_{ lv_ex }_OUTPUT|.
         CALL FUNCTION lv_fm
           EXPORTING  input  = rv
           IMPORTING  output = lv_out

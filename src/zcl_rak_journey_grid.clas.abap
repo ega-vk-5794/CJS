@@ -950,6 +950,32 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *   Same option source (ROLLNAME, else the handler) the editable combobox
 *   uses further down. A key with no matching option falls back to itself,
 *   same as before this existed.
+*   THE SAME COMPANION, FILLED FROM THE DATA ELEMENT. A TEXT column whose
+*   SRC names an element with a conversion exit shows what the element says
+*   it reads - RECNNR's 0000002400087 as 2400087 - while the CELL keeps the
+*   padded key the backend matches on.
+*
+*   THAT SPLIT IS THE WHOLE POINT, and the reason the obvious shortcut is
+*   wrong: strip the row itself and SEL: writes a stripped key into
+*   LICENCE_NO_SEL, and the BAdI's
+*   READ TABLE gs_data-licenses WITH KEY recnnr = gs_data-licence_no stops
+*   matching. D003, D016 and D020 each carry that shortcut commented out,
+*   which is somebody meeting this and backing away from it.
+    LOOP AT lt_gc INTO DATA(ls_cvcol) WHERE ctype = 'TEXT'.
+      IF zcl_rak_journey_util=>has_conv_exit( ls_cvcol-src ) = abap_false.
+        CONTINUE.
+      ENDIF.
+      DATA(lv_cvcomp) = |{ ls_cvcol-name }_TXT|.
+      LOOP AT <tab> ASSIGNING FIELD-SYMBOL(<crow>).
+        ASSIGN COMPONENT ls_cvcol-name OF STRUCTURE <crow> TO FIELD-SYMBOL(<craw>).
+        CHECK sy-subrc = 0.
+        ASSIGN COMPONENT lv_cvcomp OF STRUCTURE <crow> TO FIELD-SYMBOL(<ctxt>).
+        CHECK sy-subrc = 0.
+        <ctxt> = zcl_rak_journey_util=>conv_out( iv_value    = CONV string( <craw> )
+                                                 iv_rollname = ls_cvcol-src ).
+      ENDLOOP.
+    ENDLOOP.
+
     LOOP AT lt_gc INTO DATA(ls_selcol) WHERE ctype = 'SELECT'.
 *     LV_RO is not a component of LT_GC, so it cannot sit in the LOOP...WHERE
 *     above - every comparison there needs a table component on one side,
@@ -1097,7 +1123,13 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *       the raw key path - populated once above, before the table bound.
 *       Every other read-only ctype still shows its own stored value; there
 *       is nothing to resolve for those.
-        DATA(lv_rop) = COND string( WHEN gc-ctype = 'SELECT' THEN |\{{ gc-name }_TXT\}| ELSE lv_path ).
+*       A CONVERTED TEXT COLUMN BINDS TO ITS COMPANION for the same reason
+*       a SELECT does: the displayed form is not the stored form.
+        DATA(lv_rop) = COND string(
+          WHEN gc-ctype = 'SELECT'
+            OR ( gc-ctype = 'TEXT'
+                 AND zcl_rak_journey_util=>has_conv_exit( gc-src ) = abap_true )
+          THEN |\{{ gc-name }_TXT\}| ELSE lv_path ).
         lo_cells->text( text = lv_rop visible = lv_vis ).
         CONTINUE.
       ENDIF.

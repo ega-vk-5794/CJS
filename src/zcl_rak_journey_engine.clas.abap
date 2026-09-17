@@ -1789,7 +1789,21 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *             so there is no per-row place to do the lookup at render time).
 *             4 characters, well inside the 23-character base COMP_NAME( )
 *             already leaves for the longest existing companion.
-              IF gc-ctype = 'SELECT'.
+*             A TEXT COLUMN WHOSE DATA ELEMENT CONVERTS GETS ONE TOO.
+*             A grid cell cannot be converted where it is drawn: the row
+*             is a shared template bound to {COL}, so there is no per-row
+*             literal to put a converted value in. SELECT already solved
+*             that with a _TXT companion; a padded key is the same problem
+*             and takes the same answer.
+*
+*             GATED ON THE ELEMENT ACTUALLY DECLARING AN EXIT, not merely
+*             on SRC being filled. SRC is also the SELECT column's value
+*             help, so half the grids in the estate carry one - creating a
+*             companion for every such column would add a model field per
+*             column per row to every round trip for nothing.
+              IF gc-ctype = 'SELECT'
+                 OR ( gc-ctype = 'TEXT'
+                      AND zcl_rak_journey_util=>has_conv_exit( gc-src ) = abap_true ).
                 DATA(lv_txtname) = |{ gc-name }_TXT|.
                 READ TABLE lt_rowcomp WITH KEY name = lv_txtname TRANSPORTING NO FIELDS.
                 IF sy-subrc <> 0.
