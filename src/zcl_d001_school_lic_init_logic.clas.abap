@@ -1244,32 +1244,6 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
                         iv_val  = condense( io_ctx->get_val( c_own_bp ) )
               CHANGING  ct_row  = lt_row ).
 
-*   ---- WHY MOBILE AND EMAIL ARRIVE EMPTY IN THE LIST -------------------
-*   PUT_CELL( ) HAS THREE SILENT CHECKS - column not found, row shorter
-*   than the column index, READ that missed - and any one of them drops
-*   the value without a word. Name and Nationality land and these two do
-*   not, through the same call with the same column list, so one of those
-*   three is answering differently for them and none of it is visible.
-*
-*   This prints what was read and where each cell went. E10 ONLY, through
-*   IS_DEV( ): it names configuration columns, which is not something a
-*   citizen should ever be shown. Remove it once the cause is known.
-    IF zcl_rak_journey_util=>is_dev( ) = abap_true.
-      DATA(lv_dbg) = |OWNER SAVE · cols=| && |{ lines( ls_g-columns ) }| &&
-                     | cells=| && |{ lines( lt_row ) }|.
-      LOOP AT ls_g-columns INTO DATA(lv_dbgc).
-        lv_dbg = lv_dbg && | [| && |{ sy-tabix }| && |]| && condense( lv_dbgc ).
-      ENDLOOP.
-      io_ctx->add_msg( iv_type = 'Information' iv_text = lv_dbg ).
-      io_ctx->add_msg( iv_type = 'Information'
-        iv_text = |OWNER SAVE · MOBILE ix=| &&
-                  |{ col_ix( it_cols = ls_g-columns iv_name = c_col_mobile ) }| &&
-                  | val=[| && lv_mob && |] · EMAIL ix=| &&
-                  |{ col_ix( it_cols = ls_g-columns iv_name = c_col_email ) }| &&
-                  | val=[| && lv_eaddr && |] · NAME ix=| &&
-                  |{ col_ix( it_cols = ls_g-columns iv_name = c_col_name ) }| &&
-                  | val=[| && lv_name && |]| ).
-    ENDIF.
 
 *   EMIRATES_ID has a column and persists. BIRTH_DATE has none, so PUT_CELL( )
 *   skips it; written anyway so that adding the ZRAK_T_JNY_COL row is all it
@@ -1353,46 +1327,6 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
   METHOD render_own_list.
     DATA(ls_g) = io_ctx->get_grid_data( c_grid ).
 
-*   ---- WHAT THE ROW ACTUALLY HOLDS WHEN THE PAGE IS FIRST DRAWN --------
-*   The complaint is the TABLE on arrival, not the popup: land on Partners
-*   and Mobile Number and Email Address are empty on a row that already
-*   exists. That row comes from the backend read, so the save-time trace
-*   added earlier fires at the wrong moment entirely - it only runs when
-*   somebody presses Add.
-*
-*   This prints the grid exactly as the engine handed it over: the column
-*   list with its indices, then every cell of every row with its index. It
-*   settles the three possibilities without another guess -
-*
-*     the column is missing from the list        -> the ZRAK_T_JNY_COL rows
-*     the cell is there and empty                -> the backend returned no
-*                                                   phone or e-mail
-*     the value is present but under another ix  -> FIELDn and the column
-*                                                   order disagree
-*
-*   and the third is the one the class header warns about, because the
-*   header says this grid has FIVE columns while the client 200 export has
-*   NINE. Those cannot both be true of the same client.
-*
-*   E10 ONLY, through IS_DEV( ), and it names configuration. Remove it once
-*   the cause is known.
-    IF zcl_rak_journey_util=>is_dev( ) = abap_true.
-      DATA(lv_dl) = |OWNER LIST · cols=| && |{ lines( ls_g-columns ) }| &&
-                    | rows=| && |{ lines( ls_g-rows ) }| && | ·|.
-      LOOP AT ls_g-columns INTO DATA(lv_dlc).
-        lv_dl = lv_dl && | [| && |{ sy-tabix }| && |]| && condense( lv_dlc ).
-      ENDLOOP.
-      io_ctx->add_msg( iv_type = 'Information' iv_text = lv_dl ).
-
-      LOOP AT ls_g-rows INTO DATA(lt_dlr).
-        DATA(lv_rx) = sy-tabix.
-        DATA(lv_dr) = |OWNER ROW | && |{ lv_rx }| && | ·|.
-        LOOP AT lt_dlr INTO DATA(lv_dlv).
-          lv_dr = lv_dr && | [| && |{ sy-tabix }| && |]=[| && condense( lv_dlv ) && |]|.
-        ENDLOOP.
-        io_ctx->add_msg( iv_type = 'Information' iv_text = lv_dr ).
-      ENDLOOP.
-    ENDIF.
 
     DATA(lo_hd) = io_view->hbox( justifycontent = 'SpaceBetween'
                                  alignitems     = 'Center'
