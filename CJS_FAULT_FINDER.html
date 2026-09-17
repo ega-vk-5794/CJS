@@ -301,6 +301,11 @@ flowchart TD
           <td><span class="bp">whether the snippet RAN &mdash; not what it does</span>
           <span class="why"><code>FOLLOW_UP_ACTION( )</code> fires from the <strong>main</strong> view&rsquo;s <code>onAfterRendering</code>, and a round trip that only reopens a dialog need not re-render the main view. Cost four rounds on the popup attachment scroll and six on the parcel map, both spent editing a snippet that was never executed. <strong>Three failed variations of the same snippet is the tell</strong> &mdash; the fourth will fail too. Carry it in an inline event <strong>attribute</strong> as well: a 1&times;1 data-URI <code>&lt;img onload&gt;</code> renders inside the dialog fragment and fires when its DOM is inserted, the same channel <code>RENDER_UPLOADER( )</code>&rsquo;s <code>onchange</code> has always used. Make the payload idempotent so both channels may run.</span></td>
         </tr>
+        <tr>
+          <td>A registered paragraph, override or catalogue entry renders as the plain <code>ZLABEL</code> &mdash; the field looks unconfigured</td>
+          <td><span class="bp">what <code>MS_CONFIG-JOURNEY_ID</code> actually holds</span>
+          <span class="why">A <code>ZRAK_T_JNY</code> key is the <strong>full</strong> spelling &mdash; <code>DOK_D002_SCHOOL_LIC_NEW</code> &mdash; while every entry in <code>ZCL_RAK_TEXT</code>, and everyone discussing these journeys, says <code>D002</code>. <code>LONG( )</code> and <code>GET( )</code>&rsquo;s override read both matched it with an exact <code>READ TABLE</code>, so the whole DOK family missed &mdash; and <code>LONG( )</code> returns <code>IV_DEFAULT</code> on a miss, so there is no error, no trace, and a declaration that renders as the single word &ldquo;Declaration&rdquo;. <code>JNY_MATCH( )</code> is the one test now: exact first, then the id split on <code>_</code> with the key having to equal a <strong>whole segment</strong> (a segment, not <code>CS</code>/<code>CP</code>, or <code>D001</code> would also answer for a <code>DOK_D0012_*</code>). <strong>The general form: a lookup keyed on a name a human typed, against an id a table generated, misses silently whenever the two spellings are a convention rather than one value.</strong></span></td>
+        </tr>
       </tbody>
     </table>
   </div>
