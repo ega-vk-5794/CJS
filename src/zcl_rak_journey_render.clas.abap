@@ -116,6 +116,8 @@ CLASS zcl_rak_journey_render DEFINITION
                                iv_suffix       TYPE string OPTIONAL
                        PREFERRED PARAMETER iv_name
                      RETURNING VALUE(rv_bind)  TYPE string.
+    METHODS eid_mask   IMPORTING is_field  TYPE zif_rak_journey=>ty_field
+                       RETURNING VALUE(rv) TYPE string.
     METHODS bind_state IMPORTING iv_name   TYPE string
                                  iv_suffix TYPE string OPTIONAL
                        RETURNING VALUE(rv) TYPE string.
@@ -270,6 +272,39 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                    |field exists on this journey in ZRAK_T_JNY_FLD and that its | &&
                    |name is 23 characters or fewer| ).
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD eid_mask.
+*   THE PATTERN A SEARCH FIELD MASKS AN EMIRATES ID WITH, or blank for none.
+*
+*   The default is the shape BUT0ID actually stores under YFS002 -
+*   784-1967-6281068-5, hyphens and all - which is also what
+*   ZCL_RAK_BP_SEARCH=>MASK_EID( ) normalises to, so the citizen now types
+*   the value the search was already converting theirs into.
+*
+*   CONFIGURATION OVERRIDES IT, through DEFAULT_VAL on the SEARCH field:
+*
+*     MASK:OFF                  no mask - the plain input, exactly as before
+*     MASK:<pattern>            a sap.m.MaskInput pattern of your own
+*     anything else, or blank   the default below
+*
+*   DEFAULT_VAL is unused on a SEARCH field today (it is the options spec
+*   on a TABLE, the paragraph on a DISPLAY, the API: directive on a
+*   selector), so this claims a column nothing else reads on this ftype.
+*   MASK:OFF exists because the mask is the new default behaviour: a
+*   journey that wants the old input back says so in one row rather than
+*   waiting for a framework change.
+    DATA(lv_d) = to_upper( condense( CONV string( is_field-default ) ) ).
+    IF strlen( lv_d ) > 5 AND lv_d(5) = 'MASK:'.
+      DATA(lv_rest) = condense( substring( val = lv_d off = 5 ) ).
+      IF lv_rest = 'OFF' OR lv_rest = 'NONE'.
+        RETURN.
+      ENDIF.
+      rv = lv_rest.
+      RETURN.
+    ENDIF.
+    rv = '784-9999-9999999-9'.
   ENDMETHOD.
 
 
@@ -855,15 +890,60 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       WHEN 'SEARCH'.
         io_parent->title( text = zcl_rak_journey_util=>esc( is_field-label ) class = |{ mo_e->mo_css->cls( 'SECTION' ) } rakBlkTitle| ).
         DATA(lo_box) = io_parent->hbox( class = 'rakSearch' alignitems = 'End' justifycontent = 'Start' ).
-        DATA(lo_idt) = lo_box->combobox( selectedkey = bind_of( iv_name = is_field-name iv_suffix = '_IDTYPE' ) width = '12rem' ).
+
+*       A SEARCH FIELD MASKS THE EMIRATES ID AS IT IS TYPED, the way the
+*       owner dialogs on D001 and D004 already do. It is the same control
+*       and the same pattern - the difference is only that this one is
+*       drawn from configuration rather than by hand, which is why it had
+*       no mask while the hand-drawn ones did.
+*
+*       THE MASK IS DECIDED BY THE ID TYPE BESIDE IT, never by the journey.
+*       MANAGERSEARCH offers several types and a passport is not fifteen
+*       digits, so a fixed mask would refuse a value the search accepts.
+*       ZCL_RAK_BP_SEARCH=>IS_EID_TYPE( ) is the one test - the same one
+*       MASK_EID( ) is already trusted with on the handler side - and it
+*       answers true for a BLANK type as well, which is correct here: a
+*       search whose _IDTYPE has never been seeded is an Emirates ID
+*       search, and every DOK handler seeds YFS002 anyway.
+*
+*       THE COMBOBOX RAISES CHANGE WHENEVER A MASK IS CONFIGURED AT ALL,
+*       not only while one is applied - otherwise switching to Passport
+*       would drop the mask and switching back would never restore it,
+*       because nothing would have re-rendered.
+        DATA(lv_mspec) = eid_mask( is_field ).
+        DATA(lv_msk)   = COND string(
+          WHEN lv_mspec IS NOT INITIAL
+           AND zcl_rak_bp_search=>is_eid_type(
+                 mo_e->val_get( iv_name = is_field-name iv_suffix = '_IDTYPE' ) ) = abap_true
+          THEN lv_mspec ).
+        DATA(lo_idt) = lo_box->combobox(
+          selectedkey = bind_of( iv_name = is_field-name iv_suffix = '_IDTYPE' )
+          width       = '12rem'
+          change      = COND string( WHEN lv_mspec IS NOT INITIAL
+                                     THEN mo_e->opt_evt( |{ is_field-name }_IDTYPE| ) ) ).
         LOOP AT is_field-options INTO DATA(ls_o).
           lo_idt->item( key = ls_o-key text = zcl_rak_journey_util=>opt_text( iv_key = ls_o-key iv_text = ls_o-text ) ).
         ENDLOOP.
-        lo_box->input( value       = bind_of( is_field-name )
-                       placeholder = is_field-placeholder
-                       width       = '18rem'
-                       submit      = mo_e->mo_client->_event( |SEARCH_{ is_field-name }| )
-                       class       = 'sapUiSmallMarginBegin' ).
+        IF lv_msk IS INITIAL.
+          lo_box->input( value       = bind_of( is_field-name )
+                         placeholder = is_field-placeholder
+                         width       = '18rem'
+                         submit      = mo_e->mo_client->_event( |SEARCH_{ is_field-name }| )
+                         class       = 'sapUiSmallMarginBegin' ).
+        ELSE.
+*         WHAT THE MASK COSTS, and it is the same bill D001 already paid:
+*         sap.m.MaskInput has neither SUBMIT nor CLASS, so Enter-to-search
+*         is gone and the margin has to come from a wrapper. The Search
+*         button beside the field is unaffected. CHANGE is deliberately
+*         NOT wired to the search in Enter's place - BP_QUERY writes,
+*         costs at least five seconds and forces a COMMIT, so it belongs
+*         on a button the citizen presses and nowhere else.
+          lo_box->hbox( class = 'sapUiSmallMarginBegin'
+                      )->mask_input( value       = bind_of( is_field-name )
+                                     mask        = lv_msk
+                                     placeholder = is_field-placeholder
+                                     width       = '18rem' ).
+        ENDIF.
         lo_box->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-search iv_default = 'Search' )
                         type  = 'Emphasized'
                         icon  = 'sap-icon://search'
