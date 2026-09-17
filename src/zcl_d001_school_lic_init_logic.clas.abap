@@ -952,12 +952,40 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
 *   saying so. The rakRowCn rules this copies set flex alone for the same
 *   reason, and flex-grow 0 / shrink 0 / basis 50% already pins the width.
     DATA(lv_half) = `flex:0 0 calc((100% - .75rem)/2);`.
+*   ---- AND THE MIRROR, FOR THE ARABIC RUN --------------------------------
+*   ON AN ARABIC PAGE THE PROBLEM IS THE OTHER THREE. The whole page is RTL
+*   there, so it is now the ENGLISH name boxes that take their text from the
+*   wrong edge - the identical fault, with the languages swapped. A field
+*   whose content is English by definition needs LTR entry on an Arabic page
+*   exactly as an Arabic field needs RTL entry on an English one.
+*
+*   NO LANGUAGE TEST, AND THAT IS THE POINT. Both pairs of rules are emitted
+*   always, because on each page one pair does the work and the other merely
+*   restates what that page already does: on an English run the AR rules bite
+*   and the EN rules say left-align a left-aligned cell; on an Arabic run the
+*   EN rules bite and the AR rules say right-align a right-aligned one. A
+*   language switch here would be a second place for the two to disagree,
+*   and MV_LANG is not the citizen's language on every path anyway.
+*
+*   .RAKROW> ON THE CELL SELECTORS. The Arabic page's own stylesheet sets
+*   text-align on .sapMForm and friends at one class of specificity, so a
+*   bare .rakCSCHOOLNAMEEN1 would tie with it and be settled by which
+*   stylesheet the browser saw last - true today only because this style
+*   sits in the body and the theme is injected into the head. Two classes
+*   win outright and stop that being load-order trivia.
     DATA(lv_rtl) =
-      `<style>.rakCSCHOOLNAMEAR1,.rakCSCHOOLNAMEAR2,.rakCSCHOOLNAMEAR3` &&
+      `<style>.rakRow>.rakCSCHOOLNAMEAR1,.rakRow>.rakCSCHOOLNAMEAR2,` &&
+      `.rakRow>.rakCSCHOOLNAMEAR3` &&
       `{text-align:right;}` &&
       `.rakFSCHOOLNAMEAR1 input,.rakFSCHOOLNAMEAR2 input,` &&
       `.rakFSCHOOLNAMEAR3 input` &&
       `{direction:rtl;text-align:right;}` &&
+      `.rakRow>.rakCSCHOOLNAMEEN1,.rakRow>.rakCSCHOOLNAMEEN2,` &&
+      `.rakRow>.rakCSCHOOLNAMEEN3` &&
+      `{text-align:left;}` &&
+      `.rakFSCHOOLNAMEEN1 input,.rakFSCHOOLNAMEEN2 input,` &&
+      `.rakFSCHOOLNAMEEN3 input` &&
+      `{direction:ltr;text-align:left;}` &&
       `.rakRow>.rakCSCHOOLNAMEEN1,.rakRow>.rakCSCHOOLNAMEAR1,` &&
       `.rakRow>.rakCSCHOOLNAMEEN2,.rakRow>.rakCSCHOOLNAMEAR2,` &&
       `.rakRow>.rakCSCHOOLNAMEEN3,.rakRow>.rakCSCHOOLNAMEAR3` &&
