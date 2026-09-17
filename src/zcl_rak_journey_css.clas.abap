@@ -663,6 +663,30 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |\{max-width:none!important;\}| &&
         |.sapMTPCButtons .sapMBtnContent,.sapMTPCButtons .sapMSegBBtn| &&
         |\{font-size:.875rem;\}| &&
+*     ---- AND ROOM FOR TWO DIGITS ---------------------------------------
+*     The hour and minute chips are not segmented buttons - they are plain
+*     .sapMBtnBase, so none of the rules above reach them - and 51 was
+*     rendering as "5.." in a chip that fits 11. The cause is a hundred
+*     lines up and unscoped:
+*
+*         .sapMBtn .sapMBtnInner\{padding:0 1.1rem;\}
+*
+*     2.2rem of padding inside a chip UI5 sized for two digits and its own
+*     padding. It is the right padding for a journey's Next and Submit
+*     buttons, which is what it was written for, and it leaves the clock
+*     nothing to draw in.
+*
+*     A MIN-WIDTH AS WELL AS LESS PADDING, because the two answer different
+*     halves: the smaller padding gives the digits room inside whatever
+*     width UI5 chose, and the min-width stops the chip itself collapsing
+*     below what two digits need. OVERFLOW VISIBLE is the same belt the
+*     segmented-button rule at line ~550 already wears for the same reason
+*     - if anything still measures short, the digits spill rather than
+*     turn into an ellipsis that reads as data loss.
+        |.sapMTPCButtons .sapMBtn .sapMBtnInner\{padding:0 .4rem!important;\}| &&
+        |.sapMTPCButtons .sapMBtnBase\{min-width:2.75rem!important;\}| &&
+        |.sapMTPCButtons .sapMBtnContent| &&
+        |\{overflow:visible!important;text-overflow:clip!important;\}| &&
 *     ---- AND THE PICKED CHIP IS WHITE ON WHITE --------------------------
 *     THE MINUTE WAS NEVER MISSING. A DOM read showed the box holding the
 *     text "47" in rgb(255,255,255) while the hour beside it held "11" in
