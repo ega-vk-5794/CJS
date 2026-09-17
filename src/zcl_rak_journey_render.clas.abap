@@ -2233,10 +2233,16 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                     icon    = 'sap-icon://feedback'
                     enabled = xsdbool( mo_e->mv_fb_rating IS NOT INITIAL )
                     press   = mo_e->btn_evt( 'FBSEND' ) ).
-    lo_fbb->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-fb_skip iv_default = 'Not now' )
-                    type  = 'Transparent'
-                    class = 'sapUiTinyMarginBegin'
-                    press = mo_e->btn_evt( 'FBSKIP' ) ).
+*   NO "NOT NOW" BUTTON. Feedback is mandatory on request, and on a page
+*   reached only AFTER the application is submitted and paid there is
+*   nothing left to gate - so mandatory can only mean the card does not go
+*   away until a rating is given. Removing the dismissal is the whole of
+*   what that can be; a citizen who closes the tab is still free to.
+*
+*   THE MV_FB_SKIP GUARD EARLIER IN THIS METHOD STAYS. Nothing sets it now,
+*   so it is dead for a new session - but the engine instance is serialized
+*   across round trips, and one that already had the flag set should keep
+*   behaving as it did rather than have the card reappear under it.
   ENDMETHOD.
 
 

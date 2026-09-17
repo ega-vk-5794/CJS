@@ -504,6 +504,29 @@ INTERFACE zif_rak_journey
   " something a poll fired by a timer gets to decide. Submit stays a press.
   METHODS advance_step.
 
+  " The move OR the submit, whichever finishing actually means on this
+  " journey - and the only caller that should ever want that is a payment
+  " that has just confirmed.
+  "
+  " ADVANCE_STEP( ) above is right for D002, D011 and D012, where a
+  " Confirmation step follows Payment. It is a no-op on D001, where Payment
+  " IS the last step - so a citizen who had just paid was left looking at a
+  " Complete button, one press away from an application that never went in.
+  " That press is easy to miss and the fee is already taken.
+  "
+  " SO THE LAST STEP SUBMITS, AND ONLY ON SUCCESS. RV_OK is false when the
+  " submit was refused or the backend returned errors; the messages are on
+  " the page and the citizen stays exactly where they are, with Complete
+  " still there to press. Nothing is auto-confirmed on a failure and no
+  " error is swallowed by a timer.
+  "
+  " This does NOT relax the rule at ADVANCE_STEP( ). Submitting is still not
+  " something a poll decides on its own - it is something a CONFIRMED
+  " PAYMENT decides, which is a definite event and not a tick of the clock.
+  " Call it from nowhere else.
+  METHODS finish_now
+    RETURNING VALUE(rv_ok) TYPE abap_bool.
+
   " ---- attachments already uploaded on this application -----------------
   " Every file the citizen has attached, with its content, in the shape the
   " D0xx BAdI expects. Use it when your handler creates the case itself - in

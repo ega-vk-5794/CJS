@@ -2350,9 +2350,23 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *           ADVANCE_STEP( ) rather than setting the step: it issues the next step's
 *           BACKEND_READ( ) and ON_AFTER_READ( ), which is what fills the
 *           confirmation fields. Setting MV_STEP alone would draw a confirmation
-*           screen with blank lines on it. It also stops of its own accord on the
-*           last step, so a journey whose fee card IS the last step is unaffected.
-            io_ctx->advance_step( ).
+*           screen with blank lines on it.
+*
+*           FINISH_NOW( ) RATHER THAN ADVANCE_STEP( ), AND THAT LAST SENTENCE
+*           USED TO READ "a journey whose fee card IS the last step is
+*           unaffected". It was accurate and it was the defect. ADVANCE_STEP( )
+*           stops of its own accord on the last step, which is right for D002,
+*           D011 and D012 where a Confirmation follows Payment - and on D001,
+*           where Payment IS the last step, it left a citizen who had just paid
+*           looking at a Complete button. One easy-to-miss press between a taken
+*           fee and an application that never went in.
+*
+*           FINISH_NOW( ) moves where there is somewhere to move to and submits
+*           where there is not, AND ONLY ON SUCCESS. A refused submit leaves its
+*           errors on the page and the citizen on this step with Complete still
+*           to press, so a timer can finish a journey that worked and never one
+*           that did not.
+            io_ctx->finish_now( ).
           WHEN zcl_rak_pay_engine=>c_failed.
             io_ctx->set_val( iv_name = c_pay_started iv_value = '' ).
             io_ctx->add_msg( iv_type = 'Error'

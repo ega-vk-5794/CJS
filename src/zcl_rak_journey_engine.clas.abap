@@ -4399,6 +4399,32 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_rak_journey~finish_now.
+*   NOT THE LAST STEP: the move is all finishing means here, and
+*   ADVANCE_STEP( ) already does it - including the backend read and
+*   ON_AFTER_READ( ) the next step needs.
+    IF mv_step < lines( ms_config-steps ) - 1.
+      zif_rak_journey~advance_step( ).
+      rv_ok = abap_true.
+      RETURN.
+    ENDIF.
+
+*   THE LAST STEP: submit, through the same method the Submit press goes
+*   through and not a copy of it. HANDLE_SUBMIT( ) runs VALIDATE_ALL( ),
+*   ON_SUBMIT( ), the attachments and the post, and sets MV_SUBMITTED only
+*   when every one of those passed. Reimplementing any of that here would
+*   be a second submit path to keep in step with the first.
+*
+*   MV_SUBMITTED IS THE SUCCESS CODE. On a refusal HANDLE_SUBMIT( ) returns
+*   with the errors in MT_MSG and MV_SUBMITTED untouched, so the citizen
+*   sees what went wrong and stays on the payment step with Complete still
+*   there to press. That is the whole safeguard: a timer may finish a
+*   journey that succeeded, never one that failed.
+    handle_submit( ).
+    rv_ok = mv_submitted.
+  ENDMETHOD.
+
+
   METHOD zif_rak_journey~advance_step.
     IF mv_step < lines( ms_config-steps ) - 1.
       mv_step = mv_step + 1.
