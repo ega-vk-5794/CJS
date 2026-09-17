@@ -3137,14 +3137,46 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *       same treatment.
 *
 *       HHmmss is 24-hour and unpunctuated, so it is exactly six
-*       characters and lands whole. HH:mm:ss keeps the citizen on a
-*       24-hour clock, which is what the printed form shows.
+*       characters and lands whole. THAT STAYS. Everything below changes
+*       only what the citizen sees.
+*
+*       ---- DISPLAYFORMAT IS NOT VALUEFORMAT, AND THAT IS THE WHOLE FIX ---
+*       The CHAR6 constraint above is satisfied by VALUEFORMAT alone:
+*       VALUEFORMAT decides what reaches the model, DISPLAYFORMAT only what
+*       is drawn. The seconds were carried into the display format
+*       alongside the fix that genuinely needed them, and nothing ever
+*       required that - with hh:mm UI5 still writes HHmm00, six characters,
+*       whole. The printed form is unaffected because it is fed from the
+*       model, not from the screen.
+*
+*       hh:mm a THEREFORE ANSWERS THREE COMPLAINTS WITH ONE PROPERTY:
+*
+*         AM/PM, which is what people asked for on the school-trip times.
+*
+*         NO SECONDS. A school activity is not scheduled to the second,
+*         and the third dial was a third interaction before OK could be
+*         reached - on a popover that already covers the field below it.
+*
+*         A SINGLE 12-HOUR RING. sap.m.TimePicker draws a 24-hour format
+*         as two concentric rings, 0-11 outside and 12-23 inside, and that
+*         density is a consequence of the format rather than a setting. A
+*         12-hour format collapses it to one ring and an AM/PM toggle.
+*
+*       ARABIC GETS THIS FREE. The 'a' marker renders through the locale,
+*       so an Arabic run shows the Arabic AM/PM rather than a
+*       transliteration, the same way the date formats already resolve.
+*
+*       MINUTESSTEP IS DELIBERATELY NOT SET. z2ui5 exposes it and 5 would
+*       suit a trip better than offering all sixty, but it is a
+*       RESTRICTION rather than a display choice - it would refuse 08:07 to
+*       a citizen whose activity genuinely starts then. That needs the
+*       department to say so, not a rendering decision.
         io_form->time_picker( value          = lv_bind
                               enabled        = lv_edit
                               valuestate     = lv_vs
                               valuestatetext = lv_vst
                               width          = lv_w
-                              displayformat  = 'HH:mm:ss'
+                              displayformat  = 'hh:mm a'
                               valueformat    = 'HHmmss' ).
 
       WHEN 'DATETIME'.
