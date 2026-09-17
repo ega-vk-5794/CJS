@@ -546,6 +546,16 @@ CLASS zcl_rak_journey_util DEFINITION
 
   PRIVATE SECTION.
 
+*   CONV_OUT( )'s per-data-element cache. A CLASS-DATA and not a STATICS
+*   inside the method, because ABAP Objects does not allow STATICS in a
+*   method at all - and the syntax error that causes takes down every
+*   caller of this class, which is the whole engine.
+    TYPES: BEGIN OF ty_convexit,
+             roll TYPE string,
+             exit TYPE string,
+           END OF ty_convexit.
+    CLASS-DATA gt_convexit TYPE SORTED TABLE OF ty_convexit WITH UNIQUE KEY roll.
+
 *   The three RAK systems. Private: everything outside this class asks a
 *   question about capability, never about which system it is on.
     CONSTANTS c_sys_dev  TYPE sy-sysid VALUE 'E10'.
@@ -1219,21 +1229,21 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
 *   it is a DDIC property - and a blank cached entry is a real answer
 *   meaning "this element has no exit", which is the common case and the one
 *   worth caching hardest.
-    TYPES: BEGIN OF ty_cx,
-             roll TYPE string,
-             exit TYPE string,
-           END OF ty_cx.
-    STATICS st_cx TYPE SORTED TABLE OF ty_cx WITH UNIQUE KEY roll.
-
     DATA(lv_roll) = to_upper( condense( CONV string( iv_rollname ) ) ).
-    READ TABLE st_cx INTO DATA(ls_cx) WITH TABLE KEY roll = lv_roll.
+    READ TABLE gt_convexit INTO DATA(ls_cx) WITH TABLE KEY roll = lv_roll.
     IF sy-subrc <> 0.
+*     TYPED HOST VARIABLE, not the STRING. Open SQL comparing a string
+*     against a CHAR30 key is the sort of thing that passes here and fails
+*     on another release, and this class is the one every journey and the
+*     Studio load through - it does not get to be clever.
+      DATA lv_rname TYPE rollname.
+      lv_rname = lv_roll.
       SELECT SINGLE convexit FROM dd04l
         INTO @DATA(lv_exit)
-        WHERE rollname = @lv_roll
+        WHERE rollname = @lv_rname
           AND as4local = 'A'.
       ls_cx = VALUE #( roll = lv_roll exit = condense( CONV string( lv_exit ) ) ).
-      INSERT ls_cx INTO TABLE st_cx.
+      INSERT ls_cx INTO TABLE gt_convexit.
     ENDIF.
 
     IF ls_cx-exit IS INITIAL.
@@ -1247,7 +1257,13 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
 *   shown blank is a missing licence.
     DATA lv_out TYPE string.
     TRY.
-        CALL FUNCTION |CONVERSION_EXIT_{ ls_cx-exit }_OUTPUT|
+*       A VARIABLE, NOT A TEMPLATE IN THE CALL. CALL FUNCTION's dynamic
+*       form wants a character-like data object, and the same family of
+*       restriction has already cost this codebase a class that would not
+*       load - PARAMETER-TABLE refusing a constructor expression. Cheap
+*       insurance on a class every journey and the Studio load through.
+        DATA(lv_fm) = |CONVERSION_EXIT_{ ls_cx-exit }_OUTPUT|.
+        CALL FUNCTION lv_fm
           EXPORTING  input  = rv
           IMPORTING  output = lv_out
           EXCEPTIONS OTHERS = 1.
