@@ -1447,16 +1447,19 @@ CLASS ZCL_RAK_JOURNEY_UTIL IMPLEMENTATION.
       DATA lv_no TYPE string.
       lv_no = substring( val = rv off = 1 ).
       CONDENSE lv_no.
-      TRY.
-          rv = zcl_rak_text=>get( iv_no      = CONV symsgno( lv_no )
-                                  iv_default = iv_raw
-                                  iv_journey = iv_journey ).
-        CATCH cx_root.
-*         An unusable number is not a reason to show the citizen nothing. The
-*         raw token goes on screen so it is obvious in testing which check on
-*         which field is misconfigured.
-          rv = iv_raw.
-      ENDTRY.
+*     An unusable number is not a reason to show the citizen nothing. The raw
+*     token goes on screen so it is obvious in testing which check on which
+*     field is misconfigured. This was a CATCH and the CATCH never fired: see
+*     ZCL_RAK_TEXT=>MSGNO_OF( ), where the CONV kept the digits out of a
+*     non-numeric reference and quietly served catalogue entry 001 instead.
+      DATA(lv_msgno) = zcl_rak_text=>msgno_of( lv_no ).
+      IF lv_msgno IS INITIAL.
+        rv = iv_raw.
+      ELSE.
+        rv = zcl_rak_text=>get( iv_no      = lv_msgno
+                                iv_default = iv_raw
+                                iv_journey = iv_journey ).
+      ENDIF.
     ENDIF.
   ENDMETHOD.
 

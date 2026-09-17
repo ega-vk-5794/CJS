@@ -476,6 +476,28 @@ CLASS zcl_rak_text DEFINITION
                 iv_journey TYPE string
       RETURNING VALUE(rv) TYPE abap_bool.
 
+*   The catalogue number an @<ref> names, or BLANK when it does not name one.
+*
+*   THE CATCH THREE CALLERS RELIED ON NEVER FIRES, and that is the whole
+*   reason this exists. Every one of them wrote CONV symsgno( lv_no ) inside
+*   a TRY and documented the CATCH as the branch a non-numeric reference
+*   takes. It does not: a character source assigned to a type N target has
+*   its non-digits DISCARDED and the digits right-aligned, silently and with
+*   no exception - so '@D001NOTE' does not fail, it becomes 001, and 001 is
+*   C_NO-NEXT. D001's payment note rendered as the word "Next", which is a
+*   real catalogue entry correctly served for a number nobody asked for.
+*   There is nothing to notice: no dump, no blank, no token on screen, just
+*   an unrelated sentence where a paragraph belongs.
+*
+*   A reference is a number only if it is one to three digits and nothing
+*   else. Blank comes back otherwise, and the caller takes its own fallback
+*   - which is the branch each of them already wrote and none of them
+*   reached. '000' is never a catalogue entry (they start at C_NO-NEXT 001),
+*   so an initial RV is unambiguous.
+    CLASS-METHODS msgno_of
+      IMPORTING iv_ref    TYPE string
+      RETURNING VALUE(rv) TYPE symsgno.
+
     CLASS-METHODS catalogue
       RETURNING VALUE(rt_txt) TYPE tt_txt.
 
@@ -1119,11 +1141,15 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
 *     languages. That is the wording the citizen already sees on the live
 *     screen, which is exactly what "as per current application" asked for.
 *
-*     WHY THE FIELD SHOWED ONLY THE WORD "Declaration". D001's DEFAULT_VAL
-*     reads TEXT:@D001DECL, and the @ branch of LONG_TEXT( ) does
-*     CONV symsgno( 'D001DECL' ) - SYMSGNO is three characters, so that
-*     conversion fails, the TRY swallows it and the field falls back to its
-*     own label. The declaration was never rendering at all.
+*     WHY D001'S FIELD SHOWED SOMETHING ELSE ENTIRELY. Its DEFAULT_VAL reads
+*     TEXT:@D001DECL, and the @ branch of LONG_TEXT( ) used to do
+*     CONV symsgno( 'D001DECL' ) inside a TRY. This comment used to say the
+*     conversion fails and the TRY swallows it; it does not fail. A character
+*     source assigned to a type N target has its non-digits DISCARDED, so
+*     'D001DECL' becomes 001 - C_NO-NEXT - and the catalogue correctly served
+*     the word "Next" for a number nobody asked for. Same for D001's PAYNOTE,
+*     TEXT:@D001NOTE, which also reduces to 001. MSGNO_OF( ) is the guard now
+*     and the declaration was never rendering at all before it.
 *
 *     SO IT LIVES HERE RATHER THAN IN A @nnn ROW, and that is the better
 *     home regardless: ZRAK_T_CJ_TXT is CHAR255 and this sentence is over
@@ -1199,6 +1225,16 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
     ELSEIF ls_long-en IS NOT INITIAL.
       rv_text = ls_long-en.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD msgno_of.
+*   See the note at the declaration.
+    DATA(lv) = condense( iv_ref ).
+    IF lv IS INITIAL OR strlen( lv ) > 3 OR lv CN '0123456789'.
+      RETURN.
+    ENDIF.
+    rv = lv.
   ENDMETHOD.
 
 

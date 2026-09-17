@@ -4765,34 +4765,30 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   than an empty consent statement with a tick box beside it.
     DATA(lv_no) = substring( val = lv_body off = 1 ).
     CONDENSE lv_no.
-    TRY.
-        rv_text = zcl_rak_text=>get( iv_no      = CONV symsgno( lv_no )
-                                     iv_default = is_field-label
-                                     iv_journey = mo_e->ms_config-journey_id ).
-*       SUBSTITUTED HERE TOO. The other two branches of this method both
-*       call SUBST_FIELDS( ) and this one did not, so a {FIELD} placeholder
-*       worked in a plain TEXT: default and in a LONG_TEXTS( ) entry, and
-*       printed as literal braces through a TEXT:@nnn reference. Nothing
-*       configured today uses one, which is why it had not been noticed -
-*       and a paragraph naming the citizen is exactly what @nnn is for.
-        subst_fields( CHANGING cv_text = rv_text ).
-      CATCH cx_root.
-*       A NON-NUMERIC REFERENCE LANDS HERE, and D001's TEXT:@D001DECL is
-*       one: SYMSGNO is three characters, so the CONV above cannot make a
-*       message number out of it. The field then falls back to its own
-*       label, which is why that declaration rendered as the single word
-*       "Declaration" rather than as a declaration.
+    DATA(lv_msgno) = zcl_rak_text=>msgno_of( lv_no ).
+    IF lv_msgno IS INITIAL.
+*     A NON-NUMERIC REFERENCE, and D001's TEXT:@D001DECL and TEXT:@D001NOTE
+*     are both one. This used to sit in a CATCH that never fired - see the
+*     note at MSGNO_OF( ): the CONV silently kept the digits and served
+*     catalogue entry 001, so the payment note rendered as the word "Next".
 *
-*       THE FALLBACK NOW ASKS LONG_TEXTS( ) BEFORE GIVING UP, which is what
-*       the no-directive branch above would have done had the directive not
-*       been there. Clearing D001's DEFAULT_VAL is still the tidy answer -
-*       but a reference nobody can resolve should land on the paragraph
-*       that is registered for the field rather than on a one-word label,
-*       and that makes the config row optional instead of load-bearing.
-        rv_text = zcl_rak_text=>long( iv_journey = mo_e->ms_config-journey_id
-                                      iv_field   = is_field-name
-                                      iv_default = is_field-label ).
-    ENDTRY.
+*     It asks LONG_TEXTS( ) instead, which is what the no-directive branch
+*     above would have done had the directive not been there, and falls back
+*     to the label when nothing is registered either. That makes D001's two
+*     unresolvable rows harmless rather than load-bearing.
+      rv_text = zcl_rak_text=>long( iv_journey = mo_e->ms_config-journey_id
+                                    iv_field   = is_field-name
+                                    iv_default = is_field-label ).
+    ELSE.
+      rv_text = zcl_rak_text=>get( iv_no      = lv_msgno
+                                   iv_default = is_field-label
+                                   iv_journey = mo_e->ms_config-journey_id ).
+    ENDIF.
+*   SUBSTITUTED ON BOTH ROUTES. The other two branches of this method call
+*   SUBST_FIELDS( ) and the @ route did not, so a {FIELD} placeholder worked
+*   in a plain TEXT: default and in a LONG_TEXTS( ) entry, and printed as
+*   literal braces through a TEXT:@nnn reference - and a paragraph naming the
+*   citizen is exactly what @nnn is for.
     subst_fields( CHANGING cv_text = rv_text ).
   ENDMETHOD.
 
@@ -4848,15 +4844,19 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
     DATA(lv_no) = substring( val = rv off = 1 ).
     CONDENSE lv_no.
-    TRY.
-        rv = zcl_rak_text=>get( iv_no      = CONV symsgno( lv_no )
-                                iv_default = iv_raw
-                                iv_journey = mo_e->ms_config-journey_id ).
-      CATCH cx_root.
-*       An unusable number is not a reason to draw a blank header - show the
-*       raw token so it is obvious in testing which column is misconfigured.
-        rv = iv_raw.
-    ENDTRY.
+*   AN UNUSABLE NUMBER IS NOT A REASON TO DRAW A BLANK HEADER - show the raw
+*   token so it is obvious in testing which column is misconfigured. This was
+*   a CATCH and the CATCH never fired: see MSGNO_OF( ), where the CONV kept
+*   the digits out of a non-numeric reference and served catalogue entry 001
+*   instead. A header reading "Next" is worse than one reading "@FOO".
+    DATA(lv_msgno) = zcl_rak_text=>msgno_of( lv_no ).
+    IF lv_msgno IS INITIAL.
+      rv = iv_raw.
+      RETURN.
+    ENDIF.
+    rv = zcl_rak_text=>get( iv_no      = lv_msgno
+                            iv_default = iv_raw
+                            iv_journey = mo_e->ms_config-journey_id ).
   ENDMETHOD.
 
 
