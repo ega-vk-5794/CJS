@@ -51,16 +51,31 @@ CLASS zcl_rak_journey_render DEFINITION
     METHODS captcha_svg      RETURNING VALUE(rv) TYPE string.
     METHODS render_attach    IMPORTING io_form  TYPE REF TO z2ui5_cl_xml_view
                                        is_field TYPE zif_rak_journey=>ty_field.
-    METHODS render_uploader  IMPORTING io_box   TYPE REF TO z2ui5_cl_xml_view
-                                       iv_field TYPE string
-                                       iv_types TYPE string
-                                       iv_maxmb TYPE i DEFAULT 0
-                                       iv_scope TYPE string OPTIONAL
-                                       iv_key   TYPE string OPTIONAL.
+    METHODS render_uploader  IMPORTING io_box    TYPE REF TO z2ui5_cl_xml_view
+                                       iv_field  TYPE string
+                                       iv_types  TYPE string
+                                       iv_maxmb  TYPE i DEFAULT 0
+                                       iv_scope  TYPE string OPTIONAL
+                                       iv_key    TYPE string OPTIONAL
+                                       iv_visible TYPE string OPTIONAL.
+*   IV_BOUND leaves the keyless staged file to RENDER_ATT_ROW( ) and counts
+*   only what stays markup-driven - see the note at RENDER_ATT_PAIR( ).
     METHODS render_chips     IMPORTING io_box          TYPE REF TO z2ui5_cl_xml_view
                                        iv_field        TYPE string
                                        iv_key          TYPE string OPTIONAL
+                                       iv_bound        TYPE abap_bool DEFAULT abap_false
                              RETURNING VALUE(rv_count) TYPE i.
+*   The two states of one uploader, drawn TOGETHER and told apart by their
+*   bound visibility rather than by which of them was rendered.
+    METHODS render_att_pair  IMPORTING io_box   TYPE REF TO z2ui5_cl_xml_view
+                                       is_field TYPE zif_rak_journey=>ty_field
+                                       iv_other TYPE i.
+*   Writes one attachment companion on the journey model. Not through
+*   VAL_SET( ), which normalises anything that looks like a date and would
+*   blank a filename such as 0000-00-00.png.
+    METHODS att_put          IMPORTING iv_field  TYPE string
+                                       iv_suffix TYPE string
+                                       iv_value  TYPE any.
     METHODS render_popup.
     METHODS render_footer    IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view
                                        iv_linear TYPE abap_bool.
@@ -612,7 +627,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       required = lv_req ).
     DATA(lo_box) = io_form->vbox( ).
 
-    DATA(lv_count) = render_chips( io_box = lo_box iv_field = is_field-name ).
+*   IV_BOUND: everything EXCEPT the keyless staged file, which
+*   RENDER_ATT_PAIR( ) draws bound below. What comes back is the count of
+*   rows that stay markup-driven - handler-reported documents, documents
+*   already on the case, and files staged against one occurrence of a
+*   repeating uploader. None of those change on an upload round trip.
+    DATA(lv_other) = render_chips( io_box   = lo_box
+                                   iv_field = is_field-name
+                                   iv_bound = abap_true ).
 
 *   ONE FILE PER UPLOADER, AND ATTACH_MULTI NO LONGER OVERRIDES IT.
 *
@@ -634,17 +656,147 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   column stays until someone retires it deliberately, which is the same
 *   conversation PINNED is waiting on.
 *
-*   A FROZEN CASE TAKES NO MORE FILES. Making the field readonly is not
-*   enough on its own: whether the uploader is drawn is decided here, and
-*   the chip count does not know the case has been paid for. Without this
-*   the citizen can still attach to - and delete from - an application
-*   they can no longer edit.
-    IF lv_count = 0
-       AND mo_e->case_mode( ) = mo_e->c_mode_edit.
-      render_uploader( io_box   = lo_box
-                       iv_field = is_field-name
-                       iv_types = is_field-attach_types
-                       iv_maxmb = is_field-attach_maxmb ).
+*   A FROZEN CASE TAKES NO MORE FILES, and that is now one of the three
+*   things RENDER_ATT_PAIR( ) folds into _ATTOF rather than a branch that
+*   decides whether the picker is in the markup at all. Making the field
+*   readonly was never enough on its own - the engine refuses ATTSAVE_ on a
+*   frozen case, which is the lock that actually holds - and drawing the
+*   picker hidden keeps the markup the same shape whatever state the case
+*   is in.
+    render_att_pair( io_box   = lo_box
+                     is_field = is_field
+                     iv_other = lv_other ).
+  ENDMETHOD.
+
+
+  METHOD render_att_pair.
+*   ---- BOTH STATES, ALWAYS DRAWN, TOLD APART BY THEIR VALUES ----------
+*   This is what stops the page flashing on every upload.
+*
+*   The picker and the filed row used to be two different pieces of markup
+*   and the renderer chose between them, so staging a file produced a
+*   different view and SEND_VIEW( ) had to call VIEW_DISPLAY( ) - the whole
+*   control tree destroyed and rebuilt. Drawn together and switched by a
+*   BOUND visibility, the stringified view is byte-identical across the
+*   upload, SEND_VIEW( )'s signature matches, and the round trip goes out
+*   as VIEW_MODEL_UPDATE( ): bindings refreshed in place, nothing
+*   re-rendered, nothing to flash.
+*
+*   SO NOTHING HERE MAY DEPEND ON WHETHER A FILE IS STAGED. Every such
+*   question is answered by a model VALUE - _ATTFN, _ATTUR, _ATTON, _ATTOF,
+*   built in BUILD_MODEL( ) - and never by an IF around a control. A single
+*   conditional control reintroduces the flash, silently: the view still
+*   renders correctly, it just takes the slow path again.
+*
+*   THE VALUES ARE WRITTEN HERE, AT RENDER TIME, which is the same thing
+*   ZCL_RAK_JOURNEY_GRID does for a SELECT column's _TXT companion - the
+*   model is serialized after the view is built, so a value set during
+*   rendering reaches the client on this round trip.
+    DATA(lv_name) = is_field-name.
+
+    DATA lv_fn TYPE string.
+    DATA lv_ur TYPE string.
+*   BOTH KEY VALUES IN VARIABLES. An empty string literal and a TO_UPPER( )
+*   in a WITH KEY are both things this environment cannot compile to check,
+*   and a blank OKEY must compare as an empty STRING - `okey = space` would
+*   compare against a one-blank character field, which a string does not
+*   equal.
+    DATA lv_nokey TYPE string.
+    DATA(lv_up) = to_upper( lv_name ).
+    READ TABLE mo_e->mt_attach INTO DATA(ls_a)
+         WITH KEY field = lv_up okey = lv_nokey.
+    IF sy-subrc = 0.
+      lv_fn = ls_a-name.
+      lv_ur = zcl_rak_journey_util=>att_url( ls_a-guid ).
+    ENDIF.
+
+*   THE PICKER IS OFFERED ONLY WHEN THERE IS ROOM FOR A FILE AND THE CASE
+*   STILL TAKES ONE. IV_OTHER carries the rows that are drawn markup-driven
+*   above; one file per uploader is the engine's rule, so any of them means
+*   this field is answered.
+    DATA(lv_on)  = xsdbool( lv_fn IS NOT INITIAL ).
+    DATA(lv_off) = xsdbool( lv_fn IS INITIAL
+                        AND iv_other = 0
+                        AND mo_e->case_mode( ) = mo_e->c_mode_edit ).
+
+    att_put( iv_field = lv_name iv_suffix = '_ATTFN' iv_value = lv_fn ).
+    att_put( iv_field = lv_name iv_suffix = '_ATTUR' iv_value = lv_ur ).
+    att_put( iv_field = lv_name iv_suffix = '_ATTON' iv_value = lv_on ).
+    att_put( iv_field = lv_name iv_suffix = '_ATTOF' iv_value = lv_off ).
+
+*   ---- A MODEL WITHOUT THE COMPANIONS STILL HAS TO DRAW --------------
+*   BUILD_MODEL( ) runs at launch and when dynamic steps merge, NOT on every
+*   round trip, so a journey a citizen opened before this shipped keeps a
+*   model with no _ATT* components until they start a new one. BIND_OF( )
+*   returns blank for a component that is not there, a blank property is
+*   dropped from the XML entirely, and sap.m.FlexBox defaults VISIBLE to
+*   true - so the picker and the filed row would both be on screen at once.
+*
+*   Every value therefore falls back to a LITERAL: the same control, drawn
+*   from what this round trip knows instead of from a binding. That is
+*   exactly how this worked before, flash included, and it corrects itself
+*   the next time the journey is launched. Degrade, never draw nonsense.
+    DATA(lv_bfn) = bind_of( iv_name = lv_name iv_suffix = '_ATTFN' ).
+    DATA(lv_bur) = bind_of( iv_name = lv_name iv_suffix = '_ATTUR' ).
+    DATA(lv_bon) = bind_of( iv_name = lv_name iv_suffix = '_ATTON' ).
+    DATA(lv_bof) = bind_of( iv_name = lv_name iv_suffix = '_ATTOF' ).
+
+    IF lv_bfn IS INITIAL.
+      lv_bfn = zcl_rak_journey_util=>esc( lv_fn ).
+      lv_bur = lv_ur.
+    ENDIF.
+*   The literals are the strings "true" and "false", not ABAP_TRUE/ABAP_FALSE:
+*   VISIBLE is typed CLIKE here, so an ABAP_FALSE would arrive as a blank and
+*   be dropped by the same filter, taking the default of true with it.
+    IF lv_bon IS INITIAL.
+      lv_bon = COND string( WHEN lv_on = abap_true THEN `true` ELSE `false` ).
+    ENDIF.
+    IF lv_bof IS INITIAL.
+      lv_bof = COND string( WHEN lv_off = abap_true THEN `true` ELSE `false` ).
+    ENDIF.
+
+    DATA(lo_row) = io_box->hbox( alignitems = 'Center'
+                                 class      = 'rakFileRow rakAttBox'
+                                 visible    = lv_bon ).
+    lo_row->link( text   = lv_bfn
+                  href   = lv_bur
+                  target = '_blank'
+                  class  = 'rakFileName' ).
+*   ATTDELF_<FIELD>, NOT ATTDEL_<n>. The index form is a position in
+*   MT_ATTACH, so it changes as files are added and removed - which is a
+*   change to the MARKUP, which is exactly what this method exists to
+*   prevent. The field name is stable for the life of the journey.
+    lo_row->button( icon    = 'sap-icon://delete'
+                    type    = 'Transparent'
+                    class   = 'rakAttDel'
+                    tooltip = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-remove_row
+                                                 iv_default = 'Remove' )
+                    press   = mo_e->mo_client->_event( |ATTDELF_{ to_upper( lv_name ) }| ) ).
+
+    render_uploader( io_box     = io_box
+                     iv_field   = lv_name
+                     iv_types   = is_field-attach_types
+                     iv_maxmb   = is_field-attach_maxmb
+                     iv_visible = lv_bof ).
+  ENDMETHOD.
+
+
+  METHOD att_put.
+    FIELD-SYMBOLS <model> TYPE any.
+    ASSIGN mo_e->mr_model->* TO <model>.
+    IF <model> IS NOT ASSIGNED.
+      RETURN.
+    ENDIF.
+    DATA(lv_comp) = |{ zcl_rak_journey_util=>comp_name( iv_field ) }{ iv_suffix }|.
+    ASSIGN COMPONENT lv_comp OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
+*   SILENT WHEN THE COMPONENT IS NOT THERE. BUILD_MODEL( ) creates these
+*   only for a field that carries an attachment, and a journey whose model
+*   was built before this shipped has none of them - in which case the
+*   bindings below resolve to nothing and the control falls back to being
+*   drawn on every render, which is how it behaved before. Degrade, never
+*   dump.
+    IF sy-subrc = 0.
+      <f> = iv_value.
     ENDIF.
   ENDMETHOD.
 
@@ -983,27 +1135,19 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           lo_uph->label( text = `` required = abap_true class = 'sapUiFormLabelNoColon' ).
         ENDIF.
         DATA(lo_ub) = io_parent->vbox( class = 'rakSearch' ).
-        DATA(lv_upcnt) = render_chips( io_box = lo_ub iv_field = is_field-name ).
-*       THE SAME TWO GATES AS RENDER_ATTACH( ), and the chip count is the
-*       one that was missing. An UPLOAD block drew its picker BESIDE the
-*       filed row while a HAS_ATTACH field replaced one with the other, so
-*       the same file on the same journey behaved differently depending on
-*       which of the two draw paths its field happened to take - and the
-*       block path grew by a whole row on upload instead of swapping.
-*
-*       One file per uploader is the engine's rule, not the renderer's:
-*       ATTSAVE_ replaces on (FIELD, OKEY) whichever path drew the picker,
-*       so a second picker here was never able to hold a second file.
-*
-*       The chips stay on a frozen case - the citizen should still see what
-*       is filed against it - and only the picker goes.
-        IF lv_upcnt = 0
-           AND mo_e->case_mode( ) = mo_e->c_mode_edit.
-          render_uploader( io_box   = lo_ub
-                           iv_field = is_field-name
-                           iv_types = is_field-attach_types
-                           iv_maxmb = is_field-attach_maxmb ).
-        ENDIF.
+*       EXACTLY WHAT RENDER_ATTACH( ) DOES, and that is the point. An UPLOAD
+*       block used to draw its picker BESIDE the filed row while a
+*       HAS_ATTACH field replaced one with the other, so the same file on
+*       the same journey behaved differently depending on which of the two
+*       draw paths its field happened to take. Both now go through
+*       RENDER_ATT_PAIR( ), so both are flicker-free and both obey the
+*       engine's one-file-per-uploader rule the same way.
+        DATA(lv_upcnt) = render_chips( io_box   = lo_ub
+                                       iv_field = is_field-name
+                                       iv_bound = abap_true ).
+        render_att_pair( io_box   = lo_ub
+                         is_field = is_field
+                         iv_other = lv_upcnt ).
 
       WHEN 'CAPTCHA'.
         render_captcha( io_parent = io_parent is_field = is_field ).
@@ -2099,6 +2243,15 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         CONTINUE.
       ENDIF.
       IF lv_all = abap_false AND ls_a-okey <> iv_key.
+        CONTINUE.
+      ENDIF.
+*     UNDER IV_BOUND THE KEYLESS FILE IS SOMEBODY ELSE'S ROW.
+*     RENDER_ATT_PAIR( ) draws it bound, so that it is in the markup whether
+*     or not a file exists and the view stops changing shape on upload. A
+*     KEYED file still comes through here: its row belongs to one occurrence
+*     of a repeating uploader, there is no per-occurrence model component to
+*     bind it to, and it does not change on a main-page upload anyway.
+      IF iv_bound = abap_true AND ls_a-okey IS INITIAL.
         CONTINUE.
       ENDIF.
       rv_count = rv_count + 1.
@@ -4701,7 +4854,15 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   either twice would print the backslashes.
     REPLACE ALL OCCURRENCES OF `{` IN lv_html WITH `\{`.
     REPLACE ALL OCCURRENCES OF `}` IN lv_html WITH `\}`.
-    io_box->html( content = lv_html sanitizecontent = abap_false ).
+*   IV_VISIBLE IS A BINDING, NOT A DECISION. RENDER_ATT_PAIR( ) passes the
+*   _ATTOF path so the picker stays in the markup and hides itself when a
+*   file is staged; the popup path passes nothing, keeps the property out
+*   of the XML entirely, and is drawn or not drawn by its caller as before.
+*   Only the HTML carries it - the hidden bridge controls above must stay
+*   in the DOM either way, because the onchange FileReader drives them.
+    io_box->html( content         = lv_html
+                  sanitizecontent = abap_false
+                  visible         = iv_visible ).
   ENDMETHOD.
 
 

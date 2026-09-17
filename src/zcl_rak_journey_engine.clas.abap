@@ -1109,6 +1109,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     ELSEIF strlen( lv_event ) > 8 AND substring( val = lv_event len = 8 ) = 'ATTSAVE_'
            AND case_mode( ) = c_mode_edit.
+*     QUIET, LIKE A CHANGE_ ROUND TRIP. An uploader's two states are drawn
+*     together and switched by bound values (RENDER_ATT_PAIR( )), so staging
+*     a file no longer alters the markup and SEND_VIEW( ) can refresh the
+*     model instead of rebuilding the page. This flag only PERMITS that: the
+*     markup signature still has to match, so anything an upload genuinely
+*     changes - a rule flipping a field visible, a message strip - takes the
+*     full repaint as before.
+      mv_quiet_evt = abap_true.
       DATA(lv_att_raw) = substring( val = lv_event off = 8 ).
       DATA lv_att_field TYPE string.
       DATA lv_att_key   TYPE string.
@@ -1245,6 +1253,27 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
               t_arg = VALUE #( ( zcl_rak_journey_util=>att_url( ls_vw-guid ) ) ) ) ).
         ENDIF.
       ENDIF.
+
+    ELSEIF strlen( lv_event ) > 8 AND substring( val = lv_event len = 8 ) = 'ATTDELF_'
+           AND case_mode( ) = c_mode_edit.
+*     ---- DELETE BY FIELD, NOT BY POSITION --------------------------------
+*     ATTDEL_<n> is an index into MT_ATTACH, so the number in the markup
+*     changes as files come and go - and a changing event name is a changing
+*     view, which is the repaint RENDER_ATT_PAIR( ) exists to avoid. The
+*     field name does not change for the life of the journey.
+*
+*     KEYLESS ONLY. An occurrence-keyed file belongs to one row of a
+*     repeating uploader and is still drawn, and deleted, by index - there
+*     is no per-occurrence model component for it to bind to. Deleting on
+*     FIELD alone here would take a second owner's document with it.
+      DATA(lv_delf) = to_upper( substring( val = lv_event off = 8 ) ).
+      LOOP AT mt_attach INTO DATA(ls_delf) WHERE field = lv_delf AND okey IS INITIAL.
+        zcl_rak_cj_att_store=>delete( ls_delf-guid ).
+      ENDLOOP.
+      DELETE mt_attach WHERE field = lv_delf AND okey IS INITIAL.
+*     Same quiet permission as ATTSAVE_ above, and for the same reason: the
+*     markup is the same whether the file is there or not.
+      mv_quiet_evt = abap_true.
 
     ELSEIF strlen( lv_event ) > 7 AND substring( val = lv_event len = 7 ) = 'ATTDEL_'
            AND case_mode( ) = c_mode_edit.
@@ -1752,10 +1781,6 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     LOOP AT ms_config-steps INTO DATA(ls_step).
       LOOP AT ls_step-fields INTO DATA(ls_field).
-        IF ls_field-type = 'UPLOAD'.
-          CONTINUE.
-        ENDIF.
-
 *       COMP_NAME( ), not a bare TO_UPPER( ). A field name is free text on
 *       ZRAK_T_JNY_FLD - nothing stops a hyphen, a space or anything else CREATE( )
 *       below cannot use as a component name, and TO_UPPER( ) does not remove one.
@@ -1764,6 +1789,59 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 *       with "UNCAUGHT EXCEPTION - Please Restart App" for every journey, not only
 *       the one the field belonged to.
         DATA(lv_name) = zcl_rak_journey_util=>comp_name( ls_field-name ).
+
+*       ---- THE FOUR ATTACHMENT COMPANIONS, AND WHY THEY EXIST --------
+*       An uploader has two states and they used to be two different pieces
+*       of MARKUP - a picker before a file is staged, a filed row after. So
+*       the round trip that stages a file produced a different view, and
+*       SEND_VIEW( ) had no choice but to call VIEW_DISPLAY( ): the whole
+*       control tree torn down and rebuilt, which is the flash on screen.
+*
+*       Bound to these instead, BOTH states are in the markup all the time
+*       and only their VALUES change - so the stringified view is identical
+*       across an upload, SEND_VIEW( )'s signature matches, and the round
+*       trip goes out as VIEW_MODEL_UPDATE( ): bindings refreshed, nothing
+*       re-rendered, no flash. That is the whole reason they are here, and
+*       it is why nothing about an uploader's main-page markup may depend
+*       on whether a file is staged.
+*
+*       SIX CHARACTERS EACH, deliberately. COMP_NAME( ) caps a base name at
+*       23 because the longest companion before these was _IDTYPE at seven,
+*       and 23 + 7 is the DDIC component ceiling of 30. Six keeps that
+*       budget intact; a longer one would need the cap lowered for every
+*       field on every journey.
+*
+*       AN UPLOAD BLOCK GETS THEM TOO, which is why this sits ABOVE the
+*       UPLOAD skip below rather than beside the other companions. It has
+*       no value component of its own - there is nothing for a citizen to
+*       type into an upload block - and it has exactly the same two states.
+        IF ls_field-has_attach = abap_true OR ls_field-type = 'UPLOAD'.
+*         _ATTFN the staged file's name, _ATTUR the link it opens at.
+          LOOP AT VALUE string_table( ( `_ATTFN` ) ( `_ATTUR` ) ) INTO DATA(lv_atts).
+            DATA(lv_attsn) = |{ lv_name }{ lv_atts }|.
+            READ TABLE lt_comp WITH KEY name = lv_attsn TRANSPORTING NO FIELDS.
+            IF sy-subrc <> 0.
+              APPEND VALUE #( name = lv_attsn type = lo_str ) TO lt_comp.
+            ENDIF.
+          ENDLOOP.
+*         _ATTON shows the filed row, _ATTOF shows the picker. Two flags and
+*         not one negated: a z2ui5 binding is a plain model path, so the
+*         inverse has to exist as its own value rather than as an expression
+*         the renderer would have to write by hand into the markup.
+          LOOP AT VALUE string_table( ( `_ATTON` ) ( `_ATTOF` ) ) INTO DATA(lv_attb).
+            DATA(lv_attbn) = |{ lv_name }{ lv_attb }|.
+            READ TABLE lt_comp WITH KEY name = lv_attbn TRANSPORTING NO FIELDS.
+            IF sy-subrc <> 0.
+              APPEND VALUE #( name = lv_attbn type = lo_bool ) TO lt_comp.
+            ENDIF.
+          ENDLOOP.
+        ENDIF.
+
+*       An UPLOAD block has no value of its own, so it stops here - after
+*       the companions above, which it does need.
+        IF ls_field-type = 'UPLOAD'.
+          CONTINUE.
+        ENDIF.
 
         IF ls_field-type = 'EDITABLE_TABLE'.
           READ TABLE lt_comp WITH KEY name = lv_name TRANSPORTING NO FIELDS.
