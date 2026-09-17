@@ -458,7 +458,25 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
         ENDIF.
 
 *       784-XXXX-XXXXXXX-X - the same shape as the field's own placeholder.
-        DATA(lv_eid_chk) = condense( io_ctx->get_val( c_id ) ).
+*       PUNCTUATE IT FOR THE CITIZEN RATHER THAN REFUSE THEM FOR IT.
+*       The regex below demands 784-XXXX-XXXXXXX-X, so anyone typing the
+*       fifteen digits off their card without hyphens was told their own
+*       Emirates ID was the wrong format - and the only way through was to
+*       type four hyphens by hand.
+*
+*       MASK_EID( ) puts them in: fifteen digits come back grouped, an
+*       already-grouped value comes back unchanged, and twelve digits get
+*       the 784 they left off. Anything it cannot make into fifteen digits
+*       is returned untouched, so a genuine typo still meets the regex
+*       below and still gets the message.
+*
+*       WRITTEN BACK TO THE FIELD, not just used for the test. The citizen
+*       should see the number in the form the card prints and the form the
+*       backend stores, and the next round trip should not have to guess
+*       again.
+        DATA(lv_eid_chk) = zcl_rak_bp_search=>mask_eid(
+                             CONV string( condense( io_ctx->get_val( c_id ) ) ) ).
+        io_ctx->set_val( iv_name = c_id iv_value = lv_eid_chk ).
         FIND REGEX '^784-\d{4}-\d{7}-\d$' IN lv_eid_chk.
         IF sy-subrc <> 0.
           io_ctx->add_msg( iv_type = 'Warning'
@@ -559,6 +577,12 @@ CLASS ZCL_D001_SCHOOL_LIC_INIT_LOGIC IMPLEMENTATION.
         DATA(lv_eid) = io_ctx->get_val( c_id ).
         IF lv_eid IS NOT INITIAL.
           CONDENSE lv_eid .
+*         PUNCTUATED ON SEARCH TOO, and written back so the box tidies
+*         itself the moment the citizen presses Search rather than only
+*         when they press Add. MASK_EID( ) leaves an already-grouped value
+*         alone, so pressing Search twice changes nothing.
+          lv_eid = zcl_rak_bp_search=>mask_eid( CONV string( lv_eid ) ).
+          io_ctx->set_val( iv_name = c_id iv_value = lv_eid ).
 
 *DATA IV_TYPE            TYPE BU_ID_TYPE.
           DATA iv_idnumber        TYPE bu_id_number.
