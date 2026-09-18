@@ -145,12 +145,22 @@ move that could not delete.
   error, not a class that will not activate and not a dump in front of an author pressing
   Save. **Run `ZRAK_CJ_CTS_DIAG`** — it prints each candidate's real signature out of
   `FUPARAREF` — and cut `CANDIDATES( )` down to the row that answered.
-- **All four write paths call it**, including the Design tab: `SAVE_JOURNEY( )`,
+- **All five write paths call it**, including both of the Design tab's: `SAVE_JOURNEY( )`,
   `COPY_JOURNEY( )` (the *target*), `DEACTIVATE_JOURNEY( )` — a one-column `ACTIVE` update is
-  exactly the drift, a journey off launch here and still on the tile list in quality — and
-  `DSG_SAVE( )`. The Design tab's call sits in its **two callers, not in `DSG_SAVE( )`**
-  though that is the choke point, because both set `MV_MSG` after it returns and a note
-  written inside would be overwritten.
+  exactly the drift, a journey off launch here and still on the tile list in quality —
+  `DSG_SAVE( )`, and **`DSG_CLEAR( )`**. The Design tab's calls sit in the **callers, not in
+  `DSG_SAVE( )`/`DSG_CLEAR( )`** though those are the choke points, because each sets
+  `MV_MSG` after it returns and a note written inside would be overwritten.
+  `DSG_CLEAR( )` was missed on the first pass and was the worst one to miss: it is a **pure
+  `DELETE`** of `ZRAK_CJ_LAYOUT` rows, which is the exact shape this class exists for. An add
+  that misses a request can still be picked up later by touching the row in SM34; a delete
+  cannot, because after the delete there is no row left to open. Clearing a step's layout in
+  development therefore returned it to the classic render *here* and left it laid out in
+  quality permanently. **The table was never the gap** — `ZRAK_CJ_LAYOUT` has been in
+  `TABLES( )` from the start, and its key is `JOURNEY` rather than `JOURNEY_ID` but the same
+  `ZRAK_JOURNEY_ID` data element, so the padded generic key covers it unchanged. The gap was
+  one write path that did not call the recorder, which is the failure mode to look for when a
+  change does not travel: check the **call sites**, not the table list.
 - **Recording happens AFTER the commit**, never before: it is a database write in the same
   LUW, and ahead of `SAVE_JOURNEY( )`'s all-or-nothing block it would leave a request naming
   a journey whose save was rolled back.

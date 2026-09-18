@@ -3519,6 +3519,26 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                           |on this step goes, and it renders the classic way again. | &&
                           |Press Clear again to confirm.| ) = abap_true.
         dsg_clear( mv_dsg_step ).
+
+*       RECORDED, AND THIS IS THE ONE THAT MATTERED MOST. Clear was the only
+*       write path in the Studio that did not record, and it is a pure
+*       DELETE - which is the exact shape ZCL_RAK_CJ_CTS exists for. An add
+*       that misses a request can still be picked up later by touching the
+*       row in SM34; a delete cannot, because after the delete there is no
+*       row left to open. So the step went back to the classic render here
+*       and stayed laid out in quality, permanently, with nothing anywhere
+*       to say why.
+*
+*       In the CALLER rather than inside DSG_CLEAR( ), the same way
+*       DSG_SAVE( )'s two callers hold theirs: DSG_CLEAR( ) sets MV_MSG as
+*       its last act, so a note written inside would be overwritten by it.
+*
+*       The generic key covers this with no extra work - RECORD_JOURNEY( )
+*       appends <client><journey>* for all seven tables including
+*       ZRAK_CJ_LAYOUT, and a generic key is a REPLACE of everything that
+*       matches it. The rows being gone locally is exactly what makes them
+*       go on import.
+        record_cfg( to_upper( mv_journey_id ) ).
       ENDIF.
       RETURN.
     ENDIF.
