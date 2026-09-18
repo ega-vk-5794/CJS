@@ -2231,7 +2231,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   own and has nothing to sit beside.
     DATA lo_body TYPE REF TO z2ui5_cl_xml_view.
     lo_body = lo_cell.
-    IF is_cell-attr-flow = abap_true AND lv_block = abap_false.
+*   EITHER SOURCE TURNS IT ON. ZRAK_CJ_LAYOUT-FLOW is the cell's own flag and
+*   reachable only from the Design tab; ZRAK_T_JNY_FLD-FLOW is the field's and
+*   reachable everywhere. They are OR-ed rather than ranked because a blank
+*   FLOW on a layout row cannot tell "off" apart from "never touched" - so
+*   letting the row outrank the field would mean laying out a step silently
+*   switched off a flag the field had set. See TY_FIELD-FLOW.
+    IF ( is_cell-attr-flow = abap_true OR is_field-flow = abap_true )
+       AND lv_block = abap_false.
       mv_flow_cell = abap_true.
 
 *     ORDER MATTERS. z2ui5 emits children in the order they are created, so
@@ -4790,10 +4797,42 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                   THEN 'rakCell rakWide' ELSE 'rakCell' )
                                 && | rakC{ zcl_rak_journey_util=>comp_name( ls_rf-name ) }| ).
         mv_in_cell = xsdbool( lv_eqc IS NOT INITIAL ).
+
+*       FLOW, AND IT IS THE SAME EIGHT LINES THE LAID-OUT CELL RUNS. Same
+*       reason as RAKC<NAME> two lines above: a handler drawing a button from
+*       AFTER_FIELD( ) had it beside the field on a step somebody had laid out
+*       and underneath it on the next one, because FLOW was a column on
+*       ZRAK_CJ_LAYOUT and nothing else. A cell is a vbox, so AFTER_FIELD( )
+*       content stacks unless something puts a row under it.
+*
+*       Only the FIELD flag can reach here - a step with a layout row is
+*       rendered by the other path and never arrives - so there is no
+*       precedence to resolve at this site.
+*
+*       The ordering trap and the JUSTIFYCONTENT reasoning are both the
+*       laid-out cell's; read them there rather than here, and change both
+*       together if either has to move.
+*       BEFORE_FIELD( ) FIRST, and that is the same ordering rule again rather
+*       than a style choice. It draws into the CELL, and z2ui5 emits children
+*       in creation order - so anything it appends after the label vbox and
+*       the flow row exist renders BELOW the field instead of above it.
         before_field( io_view = lo_cell is_field = ls_rf ).
-        render_one( io_form = lo_cell is_field = ls_rf ).
-        after_field( io_view = lo_cell is_field = ls_rf ).
-        CLEAR mv_in_cell.
+
+        DATA lo_ubody TYPE REF TO z2ui5_cl_xml_view.
+        lo_ubody = lo_cell.
+        IF ls_rf-flow = abap_true
+           AND zcl_rak_journey_util=>is_block( ls_rf-type ) = abap_false.
+          mv_flow_cell = abap_true.
+          mo_lbl_tgt   = lo_cell->vbox( ).
+          lo_ubody     = lo_cell->hbox( class          = 'rakCellFlow'
+                                        width          = '100%'
+                                        justifycontent = 'Start'
+                                        alignitems     = 'End' ).
+        ENDIF.
+
+        render_one( io_form = lo_ubody is_field = ls_rf ).
+        after_field( io_view = lo_ubody is_field = ls_rf ).
+        CLEAR: mv_in_cell, mv_flow_cell, mo_lbl_tgt.
       ENDLOOP.
     ENDLOOP.
 

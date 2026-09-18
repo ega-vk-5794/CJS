@@ -169,6 +169,7 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
           ta_rows      = ls_f-ta_rows
           grow_thresh  = ls_f-grow_thresh
           popin        = bool( ls_f-popin )
+          flow         = bool( ls_f-flow )
 *         ZRAK_T_JNY_FLD-WIDTH, which the Studio has always stored and
 *         nothing has ever read. Named CTRL_WIDTH on TY_FIELD after the
 *         method that consumes it, and to keep it apart from the CELL

@@ -778,6 +778,18 @@ These raise nothing and render nothing. They account for most of the bugs found 
   is not `INLINE`: `INLINE` decides which **row** a cell lands on, `FLOW` the direction
   **inside** one cell. `PERSIST( )` does a full `MODIFY`, so anything writing an attribute must
   `RESOLVE( )` first and overwrite only its own fields, or it blanks the rest.
+  **`FLOW` now also exists on `ZRAK_T_JNY_FLD`, and the two are OR-ed.** The layout column is
+  reachable only through the Design tab, and a journey with no layout rows cannot set it at
+  all — adding one row to a step switches that whole step to the laid-out renderer and sorts
+  every unplaced field to the top, so "set FLOW for one button" meant laying out the step.
+  A handler's Add or search button therefore sat *beside* its field on a laid-out step and
+  *under* it on the next one: the same parity failure as `SECTION`, and the one the renderer's
+  own `RAKC<NAME>` note warns about. The unlaid cell loop now runs the same eight lines the
+  laid-out cell does. **Neither source can turn flow off**, and that is a decision: a blank
+  `FLOW` on a layout row cannot tell "off" apart from "never touched", so ranking the row
+  above the field would mean laying out a step silently switched off a flag the field had set
+  — the `set_required( abap_false )` trap in a different costume. Forcing flow off from a
+  layout row needs a three-valued column and is a different change.
 - **`ZRAK_T_JNY_FLD-MSG` can be written per check.** One column is read by the required
   check, by MIN_VAL/MAX_VAL, by the DATE range, by the numeric CATCH and by REGEX. They
   never fire together, so this was only ever a wording limit — but a field that is both
@@ -1114,7 +1126,8 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
   narrowed 30 → 23** (the primary key stood at 124 against DDIC's hard ceiling of 120;
   23 is the same limit `COMP_NAME( )` already imposes on a field name, so nothing that
   can legally be an element id is lost, and the key is now 117), `ZRAK_T_JNY_FLD` gained
-  `ZSECTION_AR`, `CLOSED_LIST` and `NO_BROWSE`, and `ZRAK_T_JNY_STEP` gained `NO_ACTION`.
+  `ZSECTION_AR`, `CLOSED_LIST`, `NO_BROWSE` and `FLOW`, and `ZRAK_T_JNY_STEP` gained
+  `NO_ACTION`.
   All need activation **and a table adjust** before the
   code reading them behaves. **The full current shape of all 27 tables — every column,
   every enumeration, and which nuance belongs to which — is in

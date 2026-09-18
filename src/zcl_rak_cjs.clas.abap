@@ -98,6 +98,7 @@ CLASS zcl_rak_cjs DEFINITION
         ta_rows      TYPE string,
         grow_thresh  TYPE string,
         popin        TYPE abap_bool,
+        flow         TYPE abap_bool,
       END OF ty_fld,
       tt_fld TYPE STANDARD TABLE OF ty_fld WITH EMPTY KEY.
     TYPES:
@@ -366,6 +367,7 @@ CLASS zcl_rak_cjs DEFINITION
 *   Round 13, plus NO_BROWSE which shipped without a Studio home at all.
     DATA fv_nobrowse TYPE abap_bool.
     DATA fv_popin    TYPE abap_bool.
+    DATA fv_flow     TYPE abap_bool.
     DATA fv_talign   TYPE string.
     DATA fv_descr    TYPE string.
     DATA fv_tarows   TYPE string.
@@ -922,7 +924,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         fv_default = ls_dup-default_val. fv_group = ls_dup-fgroup. fv_sect = ls_dup-section. fv_sect_ar = ls_dup-section_ar.
         fv_state = ls_dup-fstate. fv_width = ls_dup-width.
         fv_hidden = ls_dup-hidden. fv_readonly = ls_dup-readonly. fv_closed = ls_dup-closed_list. fv_req = ls_dup-required.
-        fv_nobrowse = ls_dup-no_browse. fv_popin = ls_dup-popin.
+        fv_nobrowse = ls_dup-no_browse. fv_popin = ls_dup-popin. fv_flow = ls_dup-flow.
         fv_talign = ls_dup-text_align. fv_descr = ls_dup-descr. fv_tarows = ls_dup-ta_rows.
         fv_grow = ls_dup-grow_thresh.
         fv_regex = ls_dup-regex. fv_minlen = ls_dup-min_len. fv_maxlen = ls_dup-max_len.
@@ -957,7 +959,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         fv_default = ls_ef-default_val. fv_group = ls_ef-fgroup. fv_sect = ls_ef-section. fv_sect_ar = ls_ef-section_ar.
         fv_state = ls_ef-fstate. fv_width = ls_ef-width.
         fv_hidden = ls_ef-hidden. fv_readonly = ls_ef-readonly. fv_closed = ls_ef-closed_list. fv_req = ls_ef-required.
-        fv_nobrowse = ls_ef-no_browse. fv_popin = ls_ef-popin.
+        fv_nobrowse = ls_ef-no_browse. fv_popin = ls_ef-popin. fv_flow = ls_ef-flow.
         fv_talign = ls_ef-text_align. fv_descr = ls_ef-descr. fv_tarows = ls_ef-ta_rows.
         fv_grow = ls_ef-grow_thresh.
         fv_regex = ls_ef-regex. fv_minlen = ls_ef-min_len. fv_maxlen = ls_ef-max_len.
@@ -1305,6 +1307,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                              closed_list = fv_closed
                              no_browse   = fv_nobrowse
                              popin       = fv_popin
+                             flow        = fv_flow
                              text_align  = fv_talign
                              descr       = fv_descr
                              ta_rows     = fv_tarows
@@ -1490,6 +1493,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *                     be worse than neither: the editor would show a value
 *                     it then destroys.
                       no_browse = xsdbool( f-no_browse = 'X' ) popin = xsdbool( f-popin = 'X' )
+                      flow = xsdbool( f-flow = 'X' )
                       text_align = f-text_align descr = f-descr
                       ta_rows = COND string( WHEN f-ta_rows > 0 THEN |{ f-ta_rows }| )
                       grow_thresh = COND string( WHEN f-grow_thresh > 0 THEN |{ f-grow_thresh }| ) ) TO mt_fields.
@@ -1747,6 +1751,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *       The seven that used to be dropped here. See the note on TY_FLD.
         no_browse   = COND string( WHEN f-no_browse = abap_true THEN 'X' ELSE ' ' )
         popin       = COND string( WHEN f-popin     = abap_true THEN 'X' ELSE ' ' )
+        flow        = COND string( WHEN f-flow      = abap_true THEN 'X' ELSE ' ' )
         text_align  = f-text_align descr      = f-descr
         ta_rows     = to_int( f-ta_rows )
         grow_thresh = to_int( f-grow_thresh ) ) ).
@@ -2615,6 +2620,15 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     f->label( 'Closed list (SELECT only - no free typing)' ). f->checkbox( selected = mo_client->_bind_edit( fv_closed ) ).
     f->label( 'No Browse button (SEARCH only)' ). f->checkbox( selected = mo_client->_bind_edit( fv_nobrowse ) ).
     f->label( 'Pop-in on phones (TABLE / EDITABLE_TABLE)' ). f->checkbox( selected = mo_client->_bind_edit( fv_popin ) ).
+*   THE FIELD-LEVEL TWIN OF ZRAK_CJ_LAYOUT-FLOW, and it exists because that
+*   one is only reachable from the Design tab: a journey with no layout rows
+*   cannot set it, and adding one row switches the whole step to the laid-out
+*   renderer. So a handler's button sat beside the field on a laid-out step
+*   and under it on the next one. Either source turns flow on and neither
+*   turns it off - see TY_FIELD-FLOW for why they are OR-ed rather than ranked.
+    f->label( 'Flow (after-field content sits BESIDE the control)' ).
+    f->checkbox( selected = mo_client->_bind_edit( fv_flow )
+                 text     = 'for a handler''s search or Add button; blank stacks it underneath' ).
     f->label( 'Text align' ). f->input( value = mo_client->_bind_edit( fv_talign )
                                         placeholder = 'DISPLAY only - Begin / End / Center / Left / Right / Initial' ).
     f->label( 'Unit suffix' ). f->input( value = mo_client->_bind_edit( fv_descr )
@@ -3343,7 +3357,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
            fv_group, fv_sect, fv_sect_ar, fv_state, fv_width, fv_hidden, fv_readonly, fv_closed, fv_req, fv_regex,
            fv_minlen, fv_maxlen, fv_minval, fv_maxval, fv_msg, fv_msg_ar, fv_tech, fv_roll, fv_shlp, fv_dom,
            fv_hasatt, fv_attlabel, fv_atttypes, fv_attmb, fv_attmulti,
-           fv_nobrowse, fv_popin, fv_talign, fv_descr, fv_tarows, fv_grow.
+           fv_nobrowse, fv_popin, fv_flow, fv_talign, fv_descr, fv_tarows, fv_grow.
   ENDMETHOD.
 
 

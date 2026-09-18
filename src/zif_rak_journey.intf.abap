@@ -105,6 +105,27 @@ INTERFACE zif_rak_journey
 *     on a phone, which is the one thing this round was not allowed to do.
 *     The consumer said the same and did not ask for it as a default.
       popin        TYPE abap_bool,
+      " Lay this field's cell out LEFT TO RIGHT, so whatever the handler
+      " draws from ON_RENDER_AFTER_FIELD( ) sits BESIDE the control rather
+      " than under it - a search or Add button, typically. Blank stacks,
+      " which is every field that exists today.
+      "
+      " It is the field-level twin of ZRAK_CJ_LAYOUT-FLOW, and it exists
+      " because that one is only reachable through the Design tab: a journey
+      " with no layout rows cannot set it at all, and adding one row to a
+      " step switches the whole step to the laid-out renderer. So a handler
+      " could put its button beside the field on a step somebody had laid
+      " out and not on the next step - the shape SECTION was broken in, and
+      " the shape the RAKC<NAME> note in the renderer warns about.
+      "
+      " THE TWO SOURCES ARE OR-ed, NOT RANKED, and that is a decision rather
+      " than an omission. A blank FLOW on a layout row cannot tell "off"
+      " apart from "never touched", so letting the layout row outrank the
+      " field would mean laying out a step silently switched off a flag the
+      " field had set. Either source turns flow on; neither turns it off.
+      " Forcing flow OFF from a layout row would need a three-valued column
+      " and is a different change.
+      flow         TYPE abap_bool,
       " An explicit control width for THIS field, overriding the per-type
       " default in ZCL_RAK_JOURNEY_UTIL=>CTRL_WIDTH( ). Blank falls through to
       " that CASE, so a journey authored before this was read renders
