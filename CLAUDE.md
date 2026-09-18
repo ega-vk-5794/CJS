@@ -563,10 +563,43 @@ These raise nothing and render nothing. They account for most of the bugs found 
   bound values without touching the controls, so a value `ON_CHANGE( )` wrote server-side
   still reaches the screen. **The test is the markup itself, never a list of things that
   might have moved**, so it cannot go stale: anything that really changes the page changes
-  the markup. `MV_QUIET_EVT` keeps the quiet path to `CHANGE_` round trips only, so
-  navigation, submit and popups always repaint; popups go out through `POPUP_DISPLAY( )`
-  regardless. Confirmed fixed on screen. If you ever need the old behaviour, do not
-  reintroduce a second `VIEW_DISPLAY( )` call - go through `SEND_VIEW( )`.
+  the markup. `MV_QUIET_EVT` names the round trips allowed to take it — `CHANGE_`,
+  `SEARCH_`, and the attachment events — so navigation and submit always repaint. It only
+  **permits** the quiet path; the markup comparison is the gate, which is why widening it
+  is safe without auditing every handler. Confirmed fixed on screen. If you ever need the
+  old behaviour, do not reintroduce a second `VIEW_DISPLAY( )` call - go through
+  `SEND_VIEW( )`.
+- **A DIALOG IS A SECOND VIEW SLOT, AND IT HAS ITS OWN SIGNATURE.** The page stopped
+  flashing and dialogs did not, because `RENDER_POPUP( )` called `POPUP_DISPLAY( )` on
+  every round trip with no comparison at all. `SEND_POPUP( )` is now the dialog's single
+  exit and the twin of `SEND_VIEW( )`: it hashes against `MV_POPUP_SIG` and calls
+  `POPUP_MODEL_UPDATE( )` on a match. **Two signatures, never one** — a shared hash would
+  make every page change redraw the dialog and the reverse. `MV_POPUP_SIG` is cleared when
+  the dialog is destroyed, or a later dialog whose markup happened to match would be
+  refreshed into a fragment that is no longer on screen.
+- **AN UPLOADER'S TWO STATES ARE ONE BOX AND ONE PIECE OF MARKUP, and both halves are
+  load-bearing.** The picker and the filed row are the same `.rakAttBox` at the same
+  `min-height`, so swapping them moves nothing — that is what retired four pieces of
+  scroll-restoring JavaScript, one of which (`rakJump`) could never fire because the class
+  was stamped inside `RENDER_UPLOADER( )`, which is not called once a file exists. And
+  both are drawn **together**, switched by bound values (`_ATTFN`, `_ATTUR`, `_ATTON`,
+  `_ATTOF`, plus `_ATTP*` for a dialog), so the markup does not change on upload and
+  `SEND_VIEW( )`/`SEND_POPUP( )` can go quiet. **Nothing in `RENDER_ATT_PAIR( )` may depend
+  on whether a file is staged** — one conditional control puts the flash back, silently,
+  because the view still renders correctly and only takes the slow path again. The two
+  scopes exist because a field can be drawn on the page *and* in a dialog in the same round
+  trip; one set of components would have the two writers overwriting each other.
+  **`_ATTPFN` is seven characters, landing exactly on the DDIC ceiling of 30 against
+  `COMP_NAME( )`'s 23** — the same budget `_IDTYPE` spends, and there is no room for an
+  eighth. A delete event carries the field, never an index (`ATTDELF_<FIELD>`,
+  `ATTDELP_<FIELD>~<KEY>`): an index into `MT_ATTACH` changes as files come and go, and a
+  changing event name is changing markup.
+- **A dialog has no form to space its controls.** `RENDER_ATTACH( )` puts its label and box
+  in a SimpleForm, which owns the vertical rhythm; a handler-drawn dialog stacks them as
+  bare siblings in a `vbox.rakCell`, so the box supplies its own margin
+  (`.sapMDialog .rakAttBox`). `.sapMDialog` is the one UI5 class name the CSS leans on, and
+  the one already proven on screen — an earlier `.sapMDialogScrollCont` matched nothing and
+  failed silently.
 - **A backend TABLE's cells are positional at BOTH ends, and the two orders are set in
   different places.** `ZCL_RAK_JOURNEY_BE` reads a backend table by assigning
   `FIELD1..FIELDn` in order and handing cell N to configured column N of the
@@ -1083,6 +1116,20 @@ unless you tick it by hand, on every pull. abapGit still reports success, which 
   **field** is still gone and has to be re-added per journey in the Studio. Until then
   those steps have no pay control at all.
 
+- **The attachment-control rewrite needs activating, and all three classes together.**
+  `ZCL_RAK_JOURNEY_ENGINE`, `ZCL_RAK_JOURNEY_RENDER` and `ZCL_RAK_JOURNEY_CSS` — the
+  renderer reads new engine model components and the engine calls `RENDER_CHIPS( )`
+  functionally, so a partial activation errors. **No DDIC change and no table adjust**:
+  the four (eight, counting the popup scope) attachment companions are built by
+  `BUILD_MODEL( )` at runtime. `BUILD_MODEL( )` runs at launch and on a dynamic-step
+  merge, **not per round trip**, so a journey a citizen already has open keeps a model
+  with no companions until they relaunch — every bound value falls back to a literal and
+  the control draws as it did before, flash included. That fallback is deliberate; do not
+  remove it on the grounds that the components "always exist".
+  One visible behaviour change beyond rendering: the green *"x attached"* strip is gone,
+  because it drew at the TOP of the page on the very render that swapped the control and
+  the filename in the control is the better confirmation. Errors and warnings still use
+  `MT_MSG`.
 - **E128 needs pulling and activating.** Its PAID gate fix is in git and was reverted
   once by a stage-without-pull; until the `Overwrite local object` row is ticked and the
   class activated, that journey can still be submitted unpaid.
