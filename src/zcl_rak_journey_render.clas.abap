@@ -593,10 +593,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   METHOD render_accordion.
     DATA lv_i TYPE i.
     LOOP AT mo_e->ms_config-steps INTO DATA(ls_step).
+*     WIDTH = 'auto' as above. These are all Panels so they agree with each
+*     other, but they wear the same .rakCard as the VBox cards elsewhere in
+*     the journey and would sit a margin pair wider than those.
       DATA(lo_panel) = io_parent->panel(
         headertext = zcl_rak_journey_util=>esc( |{ lv_i + 1 }. { ls_step-title }| )
         expandable = abap_true
         expanded   = xsdbool( lv_i = 0 )
+        width      = 'auto'
         class      = mo_e->mo_css->cls( 'CARD' ) ).
       render_step( io_parent = lo_panel is_step = ls_step iv_index = lv_i ).
       lv_i = lv_i + 1.
@@ -1952,12 +1956,35 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       ENDLOOP.
 
       IF lv_first = abap_true OR lv_sect_now <> lv_sect.
+*       WIDTH = 'auto' ON EVERY CARD PANEL, and it is the blank-OPTIONAL trap
+*       for the third time rather than a styling choice.
+*
+*       sap.m.Panel's own WIDTH default is 100%, and an unsupplied OPTIONAL is
+*       DROPPED from the markup by XML_GET_PARTS( ) rather than emitted - so
+*       not passing it does not mean "auto", it means the control's default
+*       applies. A sap.m.FlexBox's default is empty, which IS auto. Two
+*       branches one line apart, the same .rakCard class on both, and two
+*       different widths.
+*
+*       The arithmetic, measured on JP1/SRCH under PREMIUM rather than
+*       reasoned: .rakCard is margin 12px 16px, box-sizing border-box. The
+*       VBox comes out 928.50px - its containing block MINUS both margins.
+*       The Panel comes out 960.49px - 100% of that containing block, with the
+*       margins outside it. Both left edges at 48; the right edges 32px apart,
+*       which is exactly twice the 16px margin. So the sectioned card is not
+*       merely wider than the plain one, it OVERFLOWS its container by a
+*       margin pair - the misalignment is the visible half of that.
+*
+*       'auto' is not blank, so it survives the filter and reaches the markup.
+*       And the fix does not depend on the diagnosis: whatever the control's
+*       default turns out to be, an explicit 'auto' makes both branches agree.
         IF lv_sect_now IS INITIAL.
           lo_card = io_parent->vbox( class = mo_e->mo_css->cls( 'CARD' ) ).
         ELSE.
           lo_card = io_parent->panel( headertext = zcl_rak_journey_util=>esc( lv_sect_now )
                                       expandable = abap_true
                                       expanded   = abap_true
+                                      width      = 'auto'
                                       class      = mo_e->mo_css->cls( 'CARD' ) ).
         ENDIF.
         lo_grid = lo_card->grid( default_span = 'XL12 L12 M12 S12'
@@ -4578,9 +4605,16 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         CLEAR lo_form.
         CLEAR lv_group.
         IF ls_f-section IS NOT INITIAL.
+*         WIDTH = 'auto' for the reason written at the laid-out card, and it
+*         matters here too though nobody has reported it: the unsectioned
+*         branch of THIS path is a SimpleForm wearing 'rakCard', whose own
+*         width default is empty. So a step that mixes sectioned and
+*         unsectioned fields has the same 32px step between its cards on the
+*         unlaid path as the Design tab's.
           lo_target = io_parent->panel( headertext = zcl_rak_journey_util=>esc( ls_f-section )
                                         expandable = abap_true
                                         expanded   = abap_true
+                                        width      = 'auto'
                                         class      = mo_e->mo_css->cls( 'CARD' ) ).
         ELSE.
           lo_target = io_parent.
