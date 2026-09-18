@@ -795,19 +795,36 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakPclBadge\{margin-inline-start:auto;padding:.12rem .55rem;| &&
         |border-radius:999px;background:rgba(0,122,194,.10);\}| &&
         |.rakPclMeta\{color:#6a7484;font-size:.85rem;\}| &&
-*     The actions row. Full Details is a LINK and Select is a filled button,
-*     so without a rule between them the link's icon sits hard against its
-*     own text and the two controls touch. A hairline above the row is what
-*     the live card uses to separate the actions from the meta line.
-        |.rakPclAct\{width:100%;justify-content:flex-end;align-items:center;| &&
-        |gap:1.25rem;margin-top:.55rem;padding-top:.55rem;flex-wrap:wrap;| &&
-        |border-top:1px solid { g-line_clr };\}| &&
+*     ---- THE CARD CLOSES ON THE META LINE -----------------------------
+*     The actions used to be a full-width row of their own under a hairline,
+*     half a rem below the meta line and half a rem above itself. Three
+*     lines of card for two lines of content, with a band of empty white
+*     across the middle - which is what made it read as a card missing its
+*     bottom half rather than a compact one.
+*
+*     .rakPclBot is the single row they now share: the meta line takes what
+*     it needs, .rakPclAct is pushed to the right edge by the auto margin,
+*     and the card ends one line under the number the way the live control
+*     does. No hairline - with the two on one line there is nothing to
+*     separate, and the card's own border already closes it.
+*
+*     WRAP IS THE ESCAPE. min-width:0 on the meta line lets it shrink
+*     rather than shove the actions out (the .rakFileRow lesson: a flex
+*     item defaults to min-width:auto and refuses to go below its content),
+*     and when the row genuinely runs out of width the actions drop to
+*     their own line - the old layout, reached only when it is needed.
+        |.rakPclBot\{width:100%;align-items:center;gap:.75rem;flex-wrap:wrap;\}| &&
+        |.rakPclBot>*:first-child\{flex:1 1 auto;min-width:0;\}| &&
+        |.rakPclAct\{margin-inline-start:auto;justify-content:flex-end;| &&
+        |align-items:center;gap:1.25rem;flex-wrap:wrap;\}| &&
         |.rakPclAct .sapMLnk .sapUiIcon\{margin-inline-end:.4rem;\}| &&
         |.rakPclAct .sapMLnk\{white-space:nowrap;\}| &&
         |.rakPclAct .sapMBtn\{margin:0;\}| &&
 *     The card's own vertical rhythm. It is a VBox, so gap is the only thing
-*     holding the number, the meta line and the actions apart.
-        |.rakPclCard\{gap:.4rem;\}| &&
+*     holding the number and the meta/actions row apart. Tighter than it
+*     was (.4rem) now that the card is two rows rather than three with a
+*     rule across it.
+        |.rakPclCard\{gap:.25rem;\}| &&
         |.rakPclCard .sapMTitle\{margin:0;\}| &&
         |.rakPclHint\{color:#6a7484;font-size:.82rem;\}| &&
 *     ---- THE PAYMENT CARD, matched to the legacy page -------------------

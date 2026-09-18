@@ -1035,10 +1035,29 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     IF lv_sec IS NOT INITIAL. APPEND lv_sec TO lt_meta. ENDIF.
     IF lv_use IS NOT INITIAL. APPEND lv_use TO lt_meta. ENDIF.
     IF lv_typ IS NOT INITIAL. APPEND lv_typ TO lt_meta. ENDIF.
-    lo_p->text( text  = concat_lines_of( table = lt_meta sep = ` | ` )
-                class = 'rakPclMeta' ).
+*   ---- THE META LINE AND THE ACTIONS SHARE A ROW ---------------------
+*   They used to be two stacked children of the card with a hairline and
+*   half a rem of padding between them, and the result was a card that did
+*   not close: the meta line ended a third of the way across, the actions
+*   sat right-aligned on a line of their own, and between them was a band
+*   of white the width of the card doing nothing. Against the live control
+*   - a compact card that is a number, a line about it, and nothing else -
+*   it read as a card that had lost its bottom half.
+*
+*   One row closes it. The meta line takes the space it needs on the left,
+*   the actions are pushed to the right edge by an auto margin, and the
+*   card ends one line below the number instead of three. Nothing is
+*   removed: Full Details and Select are the same two controls, in the
+*   same order, with the same events.
+*
+*   IT WRAPS RATHER THAN CROWDS. On a phone, or against a long land-use
+*   text, the actions drop to their own line - which is the old layout,
+*   arrived at only when the width genuinely demands it.
+    DATA(lo_bot) = lo_p->hbox( class = 'rakPclBot' ).
+    lo_bot->text( text  = concat_lines_of( table = lt_meta sep = ` | ` )
+                  class = 'rakPclMeta' ).
 
-    DATA(lo_act) = lo_p->hbox( class = 'rakPclAct' ).
+    DATA(lo_act) = lo_bot->hbox( class = 'rakPclAct' ).
 
 *   Full Details FIRST and quiet, Select last and emphasised - the live
 *   card puts the commitment at the end of the row, and a link beside a
