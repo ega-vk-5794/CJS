@@ -593,10 +593,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   METHOD render_accordion.
     DATA lv_i TYPE i.
     LOOP AT mo_e->ms_config-steps INTO DATA(ls_step).
+*     WIDTH = 'auto' as above. These are all Panels so they agree with each
+*     other, but they wear the same .rakCard as the VBox cards elsewhere in
+*     the journey and would sit a margin pair wider than those.
       DATA(lo_panel) = io_parent->panel(
         headertext = zcl_rak_journey_util=>esc( |{ lv_i + 1 }. { ls_step-title }| )
         expandable = abap_true
         expanded   = xsdbool( lv_i = 0 )
+        width      = 'auto'
         class      = mo_e->mo_css->cls( 'CARD' ) ).
       render_step( io_parent = lo_panel is_step = ls_step iv_index = lv_i ).
       lv_i = lv_i + 1.
@@ -1952,12 +1956,35 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       ENDLOOP.
 
       IF lv_first = abap_true OR lv_sect_now <> lv_sect.
+*       WIDTH = 'auto' ON EVERY CARD PANEL, and it is the blank-OPTIONAL trap
+*       for the third time rather than a styling choice.
+*
+*       sap.m.Panel's own WIDTH default is 100%, and an unsupplied OPTIONAL is
+*       DROPPED from the markup by XML_GET_PARTS( ) rather than emitted - so
+*       not passing it does not mean "auto", it means the control's default
+*       applies. A sap.m.FlexBox's default is empty, which IS auto. Two
+*       branches one line apart, the same .rakCard class on both, and two
+*       different widths.
+*
+*       The arithmetic, measured on JP1/SRCH under PREMIUM rather than
+*       reasoned: .rakCard is margin 12px 16px, box-sizing border-box. The
+*       VBox comes out 928.50px - its containing block MINUS both margins.
+*       The Panel comes out 960.49px - 100% of that containing block, with the
+*       margins outside it. Both left edges at 48; the right edges 32px apart,
+*       which is exactly twice the 16px margin. So the sectioned card is not
+*       merely wider than the plain one, it OVERFLOWS its container by a
+*       margin pair - the misalignment is the visible half of that.
+*
+*       'auto' is not blank, so it survives the filter and reaches the markup.
+*       And the fix does not depend on the diagnosis: whatever the control's
+*       default turns out to be, an explicit 'auto' makes both branches agree.
         IF lv_sect_now IS INITIAL.
           lo_card = io_parent->vbox( class = mo_e->mo_css->cls( 'CARD' ) ).
         ELSE.
           lo_card = io_parent->panel( headertext = zcl_rak_journey_util=>esc( lv_sect_now )
                                       expandable = abap_true
                                       expanded   = abap_true
+                                      width      = 'auto'
                                       class      = mo_e->mo_css->cls( 'CARD' ) ).
         ENDIF.
         lo_grid = lo_card->grid( default_span = 'XL12 L12 M12 S12'
@@ -2204,7 +2231,14 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *   own and has nothing to sit beside.
     DATA lo_body TYPE REF TO z2ui5_cl_xml_view.
     lo_body = lo_cell.
-    IF is_cell-attr-flow = abap_true AND lv_block = abap_false.
+*   EITHER SOURCE TURNS IT ON. ZRAK_CJ_LAYOUT-FLOW is the cell's own flag and
+*   reachable only from the Design tab; ZRAK_T_JNY_FLD-FLOW is the field's and
+*   reachable everywhere. They are OR-ed rather than ranked because a blank
+*   FLOW on a layout row cannot tell "off" apart from "never touched" - so
+*   letting the row outrank the field would mean laying out a step silently
+*   switched off a flag the field had set. See TY_FIELD-FLOW.
+    IF ( is_cell-attr-flow = abap_true OR is_field-flow = abap_true )
+       AND lv_block = abap_false.
       mv_flow_cell = abap_true.
 
 *     ORDER MATTERS. z2ui5 emits children in the order they are created, so
@@ -4578,9 +4612,16 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         CLEAR lo_form.
         CLEAR lv_group.
         IF ls_f-section IS NOT INITIAL.
+*         WIDTH = 'auto' for the reason written at the laid-out card, and it
+*         matters here too though nobody has reported it: the unsectioned
+*         branch of THIS path is a SimpleForm wearing 'rakCard', whose own
+*         width default is empty. So a step that mixes sectioned and
+*         unsectioned fields has the same 32px step between its cards on the
+*         unlaid path as the Design tab's.
           lo_target = io_parent->panel( headertext = zcl_rak_journey_util=>esc( ls_f-section )
                                         expandable = abap_true
                                         expanded   = abap_true
+                                        width      = 'auto'
                                         class      = mo_e->mo_css->cls( 'CARD' ) ).
         ELSE.
           lo_target = io_parent.
@@ -4756,10 +4797,42 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                   THEN 'rakCell rakWide' ELSE 'rakCell' )
                                 && | rakC{ zcl_rak_journey_util=>comp_name( ls_rf-name ) }| ).
         mv_in_cell = xsdbool( lv_eqc IS NOT INITIAL ).
+
+*       FLOW, AND IT IS THE SAME EIGHT LINES THE LAID-OUT CELL RUNS. Same
+*       reason as RAKC<NAME> two lines above: a handler drawing a button from
+*       AFTER_FIELD( ) had it beside the field on a step somebody had laid out
+*       and underneath it on the next one, because FLOW was a column on
+*       ZRAK_CJ_LAYOUT and nothing else. A cell is a vbox, so AFTER_FIELD( )
+*       content stacks unless something puts a row under it.
+*
+*       Only the FIELD flag can reach here - a step with a layout row is
+*       rendered by the other path and never arrives - so there is no
+*       precedence to resolve at this site.
+*
+*       The ordering trap and the JUSTIFYCONTENT reasoning are both the
+*       laid-out cell's; read them there rather than here, and change both
+*       together if either has to move.
+*       BEFORE_FIELD( ) FIRST, and that is the same ordering rule again rather
+*       than a style choice. It draws into the CELL, and z2ui5 emits children
+*       in creation order - so anything it appends after the label vbox and
+*       the flow row exist renders BELOW the field instead of above it.
         before_field( io_view = lo_cell is_field = ls_rf ).
-        render_one( io_form = lo_cell is_field = ls_rf ).
-        after_field( io_view = lo_cell is_field = ls_rf ).
-        CLEAR mv_in_cell.
+
+        DATA lo_ubody TYPE REF TO z2ui5_cl_xml_view.
+        lo_ubody = lo_cell.
+        IF ls_rf-flow = abap_true
+           AND zcl_rak_journey_util=>is_block( ls_rf-type ) = abap_false.
+          mv_flow_cell = abap_true.
+          mo_lbl_tgt   = lo_cell->vbox( ).
+          lo_ubody     = lo_cell->hbox( class          = 'rakCellFlow'
+                                        width          = '100%'
+                                        justifycontent = 'Start'
+                                        alignitems     = 'End' ).
+        ENDIF.
+
+        render_one( io_form = lo_ubody is_field = ls_rf ).
+        after_field( io_view = lo_ubody is_field = ls_rf ).
+        CLEAR: mv_in_cell, mv_flow_cell, mo_lbl_tgt.
       ENDLOOP.
     ENDLOOP.
 
