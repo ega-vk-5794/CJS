@@ -727,6 +727,43 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
       title        = mv_title
       contentwidth = COND string( WHEN lv_found = abap_true THEN '62rem' ELSE '46rem' ) ).
 
+*   ONE CONTENT AGGREGATION, HELD IN A VARIABLE, and that is not tidying.
+*   CONTENT( ) is _GENERIC( name = 'content' ) - it CREATES an element every
+*   time it is called, it does not fetch one. Two calls put two <content>
+*   aggregations in the markup. Today that never happened because the two
+*   call sites are in branches and the first one RETURNs; the strips below
+*   are a third reader, so from here the handle has to be shared.
+    DATA(lo_cnt) = lo_dlg->content( ).
+
+*   THE MESSAGES, INSIDE THE DIALOG - the third dialog to need this and the
+*   one that raises the most. RENDER( ) draws MT_MSG on the PAGE, and a modal
+*   dialog is drawn over the page, so this class's own refusals were rendered
+*   where the citizen cannot read them: VALIDATE_FORM( )'s five, and the MOI
+*   cross-check's "Date of birth: Input data does not match" and "Nationality:
+*   ...". A correct refusal read as a dead Search button.
+*
+*   DIALOG_FORM( ) in ZCL_RAK_JOURNEY_LOGIC has done this for every handler
+*   popup built through it, and RENDER_POPUP( )'s own WHEN 'BP' dialog does it
+*   for the built-in one. Both notes say the symptom was reported repeatedly
+*   as "the message shows in the main screen, it should show in the add
+*   screen". This class was built by hand like the second and missed both.
+*
+*   BEFORE THE BRANCH, so it covers the party card and the search form alike -
+*   a refusal can arrive on either. An empty loop adds no markup, so a dialog
+*   opening clean looks exactly as it does today.
+*
+*   ESC( ) on the text, following the WHEN 'BP' sibling rather than
+*   DIALOG_FORM( ): the messages here carry backend wording and partner names,
+*   and an ampersand in one of those would otherwise reach the markup raw.
+    LOOP AT mo_ctx->msgs( ) INTO DATA(ls_pend).
+      lo_cnt->message_strip(
+        text     = zcl_rak_journey_util=>esc( ls_pend-text )
+        type     = COND string( WHEN ls_pend-type IS NOT INITIAL
+                                THEN ls_pend-type ELSE 'Information' )
+        showicon = abap_true
+        class    = 'sapUiSmallMarginBeginEnd sapUiTinyMarginTop' ).
+    ENDLOOP.
+
 *   ---- already found: show, do not ask again -------------------------
 *   Resume Search rather than a fresh form every time. A citizen who has found
 *   the right partner and reopened the dialog to check a phone number should not
@@ -741,7 +778,7 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *     looks editable and silently discards an edit is worse than one that
 *     plainly does not take any.
 *
-      DATA(lo_body) = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
+      DATA(lo_body) = lo_cnt->vbox( class = 'sapUiSmallMargin' ).
 
 *     R20-5. A LABEL WITH DESIGN = BOLD, NOT A TITLE, AND THAT IS AN ARABIC
 *     FIX. On an Arabic journey ZCL_RAK_JOURNEY_CSS emits a universal family
@@ -853,7 +890,7 @@ CLASS ZCL_RAK_BP_POPUP IMPLEMENTATION.
 *   horizontal scrollbar. Left off, a block-level box with width auto fills
 *   its container minus its margins - and its used width is then DEFINITE,
 *   which is what gives a child's '100%' something real to resolve against.
-    DATA(lo_form) = lo_dlg->content( )->vbox( class = 'sapUiSmallMargin' ).
+    DATA(lo_form) = lo_cnt->vbox( class = 'sapUiSmallMargin' ).
 
     lo_form->label( text     = t( iv_no = zcl_rak_text=>c_no-bpp_search_by iv_default = 'Search By' )
                     wrapping = abap_true ).

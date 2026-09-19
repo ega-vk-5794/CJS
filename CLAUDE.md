@@ -762,6 +762,27 @@ These raise nothing and render nothing. They account for most of the bugs found 
   about a target type nothing on the CJS side can see. The cheap version, if it ever
   matters, is to ask whoever owns `ZCL_EGA_BP_BO_API` which filter properties it
   converts to something other than a string, and look only at those.
+- **THERE ARE TWO PARTNER SEARCHES, AND `ZCL_RAK_BP_POPUP` IS THE SUPPORTED ONE.**
+  Write this down before choosing a route for a new journey, because the no-code route is
+  the weaker one and nothing on screen says so.
+
+  | | |
+  | --- | --- |
+  | **`ZCL_RAK_BP_POPUP`, instantiated by a handler** | everything rounds 20-22 put in: the restricted ID-type list, `IV_STRICT`, the date-of-birth and nationality cross-check, the eight `SUFFIXES( )` write-backs, `NATV` resolved to its description, `IT_DETAIL`. **Use this.** |
+  | **`FTYPE 'SEARCH'`, configured** | `RENDER_ONE( )` draws Browse as `BPOPEN_<field>` → the engine sets `MV_POPUP = 'BP'` → `RENDER_POPUP( )`'s `WHEN 'BP'`: one free-text box, three columns, a Use button. `BPPICK_` writes `<field>` and `<field>_NAME` and nothing else. |
+
+  **The intent is for `FTYPE 'SEARCH'` to route to the class**, and that rewiring is a
+  deliberate future change rather than a thing to slip in: it replaces the dialog **and the
+  write-backs** for every journey already configured that way, so it is not additive and it
+  needs its own regression pass. Git alone carries **15 `FTYPE 'SEARCH'` rows across 8
+  loaders**, and `ZCL_RAK_MIGRATOR->CLASSIFY( )` assigns `'SEARCH'` to every legacy
+  partner-search control it meets — so the population grows with each migration, which is
+  the argument for deciding now and not for hurrying.
+  **Until it lands, a journey that wants the good search calls the class.** A migration that
+  only configures one gets the older dialog, working but thin.
+  Same shape as R24-1 and `SECTION` before it: two paths, one intent, one of them quietly
+  behind — and the third time that pattern has cost a round, which is why it is a heading
+  here rather than a line.
 - **Drafts and attachments have an owner, and it is not always CJS.** `DRAFT_MODE` and
   `ATTACH_MODE` on `ZRAK_T_JNY` answer `DELEGATE` / `NATIVE` / `OFF`; blank lets the engine
   derive one. The derivation is the rule: **a backend that creates and re-opens the case IS
@@ -776,7 +797,13 @@ These raise nothing and render nothing. They account for most of the bugs found 
   right, which is how a handler's search or ADD button ends up *beside* its field instead of
   under it — a cell is a `vbox`, so `AFTER_FIELD( )` content always stacks otherwise. `FLOW`
   is not `INLINE`: `INLINE` decides which **row** a cell lands on, `FLOW` the direction
-  **inside** one cell. `PERSIST( )` does a full `MODIFY`, so anything writing an attribute must
+  **inside** one cell. **Inside a FLOW cell a per-cent `WIDTH` does nothing — use a `rem`.**
+  `sap.m.FlexBox` renders `renderType` `Div`, so each child of `.rakCellFlow` sits in its own
+  item div and that div is what `flex:0 1 auto` sizes; the control's `100%` then resolves
+  against a container being sized by the control, and collapses to shrink-to-fit. `CSS_WIDTH( )`
+  accepts `%` because everywhere else it is right, so the value looks configured and is inert —
+  `RENDER_FIELD( )` traces it rather than refusing it, since refusing would make the validator
+  answer differently depending on a flag it cannot see. `PERSIST( )` does a full `MODIFY`, so anything writing an attribute must
   `RESOLVE( )` first and overwrite only its own fields, or it blanks the rest.
   **`FLOW` now also exists on `ZRAK_T_JNY_FLD`, and the two are OR-ed.** The layout column is
   reachable only through the Design tab, and a journey with no layout rows cannot set it at
